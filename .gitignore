@@ -60,11 +60,14 @@ uploads/
 outputs/
 separated/
 
-# Model files (too large)
+# Model files (too large for GitHub)
 *.pt
 *.pth
 *.bin
 *.onnx
+*.ckpt
+models/
+pretrained_models/
 
 # Audio files (user data)
 uploads/*.mp3
