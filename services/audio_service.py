@@ -19,6 +19,9 @@ from scipy import signal
 from config import Config
 from services.audio_features_service import AudioFeaturesService, AudioFeaturesResult
 
+# 深度学习服务 v5.0
+from services.dl_services import VoiceQualityDetector, SingingStyleClassifier, SelfReferencedDTW
+
 
 @dataclass
 class WaveformData:
@@ -79,6 +82,11 @@ class AudioAnalysisResult:
     # 高级特征提取结果 v4.0
     _advanced_features: Optional[AudioFeaturesResult] = field(default=None, repr=False)
 
+    # 深度学习分析结果 v5.0
+    _voice_quality: Optional[Dict] = field(default=None, repr=False)  # 人声质量检测结果
+    _singing_style: Optional[Dict] = field(default=None, repr=False)  # 唱法识别结果
+    _pitch_stability_dl: Optional[Dict] = field(default=None, repr=False)  # 自参照DTW结果
+
     # 错误信息
     error: Optional[str] = None
     traceback: Optional[str] = None
@@ -107,6 +115,10 @@ class AudioService:
             sample_rate=self.config.AUDIO_SAMPLE_RATE,
             hop_length=self._hop_length
         )
+        # 深度学习服务 v5.0（延迟初始化）
+        self._voice_quality_detector = None
+        self._style_classifier = None
+        self._self_ref_dtw = None
 
     def analyze(
         self,
@@ -201,6 +213,51 @@ class AudioService:
             result._advanced_features = self._features_service.extract_all_features(
                 audio_data, result._f0, singing_style='pop'
             )
+
+            # ========== 深度学习分析 v5.0 ==========
+            # 人声质量检测
+            voice_quality_result = self._run_voice_quality_detection(filepath)
+            if voice_quality_result:
+                result._voice_quality = {
+                    'has_voice': voice_quality_result.has_voice,
+                    'voice_ratio': voice_quality_result.voice_ratio,
+                    'is_valid': voice_quality_result.is_valid_for_analysis,
+                    'confidence': voice_quality_result.confidence,
+                    'method': voice_quality_result.method
+                }
+                # 如果音频不适合分析，设置警告
+                if not voice_quality_result.is_valid_for_analysis:
+                    result.pitch_info['warning'] = 'Audio may not be suitable for vocal analysis'
+
+            # 唱法识别
+            style_result = self._run_style_classification(filepath)
+            singing_style = 'pop'  # 默认
+            if style_result:
+                result._singing_style = {
+                    'style': style_result.style.value,
+                    'confidence': style_result.confidence,
+                    'probabilities': style_result.probabilities,
+                    'method': style_result.method
+                }
+                singing_style = style_result.style.value
+                # 使用识别的风格重新提取高级特征
+                result._advanced_features = self._features_service.extract_all_features(
+                    audio_data, result._f0, singing_style=singing_style
+                )
+
+            # 自参照DTW音准评估（仅对有效人声）
+            if result._voice_quality and result._voice_quality.get('is_valid', True):
+                dtw_result = self._run_self_referenced_dtw(filepath)
+                if dtw_result:
+                    result._pitch_stability_dl = {
+                        'overall_stability': dtw_result.overall_stability,
+                        'stable_note_ratio': dtw_result.stable_note_ratio,
+                        'avg_deviation_cents': dtw_result.avg_deviation_cents,
+                        'intentional_variations': dtw_result.intentional_variations,
+                        'unintentional_drifts': dtw_result.unintentional_drifts,
+                        'notes_count': len(dtw_result.notes),
+                        'method': dtw_result.method
+                    }
 
             return result
 
@@ -563,3 +620,77 @@ class AudioService:
             }
         except Exception as e:
             return {'error': str(e)}
+
+    # ========== 深度学习服务辅助方法 v5.0 ==========
+
+    def _get_voice_quality_detector(self):
+        """延迟初始化人声质量检测器"""
+        if self._voice_quality_detector is None:
+            self._voice_quality_detector = VoiceQualityDetector()
+        return self._voice_quality_detector
+
+    def _get_style_classifier(self):
+        """延迟初始化唱法分类器"""
+        if self._style_classifier is None:
+            self._style_classifier = SingingStyleClassifier()
+        return self._style_classifier
+
+    def _get_self_ref_dtw(self):
+        """延迟初始化自参照DTW"""
+        if self._self_ref_dtw is None:
+            self._self_ref_dtw = SelfReferencedDTW()
+        return self._self_ref_dtw
+
+    def _run_voice_quality_detection(self, filepath: str):
+        """
+        运行人声质量检测
+
+        Args:
+            filepath: 音频文件路径
+
+        Returns:
+            VoiceQualityResult 或 None
+        """
+        try:
+            detector = self._get_voice_quality_detector()
+            return detector.detect(filepath)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Voice quality detection failed: {e}")
+            return None
+
+    def _run_style_classification(self, filepath: str):
+        """
+        运行唱法识别
+
+        Args:
+            filepath: 音频文件路径
+
+        Returns:
+            StyleClassificationResult 或 None
+        """
+        try:
+            classifier = self._get_style_classifier()
+            return classifier.classify(filepath)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Style classification failed: {e}")
+            return None
+
+    def _run_self_referenced_dtw(self, filepath: str):
+        """
+        运行自参照DTW音准评估
+
+        Args:
+            filepath: 音频文件路径
+
+        Returns:
+            SelfReferencedPitchResult 或 None
+        """
+        try:
+            dtw = self._get_self_ref_dtw()
+            return dtw.analyze(filepath)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Self-referenced DTW failed: {e}")
+            return None
