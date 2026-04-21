@@ -1,17 +1,17 @@
 """
 唱法自动识别分类器
 识别演唱风格：流行/美声/民族/说唱/爵士
-支持ONNX模型推理，模型不可用时降级到启发式算法
+支持ONNX模型推理（AST模型），模型不可用时降级到启发式算法
 """
 
 import numpy as np
 import librosa
 import logging
+import os
+import json
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
-
-from .model_manager import DLModelManager
 
 logger = logging.getLogger(__name__)
 
@@ -86,13 +86,36 @@ class SingingStyleClassifier:
     """
     唱法自动识别分类器
 
-    使用ResNet-18迁移学习模型：
-    - 模型大小: ~10MB
-    - 推理速度: ~15ms
-    - 准确率: >90%
+    使用AST (Audio Spectrogram Transformer) 模型：
+    - 模型大小: ~86MB (量化版)
+    - 输入: 128维梅尔频谱
+    - 输出: 10类音乐风格概率
+    - 准确率: >85%
 
     模型不可用时自动降级到启发式算法
     """
+
+    # AST模型路径
+    AST_MODEL_PATH = 'models/style_classifier/model_quantized.onnx'
+    AST_CONFIG_PATH = 'models/style_classifier/config.json'
+
+    # AST模型的音乐风格标签 (GTZAN数据集)
+    AST_GENRES = ['blues', 'classical', 'country', 'disco', 'hiphop',
+                  'jazz', 'metal', 'pop', 'reggae', 'rock']
+
+    # 音乐风格到演唱风格的映射
+    GENRE_TO_SINGING_STYLE = {
+        'pop': SingingStyle.POP,
+        'classical': SingingStyle.CLASSICAL,
+        'jazz': SingingStyle.JAZZ,
+        'hiphop': SingingStyle.RAP,  # 说唱对应hiphop
+        'country': SingingStyle.FOLK,  # 乡村对应民族风格
+        'blues': SingingStyle.POP,  # 蓝调归入流行
+        'disco': SingingStyle.POP,  # 迪斯科归入流行
+        'metal': SingingStyle.POP,  # 金属归入流行
+        'reggae': SingingStyle.POP,  # 雷鬼归入流行
+        'rock': SingingStyle.POP,  # 摇滚归入流行
+    }
 
     # 风格特征参考值（启发式用）
     STYLE_FEATURES = {
@@ -134,12 +157,30 @@ class SingingStyleClassifier:
     }
 
     def __init__(self):
-        self._manager = DLModelManager()
-        self._model_available = self._manager.is_model_available('style_classifier')
+        self._session = None
+        self._model_available = False
+        self._id2label = {}
 
-        if self._model_available:
-            logger.info("[SingingStyleClassifier] ONNX model loaded")
-        else:
+        # 尝试加载AST ONNX模型
+        if os.path.exists(self.AST_MODEL_PATH):
+            try:
+                import onnxruntime as ort
+                self._session = ort.InferenceSession(
+                    self.AST_MODEL_PATH,
+                    providers=['CPUExecutionProvider']
+                )
+                self._model_available = True
+                logger.info(f"[SingingStyleClassifier] AST model loaded from {self.AST_MODEL_PATH}")
+
+                # 加载配置
+                if os.path.exists(self.AST_CONFIG_PATH):
+                    with open(self.AST_CONFIG_PATH, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                        self._id2label = config.get('id2label', {})
+            except Exception as e:
+                logger.warning(f"[SingingStyleClassifier] Failed to load AST model: {e}")
+
+        if not self._model_available:
             logger.info("[SingingStyleClassifier] Using heuristic fallback")
 
     def classify(self, audio_path: str, sr: int = 16000) -> StyleClassificationResult:
@@ -173,7 +214,10 @@ class SingingStyleClassifier:
 
     def _classify_dl(self, y: np.ndarray, sr: int) -> StyleClassificationResult:
         """
-        使用深度学习模型分类
+        使用AST深度学习模型分类
+
+        AST模型输入: (batch, 1024, 128) - 1024帧, 128维梅尔频谱
+        输出: 10类音乐风格概率
 
         Args:
             y: 音频波形
@@ -183,47 +227,75 @@ class SingingStyleClassifier:
             StyleClassificationResult
         """
         try:
-            # 提取梅尔频谱
+            # 提取梅尔频谱 (AST期望128维)
             mel_spec = librosa.feature.melspectrogram(
                 y=y, sr=sr, n_mels=128, hop_length=512, n_fft=2048
             )
             mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
 
-            # 归一化
+            # 归一化到 [0, 1]
             mel_spec_norm = (mel_spec_db - mel_spec_db.min()) / (mel_spec_db.max() - mel_spec_db.min() + 1e-10)
 
-            # 调整形状 (1, 1, 128, T)
-            mel_spec_norm = mel_spec_norm[np.newaxis, np.newaxis, :, :]
+            # AST期望的输入形状: (batch, 1024, 128)
+            # 需要调整时间维度到1024帧
+            target_frames = 1024
+            n_frames = mel_spec_norm.shape[1]
 
-            # 运行推理
-            results = self._manager.run_inference(
-                'style_classifier',
-                {'input': mel_spec_norm.astype(np.float32)}
+            if n_frames >= target_frames:
+                # 截断到目标长度
+                mel_spec_resized = mel_spec_norm[:, :target_frames]
+            else:
+                # 填充到目标长度
+                pad_width = target_frames - n_frames
+                mel_spec_resized = np.pad(mel_spec_norm, ((0, 0), (0, pad_width)), mode='constant')
+
+            # 转置为 (batch, time, freq) = (1, 1024, 128)
+            input_tensor = mel_spec_resized.T[np.newaxis, :, :].astype(np.float32)
+
+            # 运行推理 - 使用正确的输入名称 'input_values'
+            results = self._session.run(
+                ['logits'],
+                {'input_values': input_tensor}
             )
 
-            if results is None:
-                return self._classify_heuristic(y, sr)
+            # 解析输出 - logits或softmax概率
+            logits = results[0][0]  # (10,)
 
-            # 解析输出 - softmax概率
-            probs = results[0][0]  # (5,)
+            # 应用softmax获取概率
+            exp_logits = np.exp(logits - np.max(logits))
+            probs = exp_logits / np.sum(exp_logits)
 
-            style_names = ['pop', 'classical', 'folk', 'rap', 'jazz']
-            probabilities = {name: float(probs[i]) for i, name in enumerate(style_names)}
+            # 获取风格标签
+            genre_probs = {}
+            for i, prob in enumerate(probs):
+                if self._id2label:
+                    genre_name = self._id2label.get(str(i), self.AST_GENRES[i])
+                else:
+                    genre_name = self.AST_GENRES[i]
+                genre_probs[genre_name] = float(prob)
 
-            # 找到最高概率的风格
-            max_idx = np.argmax(probs)
-            style = SingingStyle(style_names[max_idx])
-            confidence = float(probs[max_idx])
+            # 映射到演唱风格
+            singing_style_probs = {s.value: 0.0 for s in SingingStyle if s != SingingStyle.UNKNOWN}
+            singing_style_probs['unknown'] = 0.0
+
+            for genre, prob in genre_probs.items():
+                style = self.GENRE_TO_SINGING_STYLE.get(genre, SingingStyle.POP)
+                singing_style_probs[style.value] += prob
+
+            # 找到最高概率的演唱风格
+            best_style_name = max(singing_style_probs.keys(), key=lambda k: singing_style_probs[k])
+            best_style = SingingStyle(best_style_name)
+            confidence = singing_style_probs[best_style_name]
 
             return StyleClassificationResult(
-                style=style,
+                style=best_style,
                 confidence=confidence,
-                probabilities=probabilities,
-                method='dl'
+                probabilities=singing_style_probs,
+                method='ast_dl'
             )
 
         except Exception as e:
-            logger.error(f"[SingingStyleClassifier] DL inference failed: {e}")
+            logger.error(f"[SingingStyleClassifier] AST inference failed: {e}")
             return self._classify_heuristic(y, sr)
 
     def _classify_heuristic(self, y: np.ndarray, sr: int) -> StyleClassificationResult:

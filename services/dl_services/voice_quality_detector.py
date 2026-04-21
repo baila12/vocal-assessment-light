@@ -1,5 +1,5 @@
 """
-人声质量检测器
+人声质量检测器 (使用Silero VAD)
 检测音频是否包含人声、人声占比、是否为纯伴奏/噪声
 支持ONNX模型推理，模型不可用时降级到启发式算法
 """
@@ -7,10 +7,9 @@
 import numpy as np
 import librosa
 import logging
-from typing import Dict, Any, Tuple
+import os
+from typing import Dict, Any, Tuple, List
 from dataclasses import dataclass
-
-from .model_manager import DLModelManager, fallback_to_heuristic
 
 logger = logging.getLogger(__name__)
 
@@ -31,21 +30,35 @@ class VoiceQualityDetector:
     """
     人声质量检测器
 
-    使用轻量CNN模型检测音频质量：
-    - 模型大小: ~2MB
-    - 推理速度: ~10ms
+    使用Silero VAD模型检测语音活动：
+    - 模型大小: ~2.2MB
+    - 推理速度: 实时
     - 准确率: >95%
 
     模型不可用时自动降级到启发式算法
     """
 
-    def __init__(self):
-        self._manager = DLModelManager()
-        self._model_available = self._manager.is_model_available('voice_quality')
+    # Silero VAD模型路径
+    SILERO_MODEL_PATH = 'models/voice_quality/silero_vad.onnx'
 
-        if self._model_available:
-            logger.info("[VoiceQualityDetector] ONNX model loaded")
-        else:
+    def __init__(self):
+        self._session = None
+        self._model_available = False
+
+        # 尝试加载Silero VAD模型
+        if os.path.exists(self.SILERO_MODEL_PATH):
+            try:
+                import onnxruntime as ort
+                self._session = ort.InferenceSession(
+                    self.SILERO_MODEL_PATH,
+                    providers=['CPUExecutionProvider']
+                )
+                self._model_available = True
+                logger.info(f"[VoiceQualityDetector] Silero VAD loaded from {self.SILERO_MODEL_PATH}")
+            except Exception as e:
+                logger.warning(f"[VoiceQualityDetector] Failed to load Silero VAD: {e}")
+
+        if not self._model_available:
             logger.info("[VoiceQualityDetector] Using heuristic fallback")
 
     def detect(self, audio_path: str, sr: int = 16000) -> VoiceQualityResult:
@@ -54,7 +67,7 @@ class VoiceQualityDetector:
 
         Args:
             audio_path: 音频文件路径
-            sr: 采样率 (默认16kHz，足够检测人声)
+            sr: 采样率 (默认16kHz，Silero VAD要求)
 
         Returns:
             VoiceQualityResult: 检测结果
@@ -74,15 +87,15 @@ class VoiceQualityDetector:
                 method='error'
             )
 
-        # 尝试使用深度学习模型
+        # 尝试使用Silero VAD
         if self._model_available:
-            return self._detect_dl(y, sr)
+            return self._detect_silero(y, sr)
         else:
             return self._detect_heuristic(y, sr)
 
-    def _detect_dl(self, y: np.ndarray, sr: int) -> VoiceQualityResult:
+    def _detect_silero(self, y: np.ndarray, sr: int) -> VoiceQualityResult:
         """
-        使用深度学习模型检测
+        使用Silero VAD检测语音活动
 
         Args:
             y: 音频波形
@@ -92,41 +105,50 @@ class VoiceQualityDetector:
             VoiceQualityResult
         """
         try:
-            # 提取梅尔频谱作为输入特征
-            mel_spec = librosa.feature.melspectrogram(
-                y=y, sr=sr, n_mels=64, hop_length=512, n_fft=2048
-            )
-            mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
+            # Silero VAD参数
+            window_size_samples = 512  # 32ms @ 16kHz
+            threshold = 0.5
 
-            # 归一化到 [-1, 1]
-            mel_spec_norm = mel_spec_db / 80.0  # 假设最大80dB
+            # 获取模型输入信息
+            input_names = [inp.name for inp in self._session.get_inputs()]
 
-            # 调整形状为模型输入 (1, 1, 64, T)
-            mel_spec_norm = mel_spec_norm[np.newaxis, np.newaxis, :, :]
+            # 初始化状态 - Silero VAD使用 'state' 输入 (形状: [2, 1, 128])
+            state = np.zeros((2, 1, 128), dtype=np.float32)
 
-            # 运行推理
-            results = self._manager.run_inference(
-                'voice_quality',
-                {'input': mel_spec_norm.astype(np.float32)}
-            )
+            # 分帧处理
+            speech_frames = []
+            total_frames = 0
 
-            if results is None:
-                return self._detect_heuristic(y, sr)
+            for i in range(0, len(y) - window_size_samples, window_size_samples):
+                chunk = y[i:i + window_size_samples].astype(np.float32)
+                total_frames += 1
 
-            # 解析输出
-            # 假设模型输出: [has_voice_prob, voice_ratio, is_noise_prob]
-            output = results[0][0]  # (3,)
+                # 运行VAD推理
+                ort_inputs = {
+                    'input': chunk[np.newaxis, :],  # [1, 512] - rank 2
+                    'state': state,
+                    'sr': np.array(sr, dtype=np.int64)
+                }
 
-            has_voice_prob = float(output[0])
-            voice_ratio = float(output[1])
-            is_noise_prob = float(output[2])
+                out, state = self._session.run(
+                    ['output', 'stateN'],
+                    ort_inputs
+                )
 
-            has_voice = has_voice_prob > 0.5
-            is_noise = is_noise_prob > 0.5
+                speech_prob = out[0][0]
+                speech_frames.append(speech_prob > threshold)
+
+            # 计算语音占比
+            speech_count = sum(speech_frames)
+            voice_ratio = speech_count / total_frames if total_frames > 0 else 0
+
+            # 判断结果
+            has_voice = voice_ratio > 0.1  # 至少10%是语音
+            is_noise = voice_ratio < 0.05 and np.std(y) < 0.01  # 几乎无语音且能量低
             is_accompaniment_only = not has_voice and not is_noise
 
-            # 判断是否适合分析
-            is_valid = has_voice and voice_ratio > 0.3 and not is_noise
+            # 判断是否适合声乐分析
+            is_valid = has_voice and voice_ratio > 0.2
 
             return VoiceQualityResult(
                 has_voice=has_voice,
@@ -134,12 +156,12 @@ class VoiceQualityDetector:
                 is_accompaniment_only=is_accompaniment_only,
                 is_noise=is_noise,
                 is_valid_for_analysis=is_valid,
-                confidence=max(has_voice_prob, 1 - has_voice_prob),
-                method='dl'
+                confidence=max(voice_ratio, 1 - voice_ratio),
+                method='silero_vad'
             )
 
         except Exception as e:
-            logger.error(f"[VoiceQualityDetector] DL inference failed: {e}")
+            logger.error(f"[VoiceQualityDetector] Silero VAD failed: {e}")
             return self._detect_heuristic(y, sr)
 
     def _detect_heuristic(self, y: np.ndarray, sr: int) -> VoiceQualityResult:
@@ -238,18 +260,18 @@ class VoiceQualityDetector:
             建议文本
         """
         if result.is_valid_for_analysis:
-            return "✅ 音频适合进行声乐分析"
+            return "Audio is suitable for vocal analysis"
 
         if result.is_noise:
-            return "⚠️ 检测到噪声或无效音频，建议更换音频文件"
+            return "Noise or invalid audio detected, please use a different file"
 
         if result.is_accompaniment_only:
-            return "⚠️ 检测到纯伴奏，无人声，无法进行声乐评估"
+            return "Accompaniment-only audio detected, no vocals found"
 
         if not result.has_voice:
-            return "⚠️ 未检测到明显人声，可能影响评估准确性"
+            return "No clear vocals detected, analysis may be inaccurate"
 
         if result.voice_ratio < 0.3:
-            return "⚠️ 人声占比过低，评估结果可能不准确"
+            return "Low vocal ratio, results may be inaccurate"
 
-        return "⚠️ 音频质量不佳，建议使用更清晰的录音"
+        return "Audio quality issues detected, consider using a clearer recording"
