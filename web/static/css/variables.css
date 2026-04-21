@@ -1,0 +1,49 @@
+/**
+ * CSS 变量 - 设计系统
+ * 统一的颜色、间距、阴影等设计令牌
+ */
+:root {
+    /* 背景色 */
+    --bg-page: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-elevated: #f1f5f9;
+    --bg-hover: #e2e8f0;
+
+    /* 主色 */
+    --primary: #3b82f6;
+    --primary-light: #dbeafe;
+    --primary-dark: #2563eb;
+
+    /* 状态色 */
+    --success: #10b981;
+    --success-light: #d1fae5;
+    --warning: #f59e0b;
+    --warning-light: #fef3c7;
+    --danger: #ef4444;
+    --danger-light: #fee2e2;
+    --purple: #8b5cf6;
+    --purple-light: #ede9fe;
+    --cyan: #06b6d4;
+
+    /* 文字色 */
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+
+    /* 边框 */
+    --border: #e2e8f0;
+    --border-light: #f1f5f9;
+
+    /* 阴影 */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+
+    /* 圆角 */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+
+    /* 过渡 */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+}

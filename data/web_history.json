@@ -1,0 +1,280 @@
+[
+  {
+    "filename": "test_e2e_audio.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\test_e2e_audio.wav",
+    "total_score": 0,
+    "scores": {
+      "volume": 29.961264995039606,
+      "pitch": 30.0,
+      "rhythm": 20,
+      "breath": 20,
+      "emotion": 20
+    },
+    "level": "无效",
+    "advice": [
+      "请使用真实人声录音进行评估"
+    ],
+    "id": 1,
+    "timestamp": "2026-04-20T22:04:29.556883"
+  },
+  {
+    "filename": "手写的从前.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前.mp3",
+    "total_score": 82.4,
+    "scores": {
+      "pitch": 78.37717560054988,
+      "rhythm": 98.79295444482953,
+      "breath": 97.45494282245636,
+      "technique": 69.81734083611803,
+      "artistry": 56.48812174797058,
+      "volume": 97.45494282245636,
+      "emotion": 56.48812174797058
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，节奏表现较好。",
+      "情绪建议：理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+      "节奏感出色，律动感强！"
+    ],
+    "id": 2,
+    "timestamp": "2026-04-20T22:12:45.810167"
+  },
+  {
+    "filename": "test.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\test.mp3",
+    "total_score": 84.2,
+    "scores": {
+      "pitch": 76.69171105035143,
+      "rhythm": 100.0,
+      "breath": 100.0,
+      "technique": 74.46084540538371,
+      "artistry": 63.0971155166626,
+      "volume": 100.0,
+      "emotion": 63.0971155166626
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，音量表现较好。",
+      "情绪建议：理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 3,
+    "timestamp": "2026-04-20T22:20:01.503472"
+  },
+  {
+    "filename": "test.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\test.mp3",
+    "total_score": 84.2,
+    "scores": {
+      "pitch": 76.69171105035143,
+      "rhythm": 100.0,
+      "breath": 100.0,
+      "technique": 74.46084540538371,
+      "artistry": 63.0971155166626,
+      "volume": 100.0,
+      "emotion": 63.0971155166626
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，音量表现较好。",
+      "情绪建议：理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 4,
+    "timestamp": "2026-04-20T22:27:10.229823"
+  },
+  {
+    "filename": "test.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\test.mp3",
+    "total_score": 77.8,
+    "scores": {
+      "pitch": 79.1889343554657,
+      "rhythm": 72.47660764790876,
+      "breath": 100.0,
+      "technique": 68.7681880593356,
+      "artistry": 58.19830229282379,
+      "volume": 100.0,
+      "emotion": 58.19830229282379
+    },
+    "level": "良好",
+    "advice": [
+      "水平中等，有进步空间。",
+      "情绪建议：理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 5,
+    "timestamp": "2026-04-20T22:40:02.934612"
+  },
+  {
+    "filename": "test.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\test.mp3",
+    "total_score": 77.8,
+    "scores": {
+      "pitch": 79.1889343554657,
+      "rhythm": 72.47660764790876,
+      "breath": 100.0,
+      "technique": 68.7681880593356,
+      "artistry": 58.19830229282379,
+      "volume": 100.0,
+      "emotion": 58.19830229282379
+    },
+    "level": "良好",
+    "advice": [
+      "水平中等，有进步空间。",
+      "情绪建议：理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 6,
+    "timestamp": "2026-04-20T22:43:56.289165"
+  },
+  {
+    "filename": "手写的从前.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前.mp3",
+    "total_score": 79.5,
+    "scores": {
+      "pitch": 80.0006426966525,
+      "rhythm": 84.22709436441994,
+      "breath": 100.0,
+      "technique": 62.245754191139554,
+      "artistry": 62.06676638126373,
+      "volume": 100.0,
+      "emotion": 62.06676638126373
+    },
+    "level": "良好",
+    "advice": [
+      "水平中等，有进步空间。",
+      "情绪建议：理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 7,
+    "timestamp": "2026-04-20T23:31:12.408528"
+  },
+  {
+    "filename": "手写的从前.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前.mp3",
+    "total_score": 81.4,
+    "scores": {
+      "pitch": 80.0006426966525,
+      "rhythm": 84.22709436441994,
+      "breath": 100.0,
+      "technique": 70.56019777347299,
+      "artistry": 64.88099372386932,
+      "volume": 100.0,
+      "emotion": 64.88099372386932
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，音量表现较好。",
+      "情绪建议：理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 8,
+    "timestamp": "2026-04-20T23:33:40.994170"
+  },
+  {
+    "filename": "手写的从前.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前.mp3",
+    "total_score": 81.4,
+    "scores": {
+      "pitch": 80.0006426966525,
+      "rhythm": 84.22709436441994,
+      "breath": 100.0,
+      "technique": 70.56019777347299,
+      "artistry": 64.88099372386932,
+      "volume": 100.0,
+      "emotion": 64.88099372386932
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，音量表现较好。",
+      "情绪建议：理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 9,
+    "timestamp": "2026-04-20T23:35:31.946599"
+  },
+  {
+    "filename": "手写的从前.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前.mp3",
+    "total_score": 83.9,
+    "scores": {
+      "pitch": 80.0006426966525,
+      "rhythm": 84.22709436441994,
+      "breath": 100.0,
+      "technique": 70.56019777347299,
+      "artistry": 89.27199115800778,
+      "volume": 100.0,
+      "emotion": 89.27199115800778
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，音量表现较好。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 10,
+    "timestamp": "2026-04-20T23:44:52.093283"
+  },
+  {
+    "filename": "手写的从前.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前.mp3",
+    "total_score": 83.5,
+    "scores": {
+      "pitch": 80.0006426966525,
+      "rhythm": 84.22709436441994,
+      "breath": 100.0,
+      "technique": 70.56019777347299,
+      "artistry": 84.96021432382844,
+      "volume": 100.0,
+      "emotion": 84.96021432382844
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，音量表现较好。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 11,
+    "timestamp": "2026-04-21T00:13:26.909742"
+  },
+  {
+    "filename": "手写的从前.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前.mp3",
+    "total_score": 83.5,
+    "scores": {
+      "pitch": 80.0006426966525,
+      "rhythm": 84.22709436441994,
+      "breath": 100.0,
+      "technique": 70.56019777347299,
+      "artistry": 84.96135511090827,
+      "volume": 100.0,
+      "emotion": 84.96135511090827
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，音量表现较好。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 12,
+    "timestamp": "2026-04-21T12:27:46.347421"
+  },
+  {
+    "filename": "手写的从前.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前.mp3",
+    "total_score": 83.5,
+    "scores": {
+      "pitch": 80.0006426966525,
+      "rhythm": 84.22709436441994,
+      "breath": 100.0,
+      "technique": 70.56019777347299,
+      "artistry": 84.96135511090827,
+      "volume": 100.0,
+      "emotion": 84.96135511090827
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，音量表现较好。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 13,
+    "timestamp": "2026-04-21T12:29:04.790853"
+  }
+]

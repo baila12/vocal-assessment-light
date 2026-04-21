@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <title>分析结果 - 声乐评估系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/analysis.css">
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <h1>
+            <span class="logo">♪</span>
+            声乐评估系统
+            <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:8px">分析页面</span>
+        </h1>
+        <div class="nav-tabs">
+            <button class="nav-tab" onclick="window.location.href='/'">返回首页</button>
+            <button class="nav-tab active">分析结果</button>
+        </div>
+    </nav>
+
+    <div class="toast-wrap" id="toastWrap" role="alert" aria-live="polite"></div>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <!-- 左侧：音频播放器 -->
+        <section class="player-section">
+            <div class="card">
+                <h2 class="card-title">
+                    <span class="icon">🎵</span>
+                    音频播放
+                </h2>
+
+                <!-- 文件信息 -->
+                <div class="file-info" id="fileInfo">
+                    <span id="fileName">--</span>
+                    <span id="fileDuration">--:--</span>
+                    <span id="fileSize">--</span>
+                </div>
+
+                <!-- 波形可视化 -->
+                <div class="waveform-container">
+                    <canvas id="waveformCanvas" class="waveform-canvas"></canvas>
+                    <div class="playhead" id="playhead"></div>
+                </div>
+
+                <!-- 播放控制 -->
+                <div class="player-controls">
+                    <button class="btn-icon" id="playBtn" title="播放/暂停">
+                        <svg class="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <svg class="icon-pause" style="display:none" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    </button>
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+                </div>
+
+                <!-- 实时信息面板 -->
+                <div class="live-info-panel">
+                    <div class="live-item">
+                        <span class="live-label">音量</span>
+                        <div class="live-bar-container">
+                            <div class="live-bar" id="volumeBar"></div>
+                        </div>
+                        <span class="live-value" id="volumeValue">0%</span>
+                    </div>
+                    <div class="live-item">
+                        <span class="live-label">音高</span>
+                        <span class="live-value" id="pitchValue">--</span>
+                    </div>
+                    <div class="live-item">
+                        <span class="live-label">BPM</span>
+                        <span class="live-value" id="bpmValue">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 人声分离 -->
+            <div class="card" id="separationCard" style="display:none">
+                <h2 class="card-title">
+                    <span class="icon">🎤</span>
+                    人声分离
+                </h2>
+                <div class="separation-controls">
+                    <select id="separationModel" class="select-input">
+                        <option value="htdemucs_ft">快速模式</option>
+                        <option value="htdemucs">标准模式</option>
+                    </select>
+                    <button class="btn-secondary" id="separateBtn">分离人声</button>
+                </div>
+                <div class="separation-result" id="separationResult" style="display:none">
+                    <div class="separated-track">
+                        <span>🎤 人声</span>
+                        <audio id="vocalsAudio" controls></audio>
+                    </div>
+                    <div class="separated-track">
+                        <span>🎹 伴奏</span>
+                        <audio id="accompAudio" controls></audio>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 中间：评分结果 -->
+        <section class="score-section">
+            <!-- 人声质量警告 -->
+            <div class="voice-quality-warning" id="voiceQualityWarning" style="display:none">
+                <div class="warning-icon">⚠️</div>
+                <div class="warning-content">
+                    <h3>未检测到有效人声</h3>
+                    <p id="warningMessage"></p>
+                    <ul id="warningSuggestions"></ul>
+                </div>
+            </div>
+
+            <!-- 总分卡片 -->
+            <div class="card total-score-card" id="totalScoreCard">
+                <div class="total-score-display">
+                    <div class="score-circle" id="scoreCircle">
+                        <span class="score-number" id="totalScore">--</span>
+                        <span class="score-label">总分</span>
+                    </div>
+                    <div class="level-display">
+                        <span class="level-text" id="levelText">--</span>
+                        <span class="stars" id="stars">☆☆☆☆☆</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 五维评分 -->
+            <div class="card">
+                <h2 class="card-title">
+                    <span class="icon">📊</span>
+                    五维评分
+                </h2>
+                <div class="scores-grid">
+                    <div class="score-item">
+                        <span class="score-name">音量</span>
+                        <div class="score-bar-container">
+                            <div class="score-bar" id="volumeScoreBar"></div>
+                        </div>
+                        <span class="score-value" id="volumeScore">--</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-name">音准</span>
+                        <div class="score-bar-container">
+                            <div class="score-bar" id="pitchScoreBar"></div>
+                        </div>
+                        <span class="score-value" id="pitchScore">--</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-name">节奏</span>
+                        <div class="score-bar-container">
+                            <div class="score-bar" id="rhythmScoreBar"></div>
+                        </div>
+                        <span class="score-value" id="rhythmScore">--</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-name">气息</span>
+                        <div class="score-bar-container">
+                            <div class="score-bar" id="breathScoreBar"></div>
+                        </div>
+                        <span class="score-value" id="breathScore">--</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-name">情绪</span>
+                        <div class="score-bar-container">
+                            <div class="score-bar" id="emotionScoreBar"></div>
+                        </div>
+                        <span class="score-value" id="emotionScore">--</span>
+                    </div>
+                </div>
+                <!-- 雷达图 -->
+                <div class="radar-container">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 改进建议 -->
+            <div class="card">
+                <h2 class="card-title">
+                    <span class="icon">💡</span>
+                    改进建议
+                </h2>
+                <ul class="advice-list" id="adviceList"></ul>
+            </div>
+
+            <!-- 导出报告 -->
+            <div class="card" id="exportSection" style="display:none">
+                <h2 class="card-title">
+                    <span class="icon">📄</span>
+                    导出报告
+                </h2>
+                <div class="export-buttons">
+                    <button class="btn-secondary" id="exportPdfBtn">导出 PDF</button>
+                    <button class="btn-secondary" id="exportImageBtn">导出图片</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 右侧：详细分析 -->
+        <section class="detail-section">
+            <!-- 三特征可视化 -->
+            <div class="card">
+                <h2 class="card-title">
+                    <span class="icon">📈</span>
+                    音频特征可视化
+                </h2>
+                <div class="viz-tabs">
+                    <button class="viz-tab active" data-tab="spectrogram">频谱图</button>
+                    <button class="viz-tab" data-tab="pitch">基音轨迹</button>
+                    <button class="viz-tab" data-tab="energy">能量曲线</button>
+                </div>
+                <div class="viz-content">
+                    <div class="viz-panel active" id="spectrogramPanel">
+                        <img id="spectrogramImg" src="" alt="Log-Mel频谱图">
+                    </div>
+                    <div class="viz-panel" id="pitchPanel">
+                        <img id="pitchImg" src="" alt="基音轨迹">
+                    </div>
+                    <div class="viz-panel" id="energyPanel">
+                        <img id="energyImg" src="" alt="能量曲线">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 音色分析 -->
+            <div class="card" id="timbreSection" style="display:none">
+                <h2 class="card-title">
+                    <span class="icon">🎨</span>
+                    音色分析
+                </h2>
+                <div class="timbre-grid">
+                    <div class="timbre-item">
+                        <span class="timbre-label">明亮度</span>
+                        <span class="timbre-value" id="timbreBrightness">--</span>
+                    </div>
+                    <div class="timbre-item">
+                        <span class="timbre-label">温暖度</span>
+                        <span class="timbre-value" id="timbreWarmth">--</span>
+                    </div>
+                    <div class="timbre-item">
+                        <span class="timbre-label">鼻音感</span>
+                        <span class="timbre-value" id="timbreNasality">--</span>
+                    </div>
+                    <div class="timbre-item">
+                        <span class="timbre-label">气声感</span>
+                        <span class="timbre-value" id="timbreBreathiness">--</span>
+                    </div>
+                    <div class="timbre-item">
+                        <span class="timbre-label">HNR</span>
+                        <span class="timbre-value" id="timbreHNR">--</span>
+                    </div>
+                    <div class="timbre-item">
+                        <span class="timbre-label">颤音频率</span>
+                        <span class="timbre-value" id="timbreVibratoRate">--</span>
+                    </div>
+                </div>
+                <div class="timbre-style">
+                    <span class="style-label">音色风格：</span>
+                    <span class="style-value" id="timbreStyle">--</span>
+                </div>
+            </div>
+
+            <!-- 逐句评分 -->
+            <div class="card" id="phraseSection" style="display:none">
+                <h2 class="card-title">
+                    <span class="icon">📝</span>
+                    逐句评分
+                </h2>
+                <div class="phrase-summary" id="phraseSummary">--</div>
+                <div class="phrase-list" id="phraseList"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="/js/analysis.js"></script>
+</body>
+</html>

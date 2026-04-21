@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <title>声乐评估系统 - 离线版</title>
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <h1>
+            <span class="logo">♪</span>
+            声乐评估系统
+            <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:8px">离线版</span>
+        </h1>
+        <div class="nav-tabs">
+            <button class="nav-tab active" id="navHome" onclick="showPage('home')">首页</button>
+            <button class="nav-tab" id="navCompare" onclick="showPage('compare')">对比分析</button>
+            <button class="nav-tab" id="navHistory" onclick="showPage('history')">历史记录</button>
+        </div>
+    </nav>
+
+    <div class="toast-wrap" id="toastWrap" role="alert" aria-live="polite"></div>
+
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-box">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" id="loadingTitle">正在分析</div>
+            <div class="loading-sub" id="loadingText"></div>
+        </div>
+    </div>
+
+    <main class="main">
+        <!-- ========== 首页 ========== -->
+        <div id="page-home" class="page active">
+            <div class="home-layout-simple">
+                <!-- 主操作区 -->
+                <div class="main-content">
+                    <div class="card hero-card">
+                        <div class="hero-content">
+                            <h2 style="font-size:28px;font-weight:700;margin-bottom:8px;color:var(--text)">
+                                🎵 声乐能力评估
+                            </h2>
+                            <p style="font-size:14px;color:var(--text-muted);margin-bottom:24px;">
+                                上传音频文件或录制您的演唱，获取专业的五维评分分析
+                            </p>
+
+                            <!-- 操作按钮 -->
+                            <div class="action-buttons">
+                                <button class="btn btn-primary btn-lg" onclick="document.getElementById('fileInput').click()">
+                                    <span style="font-size:20px">📁</span>
+                                    <span>导入音频</span>
+                                </button>
+                                <button class="btn btn-secondary btn-lg" id="recordBtn" onclick="startQuickRecord()">
+                                    <span style="font-size:20px">🎙️</span>
+                                    <span>快速录音</span>
+                                </button>
+                            </div>
+
+                            <input type="file" id="fileInput" accept=".wav,.mp3,.flac,.ogg,.m4a" style="display:none">
+
+                            <!-- 支持格式提示 -->
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">
+                                支持 MP3、WAV、FLAC、OGG、M4A 格式
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 录音状态 -->
+                    <div class="card" id="recordingCard" style="display:none">
+                        <div class="card-header">
+                            <span class="card-title">🎙️ 录音中</span>
+                        </div>
+                        <div class="card-body">
+                            <div style="display:flex; align-items:center; gap:16px;">
+                                <div class="recording-indicator" style="width:16px; height:16px; background:#ef4444; border-radius:50%; animation:recordPulse 1s infinite;"></div>
+                                <div>
+                                    <div style="font-size:18px; font-weight:600; color:#ef4444;">正在录音...</div>
+                                    <div id="recordingDuration" style="font-size:14px; color:var(--text-muted);">00:00</div>
+                                </div>
+                                <button class="btn btn-danger" onclick="stopQuickRecord()" style="margin-left:auto">
+                                    ⏹ 停止录音
+                                </button>
+                            </div>
+                            <!-- 实时波形 -->
+                            <div style="margin-top:16px;">
+                                <canvas id="recordingWave" style="width:100%; height:60px; background:var(--bg-elevated); border-radius:8px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 已选音频 -->
+                    <div class="card" id="selectedAudioCard" style="display:none">
+                        <div class="card-header">
+                            <span class="card-title">🎵 已选音频</span>
+                            <span id="selectedFileName" style="font-size:12px;color:var(--text-muted)"></span>
+                        </div>
+                        <div class="card-body">
+                            <!-- 音频信息 -->
+                            <div class="audio-info-row" style="display:flex; gap:16px; margin-bottom:16px;">
+                                <div style="flex:1; padding:12px; background:var(--bg-elevated); border-radius:8px;">
+                                    <div style="font-size:11px;color:var(--text-muted);">时长</div>
+                                    <div id="audioDuration" style="font-size:16px;font-weight:600;">--:--</div>
+                                </div>
+                                <div style="flex:1; padding:12px; background:var(--bg-elevated); border-radius:8px;">
+                                    <div style="font-size:11px;color:var(--text-muted);">大小</div>
+                                    <div id="audioSize" style="font-size:16px;font-weight:600;">--</div>
+                                </div>
+                            </div>
+
+                            <!-- 操作按钮 -->
+                            <div style="display:flex; gap:12px;">
+                                <button id="analyzeBtn" class="btn btn-primary" style="flex:1; padding:14px; font-size:16px;">
+                                    🔍 开始分析
+                                </button>
+                                <button id="stopAnalyzeBtn" class="btn btn-danger" style="display:none; padding:14px;">
+                                    ⏹ 停止
+                                </button>
+                            </div>
+
+                            <!-- 分析进度 -->
+                            <div id="analysisProgress" style="display:none; margin-top:16px; padding:16px; background:var(--bg-elevated); border-radius:8px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                    <span style="font-size:13px; color:var(--text-muted);">正在分析...</span>
+                                    <span id="analysisProgressText" style="font-size:13px; color:var(--primary);">0%</span>
+                                </div>
+                                <div style="height:8px; background:var(--bg); border-radius:4px; overflow:hidden;">
+                                    <div id="analysisProgressFill" style="height:100%; background:var(--primary); width:0%; transition:width 0.3s;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 侧边栏：使用说明 -->
+                <div class="sidebar">
+                    <!-- 使用说明 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">💡 使用说明</span>
+                        </div>
+                        <div class="card-body">
+                            <ol class="usage-steps">
+                                <li>导入音频或录制演唱</li>
+                                <li>点击"开始分析"按钮</li>
+                                <li>查看五维评分和详细分析</li>
+                                <li>根据建议改进演唱技巧</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- 技巧提示 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">🎤 演唱技巧</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="tip-list">
+                                <div class="tip-item">💡 保持稳定的呼吸节奏</div>
+                                <div class="tip-item">💡 注意音准，避免跑调</div>
+                                <div class="tip-item">💡 控制音量动态范围</div>
+                                <div class="tip-item">💡 跟随节奏，不要抢拍</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 对比分析页 ========== -->
+        <div id="page-compare" class="page">
+            <div class="compare-header">
+                <div class="compare-title">⚖️ 对比分析</div>
+                <div class="compare-desc">上传标准音频作为参考，录制或上传您的演唱，实时查看与标准的差距</div>
+            </div>
+
+            <div class="compare-grid">
+                <!-- 标准音频 -->
+                <div class="track-card standard">
+                    <div class="track-header standard">
+                        <span class="track-label">
+                            🎯 标准音频
+                            <span class="track-badge standard">参考</span>
+                        </span>
+                        <button class="btn btn-sm" onclick="selectStandardAudio()">选择音频</button>
+                    </div>
+                    <div class="track-body">
+                        <div class="audio-select" id="standardSelect" onclick="selectStandardAudio()">
+                            <div class="icon">🎵</div>
+                            <div class="text">点击选择标准音频</div>
+                            <div class="hint">支持 MP3 / WAV / FLAC 等格式</div>
+                        </div>
+                        <div id="standardInfo" style="display:none">
+                            <div class="player" style="margin-bottom:0">
+                                <button class="play-btn" id="standardPlayBtn" onclick="playCompareAudio('standard')">▶</button>
+                                <div class="progress-wrap">
+                                    <div class="progress-bar" id="standardProgressBar">
+                                        <div class="progress-fill" id="standardProgressFill"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="track-waveform">
+                                <canvas id="standardWaveCanvas"></canvas>
+                            </div>
+                            <div class="track-info">
+                                <div class="track-info-item">
+                                    <div class="track-info-label">音高范围</div>
+                                    <div class="track-info-value" id="stdPitchRange">--</div>
+                                </div>
+                                <div class="track-info-item">
+                                    <div class="track-info-label">平均音量</div>
+                                    <div class="track-info-value" id="stdVolume">--</div>
+                                </div>
+                                <div class="track-info-item">
+                                    <div class="track-info-label">BPM</div>
+                                    <div class="track-info-value" id="stdBpm">--</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 我的演唱 -->
+                <div class="track-card user">
+                    <div class="track-header user">
+                        <span class="track-label">
+                            🎤 我的演唱
+                            <span class="track-badge user">待评估</span>
+                        </span>
+                        <button class="btn btn-sm" onclick="selectUserAudio()">上传音频</button>
+                    </div>
+                    <div class="track-body">
+                        <div class="audio-select" id="userSelect" onclick="selectUserAudio()">
+                            <div class="icon">🎙️</div>
+                            <div class="text">点击上传或开始录音</div>
+                            <div class="hint">支持录音或上传音频文件</div>
+                        </div>
+                        <div id="userInfo" style="display:none">
+                            <div class="record-control">
+                                <button class="record-btn" id="compareRecordBtn" onclick="toggleCompareRecord()">⏺</button>
+                                <div class="record-status" id="recordStatus">点击开始录音</div>
+                            </div>
+                            <div class="track-waveform">
+                                <canvas id="userWaveCanvas"></canvas>
+                            </div>
+                            <div class="track-info">
+                                <div class="track-info-item">
+                                    <div class="track-info-label">音高范围</div>
+                                    <div class="track-info-value" id="userPitchRange">--</div>
+                                </div>
+                                <div class="track-info-item">
+                                    <div class="track-info-label">平均音量</div>
+                                    <div class="track-info-value" id="userVolume">--</div>
+                                </div>
+                                <div class="track-info-item">
+                                    <div class="track-info-label">BPM</div>
+                                    <div class="track-info-value" id="userBpm">--</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 实时差距面板 -->
+            <div class="diff-panel" id="compareResult" style="display:none">
+                <div class="diff-header">
+                    <span class="card-title">📊 实时差距分析</span>
+                    <span style="font-size:11px;color:var(--text-muted)">同步播放中实时更新</span>
+                </div>
+                <div class="diff-body">
+                    <div class="diff-metrics">
+                        <div class="diff-metric">
+                            <div class="diff-metric-label">音高偏差</div>
+                            <div class="diff-metric-value" id="diffPitch">--</div>
+                            <div class="diff-metric-status" id="diffPitchStatus">--</div>
+                        </div>
+                        <div class="diff-metric">
+                            <div class="diff-metric-label">音量差距</div>
+                            <div class="diff-metric-value" id="diffVolume">--</div>
+                            <div class="diff-metric-status" id="diffVolumeStatus">--</div>
+                        </div>
+                        <div class="diff-metric">
+                            <div class="diff-metric-label">节奏偏差</div>
+                            <div class="diff-metric-value" id="diffRhythm">--</div>
+                            <div class="diff-metric-status" id="diffRhythmStatus">--</div>
+                        </div>
+                        <div class="diff-metric">
+                            <div class="diff-metric-label">气息差距</div>
+                            <div class="diff-metric-value" id="diffBreath">--</div>
+                            <div class="diff-metric-status" id="diffBreathStatus">--</div>
+                        </div>
+                        <div class="diff-metric">
+                            <div class="diff-metric-label">综合评分</div>
+                            <div class="diff-metric-value" id="diffTotal">--</div>
+                            <div class="diff-metric-status" id="diffTotalStatus">--</div>
+                        </div>
+                    </div>
+                    <table class="compare-table">
+                        <thead><tr><th>维度</th><th>标准</th><th>我的</th><th>差距</th><th>评价</th></tr></thead>
+                        <tbody id="compareTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 历史记录页 ========== -->
+        <div id="page-history" class="page">
+            <div class="history-header">
+                <h2 style="font-size:18px;font-weight:600">评估历史</h2>
+                <div class="filter-group">
+                    <button class="filter-btn active" data-filter="all" onclick="filterHistory('all')">全部</button>
+                    <button class="filter-btn" data-filter="today" onclick="filterHistory('today')">今天</button>
+                    <button class="filter-btn" data-filter="week" onclick="filterHistory('week')">本周</button>
+                    <button class="filter-btn" data-filter="month" onclick="filterHistory('month')">本月</button>
+                </div>
+            </div>
+
+            <!-- 批量操作栏 -->
+            <div id="batchActionBar" style="display:none; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--bg-elevated); border-radius:8px; margin-bottom:16px; border:1px solid var(--border); flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button class="btn btn-secondary" onclick="toggleSelectAll()" style="padding:6px 12px; font-size:12px; border-radius:6px; cursor:pointer;">全选</button>
+                    <span id="selectedCount" style="color:var(--text-muted); font-size:12px;">已选择 0 条</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button id="deleteSelectedBtn" class="btn btn-danger" onclick="deleteSelectedRecords()" style="padding:6px 12px; font-size:12px; background:#ef4444; color:white; border:none; border-radius:6px; cursor:pointer;" disabled>
+                        删除选中 (0)
+                    </button>
+                    <button class="btn btn-secondary" onclick="toggleSelectionMode()" style="padding:6px 12px; font-size:12px; border-radius:6px; cursor:pointer;">取消</button>
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div style="display:flex; gap:10px; margin-bottom:16px;">
+                <button id="enterBatchModeBtn" class="btn btn-secondary" onclick="toggleSelectionMode()" style="padding:8px 16px; font-size:13px; border-radius:6px; cursor:pointer;">
+                    ☑️ 批量管理
+                </button>
+                <button id="deleteAllBtn" class="btn btn-danger" onclick="deleteAllRecords()" style="padding:8px 16px; font-size:13px; background:#ef4444; color:white; border:none; border-radius:6px; cursor:pointer;">
+                    🗑️ 清空全部
+                </button>
+            </div>
+
+            <!-- 成长曲线 -->
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header">
+                    <span class="card-title">📈 成长曲线</span>
+                    <span style="font-size:12px;color:var(--text-muted)">历史评分趋势</span>
+                </div>
+                <div class="card-body">
+                    <div style="height:250px;">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                    <div class="growth-stats" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-top:16px;">
+                        <div class="growth-stat" style="text-align:center;">
+                            <div style="font-size:11px;color:var(--text-muted);">平均分</div>
+                            <div id="avgScore" style="font-size:24px;font-weight:700;color:var(--primary);">--</div>
+                        </div>
+                        <div class="growth-stat" style="text-align:center;">
+                            <div style="font-size:11px;color:var(--text-muted);">最高分</div>
+                            <div id="maxScore" style="font-size:24px;font-weight:700;color:var(--success);">--</div>
+                        </div>
+                        <div class="growth-stat" style="text-align:center;">
+                            <div style="font-size:11px;color:var(--text-muted);">最低分</div>
+                            <div id="minScore" style="font-size:24px;font-weight:700;color:var(--danger);">--</div>
+                        </div>
+                        <div class="growth-stat" style="text-align:center;">
+                            <div style="font-size:11px;color:var(--text-muted);">练习次数</div>
+                            <div id="totalCount" style="font-size:24px;font-weight:700;color:var(--purple);">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="history-grid" id="historyGrid"></div>
+        </div>
+    </main>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+/*
+ * 淡色主题样式 - 声乐评估系统
+ * 设计原则: 简洁明了、淡色为主、排布清晰
+ */
+
+/* ========== 全局样式 ========== */
+QMainWindow, QWidget {
+    background-color: #F8F9FA;
+    color: #2C3E50;
+    /* 优化字体回退链 - 确保不同系统显示清晰 */
+    font-family: "Microsoft YaHei", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+    font-size: 13px;
+}
+
+/* ========== 卡片样式 ========== */
+QFrame#cardFrame, QGroupBox {
+    background-color: #FFFFFF;
+    border: 1px solid #E9ECEF;
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 8px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 6px;
+    color: #495057;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* ========== 按钮样式 ========== */
+QPushButton {
+    background-color: #E3F2FD;
+    color: #1976D2;
+    border: 1px solid #BBDEFB;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-weight: 500;
+    min-width: 80px;
+}
+
+QPushButton:hover {
+    background-color: #BBDEFB;
+    border-color: #90CAF9;
+}
+
+QPushButton:pressed {
+    background-color: #90CAF9;
+}
+
+QPushButton:disabled {
+    background-color: #E9ECEF;
+    color: #ADB5BD;
+    border-color: #DEE2E6;
+}
+
+/* 主要操作按钮 */
+QPushButton#primaryBtn {
+    background-color: #3498DB;
+    color: white;
+    border: none;
+    font-weight: bold;
+}
+
+QPushButton#primaryBtn:hover {
+    background-color: #2980B9;
+}
+
+/* 录音按钮 */
+QPushButton#recordBtn {
+    background-color: #E74C3C;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 20px;
+    font-weight: bold;
+}
+
+QPushButton#recordBtn:hover {
+    background-color: #C0392B;
+}
+
+/* ========== 进度条 ========== */
+QProgressBar {
+    background-color: #E9ECEF;
+    border: none;
+    border-radius: 4px;
+    height: 8px;
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    background-color: #3498DB;
+    border-radius: 4px;
+}
+
+/* ========== 列表控件 ========== */
+QListWidget {
+    background-color: #FFFFFF;
+    border: 1px solid #E9ECEF;
+    border-radius: 6px;
+    padding: 4px;
+    outline: none;
+}
+
+QListWidget::item {
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 2px 0;
+}
+
+QListWidget::item:hover {
+    background-color: #F8F9FA;
+}
+
+QListWidget::item:selected {
+    background-color: #E3F2FD;
+    color: #1976D2;
+}
+
+/* ========== 滚动条 ========== */
+QScrollBar:vertical {
+    background-color: #F8F9FA;
+    width: 10px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #DEE2E6;
+    border-radius: 5px;
+    min-height: 30px;
+}
+
+/* ========== 分割器 ========== */
+QSplitter::handle {
+    background-color: #E9ECEF;
+}
+
+QSplitter::handle:horizontal {
+    width: 2px;
+}
+
+QSplitter::handle:vertical {
+    height: 2px;
+}
+
+/* ========== 工具栏 ========== */
+QToolBar {
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E9ECEF;
+    padding: 6px;
+    spacing: 8px;
+}
+
+/* ========== 状态栏 ========== */
+QStatusBar {
+    background-color: #FFFFFF;
+    border-top: 1px solid #E9ECEF;
+    color: #6C757D;
+    font-size: 12px;
+    padding: 4px 10px;
+}
+
+/* ========== 标签 ========== */
+QLabel {
+    color: #2C3E50;
+    background-color: transparent;
+}
+
+QLabel#titleLabel {
+    font-size: 16px;
+    font-weight: bold;
+    color: #1976D2;
+}
+
+QLabel#scoreLabel {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* 分数颜色 - 优秀 */
+QLabel#scoreExcellent { color: #27AE60; }
+
+/* 分数颜色 - 良好 */
+QLabel#scoreGood { color: #3498DB; }
+
+/* 分数颜色 - 中等 */
+QLabel#scoreMedium { color: #F39C12; }
+
+/* 分数颜色 - 需改进 */
+QLabel#scoreLow { color: #E74C3C; }
+
+/* ========== 提示框 ========== */
+QToolTip {
+    background-color: #2C3E50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* ========== 信息卡片 ========== */
+QWidget#infoCard {
+    background-color: #F8F9FA;
+    border: 1px solid #E9ECEF;
+    border-radius: 6px;
+    padding: 10px;
+}

@@ -1,0 +1,475 @@
+/* 分析页面样式 */
+
+/* 主内容布局 */
+.main-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+@media (max-width: 1200px) {
+    .main-content {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 左侧：播放器区域 */
+.player-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 中间：评分区域 */
+.score-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 右侧：详细分析 */
+.detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 人声质量警告 */
+.voice-quality-warning {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffc107 100%);
+    border-radius: 12px;
+    border-left: 4px solid #ff9800;
+}
+
+.warning-icon {
+    font-size: 32px;
+}
+
+.warning-content h3 {
+    margin: 0 0 8px 0;
+    color: #856404;
+    font-size: 16px;
+}
+
+.warning-content p {
+    margin: 0 0 12px 0;
+    color: #856404;
+    font-size: 14px;
+}
+
+.warning-content ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #856404;
+    font-size: 14px;
+}
+
+.warning-content li {
+    margin-bottom: 4px;
+}
+
+/* 总分卡片 */
+.total-score-card {
+    text-align: center;
+    padding: 30px;
+}
+
+.total-score-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.score-circle {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+}
+
+.score-number {
+    font-size: 48px;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
+}
+
+.score-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 4px;
+}
+
+.level-display {
+    text-align: center;
+}
+
+.level-text {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 8px;
+}
+
+.stars {
+    font-size: 20px;
+    color: #ffc107;
+}
+
+/* 五维评分 */
+.scores-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.score-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.score-name {
+    width: 60px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.score-bar-container {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-elevated);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.score-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--success) 100%);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.score-value {
+    width: 40px;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* 雷达图容器 */
+.radar-container {
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.radar-container canvas {
+    width: 100% !important;
+    height: auto !important;
+}
+
+/* 建议列表 */
+.advice-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.advice-list li {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    border-left: 3px solid var(--primary);
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.advice-list li:last-child {
+    margin-bottom: 0;
+}
+
+/* 导出按钮 */
+.export-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.export-buttons button {
+    flex: 1;
+}
+
+/* 可视化标签页 */
+.viz-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.viz-tab {
+    padding: 8px 16px;
+    background: var(--bg-elevated);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.viz-tab.active {
+    background: var(--primary);
+    color: white;
+}
+
+.viz-tab:hover:not(.active) {
+    background: var(--bg-hover);
+}
+
+.viz-content {
+    position: relative;
+    min-height: 200px;
+}
+
+.viz-panel {
+    display: none;
+    width: 100%;
+}
+
+.viz-panel.active {
+    display: block;
+}
+
+.viz-panel img {
+    width: 100%;
+    border-radius: 8px;
+    background: var(--bg-elevated);
+}
+
+/* 音色分析网格 */
+.timbre-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+    .timbre-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.timbre-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+}
+
+.timbre-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.timbre-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.timbre-style {
+    padding: 12px;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.style-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.style-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-left: 8px;
+}
+
+/* 逐句评分 */
+.phrase-summary {
+    padding: 12px;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.phrase-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* 播放器控制 */
+.player-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.btn-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: var(--primary-dark);
+    transform: scale(1.05);
+}
+
+.btn-icon svg {
+    width: 24px;
+    height: 24px;
+    fill: white;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.time-display {
+    font-size: 12px;
+    color: var(--text-muted);
+    min-width: 80px;
+    text-align: right;
+}
+
+/* 实时信息面板 */
+.live-info-panel {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+}
+
+.live-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.live-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.live-bar-container {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-surface);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.live-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success) 0%, var(--warning) 50%, var(--danger) 100%);
+    border-radius: 3px;
+    transition: width 0.1s linear;
+}
+
+.live-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* 分离控制 */
+.separation-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.select-input {
+    flex: 1;
+    padding: 10px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.separated-track {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.separated-track audio {
+    flex: 1;
+    height: 36px;
+}
