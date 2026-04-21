@@ -1,7 +1,7 @@
 """
 人声质量检测器 (使用Silero VAD)
 检测音频是否包含人声、人声占比、是否为纯伴奏/噪声
-支持ONNX模型推理，模型不可用时降级到启发式算法
+支持PyTorch模型推理，模型不可用时降级到启发式算法
 """
 
 import numpy as np
@@ -38,25 +38,25 @@ class VoiceQualityDetector:
     模型不可用时自动降级到启发式算法
     """
 
-    # Silero VAD模型路径
-    SILERO_MODEL_PATH = 'models/voice_quality/silero_vad.onnx'
-
     def __init__(self):
-        self._session = None
+        self._model = None
+        self._utils = None
         self._model_available = False
 
-        # 尝试加载Silero VAD模型
-        if os.path.exists(self.SILERO_MODEL_PATH):
-            try:
-                import onnxruntime as ort
-                self._session = ort.InferenceSession(
-                    self.SILERO_MODEL_PATH,
-                    providers=['CPUExecutionProvider']
-                )
-                self._model_available = True
-                logger.info(f"[VoiceQualityDetector] Silero VAD loaded from {self.SILERO_MODEL_PATH}")
-            except Exception as e:
-                logger.warning(f"[VoiceQualityDetector] Failed to load Silero VAD: {e}")
+        # 尝试加载Silero VAD模型 (PyTorch版本)
+        try:
+            import torch
+            self._model, self._utils = torch.hub.load(
+                repo_or_dir='snakers4/silero-vad',
+                model='silero_vad',
+                force_reload=False,
+                onnx=False,
+                trust_repo=True
+            )
+            self._model_available = True
+            logger.info("[VoiceQualityDetector] Silero VAD (PyTorch) loaded successfully")
+        except Exception as e:
+            logger.warning(f"[VoiceQualityDetector] Failed to load Silero VAD: {e}")
 
         if not self._model_available:
             logger.info("[VoiceQualityDetector] Using heuristic fallback")
@@ -105,46 +105,34 @@ class VoiceQualityDetector:
             VoiceQualityResult
         """
         try:
-            # Silero VAD参数
-            window_size_samples = 512  # 32ms @ 16kHz
-            threshold = 0.5
+            import torch
 
-            # 获取模型输入信息
-            input_names = [inp.name for inp in self._session.get_inputs()]
+            get_speech_timestamps = self._utils[0]
 
-            # 初始化状态 - Silero VAD使用 'state' 输入 (形状: [2, 1, 128])
-            state = np.zeros((2, 1, 128), dtype=np.float32)
+            # 转换为torch tensor
+            audio_tensor = torch.from_numpy(y).float()
 
-            # 分帧处理
-            speech_frames = []
-            total_frames = 0
-
-            for i in range(0, len(y) - window_size_samples, window_size_samples):
-                chunk = y[i:i + window_size_samples].astype(np.float32)
-                total_frames += 1
-
-                # 运行VAD推理
-                ort_inputs = {
-                    'input': chunk[np.newaxis, :],  # [1, 512] - rank 2
-                    'state': state,
-                    'sr': np.array(sr, dtype=np.int64)
-                }
-
-                out, state = self._session.run(
-                    ['output', 'stateN'],
-                    ort_inputs
-                )
-
-                speech_prob = out[0][0]
-                speech_frames.append(speech_prob > threshold)
+            # 检测语音时间戳
+            # 降低阈值以适应音乐中的人声检测
+            speech_timestamps = get_speech_timestamps(
+                audio_tensor,
+                self._model,
+                sampling_rate=sr,
+                threshold=0.3,
+                min_silence_duration_ms=100,
+                min_speech_duration_ms=50
+            )
 
             # 计算语音占比
-            speech_count = sum(speech_frames)
-            voice_ratio = speech_count / total_frames if total_frames > 0 else 0
+            total_duration = len(y) / sr
+            speech_duration = sum(
+                (t['end'] - t['start']) / sr for t in speech_timestamps
+            )
+            voice_ratio = speech_duration / total_duration if total_duration > 0 else 0
 
             # 判断结果
-            has_voice = voice_ratio > 0.1  # 至少10%是语音
-            is_noise = voice_ratio < 0.05 and np.std(y) < 0.01  # 几乎无语音且能量低
+            has_voice = voice_ratio > 0.1
+            is_noise = voice_ratio < 0.05 and np.std(y) < 0.01
             is_accompaniment_only = not has_voice and not is_noise
 
             # 判断是否适合声乐分析
