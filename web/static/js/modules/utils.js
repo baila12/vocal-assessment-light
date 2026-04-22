@@ -92,50 +92,31 @@ function showToast(message, type = 'info', duration = 3000) {
     if (!container) {
         container = document.createElement('div');
         container.id = 'toastWrap';
-        container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;';
+        container.className = 'toast-wrap';
         document.body.appendChild(container);
     }
 
+    // 图标映射
+    const icons = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'ℹ'
+    };
+
     // 创建 toast 元素
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-
-    // 样式
-    Object.assign(toast.style, {
-        padding: '12px 20px',
-        marginBottom: '8px',
-        borderRadius: '6px',
-        color: 'white',
-        fontSize: '14px',
-        fontWeight: '500',
-        zIndex: '9999',
-        opacity: '0',
-        transform: 'translateY(-10px)',
-        transition: 'all 0.3s ease'
-    });
-
-    // 背景色
-    const colors = {
-        info: '#3b82f6',
-        success: '#10b981',
-        warning: '#f59e0b',
-        error: '#ef4444'
-    };
-    toast.style.background = colors[type] || colors.info;
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <span class="toast-content">${message}</span>
+    `;
 
     container.appendChild(toast);
 
-    // 显示动画
-    requestAnimationFrame(() => {
-        toast.style.opacity = '1';
-        toast.style.transform = 'translateY(0)';
-    });
-
     // 自动移除
     setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-10px)';
+        toast.classList.add('fade-out');
         setTimeout(() => toast.remove(), 300);
     }, duration);
 }

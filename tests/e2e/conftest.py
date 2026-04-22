@@ -22,7 +22,7 @@ WEB_APP_SCRIPT = PROJECT_ROOT / "web_app.py"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 TEST_MUSIC_FOLDER.mkdir(exist_ok=True)
 
-BACKEND_URL = "http://localhost:5000"
+BACKEND_URL = "http://127.0.0.1:5000"
 
 
 @pytest.fixture(scope="session", autouse=True)

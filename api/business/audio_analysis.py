@@ -36,12 +36,15 @@ except Exception as e:
     dl_assessor = None
 
 
-def analyze_and_score(filepath: str) -> dict:
+def analyze_and_score(filepath: str, mode: str = 'quick') -> dict:
     """
     分析音频并计算评分
 
     Args:
         filepath: 音频文件路径
+        mode: 评估模式
+            - 'quick': 快速评估（跳过逐句评分，简化可视化，约30秒）
+            - 'professional': 专业评估（完整分析，约2-5分钟）
 
     Returns:
         分析结果字典
@@ -93,29 +96,39 @@ def analyze_and_score(filepath: str) -> dict:
     # 5. 生成建议
     advice_result = advice_service.generate(score_result)
 
-    # 6. 生成可视化图片
-    viz_result = visualization_service.generate_feature_plots(
-        audio_data=audio_result._audio_data,
-        sample_rate=audio_result.sample_rate,
-        file_id=Path(filepath).stem
-    )
+    # 6. 生成可视化图片（快速模式跳过）
+    if mode == 'quick':
+        viz_result = None
+    else:
+        viz_result = visualization_service.generate_feature_plots(
+            audio_data=audio_result._audio_data,
+            sample_rate=audio_result.sample_rate,
+            file_id=Path(filepath).stem
+        )
 
-    # 7. 音色分析
-    timbre_result = timbre_service.analyze(
-        audio_data=audio_result._audio_data,
-        f0=audio_result._f0
-    )
+    # 7. 音色分析（快速模式简化）
+    if mode == 'quick':
+        timbre_result = None
+    else:
+        timbre_result = timbre_service.analyze(
+            audio_data=audio_result._audio_data,
+            f0=audio_result._f0
+        )
 
-    # 8. 逐句评分
-    phrase_result = phrase_service.analyze_phrases(
-        audio_data=audio_result._audio_data,
-        f0=audio_result._f0
-    )
+    # 8. 逐句评分（快速模式跳过）
+    if mode == 'quick':
+        phrase_result = None
+    else:
+        phrase_result = phrase_service.analyze_phrases(
+            audio_data=audio_result._audio_data,
+            f0=audio_result._f0
+        )
 
     # 9. 构建响应
     return _build_success_result(
         audio_result, voice_quality, emotion_info, score_result,
-        advice_result, viz_result, timbre_result, phrase_result
+        advice_result, viz_result, timbre_result, phrase_result,
+        mode=mode
     )
 
 
@@ -170,9 +183,16 @@ def _assess_with_dl(filepath: str) -> dict:
 
 def _build_success_result(
     audio_result, voice_quality, emotion_info, score_result,
-    advice_result, viz_result, timbre_result, phrase_result
+    advice_result, viz_result, timbre_result, phrase_result,
+    mode: str = 'professional'
 ) -> dict:
-    """构建成功结果"""
+    """构建成功结果
+
+    Args:
+        mode: 评估模式
+            - 'quick': 快速评估（简化的结果）
+            - 'professional': 专业评估（完整结果）
+    """
     style_profile = getattr(audio_result, '_style_profile', None)
 
     result_dto = AnalysisResult(

@@ -12,15 +12,39 @@
 <body>
     <!-- 导航栏 -->
     <nav class="navbar">
-        <h1>
-            <span class="logo">♪</span>
-            声乐评估系统
-            <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:8px">离线版</span>
-        </h1>
+        <div class="navbar-brand">
+            <div class="logo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/>
+                    <circle cx="18" cy="16" r="3"/>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">声乐评估系统</span>
+                <span class="brand-tag">专业版</span>
+            </div>
+        </div>
         <div class="nav-tabs">
-            <button class="nav-tab active" id="navHome" onclick="showPage('home')">首页</button>
-            <button class="nav-tab" id="navCompare" onclick="showPage('compare')">对比分析</button>
-            <button class="nav-tab" id="navHistory" onclick="showPage('history')">历史记录</button>
+            <button class="nav-tab active" id="navHome" onclick="showPage('home')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                </svg>
+                首页
+            </button>
+            <button class="nav-tab" id="navCompare" onclick="showPage('compare')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 3h5v5M8 3H3v5M3 16v5h5M21 16v5h-5"/>
+                </svg>
+                对比分析
+            </button>
+            <button class="nav-tab" id="navHistory" onclick="showPage('history')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                历史记录
+            </button>
         </div>
     </nav>
 
@@ -32,139 +56,230 @@
             <div class="loading-spinner"></div>
             <div class="loading-text" id="loadingTitle">正在分析</div>
             <div class="loading-sub" id="loadingText"></div>
+            <div class="loading-progress">
+                <div class="loading-progress-bar" id="loadingProgressBar"></div>
+            </div>
         </div>
     </div>
 
     <main class="main">
         <!-- ========== 首页 ========== -->
         <div id="page-home" class="page active">
-            <div class="home-layout-simple">
+            <div class="home-layout">
                 <!-- 主操作区 -->
                 <div class="main-content">
-                    <div class="card hero-card">
-                        <div class="hero-content">
-                            <h2 style="font-size:28px;font-weight:700;margin-bottom:8px;color:var(--text)">
-                                🎵 声乐能力评估
-                            </h2>
-                            <p style="font-size:14px;color:var(--text-muted);margin-bottom:24px;">
-                                上传音频文件或录制您的演唱，获取专业的五维评分分析
-                            </p>
-
-                            <!-- 操作按钮 -->
-                            <div class="action-buttons">
-                                <button class="btn btn-primary btn-lg" onclick="document.getElementById('fileInput').click()">
-                                    <span style="font-size:20px">📁</span>
-                                    <span>导入音频</span>
-                                </button>
-                                <button class="btn btn-secondary btn-lg" id="recordBtn" onclick="startQuickRecord()">
-                                    <span style="font-size:20px">🎙️</span>
-                                    <span>快速录音</span>
-                                </button>
-                            </div>
-
-                            <input type="file" id="fileInput" accept=".wav,.mp3,.flac,.ogg,.m4a" style="display:none">
-
-                            <!-- 支持格式提示 -->
-                            <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">
-                                支持 MP3、WAV、FLAC、OGG、M4A 格式
-                            </p>
+                    <!-- 欢迎区 -->
+                    <div class="welcome-section">
+                        <div class="welcome-icon">🎵</div>
+                        <div class="welcome-text">
+                            <h1>专业声乐能力评估</h1>
+                            <p>上传音频或录制演唱，获取五维专业评分分析</p>
+                        </div>
+                        <div class="welcome-features">
+                            <span class="feature-tag">🔒 离线分析</span>
+                            <span class="feature-tag">📊 五维评分</span>
+                            <span class="feature-tag">💡 改进建议</span>
                         </div>
                     </div>
 
-                    <!-- 录音状态 -->
-                    <div class="card" id="recordingCard" style="display:none">
-                        <div class="card-header">
-                            <span class="card-title">🎙️ 录音中</span>
-                        </div>
-                        <div class="card-body">
-                            <div style="display:flex; align-items:center; gap:16px;">
-                                <div class="recording-indicator" style="width:16px; height:16px; background:#ef4444; border-radius:50%; animation:recordPulse 1s infinite;"></div>
-                                <div>
-                                    <div style="font-size:18px; font-weight:600; color:#ef4444;">正在录音...</div>
-                                    <div id="recordingDuration" style="font-size:14px; color:var(--text-muted);">00:00</div>
-                                </div>
-                                <button class="btn btn-danger" onclick="stopQuickRecord()" style="margin-left:auto">
-                                    ⏹ 停止录音
-                                </button>
+                    <!-- 核心操作卡片 -->
+                    <div class="action-cards">
+                        <div class="action-card primary" onclick="document.getElementById('fileInput').click()">
+                            <div class="card-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
                             </div>
-                            <!-- 实时波形 -->
-                            <div style="margin-top:16px;">
-                                <canvas id="recordingWave" style="width:100%; height:60px; background:var(--bg-elevated); border-radius:8px;"></canvas>
+                            <div class="card-content">
+                                <h3>导入音频</h3>
+                                <p>上传已有录音文件进行分析</p>
+                                <div class="card-formats">MP3 · WAV · FLAC · M4A · OGG</div>
+                            </div>
+                            <div class="card-arrow">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="9 18 15 12 9 6"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="action-card secondary" id="recordBtn" onclick="startQuickRecord()">
+                            <div class="card-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                    <line x1="12" y1="19" x2="12" y2="23"/>
+                                    <line x1="8" y1="23" x2="16" y2="23"/>
+                                </svg>
+                            </div>
+                            <div class="card-content">
+                                <h3>快速录音</h3>
+                                <p>实时录制您的演唱</p>
+                                <div class="card-status" id="micStatus">
+                                    <span class="status-dot"></span>
+                                    麦克风就绪
+                                </div>
+                            </div>
+                            <div class="card-arrow">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="9 18 15 12 9 6"/>
+                                </svg>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 已选音频 -->
-                    <div class="card" id="selectedAudioCard" style="display:none">
-                        <div class="card-header">
-                            <span class="card-title">🎵 已选音频</span>
-                            <span id="selectedFileName" style="font-size:12px;color:var(--text-muted)"></span>
+                    <input type="file" id="fileInput" accept=".wav,.mp3,.flac,.ogg,.m4a" style="display:none">
+
+                    <!-- 录音状态卡片 -->
+                    <div class="recording-card" id="recordingCard" style="display:none">
+                        <div class="recording-header">
+                            <div class="recording-status">
+                                <span class="recording-dot"></span>
+                                <span>录音中</span>
+                            </div>
+                            <div class="recording-time" id="recordingDuration">00:00</div>
+                            <button class="btn btn-danger btn-sm" onclick="stopQuickRecord()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="6" y="6" width="12" height="12" rx="2"/>
+                                </svg>
+                                停止
+                            </button>
                         </div>
-                        <div class="card-body">
-                            <!-- 音频信息 -->
-                            <div class="audio-info-row" style="display:flex; gap:16px; margin-bottom:16px;">
-                                <div style="flex:1; padding:12px; background:var(--bg-elevated); border-radius:8px;">
-                                    <div style="font-size:11px;color:var(--text-muted);">时长</div>
-                                    <div id="audioDuration" style="font-size:16px;font-weight:600;">--:--</div>
+                        <div class="recording-waveform">
+                            <canvas id="recordingWave"></canvas>
+                        </div>
+                        <div class="recording-info">
+                            <div class="info-item">
+                                <span class="info-label">当前音高</span>
+                                <span class="info-value" id="livePitch">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">当前音量</span>
+                                <span class="info-value" id="liveVolume">-- dB</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 已选音频卡片 -->
+                    <div class="audio-card" id="selectedAudioCard" style="display:none">
+                        <div class="audio-card-header">
+                            <div class="audio-file-info">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18V5l12-2v13"/>
+                                    <circle cx="6" cy="18" r="3"/>
+                                    <circle cx="18" cy="16" r="3"/>
+                                </svg>
+                                <span id="selectedFileName">未选择文件</span>
+                            </div>
+                            <button class="btn btn-ghost btn-sm" onclick="clearSelectedFile()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="audio-card-body">
+                            <div class="audio-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">时长</span>
+                                    <span class="stat-value" id="audioDuration">--:--</span>
                                 </div>
-                                <div style="flex:1; padding:12px; background:var(--bg-elevated); border-radius:8px;">
-                                    <div style="font-size:11px;color:var(--text-muted);">大小</div>
-                                    <div id="audioSize" style="font-size:16px;font-weight:600;">--</div>
+                                <div class="stat-item">
+                                    <span class="stat-label">大小</span>
+                                    <span class="stat-value" id="audioSize">--</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">格式</span>
+                                    <span class="stat-value" id="audioFormat">--</span>
                                 </div>
                             </div>
-
-                            <!-- 操作按钮 -->
-                            <div style="display:flex; gap:12px;">
-                                <button id="analyzeBtn" class="btn btn-primary" style="flex:1; padding:14px; font-size:16px;">
-                                    🔍 开始分析
+                            <div class="audio-actions">
+                                <button id="analyzeBtn" class="btn btn-primary btn-lg">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="11" cy="11" r="8"/>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                                    </svg>
+                                    开始分析
                                 </button>
-                                <button id="stopAnalyzeBtn" class="btn btn-danger" style="display:none; padding:14px;">
-                                    ⏹ 停止
+                                <button id="stopAnalyzeBtn" class="btn btn-danger btn-lg" style="display:none">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="6" y="6" width="12" height="12" rx="2"/>
+                                    </svg>
+                                    停止分析
                                 </button>
                             </div>
-
                             <!-- 分析进度 -->
-                            <div id="analysisProgress" style="display:none; margin-top:16px; padding:16px; background:var(--bg-elevated); border-radius:8px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                                    <span style="font-size:13px; color:var(--text-muted);">正在分析...</span>
-                                    <span id="analysisProgressText" style="font-size:13px; color:var(--primary);">0%</span>
+                            <div class="analysis-progress" id="analysisProgress" style="display:none">
+                                <div class="progress-header">
+                                    <span>正在分析...</span>
+                                    <span class="progress-percent" id="analysisProgressText">0%</span>
                                 </div>
-                                <div style="height:8px; background:var(--bg); border-radius:4px; overflow:hidden;">
-                                    <div id="analysisProgressFill" style="height:100%; background:var(--primary); width:0%; transition:width 0.3s;"></div>
+                                <div class="progress-track">
+                                    <div class="progress-fill" id="analysisProgressFill"></div>
                                 </div>
+                                <div class="progress-stage" id="analysisStage">准备中...</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 侧边栏：使用说明 -->
+                <!-- 侧边栏 -->
                 <div class="sidebar">
                     <!-- 使用说明 -->
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">💡 使用说明</span>
+                    <div class="sidebar-card">
+                        <div class="sidebar-card-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="16" x2="12" y2="12"/>
+                                <line x1="12" y1="8" x2="12.01" y2="8"/>
+                            </svg>
+                            <span>使用说明</span>
                         </div>
-                        <div class="card-body">
-                            <ol class="usage-steps">
-                                <li>导入音频或录制演唱</li>
-                                <li>点击"开始分析"按钮</li>
-                                <li>查看五维评分和详细分析</li>
-                                <li>根据建议改进演唱技巧</li>
+                        <div class="sidebar-card-body">
+                            <ol class="steps-list">
+                                <li><span class="step-num">1</span><span>导入音频文件或录制演唱</span></li>
+                                <li><span class="step-num">2</span><span>点击「开始分析」按钮</span></li>
+                                <li><span class="step-num">3</span><span>查看五维评分和详细分析</span></li>
+                                <li><span class="step-num">4</span><span>根据建议改进演唱技巧</span></li>
                             </ol>
                         </div>
                     </div>
 
-                    <!-- 技巧提示 -->
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">🎤 演唱技巧</span>
+                    <!-- 评分维度说明 -->
+                    <div class="sidebar-card">
+                        <div class="sidebar-card-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+                                <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                            </svg>
+                            <span>五维评分</span>
                         </div>
-                        <div class="card-body">
-                            <div class="tip-list">
-                                <div class="tip-item">💡 保持稳定的呼吸节奏</div>
-                                <div class="tip-item">💡 注意音准，避免跑调</div>
-                                <div class="tip-item">💡 控制音量动态范围</div>
-                                <div class="tip-item">💡 跟随节奏，不要抢拍</div>
+                        <div class="sidebar-card-body">
+                            <div class="dimension-list">
+                                <div class="dimension-item"><span class="dim-dot" style="background: var(--dim-pitch)"></span><span class="dim-name">音准</span><span class="dim-weight">35%</span></div>
+                                <div class="dimension-item"><span class="dim-dot" style="background: var(--dim-rhythm)"></span><span class="dim-name">节奏</span><span class="dim-weight">25%</span></div>
+                                <div class="dimension-item"><span class="dim-dot" style="background: var(--dim-breath)"></span><span class="dim-name">气息</span><span class="dim-weight">10%</span></div>
+                                <div class="dimension-item"><span class="dim-dot" style="background: var(--dim-technique)"></span><span class="dim-name">发声技术</span><span class="dim-weight">25%</span></div>
+                                <div class="dimension-item"><span class="dim-dot" style="background: var(--dim-artistry)"></span><span class="dim-name">艺术表现</span><span class="dim-weight">15%</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 演唱技巧 -->
+                    <div class="sidebar-card">
+                        <div class="sidebar-card-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                            </svg>
+                            <span>演唱技巧提示</span>
+                        </div>
+                        <div class="sidebar-card-body">
+                            <div class="tips-list">
+                                <div class="tip-item"><span class="tip-icon">💡</span><span>保持稳定的呼吸节奏</span></div>
+                                <div class="tip-item"><span class="tip-icon">💡</span><span>注意音准，避免跑调</span></div>
+                                <div class="tip-item"><span class="tip-icon">💡</span><span>控制音量动态范围</span></div>
+                                <div class="tip-item"><span class="tip-icon">💡</span><span>跟随节奏，不要抢拍</span></div>
                             </div>
                         </div>
                     </div>

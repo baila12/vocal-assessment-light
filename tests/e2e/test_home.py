@@ -25,20 +25,20 @@ class TestHomePage:
         navbar = page.locator(".navbar")
         expect(navbar).to_be_visible()
 
-        # 验证Logo显示
-        logo = page.locator(".logo")
-        expect(logo).to_contain_text("♪")
+        # 验证品牌名称显示
+        brand_name = page.locator(".brand-name")
+        expect(brand_name).to_contain_text("声乐评估系统")
 
     def test_main_action_buttons_exist(self, page: Page):
         """测试主要操作按钮存在"""
         page.goto(BACKEND_URL)
 
-        # 导入音频按钮
-        import_btn = page.get_by_role("button", name="导入音频")
+        # 导入音频按钮（在 action-card 中）
+        import_btn = page.locator(".action-card.primary")
         expect(import_btn).to_be_visible()
 
         # 快速录音按钮
-        record_btn = page.get_by_role("button", name="快速录音")
+        record_btn = page.locator(".action-card.secondary")
         expect(record_btn).to_be_visible()
 
     def test_file_input_exists(self, page: Page):

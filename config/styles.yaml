@@ -1,0 +1,152 @@
+# 风格配置文件
+# 定义各音乐风格的评分权重和阈值
+
+styles:
+  ballad:
+    style_cn: "抒情/慢歌"
+    description: "注重音准、气息控制、情感表达"
+    weights:
+      pitch: 0.30
+      rhythm: 0.15
+      breath: 0.25
+      technique: 0.15
+      artistry: 0.15
+    thresholds:
+      pitch_tolerance: 15
+      rhythm_tolerance: 0.40
+    flags:
+      allow_rubato: true
+      allow_vibrato: true
+      expect_high_energy: false
+
+  upbeat:
+    style_cn: "快歌/舞曲"
+    description: "注重节奏感、气息支撑、律动"
+    weights:
+      pitch: 0.22
+      rhythm: 0.32
+      breath: 0.20
+      technique: 0.16
+      artistry: 0.10
+    thresholds:
+      pitch_tolerance: 28
+      rhythm_tolerance: 0.18
+    flags:
+      allow_rubato: false
+      allow_vibrato: true
+      expect_high_energy: true
+
+  rock:
+    style_cn: "摇滚"
+    description: "注重节奏、力量感、爆发力"
+    weights:
+      pitch: 0.18
+      rhythm: 0.25
+      breath: 0.20
+      technique: 0.22
+      artistry: 0.15
+    thresholds:
+      pitch_tolerance: 35
+      rhythm_tolerance: 0.22
+    flags:
+      allow_rubato: false
+      allow_vibrato: true
+      expect_high_energy: true
+
+  rb_jazz:
+    style_cn: "R&B/爵士"
+    description: "注重即兴感、技巧、音色变化"
+    weights:
+      pitch: 0.22
+      rhythm: 0.18
+      breath: 0.20
+      technique: 0.25
+      artistry: 0.15
+    thresholds:
+      pitch_tolerance: 28
+      rhythm_tolerance: 0.32
+    flags:
+      allow_rubato: true
+      allow_vibrato: true
+      expect_high_energy: false
+
+  pop:
+    style_cn: "流行"
+    description: "均衡评分，注重整体表现"
+    weights:
+      pitch: 0.28
+      rhythm: 0.22
+      breath: 0.20
+      technique: 0.15
+      artistry: 0.15
+    thresholds:
+      pitch_tolerance: 22
+      rhythm_tolerance: 0.25
+    flags:
+      allow_rubato: true
+      allow_vibrato: true
+      expect_high_energy: false
+
+  folk:
+    style_cn: "民谣/抒情"
+    description: "注重情感表达、音准、气息"
+    weights:
+      pitch: 0.26
+      rhythm: 0.18
+      breath: 0.22
+      technique: 0.14
+      artistry: 0.20
+    thresholds:
+      pitch_tolerance: 20
+      rhythm_tolerance: 0.35
+    flags:
+      allow_rubato: true
+      allow_vibrato: true
+      expect_high_energy: false
+
+# 默认风格（当无法识别时使用）
+default_style: pop
+
+# 情绪匹配配置
+mood_matching:
+  ballad:
+    best_moods:
+      - romantic
+      - sad
+      - sentimental
+    bonus: 3.0
+
+  folk:
+    best_moods:
+      - sentimental
+      - relaxing
+      - romantic
+    bonus: 3.0
+
+  rock:
+    best_moods:
+      - energetic
+      - epic
+      - dark
+    bonus: 3.0
+
+  upbeat:
+    best_moods:
+      - happy
+      - energetic
+      - uplifting
+    bonus: 3.0
+
+  rb_jazz:
+    best_moods:
+      - romantic
+      - glamorous
+      - relaxing
+    bonus: 3.0
+
+  pop:
+    best_moods:
+      - happy
+      - romantic
+      - energetic
+    bonus: 3.0

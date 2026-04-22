@@ -14,14 +14,26 @@
 <body>
     <!-- 顶部导航 -->
     <nav class="navbar">
-        <h1>
-            <span class="logo">♪</span>
-            声乐评估系统
-            <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:8px">分析页面</span>
-        </h1>
+        <div class="navbar-brand">
+            <div class="logo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/>
+                    <circle cx="18" cy="16" r="3"/>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">声乐评估系统</span>
+                <span class="brand-tag">分析结果</span>
+            </div>
+        </div>
         <div class="nav-tabs">
-            <button class="nav-tab" onclick="window.location.href='/'">返回首页</button>
-            <button class="nav-tab active">分析结果</button>
+            <button class="nav-tab" onclick="window.location.href='/'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                返回首页
+            </button>
         </div>
     </nav>
 
@@ -124,8 +136,15 @@
             <div class="card total-score-card" id="totalScoreCard">
                 <div class="total-score-display">
                     <div class="score-circle" id="scoreCircle">
-                        <span class="score-number" id="totalScore">--</span>
-                        <span class="score-label">总分</span>
+                        <svg viewBox="0 0 120 120" class="score-ring-svg">
+                            <circle cx="60" cy="60" r="52" class="ring-bg"/>
+                            <circle cx="60" cy="60" r="52" class="ring-fill" id="scoreRingFill"
+                                    stroke-dasharray="327" stroke-dashoffset="327"/>
+                        </svg>
+                        <div class="score-center">
+                            <span class="score-number" id="totalScore">--</span>
+                            <span class="score-label">总分</span>
+                        </div>
                     </div>
                     <div class="level-display">
                         <span class="level-text" id="levelText">--</span>
@@ -137,44 +156,67 @@
             <!-- 五维评分 -->
             <div class="card">
                 <h2 class="card-title">
-                    <span class="icon">📊</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+                        <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                    </svg>
                     五维评分
                 </h2>
-                <div class="scores-grid">
-                    <div class="score-item">
-                        <span class="score-name">音量</span>
-                        <div class="score-bar-container">
-                            <div class="score-bar" id="volumeScoreBar"></div>
+                <div class="dimension-scores">
+                    <div class="dim-score-item" data-dim="pitch">
+                        <div class="dim-ring">
+                            <svg viewBox="0 0 80 80">
+                                <circle cx="40" cy="40" r="34" class="ring-bg"/>
+                                <circle cx="40" cy="40" r="34" class="ring-fill" stroke="var(--dim-pitch)"
+                                        id="pitchRing" stroke-dasharray="214" stroke-dashoffset="214"/>
+                            </svg>
+                            <span class="dim-value" id="pitchScoreDisplay">--</span>
                         </div>
-                        <span class="score-value" id="volumeScore">--</span>
+                        <span class="dim-label">音准</span>
                     </div>
-                    <div class="score-item">
-                        <span class="score-name">音准</span>
-                        <div class="score-bar-container">
-                            <div class="score-bar" id="pitchScoreBar"></div>
+                    <div class="dim-score-item" data-dim="rhythm">
+                        <div class="dim-ring">
+                            <svg viewBox="0 0 80 80">
+                                <circle cx="40" cy="40" r="34" class="ring-bg"/>
+                                <circle cx="40" cy="40" r="34" class="ring-fill" stroke="var(--dim-rhythm)"
+                                        id="rhythmRing" stroke-dasharray="214" stroke-dashoffset="214"/>
+                            </svg>
+                            <span class="dim-value" id="rhythmScoreDisplay">--</span>
                         </div>
-                        <span class="score-value" id="pitchScore">--</span>
+                        <span class="dim-label">节奏</span>
                     </div>
-                    <div class="score-item">
-                        <span class="score-name">节奏</span>
-                        <div class="score-bar-container">
-                            <div class="score-bar" id="rhythmScoreBar"></div>
+                    <div class="dim-score-item" data-dim="breath">
+                        <div class="dim-ring">
+                            <svg viewBox="0 0 80 80">
+                                <circle cx="40" cy="40" r="34" class="ring-bg"/>
+                                <circle cx="40" cy="40" r="34" class="ring-fill" stroke="var(--dim-breath)"
+                                        id="breathRing" stroke-dasharray="214" stroke-dashoffset="214"/>
+                            </svg>
+                            <span class="dim-value" id="breathScoreDisplay">--</span>
                         </div>
-                        <span class="score-value" id="rhythmScore">--</span>
+                        <span class="dim-label">气息</span>
                     </div>
-                    <div class="score-item">
-                        <span class="score-name">气息</span>
-                        <div class="score-bar-container">
-                            <div class="score-bar" id="breathScoreBar"></div>
+                    <div class="dim-score-item" data-dim="technique">
+                        <div class="dim-ring">
+                            <svg viewBox="0 0 80 80">
+                                <circle cx="40" cy="40" r="34" class="ring-bg"/>
+                                <circle cx="40" cy="40" r="34" class="ring-fill" stroke="var(--dim-technique)"
+                                        id="techniqueRing" stroke-dasharray="214" stroke-dashoffset="214"/>
+                            </svg>
+                            <span class="dim-value" id="techniqueScoreDisplay">--</span>
                         </div>
-                        <span class="score-value" id="breathScore">--</span>
+                        <span class="dim-label">发声技术</span>
                     </div>
-                    <div class="score-item">
-                        <span class="score-name">情绪</span>
-                        <div class="score-bar-container">
-                            <div class="score-bar" id="emotionScoreBar"></div>
+                    <div class="dim-score-item" data-dim="artistry">
+                        <div class="dim-ring">
+                            <svg viewBox="0 0 80 80">
+                                <circle cx="40" cy="40" r="34" class="ring-bg"/>
+                                <circle cx="40" cy="40" r="34" class="ring-fill" stroke="var(--dim-artistry)"
+                                        id="artistryRing" stroke-dasharray="214" stroke-dashoffset="214"/>
+                            </svg>
+                            <span class="dim-value" id="artistryScoreDisplay">--</span>
                         </div>
-                        <span class="score-value" id="emotionScore">--</span>
+                        <span class="dim-label">艺术表现</span>
                     </div>
                 </div>
                 <!-- 雷达图 -->

@@ -10,9 +10,11 @@ from playwright.sync_api import sync_playwright
 def browser_type_launch_args():
     """浏览器启动参数"""
     return {
-        "headless": False,  # 默认显示浏览器，方便调试
+        "headless": True,  # 无头模式，避免浏览器连接问题
         "args": [
             "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
         ]
     }
 

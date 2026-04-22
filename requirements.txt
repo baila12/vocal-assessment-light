@@ -11,3 +11,4 @@ soundfile>=0.11.0
 torch>=1.9.0
 speechbrain>=0.5.0
 scipy>=1.7.0
+pyyaml>=6.0

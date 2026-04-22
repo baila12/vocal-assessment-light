@@ -65,7 +65,12 @@ def validate_filepath(filepath: str) -> Path:
 
 @upload_bp.route('/upload', methods=['POST'])
 def upload_file():
-    """上传并分析音频文件"""
+    """上传并分析音频文件
+
+    支持评估模式:
+    - quick: 快速评估（跳过逐句评分，简化可视化）
+    - professional: 专业评估（完整分析）
+    """
     if 'file' not in request.files:
         raise ValidationError('没有上传文件')
     file = request.files['file']
@@ -74,12 +79,15 @@ def upload_file():
     if not config.is_allowed_extension(file.filename):
         raise ValidationError('不支持的文件格式')
 
+    # 获取评估模式参数
+    mode = request.form.get('mode', 'quick')  # 默认快速模式
+
     safe_name = sanitize_filename(file.filename)
     filepath = config.get_upload_path(safe_name)
     file.save(str(filepath))
 
     try:
-        result = analyze_and_score(str(filepath))
+        result = analyze_and_score(str(filepath), mode=mode)
     except Exception as e:
         logger.exception(f"Analysis failed: {e}")
         return jsonify({'success': False, 'error': f'分析失败: {str(e)}'}), 500

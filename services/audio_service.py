@@ -22,6 +22,9 @@ from services.audio_features_service import AudioFeaturesService, AudioFeaturesR
 # 深度学习服务 v5.0
 from services.dl_services import VoiceQualityDetector, SingingStyleClassifier, SelfReferencedDTW
 
+# 风格自适应评分 v5.1
+from services.style_aware_scorer import StyleAnalyzer, MusicStyle
+
 
 @dataclass
 class WaveformData:
@@ -87,6 +90,12 @@ class AudioAnalysisResult:
     _singing_style: Optional[Dict] = field(default=None, repr=False)  # 唱法识别结果
     _pitch_stability_dl: Optional[Dict] = field(default=None, repr=False)  # 自参照DTW结果
 
+    # 风格自适应评分 v5.1
+    _music_style: Optional[str] = field(default=None, repr=False)  # 音乐风格 (pop/folk/rock等)
+    _style_confidence: float = 0.0  # 风格分类置信度
+    _music_mood: Optional[str] = field(default=None, repr=False)  # 音乐情绪
+    _style_profile: Optional['StyleProfile'] = field(default=None, repr=False)  # 风格配置档案
+
     # 错误信息
     error: Optional[str] = None
     traceback: Optional[str] = None
@@ -119,6 +128,8 @@ class AudioService:
         self._voice_quality_detector = None
         self._style_classifier = None
         self._self_ref_dtw = None
+        # 风格分析器 v5.1（延迟初始化）
+        self._style_analyzer = None
 
     def analyze(
         self,
@@ -258,6 +269,17 @@ class AudioService:
                         'notes_count': len(dtw_result.notes),
                         'method': dtw_result.method
                     }
+
+            # ========== 音乐风格分析 v5.1 ==========
+            # 使用深度学习模型分析音乐风格
+            style_analysis = self._run_music_style_analysis(filepath)
+            if style_analysis:
+                music_style, style_profile, style_features = style_analysis
+                result._music_style = music_style.value
+                result._style_confidence = style_features.get('genre_confidence', 0)
+                result._music_mood = style_features.get('mood', 'unknown')
+                # 存储style_profile供评分服务使用
+                result._style_profile = style_profile
 
             return result
 
@@ -641,6 +663,12 @@ class AudioService:
             self._self_ref_dtw = SelfReferencedDTW()
         return self._self_ref_dtw
 
+    def _get_style_analyzer(self):
+        """延迟初始化风格分析器 v5.1"""
+        if self._style_analyzer is None:
+            self._style_analyzer = StyleAnalyzer(use_dl=True)
+        return self._style_analyzer
+
     def _run_voice_quality_detection(self, filepath: str):
         """
         运行人声质量检测
@@ -693,4 +721,26 @@ class AudioService:
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning(f"Self-referenced DTW failed: {e}")
+            return None
+
+    def _run_music_style_analysis(self, filepath: str):
+        """
+        运行音乐风格分析 v5.1
+
+        使用深度学习模型分析音乐风格和情绪
+
+        Args:
+            filepath: 音频文件路径
+
+        Returns:
+            tuple: (MusicStyle, StyleProfile, style_features) 或 None
+        """
+        try:
+            analyzer = self._get_style_analyzer()
+            style, style_features = analyzer.analyze(filepath)
+            profile = analyzer.get_style_profile(style)
+            return style, profile, style_features
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Music style analysis failed: {e}")
             return None

@@ -391,9 +391,54 @@ function displayVoiceQualityWarning(result) {
 
 // ==================== 显示五维评分 ====================
 function displayScores(scores) {
-    const dimensions = ['volume', 'pitch', 'rhythm', 'breath', 'emotion'];
+    // 新的环形评分显示
+    const dimensions = [
+        { key: 'pitch', ringId: 'pitchRing', displayId: 'pitchScoreDisplay' },
+        { key: 'rhythm', ringId: 'rhythmRing', displayId: 'rhythmScoreDisplay' },
+        { key: 'breath', ringId: 'breathRing', displayId: 'breathScoreDisplay' },
+        { key: 'technique', ringId: 'techniqueRing', displayId: 'techniqueScoreDisplay' },
+        { key: 'artistry', ringId: 'artistryRing', displayId: 'artistryScoreDisplay' }
+    ];
+
+    // 映射旧字段名到新字段名
+    const scoreMapping = {
+        pitch: scores.pitch || 0,
+        rhythm: scores.rhythm || 0,
+        breath: scores.breath || 0,
+        technique: scores.volume || 0,  // volume -> technique
+        artistry: scores.emotion || 0   // emotion -> artistry
+    };
 
     dimensions.forEach(dim => {
+        const value = scoreMapping[dim.key];
+        const ring = document.getElementById(dim.ringId);
+        const display = document.getElementById(dim.displayId);
+
+        // 更新环形进度 (周长 = 2 * π * r = 2 * 3.14159 * 34 ≈ 214)
+        if (ring) {
+            const circumference = 214;
+            const offset = circumference * (1 - value / 100);
+            ring.style.strokeDashoffset = offset;
+        }
+
+        // 更新数值显示
+        if (display) {
+            display.textContent = Math.round(value);
+        }
+    });
+
+    // 更新总分环形
+    const totalScore = AnalysisState.result?.total_score || 0;
+    const scoreRingFill = document.getElementById('scoreRingFill');
+    if (scoreRingFill) {
+        const circumference = 327; // 2 * π * 52
+        const offset = circumference * (1 - totalScore / 100);
+        scoreRingFill.style.strokeDashoffset = offset;
+    }
+
+    // 兼容旧的进度条显示（如果存在）
+    const oldDimensions = ['volume', 'pitch', 'rhythm', 'breath', 'emotion'];
+    oldDimensions.forEach(dim => {
         const value = scores[dim] || 0;
         const bar = document.getElementById(`${dim}ScoreBar`);
         const valueEl = document.getElementById(`${dim}Score`);
@@ -820,26 +865,27 @@ function drawRadarChart(scores) {
         window.radarChartInstance.destroy();
     }
 
+    // 使用新的五维评分标签
     window.radarChartInstance = new Chart(ctx, {
         type: 'radar',
         data: {
-            labels: ['音量', '音准', '节奏', '气息', '情绪'],
+            labels: ['音准', '节奏', '气息', '发声技术', '艺术表现'],
             datasets: [{
                 label: '评分',
                 data: [
-                    scores.volume || 0,
                     scores.pitch || 0,
                     scores.rhythm || 0,
                     scores.breath || 0,
-                    scores.emotion || 0
+                    scores.volume || 0,  // volume -> 发声技术
+                    scores.emotion || 0  // emotion -> 艺术表现
                 ],
-                backgroundColor: 'rgba(102, 126, 234, 0.2)',
-                borderColor: 'rgba(102, 126, 234, 1)',
+                backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                borderColor: 'rgba(99, 102, 241, 1)',
                 borderWidth: 2,
-                pointBackgroundColor: 'rgba(102, 126, 234, 1)',
+                pointBackgroundColor: 'rgba(99, 102, 241, 1)',
                 pointBorderColor: '#fff',
                 pointHoverBackgroundColor: '#fff',
-                pointHoverBorderColor: 'rgba(102, 126, 234, 1)'
+                pointHoverBorderColor: 'rgba(99, 102, 241, 1)'
             }]
         },
         options: {
@@ -848,7 +894,13 @@ function drawRadarChart(scores) {
                 r: {
                     beginAtZero: true,
                     max: 100,
-                    ticks: { stepSize: 20 }
+                    ticks: { stepSize: 20 },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    angleLines: { color: 'rgba(0, 0, 0, 0.05)' },
+                    pointLabels: {
+                        font: { size: 12 },
+                        color: '#475569'
+                    }
                 }
             },
             plugins: {
@@ -863,9 +915,20 @@ function showToast(message, type = 'info') {
     const wrap = document.getElementById('toastWrap');
     if (!wrap) return;
 
+    // 图标映射
+    const icons = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'ℹ'
+    };
+
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <span class="toast-content">${message}</span>
+    `;
 
     wrap.appendChild(toast);
 
