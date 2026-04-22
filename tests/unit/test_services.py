@@ -38,8 +38,8 @@ class TestScoreResult:
         assert result.level == '良好'
         assert result.penalties == {'volume_low': 5.0}
 
-    def test_score_result_is_frozen(self):
-        """测试 ScoreResult 是不可变的"""
+    def test_score_result_is_mutable(self):
+        """测试 ScoreResult 是可变的（非 frozen）"""
         result = ScoreResult(
             volume=80.0, pitch=75.0, rhythm=70.0,
             breath=85.0, emotion=90.0, total=80.0,
@@ -47,8 +47,9 @@ class TestScoreResult:
             penalties={}
         )
 
-        with pytest.raises(AttributeError):
-            result.volume = 100  # 应该无法修改
+        # ScoreResultV4 是可变的 dataclass
+        result.volume = 100
+        assert result.volume == 100
 
 
 class TestAdviceService:
