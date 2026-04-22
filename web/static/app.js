@@ -488,11 +488,51 @@ window.switchVisualizationTab = (tabName) => {
 };
 
 // ============================================================================
+// 评估模式选择
+// ============================================================================
+
+function initModeSelector() {
+    const modeOptions = document.querySelectorAll('.mode-option');
+    const modeHint = document.getElementById('modeHint');
+    const analyzeBtnText = document.getElementById('analyzeBtnText');
+
+    modeOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            // 移除所有 active
+            modeOptions.forEach(o => o.classList.remove('active'));
+            // 添加当前 active
+            option.classList.add('active');
+
+            // 更新提示文字
+            const mode = option.querySelector('input').value;
+            if (mode === 'quick') {
+                if (modeHint) modeHint.textContent = '快速评估，适合日常练习';
+                if (analyzeBtnText) analyzeBtnText.textContent = '快速分析';
+            } else {
+                if (modeHint) modeHint.textContent = '专业评估，适合详细诊断';
+                if (analyzeBtnText) analyzeBtnText.textContent = '专业分析';
+            }
+
+            // 保存到状态
+            AppState.evalMode = mode;
+        });
+    });
+}
+
+function getSelectedMode() {
+    const activeOption = document.querySelector('.mode-option.active');
+    return activeOption ? activeOption.querySelector('input').value : 'quick';
+}
+
+// ============================================================================
 // 初始化
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Vocal Assessment System Initialized (Modular)');
+
+    // 初始化模式选择器
+    initModeSelector();
 
     // 文件输入
     document.getElementById('fileInput')?.addEventListener('change', handleFileSelect);

@@ -161,6 +161,36 @@
                         </div>
                     </div>
 
+                    <!-- 评估模式选择 -->
+                    <div class="mode-selector" id="modeSelector">
+                        <div class="mode-header">
+                            <span class="mode-title">评估模式</span>
+                            <span class="mode-hint" id="modeHint">快速评估，适合日常练习</span>
+                        </div>
+                        <div class="mode-options">
+                            <label class="mode-option active" id="modeQuick">
+                                <input type="radio" name="evalMode" value="quick" checked>
+                                <div class="mode-option-content">
+                                    <div class="mode-icon">⚡</div>
+                                    <div class="mode-info">
+                                        <div class="mode-name">快速评估</div>
+                                        <div class="mode-desc">~30秒完成，基础五维评分</div>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="mode-option" id="modeProfessional">
+                                <input type="radio" name="evalMode" value="professional">
+                                <div class="mode-option-content">
+                                    <div class="mode-icon">🎯</div>
+                                    <div class="mode-info">
+                                        <div class="mode-name">专业评估</div>
+                                        <div class="mode-desc">~2-5分钟，逐句评分+音色分析</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
                     <!-- 已选音频卡片 -->
                     <div class="audio-card" id="selectedAudioCard" style="display:none">
                         <div class="audio-card-header">
@@ -200,7 +230,7 @@
                                         <circle cx="11" cy="11" r="8"/>
                                         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                                     </svg>
-                                    开始分析
+                                    <span id="analyzeBtnText">开始分析</span>
                                 </button>
                                 <button id="stopAnalyzeBtn" class="btn btn-danger btn-lg" style="display:none">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -70,6 +70,14 @@ async function performAnalysis() {
         const formData = new FormData();
         formData.append('file', file);
 
+        // 获取评估模式（从 sessionStorage 或 IndexedDB 数据）
+        const evalMode = fileData.evalMode || sessionStorage.getItem('evalMode') || 'quick';
+        formData.append('mode', evalMode);
+
+        // 更新进度提示
+        const modeText = evalMode === 'professional' ? '专业评估' : '快速评估';
+        updateAnalysisProgress(15, `正在进行${modeText}...`);
+
         // 使用 AbortController 设置超时 (10分钟)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 600000);

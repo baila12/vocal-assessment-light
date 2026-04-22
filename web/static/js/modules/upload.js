@@ -142,6 +142,9 @@ async function analyzeAudio() {
         return;
     }
 
+    // 获取评估模式
+    const evalMode = getEvalMode();
+
     try {
         // 读取文件数据
         const fileData = await AppState.audio.file.arrayBuffer();
@@ -150,7 +153,8 @@ async function analyzeAudio() {
         await storeFileForAnalysis(
             fileData,
             AppState.audio.file.name,
-            AppState.audio.file.type
+            AppState.audio.file.type,
+            evalMode  // 传递评估模式
         );
 
         // 清除旧的分析结果，确保执行新分析
@@ -159,6 +163,7 @@ async function analyzeAudio() {
         // 设置会话标记
         sessionStorage.setItem('pendingAnalysis', 'true');
         sessionStorage.setItem('analysisFileName', AppState.audio.name);
+        sessionStorage.setItem('evalMode', evalMode);  // 保存评估模式
 
         const fileInfo = {
             name: AppState.audio.file.name,
@@ -180,13 +185,32 @@ async function analyzeAudio() {
 }
 
 /**
+ * 获取当前选择的评估模式
+ * @returns {string} 'quick' 或 'professional'
+ */
+function getEvalMode() {
+    // 从全局状态获取
+    if (AppState.evalMode) {
+        return AppState.evalMode;
+    }
+    // 从 DOM 获取
+    const activeOption = document.querySelector('.mode-option.active');
+    if (activeOption) {
+        return activeOption.querySelector('input').value;
+    }
+    // 默认快速模式
+    return 'quick';
+}
+
+/**
  * 存储文件到 IndexedDB
  * @param {ArrayBuffer} fileData - 文件数据
  * @param {string} fileName - 文件名
  * @param {string} fileType - 文件类型
+ * @param {string} evalMode - 评估模式 ('quick' 或 'professional')
  * @returns {Promise<void>}
  */
-function storeFileForAnalysis(fileData, fileName, fileType) {
+function storeFileForAnalysis(fileData, fileName, fileType, evalMode = 'quick') {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('VocalAnalysisDB', 1);
 
@@ -208,6 +232,7 @@ function storeFileForAnalysis(fileData, fileName, fileType) {
                 fileData: fileData,
                 fileName: fileName,
                 fileType: fileType,
+                evalMode: evalMode,  // 保存评估模式
                 timestamp: Date.now()
             };
 

@@ -1277,6 +1277,107 @@
     color: var(--text-primary);
 }
 
+/* 评估模式选择器 */
+.mode-selector {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+
+.mode-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.mode-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.mode-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: color var(--transition-fast);
+}
+
+.mode-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.mode-option {
+    position: relative;
+    cursor: pointer;
+}
+
+.mode-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.mode-option-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-elevated);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-fast);
+}
+
+.mode-option:hover .mode-option-content {
+    border-color: var(--primary-light);
+}
+
+.mode-option.active .mode-option-content {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.mode-option input[type="radio"]:focus-visible + .mode-option-content {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.mode-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.mode-info {
+    flex: 1;
+}
+
+.mode-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.mode-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.mode-option.active .mode-name {
+    color: var(--primary);
+}
+
+.mode-option.active .mode-desc {
+    color: var(--primary-dark);
+}
+
 /* 音频卡片 */
 .audio-card {
     background: var(--bg-card);

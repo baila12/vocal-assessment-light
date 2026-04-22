@@ -168,7 +168,8 @@ class ScoreServiceV4:
         dl_mos_score: float = 0.0,
         dl_mos_normalized: float = 0.0,
         dl_method: str = "none",
-        dl_confidence: float = 0.0
+        dl_confidence: float = 0.0,
+        scoring_config: 'ScoringConfig' = None
     ) -> ScoreResultV4:
         """
         计算五维评分 v5.2 - 模块化版本
@@ -184,10 +185,16 @@ class ScoreServiceV4:
             dl_mos_normalized: 归一化的MOS分数(0-100)
             dl_method: 使用的DL方法
             dl_confidence: DL置信度
+            scoring_config: 评分配置（可选，用于快速/专业模式切换）
 
         Returns:
             ScoreResultV4: 评分结果
         """
+        # 如果提供了配置，临时切换
+        original_config = self._config
+        if scoring_config:
+            self.set_config(scoring_config)
+
         result = ScoreResultV4()
         result.critical_issues = []
 
@@ -304,6 +311,15 @@ class ScoreServiceV4:
         result.emotion = result.artistry_score
         result.volume = result.breath_score
         result.total = result.total_score
+
+        # 12. 恢复原始配置（如果临时切换过）
+        if scoring_config:
+            self._config = original_config
+            self._pitch_scorer = PitchScorer(original_config.pitch)
+            self._rhythm_scorer = RhythmScorer(original_config.rhythm)
+            self._breath_scorer = BreathScorer(original_config.breath)
+            self._technique_scorer = TechniqueScorer(original_config.technique, self.singing_style)
+            self._critical_handler = CriticalRulesHandler(original_config.critical)
 
         return result
 
