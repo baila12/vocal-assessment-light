@@ -147,7 +147,8 @@ class ResponseV5Builder(ResponseBuilder):
                 'rhythm': result.rhythm_score,
                 'breath': result.breath_score,
                 'technique': result.technique_score,
-                'artistry': result.artistry_score
+                'artistry': result.artistry_score,
+                'total': result.total_score
             },
 
             # 诊断

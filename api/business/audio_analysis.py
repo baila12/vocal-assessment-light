@@ -49,8 +49,8 @@ def analyze_and_score(filepath: str, mode: str = 'quick') -> dict:
     Returns:
         分析结果字典
     """
-    # 1. 音频分析
-    audio_result = audio_service.analyze(filepath)
+    # 1. 音频分析（快速模式跳过耗时DL分析）
+    audio_result = audio_service.analyze(filepath, quick_mode=(mode == 'quick'))
 
     if not audio_result.success:
         return {
@@ -66,10 +66,11 @@ def analyze_and_score(filepath: str, mode: str = 'quick') -> dict:
     if not voice_quality.is_voice:
         return _build_non_voice_result(audio_result, voice_quality)
 
-    # 3. 情绪分析
+    # 3. 情绪分析（快速模式使用简化版本）
     emotion_info = analyze_emotion(
         audio_result._audio_data,
-        audio_result.sample_rate
+        audio_result.sample_rate,
+        quick_mode=(mode == 'quick')
     )
 
     # 4. 评分计算
@@ -384,9 +385,9 @@ def _build_success_result(
         critical_issues=score_result.critical_issues,
         is_disqualified=score_result.is_disqualified,
         advice=advice_result.advice,
-        visualization=_build_viz_dict(viz_result) if viz_result.success else None,
-        timbre=_build_timbre_dict(timbre_result) if timbre_result.success else None,
-        phrases=_build_phrases_dict(phrase_result) if phrase_result.success else None,
+        visualization=_build_viz_dict(viz_result) if viz_result and viz_result.success else None,
+        timbre=_build_timbre_dict(timbre_result) if timbre_result and timbre_result.success else None,
+        phrases=_build_phrases_dict(phrase_result) if phrase_result and phrase_result.success else None,
         waveform=_waveform_to_dict(audio_result.waveform),
         pitch_curve=_pitch_curve_to_dict(audio_result.pitch_curve),
         volume_info=_to_python_type(audio_result.volume_info),
@@ -490,28 +491,36 @@ def _build_phrases_dict(phrase_result) -> dict:
     })
 
 
-def analyze_emotion(audio_data, sample_rate: int) -> dict:
+def analyze_emotion(audio_data, sample_rate: int, quick_mode: bool = False) -> dict:
     """
     分析情绪
 
-    优先使用深度学习模型，失败则使用启发式方法
+    Args:
+        audio_data: 音频数据
+        sample_rate: 采样率
+        quick_mode: 快速模式（跳过DL模型，直接使用启发式方法）
+
+    Returns:
+        情绪分析结果
     """
     import librosa
 
-    # 尝试使用模型
-    try:
-        from model_manager import get_model_manager
-        manager = get_model_manager()
-        result = manager.analyze_emotion(audio_data, sample_rate)
-        return {
-            'emotions': result.get('emotions', {}),
-            'dominant': result.get('dominant', 'neutral'),
-            'confidence': result.get('confidence', 0.5)
-        }
-    except Exception as e:
-        logger.warning(f"Emotion analysis failed: {e}")
+    # 快速模式直接使用启发式方法
+    if not quick_mode:
+        # 尝试使用模型
+        try:
+            from model_manager import get_model_manager
+            manager = get_model_manager()
+            result = manager.analyze_emotion(audio_data, sample_rate)
+            return {
+                'emotions': result.get('emotions', {}),
+                'dominant': result.get('dominant', 'neutral'),
+                'confidence': result.get('confidence', 0.5)
+            }
+        except Exception as e:
+            logger.warning(f"Emotion analysis failed: {e}")
 
-    # 启发式方法
+    # 启发式方法（快速模式或模型失败时使用）
     rms_feature = librosa.feature.rms(y=audio_data)[0]
     energy_mean = np.mean(rms_feature)
     energy_std = np.std(rms_feature)

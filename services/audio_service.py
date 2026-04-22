@@ -135,7 +135,8 @@ class AudioService:
         self,
         filepath: str,
         include_waveform: bool = True,
-        include_pitch_curve: bool = True
+        include_pitch_curve: bool = True,
+        quick_mode: bool = False
     ) -> AudioAnalysisResult:
         """
         分析音频文件
@@ -144,6 +145,7 @@ class AudioService:
             filepath: 音频文件路径
             include_waveform: 是否包含波形数据
             include_pitch_curve: 是否包含音高曲线
+            quick_mode: 快速模式（跳过耗时DL分析）
 
         Returns:
             AudioAnalysisResult: 分析结果
@@ -226,60 +228,62 @@ class AudioService:
             )
 
             # ========== 深度学习分析 v5.0 ==========
-            # 人声质量检测
-            voice_quality_result = self._run_voice_quality_detection(filepath)
-            if voice_quality_result:
-                result._voice_quality = {
-                    'has_voice': voice_quality_result.has_voice,
-                    'voice_ratio': voice_quality_result.voice_ratio,
-                    'is_valid': voice_quality_result.is_valid_for_analysis,
-                    'confidence': voice_quality_result.confidence,
-                    'method': voice_quality_result.method
-                }
-                # 如果音频不适合分析，设置警告
-                if not voice_quality_result.is_valid_for_analysis:
-                    result.pitch_info['warning'] = 'Audio may not be suitable for vocal analysis'
-
-            # 唱法识别
-            style_result = self._run_style_classification(filepath)
-            singing_style = 'pop'  # 默认
-            if style_result:
-                result._singing_style = {
-                    'style': style_result.style.value,
-                    'confidence': style_result.confidence,
-                    'probabilities': style_result.probabilities,
-                    'method': style_result.method
-                }
-                singing_style = style_result.style.value
-                # 使用识别的风格重新提取高级特征
-                result._advanced_features = self._features_service.extract_all_features(
-                    audio_data, result._f0, singing_style=singing_style
-                )
-
-            # 自参照DTW音准评估（仅对有效人声）
-            if result._voice_quality and result._voice_quality.get('is_valid', True):
-                dtw_result = self._run_self_referenced_dtw(filepath)
-                if dtw_result:
-                    result._pitch_stability_dl = {
-                        'overall_stability': dtw_result.overall_stability,
-                        'stable_note_ratio': dtw_result.stable_note_ratio,
-                        'avg_deviation_cents': dtw_result.avg_deviation_cents,
-                        'intentional_variations': dtw_result.intentional_variations,
-                        'unintentional_drifts': dtw_result.unintentional_drifts,
-                        'notes_count': len(dtw_result.notes),
-                        'method': dtw_result.method
+            # 快速模式跳过耗时DL分析
+            if not quick_mode:
+                # 人声质量检测
+                voice_quality_result = self._run_voice_quality_detection(filepath)
+                if voice_quality_result:
+                    result._voice_quality = {
+                        'has_voice': voice_quality_result.has_voice,
+                        'voice_ratio': voice_quality_result.voice_ratio,
+                        'is_valid': voice_quality_result.is_valid_for_analysis,
+                        'confidence': voice_quality_result.confidence,
+                        'method': voice_quality_result.method
                     }
+                    # 如果音频不适合分析，设置警告
+                    if not voice_quality_result.is_valid_for_analysis:
+                        result.pitch_info['warning'] = 'Audio may not be suitable for vocal analysis'
 
-            # ========== 音乐风格分析 v5.1 ==========
-            # 使用深度学习模型分析音乐风格
-            style_analysis = self._run_music_style_analysis(filepath)
-            if style_analysis:
-                music_style, style_profile, style_features = style_analysis
-                result._music_style = music_style.value
-                result._style_confidence = style_features.get('genre_confidence', 0)
-                result._music_mood = style_features.get('mood', 'unknown')
-                # 存储style_profile供评分服务使用
-                result._style_profile = style_profile
+                # 唱法识别
+                style_result = self._run_style_classification(filepath)
+                singing_style = 'pop'  # 默认
+                if style_result:
+                    result._singing_style = {
+                        'style': style_result.style.value,
+                        'confidence': style_result.confidence,
+                        'probabilities': style_result.probabilities,
+                        'method': style_result.method
+                    }
+                    singing_style = style_result.style.value
+                    # 使用识别的风格重新提取高级特征
+                    result._advanced_features = self._features_service.extract_all_features(
+                        audio_data, result._f0, singing_style=singing_style
+                    )
+
+                # 自参照DTW音准评估（仅对有效人声）
+                if result._voice_quality and result._voice_quality.get('is_valid', True):
+                    dtw_result = self._run_self_referenced_dtw(filepath)
+                    if dtw_result:
+                        result._pitch_stability_dl = {
+                            'overall_stability': dtw_result.overall_stability,
+                            'stable_note_ratio': dtw_result.stable_note_ratio,
+                            'avg_deviation_cents': dtw_result.avg_deviation_cents,
+                            'intentional_variations': dtw_result.intentional_variations,
+                            'unintentional_drifts': dtw_result.unintentional_drifts,
+                            'notes_count': len(dtw_result.notes),
+                            'method': dtw_result.method
+                        }
+
+                # ========== 音乐风格分析 v5.1 ==========
+                # 使用深度学习模型分析音乐风格
+                style_analysis = self._run_music_style_analysis(filepath)
+                if style_analysis:
+                    music_style, style_profile, style_features = style_analysis
+                    result._music_style = music_style.value
+                    result._style_confidence = style_features.get('genre_confidence', 0)
+                    result._music_mood = style_features.get('mood', 'unknown')
+                    # 存储style_profile供评分服务使用
+                    result._style_profile = style_profile
 
             return result
 
