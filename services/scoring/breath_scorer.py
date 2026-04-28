@@ -79,41 +79,41 @@ class BreathScorer:
 
         # 生成诊断信息
         if breath_stability.is_artistic_fluctuation:
-            diagnosis.issues.append("检测到艺术化的强弱起伏处理")
+            diagnosis.positives.append("检测到艺术化的强弱起伏处理")
 
         # 长音评估
         if breath_stability.long_note_count > 0:
             if breath_stability.long_note_support_score > 80:
-                diagnosis.issues.append(f"长音气息支撑优秀({breath_stability.long_note_count}处)")
+                diagnosis.positives.append(f"长音气息支撑优秀({breath_stability.long_note_count}处)")
                 diagnosis.long_note_bonus = 5
             elif breath_stability.long_note_support_score > 60:
-                diagnosis.issues.append(f"长音气息支撑良好({breath_stability.long_note_count}处)")
+                diagnosis.positives.append(f"长音气息支撑良好({breath_stability.long_note_count}处)")
         # 没有长音不扣分，只是没有加分
 
         # 弱唱评估
         if breath_stability.soft_segment_count > 0:
             if breath_stability.soft_singing_quality > 70:
-                diagnosis.issues.append("弱唱气息控制优秀")
+                diagnosis.positives.append("弱唱气息控制优秀")
                 diagnosis.soft_singing_bonus = 5
             elif breath_stability.soft_singing_quality > 50:
-                diagnosis.issues.append("弱唱气息控制良好")
+                diagnosis.positives.append("弱唱气息控制良好")
 
         # 气口设计评估
         if breath_stability.clean_breath_count > 0:
-            diagnosis.issues.append(f"无痕换气{breath_stability.clean_breath_count}处")
+            diagnosis.positives.append(f"无痕换气{breath_stability.clean_breath_count}处")
 
         # 气声技巧评估
         if breath_stability.controlled_breathiness > 50:
-            diagnosis.issues.append("气声技巧运用得当")
+            diagnosis.positives.append("气声技巧运用得当")
         elif breath_stability.uncontrolled_leak > 30:
             diagnosis.issues.append("存在无效漏气")
             diagnosis.suggestions.append("建议加强声带闭合训练，减少漏气")
 
         # 动态范围评估
         if breath_stability.dynamic_range > 30:
-            diagnosis.issues.append(f"动态范围宽广({breath_stability.dynamic_range:.0f}dB)")
+            diagnosis.positives.append(f"动态范围宽广({breath_stability.dynamic_range:.0f}dB)")
 
-        # 严重问题（仅严重问题才扣分）
+        # 严重问题（仅严重问题才放到issues）
         if breath_stability.breath_breaks > 3:
             score -= min(15, (breath_stability.breath_breaks - 3) * 3)
             diagnosis.issues.append(f"存在{breath_stability.breath_breaks}处气息断层")

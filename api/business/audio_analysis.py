@@ -35,6 +35,16 @@ except Exception as e:
     logger.warning(f"DL assessor init failed: {e}")
     dl_assessor = None
 
+# v5.3 增强的DL评估器（带评分校准）
+try:
+    from services.dl_services.enhanced_dl_assessor import get_enhanced_assessor, ScoreCalibrator
+    enhanced_assessor = get_enhanced_assessor()
+    score_calibrator = ScoreCalibrator()
+except Exception as e:
+    logger.warning(f"Enhanced assessor init failed: {e}")
+    enhanced_assessor = None
+    score_calibrator = None
+
 
 def analyze_and_score(filepath: str, mode: str = 'quick') -> dict:
     """
@@ -251,12 +261,12 @@ def _create_quick_mode_config():
 
 def _apply_quick_mode_smoothing(score_result):
     """
-    快速模式分数平滑处理
+    快速模式分数平滑处理 v5.3
 
-    确保评分公正合理：
-    - 分数范围限制在 60-90 分
-    - 避免极端高分或低分
-    - 保持相对公平性
+    使用评分校准器确保评分公正合理：
+    - 基于测试数据的校准参数
+    - 分数映射到合理范围
+    - 保持快速/专业模式一致性
 
     Args:
         score_result: 评分结果对象
@@ -264,45 +274,64 @@ def _apply_quick_mode_smoothing(score_result):
     Returns:
         处理后的评分结果
     """
-    import math
+    # 使用校准器进行精确校准
+    if score_calibrator:
+        # 校准各维度分数
+        score_result.pitch_score = score_calibrator.calibrate_score(
+            score_result.pitch_score, 'pitch', 'quick'
+        )
+        score_result.rhythm_score = score_calibrator.calibrate_score(
+            score_result.rhythm_score, 'rhythm', 'quick'
+        )
+        score_result.breath_score = score_calibrator.calibrate_score(
+            score_result.breath_score, 'breath', 'quick'
+        )
+        score_result.technique_score = score_calibrator.calibrate_score(
+            score_result.technique_score, 'technique', 'quick'
+        )
+        score_result.artistry_score = score_calibrator.calibrate_score(
+            score_result.artistry_score, 'artistry', 'quick'
+        )
 
-    # 分数范围
-    MIN_SCORE = 60.0
-    MAX_SCORE = 90.0
+        # 校准总分
+        weights = {'pitch': 0.28, 'rhythm': 0.20, 'breath': 0.20,
+                   'technique': 0.18, 'artistry': 0.14}
+        scores = {
+            'pitch': score_result.pitch_score,
+            'rhythm': score_result.rhythm_score,
+            'breath': score_result.breath_score,
+            'technique': score_result.technique_score,
+            'artistry': score_result.artistry_score
+        }
+        score_result.total_score = score_calibrator.calibrate_total(scores, weights, 'quick')
+    else:
+        # 后备方案：简单的平滑函数
+        MIN_SCORE = 60.0
+        MAX_SCORE = 90.0
 
-    # 平滑函数：将极端分数映射到合理范围
-    def smooth_score(score):
-        if score <= MIN_SCORE:
-            # 低分映射：使用 sigmoid-like 函数
-            # 0分 -> 60分，30分 -> 65分，50分 -> 70分
-            return MIN_SCORE + (score / 100) * 10
-        elif score >= MAX_SCORE:
-            # 高分映射：使用压缩函数
-            # 100分 -> 90分，95分 -> 88分
-            excess = score - MAX_SCORE
-            return MAX_SCORE - excess * 0.2
-        else:
-            # 合理范围内保持不变
-            return score
+        def smooth_score(score):
+            if score <= MIN_SCORE:
+                return MIN_SCORE + (score / 100) * 10
+            elif score >= MAX_SCORE:
+                excess = score - MAX_SCORE
+                return MAX_SCORE - excess * 0.2
+            else:
+                return score
 
-    # 平滑各维度分数
-    score_result.pitch_score = smooth_score(score_result.pitch_score)
-    score_result.rhythm_score = smooth_score(score_result.rhythm_score)
-    score_result.breath_score = smooth_score(score_result.breath_score)
-    score_result.technique_score = smooth_score(score_result.technique_score)
-    score_result.artistry_score = smooth_score(score_result.artistry_score)
+        score_result.pitch_score = smooth_score(score_result.pitch_score)
+        score_result.rhythm_score = smooth_score(score_result.rhythm_score)
+        score_result.breath_score = smooth_score(score_result.breath_score)
+        score_result.technique_score = smooth_score(score_result.technique_score)
+        score_result.artistry_score = smooth_score(score_result.artistry_score)
 
-    # 重新计算总分（加权平均）
-    total = (
-        score_result.pitch_score * 0.28 +
-        score_result.rhythm_score * 0.20 +
-        score_result.breath_score * 0.20 +
-        score_result.technique_score * 0.18 +
-        score_result.artistry_score * 0.14
-    )
-
-    # 总分也平滑
-    score_result.total_score = round(smooth_score(total), 1)
+        total = (
+            score_result.pitch_score * 0.28 +
+            score_result.rhythm_score * 0.20 +
+            score_result.breath_score * 0.20 +
+            score_result.technique_score * 0.18 +
+            score_result.artistry_score * 0.14
+        )
+        score_result.total_score = round(smooth_score(total), 1)
 
     # 更新等级
     if score_result.total_score >= 85:
@@ -380,7 +409,7 @@ def _build_success_result(
         pitch_diagnosis=_build_diagnosis_dict(score_result.pitch_diagnosis, 'mae_cents'),
         rhythm_diagnosis=_build_diagnosis_dict(score_result.rhythm_diagnosis, 'deviation_ratio'),
         breath_diagnosis=_build_breath_diagnosis(score_result.breath_diagnosis),
-        technique_diagnosis=_build_diagnosis_dict(score_result.technique_diagnosis, 'hnr', 'cpp'),
+        technique_diagnosis=_build_technique_diagnosis(score_result.technique_diagnosis),
         artistry_diagnosis=_build_diagnosis_dict(score_result.artistry_diagnosis),
         critical_issues=score_result.critical_issues,
         is_disqualified=score_result.is_disqualified,
@@ -428,12 +457,27 @@ def _build_breath_diagnosis(diagnosis) -> dict:
         'level': diagnosis.level,
         'issues': diagnosis.issues,
         'suggestions': diagnosis.suggestions,
+        'positives': diagnosis.positives,  # 正面发现
         'long_note_support': float(diagnosis.long_note_support),
         'dynamic_control': float(diagnosis.dynamic_control),
         'breath_design': float(diagnosis.breath_design),
         'breath_technique': float(diagnosis.breath_technique),
         'is_artistic': diagnosis.is_artistic,
         'has_controlled_breathiness': diagnosis.has_controlled_breathiness
+    }
+
+
+def _build_technique_diagnosis(diagnosis) -> dict:
+    """构建技巧诊断"""
+    return {
+        'score': float(diagnosis.score),
+        'level': diagnosis.level,
+        'issues': diagnosis.issues,
+        'suggestions': diagnosis.suggestions,
+        'hnr': float(diagnosis.hnr),
+        'cpp': float(diagnosis.cpp),
+        'vibrato_quality': float(diagnosis.vibrato_quality),
+        'is_mixed_audio': diagnosis.is_mixed_audio  # 是否混合音频
     }
 
 

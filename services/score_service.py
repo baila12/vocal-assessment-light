@@ -253,7 +253,9 @@ class ScoreServiceV4:
 
         # 4. 发声技术评分
         technique_score, technique_diagnosis = self._technique_scorer.calculate(
-            features.hnr, features.cpp, features.vocal_technique
+            features.hnr, features.cpp, features.vocal_technique,
+            is_mixed_audio=features.is_mixed_audio,
+            mixed_audio_confidence=features.mixed_audio_confidence
         )
         if style_scorer:
             technique_score = style_scorer.adjust_technique_score(

@@ -91,6 +91,8 @@ class AudioFeaturesResult:
     vocal_technique: VocalTechniqueResult = field(default_factory=VocalTechniqueResult)
     hnr: float = 0.0
     cpp: float = 0.0
+    is_mixed_audio: bool = False
+    mixed_audio_confidence: float = 0.0
     error_message: Optional[str] = None
 
 
@@ -99,7 +101,7 @@ from .pitch import PitchAnalyzer
 from .rhythm import RhythmAnalyzer
 from .breath import BreathAnalyzer
 from .technique import TechniqueAnalyzer
-from .acoustic import AcousticAnalyzer
+from .acoustic import AcousticAnalyzer, AcousticResult
 
 __all__ = [
     # DTOs
@@ -108,6 +110,7 @@ __all__ = [
     'BreathStabilityResult',
     'VocalTechniqueResult',
     'AudioFeaturesResult',
+    'AcousticResult',
     # Analyzers
     'PitchAnalyzer',
     'RhythmAnalyzer',

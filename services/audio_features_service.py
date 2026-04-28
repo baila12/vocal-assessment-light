@@ -97,6 +97,11 @@ class AudioFeaturesService:
             result.hnr = hnr
             result.cpp = self.acoustic_analyzer.calculate_cpp(audio_data)
 
+            # 混合音频检测
+            is_mixed, confidence, low_ratio, flatness = self.acoustic_analyzer.detect_mixed_audio(audio_data)
+            result.is_mixed_audio = is_mixed
+            result.mixed_audio_confidence = confidence
+
             return result
         except Exception as e:
             logger.exception("特征提取失败")

@@ -2,6 +2,7 @@
 发声技术评分器
 
 负责发声技术维度的评分计算和诊断生成
+v5.6 - 支持混合音频检测，调整HNR评估策略
 """
 from typing import Tuple
 import logging
@@ -38,7 +39,9 @@ class TechniqueScorer:
         self,
         hnr: float,
         cpp: float,
-        technique: VocalTechniqueResult
+        technique: VocalTechniqueResult,
+        is_mixed_audio: bool = False,
+        mixed_audio_confidence: float = 0.0
     ) -> Tuple[float, TechniqueDiagnosis]:
         """
         计算发声技术评分
@@ -47,14 +50,16 @@ class TechniqueScorer:
             hnr: 谐波噪声比
             cpp: 声门闭合周期峰值
             technique: 发声技巧分析结果
+            is_mixed_audio: 是否为混合音频（带伴奏）
+            mixed_audio_confidence: 混合音频检测置信度
 
         Returns:
             (分数, 诊断信息)
         """
         diagnosis = TechniqueDiagnosis()
 
-        # HNR 评分 - 根据唱法调整标准
-        hnr_score = self._calculate_hnr_score(hnr, technique.technique_score)
+        # HNR 评分 - 根据唱法和混合音频状态调整标准
+        hnr_score = self._calculate_hnr_score(hnr, technique.technique_score, is_mixed_audio)
 
         # CPP 评分 - 根据唱法调整标准
         cpp_score = self._calculate_cpp_score(cpp, technique.technique_score)
@@ -70,7 +75,7 @@ class TechniqueScorer:
         )
 
         # 诊断
-        self._generate_diagnosis(diagnosis, hnr, technique)
+        self._generate_diagnosis(diagnosis, hnr, technique, is_mixed_audio)
 
         score = max(0, min(100, score))
 
@@ -78,6 +83,7 @@ class TechniqueScorer:
         diagnosis.hnr = hnr
         diagnosis.cpp = cpp
         diagnosis.vibrato_quality = technique.vibrato_quality
+        diagnosis.is_mixed_audio = is_mixed_audio
 
         if score >= 80:
             diagnosis.level = "专业级"
@@ -90,47 +96,59 @@ class TechniqueScorer:
 
         return score, diagnosis
 
-    def _calculate_hnr_score(self, hnr: float, technique_score: float) -> float:
+    def _calculate_hnr_score(self, hnr: float, technique_score: float, is_mixed_audio: bool = False) -> float:
         """
         计算 HNR 分数
 
         注意：轻柔唱法/气声唱法的HNR天然较低（6-12dB是正常的）
+        混合音频（带伴奏）的HNR会更低，因为伴奏会被误判为噪声
+
         参考：
         - 美声: 18-25dB (完全闭合)
         - 流行实声: 12-18dB
         - 流行轻柔/气声: 6-12dB (这是艺术选择，不是技术问题)
+        - 混合音频: HNR通常偏低 30-50%，需要调整标准
         """
+        # 混合音频修正系数：混合音频的HNR通常偏低
+        if is_mixed_audio:
+            # 对于混合音频，使用更宽松的标准
+            # 伴奏会增加"噪声"能量，导致HNR降低
+            hnr_adjusted = hnr * 1.5  # 修正混合音频的HNR偏低问题
+            logger.info(f"混合音频检测: 原始HNR={hnr:.1f}, 调整后HNR={hnr_adjusted:.1f}")
+        else:
+            hnr_adjusted = hnr
+
         if self.singing_style == 'classical':
             # 美声：HNR > 20dB 满分
-            return min(100, hnr / 20 * 100)
+            return min(100, hnr_adjusted / 20 * 100)
         elif self.singing_style == 'folk':
             # 民族：HNR 15-20dB 满分
-            if hnr >= 18:
+            if hnr_adjusted >= 18:
                 return 100
-            elif hnr >= 12:
-                return 70 + (hnr - 12) * 5
+            elif hnr_adjusted >= 12:
+                return 70 + (hnr_adjusted - 12) * 5
             else:
-                return max(40, hnr / 12 * 70)
+                return max(40, hnr_adjusted / 12 * 70)
         else:
             # 流行：需要区分唱法类型
             if technique_score >= 70:
                 # 高技巧得分，HNR低可能是艺术选择（气声唱法）
-                if hnr >= 12:
+                if hnr_adjusted >= 12:
                     return 100
-                elif hnr >= 8:
-                    return 75 + (hnr - 8) * 6.25
-                elif hnr >= 5:
-                    return 60 + (hnr - 5) * 5
+                elif hnr_adjusted >= 8:
+                    return 75 + (hnr_adjusted - 8) * 6.25
+                elif hnr_adjusted >= 5:
+                    return 60 + (hnr_adjusted - 5) * 5
                 else:
-                    return max(40, hnr / 5 * 60)
+                    return max(40, hnr_adjusted / 5 * 60)
             else:
                 # 低技巧分，可能是真正的技术问题
-                if hnr >= 15:
+                if hnr_adjusted >= 15:
                     return 100
-                elif hnr >= 10:
-                    return 80 + (hnr - 10) * 4
+                elif hnr_adjusted >= 10:
+                    return 80 + (hnr_adjusted - 10) * 4
                 else:
-                    return max(30, hnr / 10 * 80)
+                    return max(30, hnr_adjusted / 10 * 80)
 
     def _calculate_cpp_score(self, cpp: float, technique_score: float) -> float:
         """
@@ -170,9 +188,14 @@ class TechniqueScorer:
         self,
         diagnosis: TechniqueDiagnosis,
         hnr: float,
-        technique: VocalTechniqueResult
+        technique: VocalTechniqueResult,
+        is_mixed_audio: bool = False
     ) -> None:
         """生成诊断信息"""
+        # 混合音频提示
+        if is_mixed_audio:
+            diagnosis.issues.append("检测到混合音频（带伴奏），HNR评估已调整")
+
         if hnr < 5:
             diagnosis.issues.append("HNR过低，声带闭合不足")
             diagnosis.suggestions.append("建议进行声带闭合训练，减少漏气")

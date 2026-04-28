@@ -35,6 +35,7 @@ class BreathDiagnosis:
     level: str = ""
     issues: List[str] = field(default_factory=list)
     suggestions: List[str] = field(default_factory=list)
+    positives: List[str] = field(default_factory=list)  # v5.6: 正面发现
 
     # v4.1 新增：细分维度得分
     long_note_support: float = 0.0
@@ -59,6 +60,7 @@ class TechniqueDiagnosis:
     level: str = ""
     issues: List[str] = field(default_factory=list)
     suggestions: List[str] = field(default_factory=list)
+    is_mixed_audio: bool = False
 
 
 @dataclass

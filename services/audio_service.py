@@ -120,8 +120,9 @@ class AudioService:
         self._hop_length = self.config.AUDIO_HOP_LENGTH
         self._frame_length = self.config.AUDIO_FRAME_LENGTH
         # 高级特征提取服务 v4.0
+        # 注意：音频会被降采样到16kHz，所以特征提取服务也使用16kHz
         self._features_service = AudioFeaturesService(
-            sample_rate=self.config.AUDIO_SAMPLE_RATE,
+            sample_rate=16000,  # 与TARGET_SR一致
             hop_length=self._hop_length
         )
         # 深度学习服务 v5.0（延迟初始化）

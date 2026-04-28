@@ -1,5 +1,5 @@
 """
-深度学习质量评估服务 v2.0
+深度学习质量评估服务 v2.1
 使用预训练模型进行歌声质量评估
 
 模型：
@@ -10,19 +10,63 @@ v2.0 改进：
 - 集成 MOSModelManager 支持模型热切换和降级
 - 健康检查机制
 - 失败重试和优雅降级
+
+v2.1 修复：
+- 兼容 torchaudio 2.x (移除已废弃的 set_audio_backend API)
 """
+
+import os
+import sys
+
+# 设置HF镜像 (必须在导入 transformers 之前)
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+
+# ============================================
+# 兼容性补丁: torchaudio 2.x 移除了 set_audio_backend 和 sox_effects
+# 必须在任何使用 s3prl 的代码之前执行
+# ============================================
+def _apply_torchaudio_compat_patch():
+    """应用 torchaudio 兼容性补丁"""
+    import types
+
+    # 创建 sox_effects 兼容模块
+    sox_effects_module = types.ModuleType('torchaudio.sox_effects')
+
+    def apply_effects_tensor(wav, sample_rate, effects, channels_first=True):
+        """兼容函数：直接返回原始音频，不应用效果"""
+        return wav, sample_rate
+
+    def apply_effects_file(file_path, effects, normalize=True, channels_first=True, format=None):
+        """兼容函数：使用 soundfile 加载音频"""
+        import soundfile as sf
+        wav, sr = sf.read(file_path, dtype='float32')
+        if len(wav.shape) == 1:
+            wav = wav.reshape(1, -1)
+        return wav, sr
+
+    sox_effects_module.apply_effects_tensor = apply_effects_tensor
+    sox_effects_module.apply_effects_file = apply_effects_file
+
+    # 注册到 sys.modules
+    sys.modules['torchaudio.sox_effects'] = sox_effects_module
+
+    # 添加到 torchaudio 模块
+    import torchaudio
+    torchaudio.sox_effects = sox_effects_module
+
+    # 添加 set_audio_backend
+    if not hasattr(torchaudio, 'set_audio_backend'):
+        torchaudio.set_audio_backend = lambda backend: None
+
+_apply_torchaudio_compat_patch()
 
 import numpy as np
 import librosa
 import logging
-import os
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
-
-# 设置HF镜像
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 
 @dataclass
@@ -102,9 +146,9 @@ class SingMOSPredictor:
             if orig_sr != sr:
                 wave = librosa.resample(wave, orig_sr=orig_sr, target_sr=sr)
 
-            # 转换为tensor
-            wave_tensor = torch.from_numpy(wave).unsqueeze(0).float()
-            length = torch.tensor([wave.shape[0]])
+            # 转换为tensor - 需要 [B, T] 格式 (根据 SingMOS README)
+            wave_tensor = torch.from_numpy(wave).unsqueeze(0).float()  # [1, T]
+            length = torch.tensor([wave_tensor.shape[1]], dtype=torch.long)  # [1]
 
             # 预测MOS
             with torch.no_grad():
@@ -113,16 +157,29 @@ class SingMOSPredictor:
             mos_score = float(mos[0].item())
 
             # 归一化到0-100
-            # MOS 1-5 映射到 0-100
-            mos_normalized = (mos_score - 1.0) / 4.0 * 100
+            # SingMOS 实际输出范围约为 1.0-2.5 (而非理论上的 1-5)
+            # 根据测试：高质量歌声约 1.6-1.7，噪声约 1.1，需要校准
+            # 使用映射: raw_mos 1.1-1.8 -> standard_mos 2.0-4.5
+            # 这样 1.65 的原始分数映射到约 3.8 的标准分数 (良好)
+            if mos_score < 1.1:
+                mos_score = 1.1
+            elif mos_score > 1.8:
+                # 高于 1.8 的情况，映射到优秀/专业级
+                standard_mos = 4.5 + (mos_score - 1.8) * 1.0  # 1.8->4.5, 2.0->4.7
+            else:
+                # 线性映射: 1.1-1.8 -> 2.0-4.5
+                standard_mos = 2.0 + (mos_score - 1.1) * (2.5 / 0.7)
+
+            # 标准MOS 1-5 映射到 0-100
+            mos_normalized = (standard_mos - 1.0) / 4.0 * 100
 
             return DLQualityResult(
-                mos_score=mos_score,
+                mos_score=standard_mos,  # 返回校准后的标准MOS
                 mos_normalized=max(0, min(100, mos_normalized)),
                 naturalness=mos_normalized * 0.9,  # 自然度与MOS相关
                 clarity=mos_normalized * 0.85,
                 timbre_quality=mos_normalized * 0.8,
-                confidence=min(1.0, mos_score / 3.0),  # MOS>3时置信度高
+                confidence=min(1.0, standard_mos / 3.5),  # MOS>3.5时置信度高
                 method='singmos'
             )
 
@@ -146,10 +203,25 @@ class Wav2Vec2MOSPredictor:
     def _load_model(self):
         """加载Wav2Vec2-MOS模型"""
         try:
+            import torch
+
+            # Patch torch.load to support CPU loading and weights_only parameter
+            original_load = torch.load
+            def patched_load(*args, **kwargs):
+                # 强制使用 CPU (解决 CUDA 模型在 CPU 环境加载的问题)
+                if 'map_location' not in kwargs:
+                    kwargs['map_location'] = torch.device('cpu')
+                if 'weights_only' not in kwargs:
+                    kwargs['weights_only'] = False
+                return original_load(*args, **kwargs)
+            torch.load = patched_load
+
             from wvmos import get_wvmos
 
-            logger.info("[Wav2Vec2-MOS] Loading model...")
-            self._model = get_wvmos(cuda=False)  # CPU模式
+            # 始终使用 CPU 加载 (CUDA 模型会自动映射到 CPU)
+            logger.info("[Wav2Vec2-MOS] Loading model (forcing CPU mode for compatibility)...")
+
+            self._model = get_wvmos(cuda=False)  # 强制使用 CPU
             self._model_available = True
             logger.info("[Wav2Vec2-MOS] Model loaded successfully")
 

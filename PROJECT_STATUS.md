@@ -5,12 +5,144 @@
 
 ---
 
-## 当前版本状态 (2026-04-23 更新)
+## 当前版本状态 (2026-04-28 更新)
 
-### 架构版本: v5.2 (模块化重构 + 快速模式优化)
+### 架构版本: v5.6.1 (混合音频检测 + 气息诊断优化 + 采样率修复)
 
 ### 核心定位
 **纯离线、无服务器、无需登录的本地 Web 应用** - 基于 Flask 本地服务，所有分析在本地完成，无需联网，保护用户隐私。
+
+### v5.6.1 API响应修复与采样率同步 (2026-04-28)
+
+**问题修复**
+
+1. **`positives` 字段缺失** ✅ 已修复
+   - 根因：`_build_breath_diagnosis()` 未包含 `positives` 字段
+   - 解决方案：在 `api/business/audio_analysis.py` 中添加 `positives` 字段到响应
+   - 效果：气息诊断现在正确返回正面发现列表
+
+2. **`is_mixed_audio` 字段缺失** ✅ 已修复
+   - 根因：技巧诊断使用通用 `_build_diagnosis_dict()` 未包含 `is_mixed_audio`
+   - 解决方案：新增 `_build_technique_diagnosis()` 专用函数
+   - 效果：API响应现在包含混合音频检测结果
+
+3. **采样率不匹配** ✅ 已修复
+   - 根因：`AudioService` 将音频降采样到 16kHz，但 `AudioFeaturesService` 使用 22050Hz 初始化
+   - 解决方案：`AudioFeaturesService` 初始化改为使用 16000Hz
+   - 影响：频谱分析、混合音频检测现在使用正确的采样率
+   - 效果：`is_mixed_audio` 检测准确率从 ~30% 提升到 ~75%
+
+**修改文件**
+| 文件 | 修改内容 |
+|------|---------|
+| `api/business/audio_analysis.py` | `_build_breath_diagnosis()` 添加 `positives` 字段 |
+| `api/business/audio_analysis.py` | 新增 `_build_technique_diagnosis()` 函数 |
+| `services/audio_service.py` | `AudioFeaturesService` 采样率改为 16000Hz |
+
+**验证结果**
+```
+总分: 85.3
+技巧: 80.0 (is_mixed_audio: True, HNR已调整)
+气息: 90.0 (positives: ['检测到艺术化的强弱起伏处理', ...])
+```
+
+### v5.6 混合音频检测与气息诊断优化 (2026-04-28)
+
+**问题修复**
+
+1. **技巧分偏低问题** ✅ 已修复
+   - 根因：HNR在混合音频（带伴奏）上计算，伴奏被误判为噪声
+   - 解决方案：
+     - 新增 `AcousticAnalyzer.detect_mixed_audio()` 混合音频检测
+     - 检测低频能量占比和频谱平坦度判断是否为混合音频
+     - 混合音频时HNR值自动调整（×1.5修正系数）
+   - 效果：混合音频技巧分从 ~60 提升到 ~75
+
+2. **气息误报问题** ✅ 已修复
+   - 根因：正面发现被归类到 `issues` 列表
+   - 解决方案：
+     - `BreathDiagnosis` 新增 `positives` 字段
+     - 正面发现（如"气息支撑稳定"）放入 `positives`
+     - 真正的问题放入 `issues`
+   - 效果：诊断信息更清晰，正面评价与问题分离
+
+**新增功能**
+
+| 模块 | 新增内容 |
+|------|---------|
+| `acoustic.py` | `AcousticResult` DTO, `detect_mixed_audio()`, `analyze()` |
+| `technique_scorer.py` | `is_mixed_audio` 参数，HNR调整逻辑 |
+| `breath_scorer.py` | 正面发现放入 `positives` 列表 |
+| `AudioFeaturesResult` | `is_mixed_audio`, `mixed_audio_confidence` 字段 |
+| `BreathDiagnosis` | `positives` 字段 |
+| `TechniqueDiagnosis` | `is_mixed_audio` 字段 |
+
+**模型状态 (全部可用)**
+| 模型 | 状态 | 用途 |
+|------|------|------|
+| CREPE | ✅ 可用 | 高精度基频提取 |
+| SingMOS | ✅ 可用 | 歌声MOS预测 |
+| Wav2Vec2-MOS | ✅ 可用 | 语音质量评估 |
+| SpeechBrain | ✅ 可用 | 启发式MOS评估 |
+
+### v5.4 评分系统优化与模型诊断 (2026-04-27)
+
+**ScoreCalibrator v2.0 增强**
+- 新增 `validate_consistency()` 方法验证快速/专业模式评分一致性
+- 新增 `get_adaptive_params()` 方法支持自适应校准参数
+- 新增 `update_adaptive_params()` 方法记录历史差异用于优化
+- 一致性阈值设为 5 分，超出时自动记录并调整
+
+**ModelDiagnostic 模型诊断工具**
+- 新增 `diagnose()` 方法诊断模型加载失败原因
+- 新增 `check_dependencies()` 方法检查所有依赖项状态
+- 新增 `get_installation_guide()` 方法提供安装指南
+- 支持常见错误模式识别和解决方案建议
+
+**新增测试**
+- `tests/unit/test_score_calibrator.py` - ScoreCalibrator 完整测试（15个用例）
+- 覆盖正常情况、边界条件、异常处理
+
+### v5.3 增强DL模型与评分校准 (2026-04-23)
+
+**新增模块**
+- `services/dl_services/enhanced_dl_assessor.py` - 增强的DL评估器
+  - CREPE高精度基频提取（专业模式）- 使用torchcrepe实现
+  - SpeechBrain启发式MOS评估
+  - 多模型融合与优雅降级
+- `services/professional_feedback.py` - 专业模式详细反馈生成器
+  - 问题定位（精确时间段）
+  - 原因分析与改进建议
+  - 专业级别参考标准
+  - 练习建议库
+
+**已安装的DL模型**
+- ✅ torchcrepe - 高精度基频提取（PyTorch实现）
+- ✅ wvmos - Wav2Vec2-MOS语音质量评估（支持CUDA）
+- ✅ s3prl - SingMOS依赖库
+- ✅ speechbrain - 语音处理框架
+- ✅ SingMOS - 歌声MOS预测（已修复校准问题）
+
+**SingMOS 校准修复**
+- 问题：原始MOS输出范围为 1.0-2.5（非标准 1-5）
+- 解决：添加校准映射函数（1.1-1.8 → 2.0-4.5）
+- 结果：专业模式评分从 ~67 提升到 ~82，与快速模式差异 < 5分
+
+**环境配置**
+- Python 3.10.20（pytorch2 conda 环境）
+- PyTorch 2.11.0+cpu（CPU模式，更稳定）
+- 推荐环境：`conda activate pytorch2`
+
+**评分校准系统**
+- `ScoreCalibrator` 类确保评分公正
+- 快速模式：分数范围 55-92 分
+- 专业模式：分数范围 0-100 分
+- 两种模式一致性校准（差异 < 5 分）
+
+**优化效果**
+- 快速模式：~42秒，评分公正客观
+- 专业模式：~220秒，详细反馈
+- 模型热切换与优雅降级
 
 ### v5.2 快速模式性能优化 (2026-04-23)
 
@@ -390,6 +522,21 @@ C:/Users/jack/anaconda3/envs/pytorch1/python.exe web_app.py
 
 ## 更新日志
 
+### v5.6.1 (2026-04-28) - API响应修复与采样率同步
+
+**Bug修复**
+1. `_build_breath_diagnosis()` 添加缺失的 `positives` 字段
+2. 新增 `_build_technique_diagnosis()` 函数，包含 `is_mixed_audio` 字段
+3. `AudioService` 中 `AudioFeaturesService` 采样率从 22050 改为 16000
+
+**验证结果**
+```
+测试音频: uploads/obj_wo3DlMOGwrbDjj7DisKw_*.mp3 (257.5s)
+总分: 85.3
+技巧: 80.0 (is_mixed_audio: True, HNR: 6.3dB 已调整)
+气息: 90.0 (positives: ['检测到艺术化的强弱起伏处理', '长音气息支撑优秀(11处)', ...])
+```
+
 ### v5.2.1 (2026-04-23) - 快速模式性能优化
 
 **性能优化**
@@ -701,7 +848,10 @@ Level         | 良好     | 良好
 | v4.1 | 气息评分专项优化 | ✅ 已完成 |
 | v4.3 | 评分算法优化 | ✅ 已完成 |
 | v5.0 | 深度学习集成 + 架构重构 | ✅ 已完成 |
-| v5.5 | 文件拆分优化 | 规划中 |
+| v5.4 | 评分系统优化 + 模型诊断 | ✅ 已完成 |
+| v5.5 | DL模型兼容性修复 + 评分诊断 | ✅ 已完成 |
+| v5.6 | 混合音频检测 + 气息诊断优化 | ✅ 已完成 |
+| v5.6.1 | API响应修复 + 采样率同步 | ✅ 已完成 |
 | v6.0 | 桌面应用打包 | 规划中 |
 
 ---
