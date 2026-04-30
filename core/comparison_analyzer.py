@@ -100,7 +100,10 @@ class ComparisonAnalyzer:
 
         diff_points = []
         for i in diff_time_indices[:10]:  # 最多返回10个差异点
-            idx = np.where(time_indices == i)[0][0]
+            matches = np.where(time_indices == i)[0]
+            if len(matches) == 0:
+                continue
+            idx = matches[0]
             time_sec = i * hop_length / self.standard_sr
             diff_points.append({
                 'time': float(time_sec),

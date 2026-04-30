@@ -13,10 +13,27 @@
 - **音色分析** - 明亮度、厚度、鼻音、气声分析
 - **逐句评分** - 按乐句分段评分（专业模式）
 - **人声分离** - Demucs 模型分离伴奏与人声
-- **对比分析** - 与标准音频对比评分
+- **对比分析** - 独立页面，支持上传模式和实时录音模式
+- **实时音高检测** - YIN 算法前端实时音高检测
 - **录音功能** - 实时录音并分析
 - **成长曲线** - 历史评分趋势图
 - **导出报告** - PDF/图片格式报告
+
+### 对比分析功能
+
+独立对比分析页面 (`/compare.html`)，提供两种评估模式：
+
+| 模式 | 说明 | 特点 |
+|------|------|------|
+| **上传模式** | 导入标准音频 + 用户音频 | 基于标准音频的相对评分 |
+| **实时录音模式** | 类似全民K歌 | 实时音准偏差显示、调整建议 |
+
+#### 实时录音模式特性
+- 播放标准音频同时录音
+- 实时显示音分偏差（+/- 音分）
+- 实时调整建议（略高/偏低等）
+- 实时评分更新
+- 音高曲线对比图（标准 vs 用户）
 
 ### 评估模式对比
 
@@ -38,33 +55,53 @@
 - **安全加固** - 路径遍历防护、XSS防护
 - **大文件支持** - 10MB+ 音频文件处理
 - **中文支持** - 完整的中文文件名支持
+- **前端音高检测** - YIN 算法实时检测，无需后端
 
 ## 快速开始
 
 ### 环境要求
 - Python 3.8+
-- conda 环境: pytorch1
+- conda 环境: pytorch2
 
 ### 启动服务
 ```bash
 cd "C:\Users\jack\Desktop\临时文件\声乐\vocal_assessment_light"
-C:/Users/jack/anaconda3/envs/pytorch1/python.exe web_app.py
+C:/Users/jack/anaconda3/envs/pytorch2/python.exe web_app.py
 ```
 
 ### 访问地址
 - 本地: http://localhost:5000
 - 局域网: http://<your-ip>:5000
+- 对比分析: http://localhost:5000/compare.html
 
 ## 项目结构
 
 ```
 vocal_assessment_light/
 ├── api/                  # API 层 (Flask 蓝图)
+│   ├── routes/           # 路由定义
+│   └── business/         # 业务逻辑
+│       └── audio_comparison.py  # 对比分析 + 相对评分
 ├── services/             # 服务层 (业务逻辑)
+│   └── dl_services/      # 深度学习服务
+│       └── model_manager/  # 模型管理模块
 ├── repositories/         # 数据层 (仓储模式)
 ├── config/               # 配置管理
 ├── core/                 # 核心算法
+│   └── workers/          # 后台任务模块
+│       ├── signals.py    # Qt 信号定义
+│       ├── cache.py      # 音频缓存
+│       ├── audio_loader.py   # 音频加载任务
+│       ├── assessment_task.py # 评估任务
+│       ├── emotion_analyzer.py # 情绪分析
+│       └── manager.py    # 线程管理器
 ├── web/static/           # 前端资源
+│   ├── compare.html      # 对比分析页面
+│   └── js/
+│       ├── compare.js    # 对比页面主逻辑
+│       └── modules/
+│           ├── pitch-detector.js      # YIN 音高检测
+│           └── realtime-compare.js    # 实时录音对比
 ├── tests/                # 测试代码
 ├── web_app.py            # 应用入口
 └── PROJECT_STATUS.md     # 项目状态文档
@@ -76,6 +113,7 @@ vocal_assessment_light/
 |------|------|------|
 | `/api/upload` | POST | 上传并分析音频，支持 `mode` 参数: `quick`(快速) / `professional`(专业) |
 | `/api/analyze` | POST | 分析已存在音频 |
+| `/api/compare` | POST | 对比分析两个音频，支持 JSON 和 FormData |
 | `/api/separate` | POST | 人声分离 |
 | `/api/report` | POST | 生成报告 |
 | `/api/history` | GET | 获取历史记录 |
@@ -94,6 +132,30 @@ Content-Type: multipart/form-data
   - professional: 专业评估，完整分析
 ```
 
+### 对比分析接口
+
+```
+POST /api/compare
+Content-Type: multipart/form-data
+
+参数:
+- file: 用户音频文件 (必需)
+- standard_file: 标准音频文件 (必需)
+
+返回:
+{
+  "success": true,
+  "data": {
+    "score": 85,              // 综合评分 (0-100)
+    "level": "良好",          // 等级
+    "pitch_match_rate": 88.5, // 音准匹配率
+    "rhythm_match_rate": 82.3,// 节奏匹配率
+    "avg_cents_error": 15.2,  // 平均音分偏差
+    "diagnosis": [...]        // 诊断建议
+  }
+}
+```
+
 ## 测试
 
 ### E2E 测试
@@ -108,6 +170,10 @@ pytest tests/unit/ -v
 
 ## 版本历史
 
+- **v5.4.1** - 代码架构重构：模块化拆分 workers/model_manager，修复索引越界bug
+- **v5.4** - 对比分析页面重构：双音频并排布局、E2E测试完善
+- **v5.3.1** - Flask 3.x JSON序列化修复，NumPy类型支持
+- **v5.3** - 对比分析重构：独立页面、实时录音模式、YIN 音高检测
 - **v5.2** - 快速模式性能优化(~33秒)，评分公正性改进
 - **v5.1** - 风格自适应评分系统
 - **v5.0** - 深度学习集成 + 快速/专业评估模式
