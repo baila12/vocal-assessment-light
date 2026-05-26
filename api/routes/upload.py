@@ -52,7 +52,7 @@ def validate_filepath(filepath: str) -> Path:
         raise ForbiddenError('无效的文件路径')
 
     upload_dir = config.UPLOAD_FOLDER.resolve()
-    test_dir = (config.PROJECT_ROOT / 'test_music').resolve()
+    test_dir = (config.PROJECT_ROOT / 'tests' / 'test_data' / 'audio').resolve()
     filepath_str = str(filepath_obj)
 
     if not (filepath_str.startswith(str(upload_dir)) or filepath_str.startswith(str(test_dir))):
@@ -174,21 +174,84 @@ def generate_report():
 
 @upload_bp.route('/compare', methods=['POST'])
 def compare_audio():
-    """对比分析两个音频文件"""
-    standard_filepath = request.json.get('standard_filepath')
-    user_filepath = request.json.get('user_filepath')
+    """对比分析两个音频文件
 
-    if not standard_filepath:
-        raise ValidationError('缺少 standard_filepath 参数')
-    if not user_filepath:
-        raise ValidationError('缺少 user_filepath 参数')
+    支持两种调用方式：
+    1. JSON: {"standard_filepath": "...", "user_filepath": "..."}
+    2. FormData: file (用户音频), standard_file (标准音频)
 
-    filepath_obj_std = validate_filepath(standard_filepath)
-    filepath_obj_user = validate_filepath(user_filepath)
+    使用三级DTW对齐引擎进行精确对比分析
+    """
+    # 检查是否是文件上传方式
+    if 'file' in request.files and 'standard_file' in request.files:
+        # FormData 方式
+        user_file = request.files['file']
+        standard_file = request.files['standard_file']
+
+        if user_file.filename == '' or standard_file.filename == '':
+            raise ValidationError('没有选择文件')
+        if not config.is_allowed_extension(user_file.filename):
+            raise ValidationError('不支持的用户音频格式')
+        if not config.is_allowed_extension(standard_file.filename):
+            raise ValidationError('不支持的标准音频格式')
+
+        # 保存文件
+        user_safe_name = sanitize_filename(user_file.filename)
+        std_safe_name = sanitize_filename(standard_file.filename)
+
+        user_filepath = config.get_upload_path(user_safe_name)
+        std_filepath = config.get_upload_path(std_safe_name)
+
+        user_file.save(str(user_filepath))
+        standard_file.save(str(std_filepath))
+
+        filepath_obj_std = std_filepath
+        filepath_obj_user = user_filepath
+    else:
+        # JSON 方式
+        if request.json is None:
+            raise ValidationError('请求格式错误：需要JSON或FormData格式')
+
+        standard_filepath = request.json.get('standard_filepath')
+        user_filepath = request.json.get('user_filepath')
+
+        if not standard_filepath:
+            raise ValidationError('缺少 standard_filepath 参数')
+        if not user_filepath:
+            raise ValidationError('缺少 user_filepath 参数')
+
+        filepath_obj_std = validate_filepath(standard_filepath)
+        filepath_obj_user = validate_filepath(user_filepath)
+
+    # 获取风格参数 (兼容JSON和FormData)
+    style = 'pop'
+    # 使用 is_json 检查避免 415 错误
+    if request.is_json:
+        try:
+            json_data = request.get_json(silent=True)
+            if json_data and isinstance(json_data, dict):
+                style = json_data.get('style', 'pop')
+        except Exception:
+            pass
+    elif request.form:
+        style = request.form.get('style', 'pop')
 
     try:
+        # 使用新的DTW对比服务
+        from api.business import compare_with_dtw
+        dtw_result = compare_with_dtw(
+            str(filepath_obj_std),
+            str(filepath_obj_user),
+            style=style
+        )
+
+        if not dtw_result.get('success'):
+            return jsonify({'success': False, 'error': dtw_result.get('error', 'DTW对比分析失败')}), 500
+
+        # 同时保留旧的分析结果用于兼容
         standard_result = analyze_and_score(str(filepath_obj_std))
         user_result = analyze_and_score(str(filepath_obj_user))
+
     except Exception as e:
         logger.exception(f"Compare analysis failed: {e}")
         return jsonify({'success': False, 'error': f'分析失败: {str(e)}'}), 500
@@ -202,9 +265,21 @@ def compare_audio():
 
     return jsonify({
         'success': True,
-        'standard': standard_result,
-        'user': user_result,
-        'comparison': comparison
+        'data': {
+            'score': dtw_result['score'],
+            'level': dtw_result['level'],
+            'confidence': dtw_result['confidence'],
+            'pitch_match_rate': dtw_result['pitch_match_rate'],
+            'rhythm_match_rate': dtw_result['rhythm_match_rate'],
+            'avg_cents_error': dtw_result['avg_cents_error'],
+            'diagnosis': dtw_result['diagnosis'],
+            'suggestions': dtw_result['suggestions'],
+            'dimensions': dtw_result['dimensions'],
+            'method': dtw_result.get('method', 'three_level_dtw'),
+            'standard': standard_result,
+            'user': user_result,
+            'comparison': comparison
+        }
     })
 
 

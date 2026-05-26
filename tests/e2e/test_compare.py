@@ -1,148 +1,363 @@
 """
-声乐评估系统 - 对比分析测试
+声乐评估系统 - 对比分析页面测试 (v5.4)
 
-测试对比分析页加载、音频选择、对比结果展示等功能。
-覆盖修复的对比分析功能。
+测试独立对比分析页面的完整流程：
+1. 页面加载
+2. 标准音频上传
+3. 用户音频上传
+4. 对比结果展示
+
+页面结构：双音频并排布局（标准音频 + 用户音频）
 """
 import pytest
 
 from playwright.sync_api import Page, expect
 
-from .conftest import BACKEND_URL
+from .conftest import BACKEND_URL, TEST_MUSIC_FOLDER
 
 
 class TestComparePage:
-    """对比分析页测试 - 覆盖修复的功能"""
+    """对比分析页测试 - 双音频并排布局版本"""
 
     def test_compare_page_loads(self, page: Page):
-        """测试对比分析页加载"""
-        page.goto(BACKEND_URL)
+        """测试对比分析独立页面加载"""
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
 
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+        # 验证页面标题
+        expect(page).to_have_title("对比分析 - 声乐评估系统")
 
-        # 验证标题
-        compare_title = page.locator(".compare-title")
-        expect(compare_title).to_contain_text("对比分析")
+        # 验证双音频卡片显示
+        standard_card = page.locator("#standardCard")
+        user_card = page.locator("#userCard")
+        expect(standard_card).to_be_visible()
+        expect(user_card).to_be_visible()
 
-    def test_standard_audio_select_area(self, page: Page):
-        """测试标准音频选择区域"""
-        page.goto(BACKEND_URL)
+    def test_audio_cards_display(self, page: Page):
+        """测试音频卡片显示"""
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
 
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+        # 验证标准音频卡片
+        standard_card = page.locator("#standardCard")
+        expect(standard_card).to_be_visible()
+        expect(standard_card).to_contain_text("标准音频")
 
-        # 标准音频选择区域
-        standard_select = page.locator("#standardSelect")
-        expect(standard_select).to_be_visible()
+        # 验证用户音频卡片
+        user_card = page.locator("#userCard")
+        expect(user_card).to_be_visible()
+        expect(user_card).to_contain_text("待评估音频")
 
-        # 提示文本
-        expect(standard_select).to_contain_text("标准音频")
+    def test_upload_areas_visible(self, page: Page):
+        """测试上传区域可见"""
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
 
-    def test_user_audio_select_area(self, page: Page):
-        """测试用户音频选择区域"""
-        page.goto(BACKEND_URL)
+        # 验证上传区域存在
+        standard_upload = page.locator("#standardUpload")
+        user_upload = page.locator("#userUpload")
+        expect(standard_upload).to_be_visible()
+        expect(user_upload).to_be_visible()
 
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+        # 验证提示文本
+        expect(standard_upload).to_contain_text("点击选择标准音频")
+        expect(user_upload).to_contain_text("点击选择您的演唱")
 
-        # 用户音频选择区域
-        user_select = page.locator("#userSelect")
-        expect(user_select).to_be_visible()
+    def test_analyze_button_disabled_initially(self, page: Page):
+        """测试分析按钮初始禁用状态"""
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
 
-        # 提示文本
-        expect(user_select).to_contain_text("录音")
+        # 分析按钮初始应该禁用（因为没有用户音频）
+        analyze_btn = page.locator("#analyzeBtn")
+        expect(analyze_btn).to_be_disabled()
+
+    def test_result_panel_hidden_initially(self, page: Page):
+        """测试结果面板初始隐藏"""
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 结果面板初始隐藏
+        result_panel = page.locator("#resultPanel")
+        expect(result_panel).not_to_be_visible()
 
     def test_upload_standard_audio(self, page: Page, create_test_audio):
         """测试上传标准音频"""
         test_file = create_test_audio
 
-        page.goto(BACKEND_URL)
-
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
 
         # 监听文件选择对话框
         with page.expect_file_chooser() as fc_info:
-            # 点击标准音频选择区域触发文件选择
-            standard_select = page.locator("#standardSelect")
-            standard_select.click()
+            upload_area = page.locator("#standardUpload")
+            upload_area.click()
 
         # 设置文件
         file_chooser = fc_info.value
         file_chooser.set_files(str(test_file))
 
-        page.wait_for_timeout(3000)
+        # 验证文件已加载
+        standard_card = page.locator("#standardCard")
+        expect(standard_card).to_have_class("audio-card standard has-file", timeout=5000)
 
-        # 验证信息区域显示或选择区域状态改变
-        standard_info = page.locator("#standardInfo")
-        standard_select_filled = page.locator("#standardSelect.filled")
+        # 验证文件名显示
+        standard_file_name = page.locator("#standardFileName")
+        expect(standard_file_name).not_to_have_text("-", timeout=5000)
 
-        # 任一条件满足即通过
-        try:
-            expect(standard_info).to_be_visible(timeout=3000)
-        except Exception:
-            # 检查选择区域是否显示已填充状态
-            expect(standard_select_filled).to_be_visible(timeout=3000)
-
-    def test_compare_result_panel_hidden_initially(self, page: Page):
-        """测试对比结果面板初始隐藏"""
-        page.goto(BACKEND_URL)
-
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
-
-        # 对比结果面板初始应该隐藏
-        result_panel = page.locator("#compareResult")
-        expect(result_panel).not_to_be_visible()
-
-    def test_full_compare_analysis(self, page: Page, create_test_audio):
-        """测试完整的对比分析功能 - 上传两个音频并验证对比结果"""
+    def test_upload_user_audio(self, page: Page, create_test_audio):
+        """测试上传用户音频"""
         test_file = create_test_audio
 
-        page.goto(BACKEND_URL)
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
 
-        # 切换到对比分析页
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+        # 上传用户音频
+        with page.expect_file_chooser() as fc_info:
+            page.locator("#userUpload").click()
+        fc_info.value.set_files(str(test_file))
 
-        page.wait_for_timeout(500)
+        # 验证文件已加载
+        user_card = page.locator("#userCard")
+        expect(user_card).to_have_class("audio-card user has-file", timeout=5000)
+
+        # 分析按钮应该启用
+        analyze_btn = page.locator("#analyzeBtn")
+        expect(analyze_btn).not_to_be_disabled(timeout=5000)
+
+    def test_tip_banner_shows_without_standard(self, page: Page, create_test_audio):
+        """测试没有标准音频时显示提示"""
+        test_file = create_test_audio
+
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 直接上传用户音频（没有标准音频）
+        with page.expect_file_chooser() as fc_info:
+            page.locator("#userUpload").click()
+        fc_info.value.set_files(str(test_file))
+
+        # 提示横幅应该显示
+        tip_banner = page.locator("#tipBanner")
+        expect(tip_banner).to_have_class("tip-banner show", timeout=5000)
+
+
+class TestCompareAnalysis:
+    """对比分析完整流程测试"""
+
+    def test_full_compare_analysis(self, page: Page, create_test_audio):
+        """测试完整对比分析流程（有标准音频）"""
+        test_file = create_test_audio
+
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # Step 1: 上传标准音频
+        with page.expect_file_chooser() as fc_info:
+            page.locator("#standardUpload").click()
+        fc_info.value.set_files(str(test_file))
+
+        # 等待标准音频加载
+        expect(page.locator("#standardCard")).to_have_class("audio-card standard has-file", timeout=5000)
+
+        # Step 2: 上传用户音频
+        with page.expect_file_chooser() as fc_info2:
+            page.locator("#userUpload").click()
+        fc_info2.value.set_files(str(test_file))
+
+        # 等待用户音频加载
+        expect(page.locator("#userCard")).to_have_class("audio-card user has-file", timeout=5000)
+
+        # 分析按钮应该启用
+        analyze_btn = page.locator("#analyzeBtn")
+        expect(analyze_btn).not_to_be_disabled(timeout=5000)
+
+        # Step 3: 点击开始分析
+        analyze_btn.click()
+
+        # Step 4: 验证结果显示
+        result_panel = page.locator("#resultPanel")
+        expect(result_panel).to_be_visible(timeout=60000)
+
+        # 验证分数显示
+        result_score = page.locator("#resultScore")
+        expect(result_score).to_be_visible()
+        score_text = result_score.text_content()
+        assert score_text is not None and score_text != "--", "应该显示评分"
+
+    def test_analysis_without_standard(self, page: Page, create_test_audio):
+        """测试无标准音频的分析（独立评估模式）"""
+        test_file = create_test_audio
+
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 只上传用户音频
+        with page.expect_file_chooser() as fc_info:
+            page.locator("#userUpload").click()
+        fc_info.value.set_files(str(test_file))
+
+        # 点击开始分析
+        analyze_btn = page.locator("#analyzeBtn")
+        expect(analyze_btn).not_to_be_disabled(timeout=5000)
+        analyze_btn.click()
+
+        # 等待分析完成（快速模式约 30-60 秒）
+        # 先等待按钮变为 loading 状态
+        expect(analyze_btn).to_have_class("analyze-btn loading", timeout=5000)
+
+        # 验证结果显示（快速模式可能需要 60 秒以上）
+        result_panel = page.locator("#resultPanel")
+        expect(result_panel).to_be_visible(timeout=120000)
+
+        # 验证分数显示
+        result_score = page.locator("#resultScore")
+        expect(result_score).to_be_visible()
+
+
+class TestCompareUI:
+    """对比分析 UI 交互测试"""
+
+    def test_audio_player_display(self, page: Page, create_test_audio):
+        """测试音频播放器显示"""
+        test_file = create_test_audio
+
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
 
         # 上传标准音频
         with page.expect_file_chooser() as fc_info:
-            standard_select = page.locator("#standardSelect")
-            standard_select.click()
-        file_chooser = fc_info.value
-        file_chooser.set_files(str(test_file))
+            page.locator("#standardUpload").click()
+        fc_info.value.set_files(str(test_file))
 
-        # 等待加载
-        page.wait_for_timeout(3000)
+        # 播放器应该显示
+        standard_player = page.locator("#standardPlayer")
+        expect(standard_player).to_be_visible(timeout=5000)
 
-        # 上传用户音频
+        # 播放按钮应该存在
+        play_btn = page.locator("#standardPlayBtn")
+        expect(play_btn).to_be_visible()
+
+    def test_play_button_interaction(self, page: Page, create_test_audio):
+        """测试播放按钮交互"""
+        test_file = create_test_audio
+
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 上传标准音频
+        with page.expect_file_chooser() as fc_info:
+            page.locator("#standardUpload").click()
+        fc_info.value.set_files(str(test_file))
+
+        # 等待播放器显示
+        play_btn = page.locator("#standardPlayBtn")
+        expect(play_btn).to_be_visible(timeout=5000)
+
+        # 点击播放
+        play_btn.click()
+
+        # 按钮应该变为播放状态
+        expect(play_btn).to_have_class("play-btn playing", timeout=2000)
+
+    def test_result_dimensions_display(self, page: Page, create_test_audio):
+        """测试结果维度对比显示"""
+        test_file = create_test_audio
+
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 完成对比流程
+        with page.expect_file_chooser() as fc_info:
+            page.locator("#standardUpload").click()
+        fc_info.value.set_files(str(test_file))
+
         with page.expect_file_chooser() as fc_info2:
-            user_select = page.locator("#userSelect")
-            user_select.click()
-        file_chooser2 = fc_info2.value
-        file_chooser2.set_files(str(test_file))
+            page.locator("#userUpload").click()
+        fc_info2.value.set_files(str(test_file))
 
-        # 等待对比分析完成
-        page.wait_for_timeout(5000)
+        page.locator("#analyzeBtn").click()
 
-        # 验证对比结果面板显示
-        result_panel = page.locator("#compareResult")
-        try:
-            expect(result_panel).to_be_visible(timeout=10000)
+        # 等待结果
+        expect(page.locator("#resultPanel")).to_be_visible(timeout=60000)
 
-            # 验证对比结果包含数据
-            diff_pitch = page.locator("#diffPitch")
-            if diff_pitch.is_visible():
-                text = diff_pitch.text_content()
-                assert text is not None and len(text) > 0, "音高偏差应该有值"
-        except Exception:
-            # 如果结果面板未显示，检查是否两个音频都已加载
-            standard_info = page.locator("#standardInfo")
-            user_info = page.locator("#userInfo")
-            # 至少验证音频选择区域状态改变
-            assert (
-                standard_info.is_visible() or user_info.is_visible()
-            ), "至少一个音频应已加载"
+        # 验证维度对比区域
+        dimension_compare = page.locator("#dimensionCompare")
+        expect(dimension_compare).to_be_visible()
+
+        # 验证建议列表
+        suggestion_list = page.locator("#suggestionList")
+        expect(suggestion_list).to_be_visible()
+
+    def test_reset_functionality(self, page: Page, create_test_audio):
+        """测试重置功能"""
+        test_file = create_test_audio
+
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 上传音频并分析
+        with page.expect_file_chooser() as fc_info:
+            page.locator("#standardUpload").click()
+        fc_info.value.set_files(str(test_file))
+
+        with page.expect_file_chooser() as fc_info2:
+            page.locator("#userUpload").click()
+        fc_info2.value.set_files(str(test_file))
+
+        page.locator("#analyzeBtn").click()
+        expect(page.locator("#resultPanel")).to_be_visible(timeout=60000)
+
+        # 点击重新分析按钮
+        reset_btn = page.locator("button:has-text('重新分析')")
+        reset_btn.click()
+
+        # 结果面板应该隐藏
+        expect(page.locator("#resultPanel")).not_to_be_visible()
+
+        # 分析按钮应该禁用
+        expect(page.locator("#analyzeBtn")).to_be_disabled()
+
+
+class TestCompareResponsive:
+    """对比分析响应式测试"""
+
+    def test_mobile_view(self, page: Page):
+        """测试移动端视图"""
+        page.set_viewport_size({"width": 375, "height": 667})
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 验证页面加载
+        expect(page.locator("#standardCard")).to_be_visible()
+        expect(page.locator("#userCard")).to_be_visible()
+
+        # 验证导航栏
+        navbar = page.locator(".navbar")
+        expect(navbar).to_be_visible()
+
+    def test_tablet_view(self, page: Page):
+        """测试平板视图"""
+        page.set_viewport_size({"width": 768, "height": 1024})
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 验证页面加载
+        expect(page.locator("#standardCard")).to_be_visible()
+        expect(page.locator("#userCard")).to_be_visible()
+
+        # 验证容器宽度适应
+        container = page.locator(".compare-container")
+        expect(container).to_be_visible()
+
+    def test_desktop_view(self, page: Page):
+        """测试桌面端视图"""
+        page.set_viewport_size({"width": 1440, "height": 900})
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 验证页面加载
+        expect(page.locator("#standardCard")).to_be_visible()
+        expect(page.locator("#userCard")).to_be_visible()
+
+        # 验证容器宽度适应
+        container = page.locator(".compare-container")
+        expect(container).to_be_visible()
+
+
+class TestCompareNavigation:
+    """对比分析页面导航测试"""
+
+    def test_back_to_home(self, page: Page):
+        """测试返回首页按钮"""
+        page.goto(f"{BACKEND_URL}/compare.html", timeout=30000, wait_until="domcontentloaded")
+
+        # 点击返回首页
+        back_btn = page.locator(".nav-tab")
+        back_btn.click()
+
+        # 验证跳转到首页
+        expect(page).to_have_url(BACKEND_URL + "/")

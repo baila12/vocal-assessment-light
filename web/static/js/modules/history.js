@@ -297,6 +297,7 @@ function toggleSelectAll() {
     });
 
     // 更新全选按钮文字
+    const actionBar = document.getElementById('batchActionBar');
     const selectAllBtn = actionBar?.querySelector('button[onclick*="toggleSelectAll"]');
     if (selectAllBtn) {
         selectAllBtn.textContent = cards.length === HistoryState.selectedIds.size ? '取消全选' : '全选';

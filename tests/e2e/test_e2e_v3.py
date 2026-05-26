@@ -23,7 +23,9 @@ from playwright.sync_api import Page, expect
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 UPLOAD_FOLDER = PROJECT_ROOT / "uploads"
-TEST_MUSIC_FOLDER = PROJECT_ROOT / "test_music"
+TEST_DATA_DIR = PROJECT_ROOT / "tests" / "test_data" / "audio"
+VOCAL_DIR = TEST_DATA_DIR / "vocal"
+NON_VOCAL_DIR = TEST_DATA_DIR / "non_vocal"
 WEB_APP_SCRIPT = PROJECT_ROOT / "web_app.py"
 
 UPLOAD_FOLDER.mkdir(exist_ok=True)
@@ -86,7 +88,7 @@ def create_test_audio() -> Path:
     import numpy as np
     import wave
 
-    test_file = TEST_MUSIC_FOLDER / "test_e2e_audio.wav"
+    test_file = NON_VOCAL_DIR / "test_e2e_audio.wav"
 
     if test_file.exists():
         return test_file
@@ -166,7 +168,7 @@ class TestPageNavigation:
 
         # 三个导航标签
         home_tab = page.locator("#navHome")
-        compare_tab = page.locator("#navCompare")
+        compare_tab = page.locator("#navCompare")  # 现在是链接
         history_tab = page.locator("#navHistory")
 
         expect(home_tab).to_be_visible()
@@ -182,20 +184,21 @@ class TestPageNavigation:
         expect(home_page).to_have_class("page active")
 
     def test_switch_to_compare_page(self, page: Page):
-        """测试切换到对比分析页"""
+        """测试切换到对比分析页 - 现在是独立页面"""
         page.goto(BACKEND_URL)
 
-        # 点击对比分析
+        # 点击对比分析链接
         compare_tab = page.locator("#navCompare")
         compare_tab.click()
 
-        # 验证页面切换
-        compare_page = page.locator("#page-compare")
-        expect(compare_page).to_be_visible()
-        expect(compare_page).to_have_class("page active")
+        # 等待页面加载并验证URL
+        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_timeout(1000)
+        assert "compare.html" in page.url, f"Expected compare.html in URL, got {page.url}"
 
-        # 验证标签高亮
-        expect(compare_tab).to_have_class("nav-tab active")
+        # 验证页面元素
+        standard_card = page.locator("#standardCard")
+        expect(standard_card).to_be_visible()
 
     def test_switch_to_history_page(self, page: Page):
         """测试切换到历史记录页"""
@@ -538,138 +541,110 @@ class TestHistoryPage:
 
 # ==================== 对比分析测试 ====================
 class TestComparePage:
-    """对比分析页测试 - 覆盖修复的功能"""
+    """对比分析页测试 - 独立页面"""
 
     def test_compare_page_loads(self, page: Page):
         """测试对比分析页加载"""
-        page.goto(BACKEND_URL)
+        # 直接访问对比分析页面
+        page.goto(f"{BACKEND_URL}/compare.html")
 
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+        # 验证页面标题
+        expect(page).to_have_title("声乐评估系统 - 离线版")
 
-        # 验证标题
-        compare_title = page.locator(".compare-title")
-        expect(compare_title).to_contain_text("对比分析")
+        # 验证标准音频卡片
+        standard_card = page.locator("#standardCard")
+        expect(standard_card).to_be_visible()
 
-    def test_standard_audio_select_area(self, page: Page):
-        """测试标准音频选择区域"""
-        page.goto(BACKEND_URL)
+        # 验证用户音频卡片
+        user_card = page.locator("#userCard")
+        expect(user_card).to_be_visible()
 
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+    def test_standard_audio_upload_area(self, page: Page):
+        """测试标准音频上传区域"""
+        page.goto(f"{BACKEND_URL}/compare.html")
 
-        # 标准音频选择区域
-        standard_select = page.locator("#standardSelect")
-        expect(standard_select).to_be_visible()
-
-        # 提示文本
-        expect(standard_select).to_contain_text("标准音频")
-
-    def test_user_audio_select_area(self, page: Page):
-        """测试用户音频选择区域"""
-        page.goto(BACKEND_URL)
-
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
-
-        # 用户音频选择区域
-        user_select = page.locator("#userSelect")
-        expect(user_select).to_be_visible()
+        # 标准音频上传区域
+        standard_upload = page.locator("#standardUpload")
+        expect(standard_upload).to_be_visible()
 
         # 提示文本
-        expect(user_select).to_contain_text("录音")
+        expect(standard_upload).to_contain_text("标准音频")
+
+    def test_user_audio_upload_area(self, page: Page):
+        """测试用户音频上传区域"""
+        page.goto(f"{BACKEND_URL}/compare.html")
+
+        # 用户音频上传区域
+        user_upload = page.locator("#userUpload")
+        expect(user_upload).to_be_visible()
 
     def test_upload_standard_audio(self, page: Page):
         """测试上传标准音频"""
         test_file = create_test_audio()
 
-        page.goto(BACKEND_URL)
+        page.goto(f"{BACKEND_URL}/compare.html")
 
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
-
-        # 监听文件选择对话框
-        with page.expect_file_chooser() as fc_info:
-            # 点击标准音频选择区域触发文件选择
-            standard_select = page.locator("#standardSelect")
-            standard_select.click()
+        # 点击标准音频上传区域
+        standard_upload = page.locator("#standardUpload")
+        standard_upload.click()
 
         # 设置文件
-        file_chooser = fc_info.value
-        file_chooser.set_files(str(test_file))
+        file_input = page.locator("#standardFileInput")
+        file_input.set_input_files(str(test_file))
 
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(1000)
 
-        # 验证信息区域显示或选择区域状态改变
+        # 验证文件信息显示
         standard_info = page.locator("#standardInfo")
-        standard_select_filled = page.locator("#standardSelect.filled")
-
-        # 任一条件满足即通过
-        try:
-            expect(standard_info).to_be_visible(timeout=3000)
-        except Exception:
-            # 检查选择区域是否显示已填充状态
-            expect(standard_select_filled).to_be_visible(timeout=3000)
+        expect(standard_info).to_be_visible(timeout=3000)
 
     def test_compare_result_panel_hidden_initially(self, page: Page):
         """测试对比结果面板初始隐藏"""
-        page.goto(BACKEND_URL)
-
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+        page.goto(f"{BACKEND_URL}/compare.html")
 
         # 对比结果面板初始应该隐藏
-        result_panel = page.locator("#compareResult")
+        result_panel = page.locator("#resultPanel")
         expect(result_panel).not_to_be_visible()
 
     def test_full_compare_analysis(self, page: Page):
-        """测试完整的对比分析功能 - 上传两个音频并验证对比结果"""
+        """测试完整的对比分析功能"""
         test_file = create_test_audio()
 
-        page.goto(BACKEND_URL)
+        page.goto(f"{BACKEND_URL}/compare.html")
 
-        # 切换到对比分析页
-        compare_tab = page.locator("#navCompare")
-        compare_tab.click()
+        # 上传标准音频
+        standard_upload = page.locator("#standardUpload")
+        standard_upload.click()
+        standard_input = page.locator("#standardFileInput")
+        standard_input.set_input_files(str(test_file))
 
         page.wait_for_timeout(500)
 
-        # 上传标准音频
-        with page.expect_file_chooser() as fc_info:
-            standard_select = page.locator("#standardSelect")
-            standard_select.click()
-        file_chooser = fc_info.value
-        file_chooser.set_files(str(test_file))
-
-        # 等待加载
-        page.wait_for_timeout(3000)
-
         # 上传用户音频
-        with page.expect_file_chooser() as fc_info2:
-            user_select = page.locator("#userSelect")
-            user_select.click()
-        file_chooser2 = fc_info2.value
-        file_chooser2.set_files(str(test_file))
+        user_upload = page.locator("#userUpload")
+        user_upload.click()
+        user_input = page.locator("#userFileInput")
+        user_input.set_input_files(str(test_file))
 
-        # 等待对比分析完成
+        page.wait_for_timeout(1000)
+
+        # 点击分析按钮
+        analyze_btn = page.locator("#analyzeBtn")
+        expect(analyze_btn).to_be_enabled()
+        analyze_btn.click()
+
+        # 等待分析完成
         page.wait_for_timeout(5000)
 
-        # 验证对比结果面板显示
-        result_panel = page.locator("#compareResult")
+        # 验证结果面板显示
+        result_panel = page.locator("#resultPanel")
         try:
             expect(result_panel).to_be_visible(timeout=10000)
-
-            # 验证对比结果包含数据
-            diff_pitch = page.locator("#diffPitch")
-            if diff_pitch.is_visible():
-                text = diff_pitch.text_content()
-                assert text is not None and len(text) > 0, "音高偏差应该有值"
         except Exception:
-            # 如果结果面板未显示，检查是否两个音频都已加载
+            # 检查是否两个音频都已加载
             standard_info = page.locator("#standardInfo")
             user_info = page.locator("#userInfo")
-            # 至少验证音频选择区域状态改变
-            assert standard_info.is_visible() or user_info.is_visible(), "至少一个音频应已加载"
+            assert standard_info.is_visible() and user_info.is_visible(), "两个音频应已加载"
 
 
 # ==================== 删除历史记录测试 ====================
@@ -940,7 +915,8 @@ class TestAllMusicFiles:
         """获取所有测试音乐文件"""
         music_files = []
         for ext in ['*.mp3', '*.wav', '*.ogg', '*.m4a']:
-            music_files.extend(TEST_MUSIC_FOLDER.glob(ext))
+            music_files.extend(VOCAL_DIR.glob(ext)
+        files.extend(NON_VOCAL_DIR.glob(ext)))
         return sorted(music_files, key=lambda f: f.stat().st_size)  # 按文件大小排序，小的先测试
 
     def test_analyze_all_music_files(self, page: Page):
@@ -1017,8 +993,8 @@ class TestAllMusicFiles:
         """测试真实人声音频的可视化图片显示"""
         # 使用真实人声文件（恋人.mp3 或 手写的从前.mp3）
         real_vocal_files = [
-            TEST_MUSIC_FOLDER / "恋人.mp3",
-            TEST_MUSIC_FOLDER / "手写的从前.mp3"
+            VOCAL_DIR / "恋人.mp3",
+            VOCAL_DIR / "手写的从前.mp3"
         ]
 
         test_file = None

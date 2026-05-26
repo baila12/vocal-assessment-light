@@ -3,8 +3,10 @@
 负责创建和配置 Flask 应用
 """
 from flask import Flask
+from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 from pathlib import Path
+import numpy as np
 
 from config import Config
 from .routes import upload_bp, history_bp, audio_bp
@@ -12,6 +14,21 @@ from .errors import register_error_handlers
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent
+
+
+class NumpyJSONProvider(DefaultJSONProvider):
+    """自定义 JSON 提供器，支持 numpy 类型"""
+
+    def default(self, obj):
+        if isinstance(obj, (np.integer, np.int64, np.int32)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64, np.float32)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        return super().default(obj)
 
 
 def create_app(config: Config = None) -> Flask:
@@ -37,6 +54,9 @@ def create_app(config: Config = None) -> Flask:
         static_folder=str(static_folder),
         static_url_path=''
     )
+
+    # 设置自定义 JSON 提供器以支持 numpy 类型
+    app.json = NumpyJSONProvider(app)
 
     # 加载配置
     app.config['MAX_CONTENT_LENGTH'] = config.MAX_CONTENT_LENGTH

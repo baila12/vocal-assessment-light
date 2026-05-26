@@ -11,7 +11,8 @@ from pathlib import Path
 
 # 测试配置
 BASE_URL = "http://localhost:5000"
-TEST_MUSIC_DIR = Path(__file__).parent.parent / "test_music"
+TEST_DATA_DIR = Path(__file__).parent.parent / "tests" / "test_data" / "audio"
+VOCAL_DIR = TEST_DATA_DIR / "vocal"
 UPLOADS_DIR = Path(__file__).parent.parent / "uploads"
 
 
@@ -31,7 +32,7 @@ def test_chinese_filename_analysis():
     print("\n=== 测试中文文件名分析 ===")
 
     # 查找中文文件名的音频
-    chinese_files = list(TEST_MUSIC_DIR.glob("*.mp3")) + list(TEST_MUSIC_DIR.glob("*.wav"))
+    chinese_files = list(TEST_DATA_DIR.glob("*.mp3")) + list(TEST_DATA_DIR.glob("*.wav"))
     chinese_files = [f for f in chinese_files if any('\u4e00' <= c <= '\u9fff' for c in f.name)]
 
     if not chinese_files:
@@ -95,7 +96,7 @@ def test_long_audio_analysis():
     print("\n=== 测试长音频分析 ===")
 
     # 查找较长的音频文件（>1分钟）
-    all_files = list(TEST_MUSIC_DIR.glob("*.mp3")) + list(TEST_MUSIC_DIR.glob("*.wav"))
+    all_files = list(TEST_DATA_DIR.glob("*.mp3")) + list(TEST_DATA_DIR.glob("*.wav"))
 
     if not all_files:
         print("未找到测试音频文件")

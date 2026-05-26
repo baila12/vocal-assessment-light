@@ -74,7 +74,7 @@ class EmotionAnalyzer:
 
             classifier = EncoderClassifier.from_hparams(
                 source="speechbrain/emotion-recognition-wav2vec2-IEMOCAP",
-                savedir="pretrained_models/emotion"
+                savedir="models/emotion"
             )
 
             self._classifier = {

@@ -177,7 +177,7 @@ def get_test_files():
     """
     from pathlib import Path
 
-    test_dir = config.PROJECT_ROOT / 'test_music'
+    test_dir = config.PROJECT_ROOT / 'tests' / 'test_data' / 'audio'
     files = []
 
     if test_dir.exists():

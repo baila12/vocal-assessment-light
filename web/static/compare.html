@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <title>对比分析 - 声乐评估系统</title>
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <style>
+        /* 对比分析页面专用样式 */
+        .compare-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .page-title h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .page-title p {
+            font-size: 15px;
+            color: var(--text-muted);
+        }
+
+        /* 双音频导入区域 */
+        .audio-input-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .audio-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 24px;
+            transition: all 0.3s;
+        }
+
+        .audio-card:hover {
+            border-color: var(--primary-light);
+        }
+
+        .audio-card.has-file {
+            border-color: var(--success);
+        }
+
+        .audio-card.has-file.standard {
+            border-color: var(--success);
+        }
+
+        .audio-card.has-file.user {
+            border-color: var(--primary);
+        }
+
+        .audio-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .audio-card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .audio-card.standard .audio-card-icon {
+            background: var(--success-light);
+        }
+
+        .audio-card.user .audio-card-icon {
+            background: var(--primary-light);
+        }
+
+        .audio-card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .audio-card-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* 上传区域 */
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-lg);
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--bg-elevated);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .audio-card.has-file .upload-area {
+            border-style: solid;
+            border-color: var(--success);
+            background: var(--success-light);
+            padding: 20px;
+        }
+
+        .audio-card.has-file.user .upload-area {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .upload-area .icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+            color: var(--text-muted);
+        }
+
+        .audio-card.has-file .upload-area .icon {
+            color: var(--success);
+        }
+
+        .audio-card.has-file.user .upload-area .icon {
+            color: var(--primary);
+        }
+
+        .upload-area .text {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .upload-area .hint {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .upload-area .file-info {
+            display: none;
+        }
+
+        .audio-card.has-file .upload-area .file-info {
+            display: block;
+        }
+
+        .audio-card.has-file .upload-area .upload-prompt {
+            display: none;
+        }
+
+        .file-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+
+        .file-duration {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* 音频播放器 */
+        .audio-player {
+            margin-top: 16px;
+            display: none;
+        }
+
+        .audio-card.has-file .audio-player {
+            display: block;
+        }
+
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border-radius: var(--radius-lg);
+        }
+
+        .play-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .play-btn:hover {
+            transform: scale(1.05);
+            background: var(--primary-dark);
+        }
+
+        .play-btn.playing {
+            background: var(--danger);
+        }
+
+        .player-progress {
+            flex: 1;
+        }
+
+        .progress-time {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .audio-card.standard .progress-fill {
+            background: var(--success);
+        }
+
+        /* 提示信息 */
+        .tip-banner {
+            display: none;
+            background: var(--warning-light);
+            border: 1px solid var(--warning);
+            border-radius: var(--radius-lg);
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tip-banner.show {
+            display: flex;
+        }
+
+        .tip-banner .tip-icon {
+            font-size: 24px;
+        }
+
+        .tip-banner .tip-text {
+            flex: 1;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        /* 操作区域 */
+        .action-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 24px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .action-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .analyze-btn {
+            padding: 16px 48px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: var(--radius-lg);
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .analyze-btn:disabled {
+            background: var(--border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .analyze-btn.loading {
+            pointer-events: none;
+        }
+
+        .analyze-btn .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid white;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        .analyze-btn.loading .spinner {
+            display: block;
+        }
+
+        .analyze-btn.loading .btn-text {
+            display: none;
+        }
+
+        /* 结果面板 */
+        .result-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            display: none;
+        }
+
+        .result-panel.active {
+            display: block;
+        }
+
+        .result-header {
+            background: linear-gradient(135deg, var(--success-light), var(--primary-light));
+            padding: 32px;
+            text-align: center;
+        }
+
+        .result-score {
+            font-size: 72px;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+        }
+
+        .result-level {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .result-body {
+            padding: 24px;
+        }
+
+        /* 维度对比 */
+        .dimension-compare {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .dimension-item {
+            background: var(--bg-elevated);
+            border-radius: var(--radius-lg);
+            padding: 16px 20px;
+        }
+
+        .dimension-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .dimension-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .dimension-scores {
+            display: flex;
+            gap: 16px;
+            font-size: 14px;
+        }
+
+        .dimension-scores .standard-score {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .dimension-scores .user-score {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .dimension-scores .diff {
+            color: var(--text-muted);
+        }
+
+        .dimension-bars {
+            display: flex;
+            gap: 8px;
+            height: 8px;
+        }
+
+        .dimension-bar-wrap {
+            flex: 1;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .dimension-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .dimension-bar.standard {
+            background: var(--success);
+        }
+
+        .dimension-bar.user {
+            background: var(--primary);
+        }
+
+        /* 建议列表 */
+        .suggestion-section {
+            margin-top: 24px;
+        }
+
+        .suggestion-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .suggestion-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .suggestion-item {
+            padding: 16px;
+            background: var(--bg-elevated);
+            border-radius: var(--radius-lg);
+            border-left: 4px solid var(--primary);
+        }
+
+        .suggestion-item.improve {
+            border-left-color: var(--warning);
+        }
+
+        .suggestion-item.good {
+            border-left-color: var(--success);
+        }
+
+        .suggestion-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .suggestion-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* 操作按钮 */
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* 动画 */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 模式选择器 */
+        .mode-selector {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
+            border: 2px solid var(--border);
+            background: var(--bg-elevated);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .mode-btn:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .mode-btn.active {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        /* 实时录音面板 */
+        .realtime-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .realtime-header {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .realtime-score {
+            text-align: center;
+        }
+
+        .realtime-score span:first-child {
+            font-size: 48px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .realtime-score .label {
+            display: block;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .realtime-deviation {
+            text-align: center;
+        }
+
+        .deviation-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--success);
+        }
+
+        .deviation-value.negative {
+            color: var(--warning);
+        }
+
+        .deviation-value.positive {
+            color: var(--danger);
+        }
+
+        .deviation-hint {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .realtime-progress {
+            margin-bottom: 20px;
+        }
+
+        .realtime-progress .progress-bar {
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .realtime-progress .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .realtime-progress .progress-time {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .realtime-actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .audio-input-section {
+                grid-template-columns: 1fr;
+            }
+
+            .result-score {
+                font-size: 56px;
+            }
+
+            .dimension-scores {
+                font-size: 12px;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="logo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/>
+                    <circle cx="18" cy="16" r="3"/>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">声乐评估系统</span>
+                <span class="brand-tag">对比分析</span>
+            </div>
+        </div>
+        <div class="nav-tabs">
+            <button class="nav-tab" onclick="window.location.href='/'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                返回首页
+            </button>
+        </div>
+    </nav>
+
+    <div class="toast-wrap" id="toastWrap" role="alert" aria-live="polite"></div>
+
+    <main class="compare-container">
+        <!-- 页面标题 -->
+        <div class="page-title">
+            <h1>对比分析</h1>
+            <p>导入标准音频和您的演唱录音，系统将进行对比评估</p>
+        </div>
+
+        <!-- 双音频导入区域 -->
+        <div class="audio-input-section">
+            <!-- 标准音频 -->
+            <div class="audio-card standard" id="standardCard">
+                <div class="audio-card-header">
+                    <div class="audio-card-icon">🎯</div>
+                    <div>
+                        <div class="audio-card-title">标准音频</div>
+                        <div class="audio-card-subtitle">参考演唱或伴奏</div>
+                    </div>
+                </div>
+
+                <div class="upload-area" id="standardUpload" onclick="selectStandardFile()">
+                    <div class="upload-prompt">
+                        <div class="icon">🎵</div>
+                        <div class="text">点击选择标准音频</div>
+                        <div class="hint">MP3 / WAV / FLAC / M4A</div>
+                    </div>
+                    <div class="file-info">
+                        <div class="icon">✓</div>
+                        <div class="file-name" id="standardFileName">-</div>
+                        <div class="file-duration" id="standardDuration">-</div>
+                    </div>
+                    <input type="file" id="standardFileInput" accept=".wav,.mp3,.flac,.ogg,.m4a" style="display:none">
+                </div>
+
+                <div class="audio-player" id="standardPlayer">
+                    <div class="player-controls">
+                        <button class="play-btn" id="standardPlayBtn" onclick="togglePlay('standard')">
+                            ▶
+                        </button>
+                        <div class="player-progress">
+                            <div class="progress-time">
+                                <span id="standardCurrentTime">00:00</span>
+                                <span id="standardTotalTime">00:00</span>
+                            </div>
+                            <div class="progress-bar" onclick="seekAudio('standard', event)">
+                                <div class="progress-fill" id="standardProgressFill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 用户音频 -->
+            <div class="audio-card user" id="userCard">
+                <div class="audio-card-header">
+                    <div class="audio-card-icon">🎤</div>
+                    <div>
+                        <div class="audio-card-title">待评估音频</div>
+                        <div class="audio-card-subtitle">您的演唱录音</div>
+                    </div>
+                </div>
+
+                <div class="upload-area" id="userUpload" onclick="selectUserFile()">
+                    <div class="upload-prompt">
+                        <div class="icon">🎙️</div>
+                        <div class="text">点击选择您的演唱</div>
+                        <div class="hint">MP3 / WAV / FLAC / M4A</div>
+                    </div>
+                    <div class="file-info">
+                        <div class="icon">✓</div>
+                        <div class="file-name" id="userFileName">-</div>
+                        <div class="file-duration" id="userDuration">-</div>
+                    </div>
+                    <input type="file" id="userFileInput" accept=".wav,.mp3,.flac,.ogg,.m4a" style="display:none">
+                </div>
+
+                <div class="audio-player" id="userPlayer">
+                    <div class="player-controls">
+                        <button class="play-btn" id="userPlayBtn" onclick="togglePlay('user')">
+                            ▶
+                        </button>
+                        <div class="player-progress">
+                            <div class="progress-time">
+                                <span id="userCurrentTime">00:00</span>
+                                <span id="userTotalTime">00:00</span>
+                            </div>
+                            <div class="progress-bar" onclick="seekAudio('user', event)">
+                                <div class="progress-fill" id="userProgressFill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="tip-banner" id="tipBanner">
+            <div class="tip-icon">💡</div>
+            <div class="tip-text" id="tipText">建议先导入标准音频作为评估基准</div>
+        </div>
+
+        <!-- 操作区域 -->
+        <div class="action-section">
+            <h3>选择评估模式</h3>
+            <div class="mode-selector" style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
+                <button class="mode-btn active" id="uploadModeBtn" onclick="selectMode('upload')">
+                    <span style="font-size:20px;">📁</span>
+                    <span>上传模式</span>
+                </button>
+                <button class="mode-btn" id="realtimeModeBtn" onclick="selectMode('realtime')">
+                    <span style="font-size:20px;">🎤</span>
+                    <span>实时录音</span>
+                </button>
+            </div>
+            <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">开始对比分析</span>
+            </button>
+            <button class="analyze-btn" id="realtimeBtn" onclick="startRealtimeCompare()" style="display:none;background:var(--success);">
+                <span class="spinner"></span>
+                <span class="btn-text">🎙️ 开始实时录音</span>
+            </button>
+        </div>
+
+        <!-- 实时录音反馈面板 -->
+        <div class="realtime-panel" id="realtimePanel" style="display:none;">
+            <div class="realtime-header">
+                <div class="realtime-score">
+                    <span id="realtimeScore">--</span>
+                    <span class="label">实时评分</span>
+                </div>
+                <div class="realtime-deviation">
+                    <div class="deviation-value" id="deviationValue">0</div>
+                    <div class="deviation-hint" id="deviationHint">准备开始</div>
+                </div>
+            </div>
+            <div class="realtime-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="realtimeProgressFill"></div>
+                </div>
+                <div class="progress-time" id="realtimeTime">00:00 / 00:00</div>
+            </div>
+            <div class="realtime-actions">
+                <button class="btn btn-danger" id="stopRealtimeBtn" onclick="stopRealtimeCompare()">⏹ 停止录音</button>
+            </div>
+        </div>
+
+        <!-- 结果面板 -->
+        <div class="result-panel" id="resultPanel">
+            <div class="result-header">
+                <div class="result-score" id="resultScore">--</div>
+                <div class="result-level" id="resultLevel">评估完成</div>
+            </div>
+            <div class="result-body">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">维度对比</h3>
+                <div class="dimension-compare" id="dimensionCompare">
+                    <!-- 动态生成 -->
+                </div>
+
+                <div class="suggestion-section">
+                    <h3>改进建议</h3>
+                    <div class="suggestion-list" id="suggestionList">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" onclick="resetAll()">重新分析</button>
+                    <button class="btn btn-primary" onclick="window.location.href='/'">返回首页</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 隐藏的 audio 元素 -->
+    <audio id="standardAudio" style="display:none"></audio>
+    <audio id="userAudio" style="display:none"></audio>
+
+    <script src="/js/compare.js"></script>
+</body>
+</html>

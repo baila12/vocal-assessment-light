@@ -9,6 +9,243 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def calculate_relative_score(standard: dict, user: dict) -> dict:
+    """
+    基于标准音频计算相对评分
+
+    类似全民K歌的评分方式：
+    - 音准匹配率：用户音高与标准音高的匹配程度
+    - 节奏匹配率：用户节奏与标准节奏的对齐程度
+    - 综合评分：加权计算
+
+    Args:
+        standard: 标准音频分析结果
+        user: 用户音频分析结果
+
+    Returns:
+        {
+            'pitch_match_rate': 85.0,  # 音准匹配率
+            'rhythm_match_rate': 90.0, # 节奏匹配率
+            'overall_score': 87.5,     # 综合评分
+            'level': '优秀',
+            'avg_cents_error': 15.2,   # 平均音分偏差
+            'diagnosis': [...]         # 详细诊断
+        }
+    """
+    # 计算音准匹配率
+    pitch_match_rate = calculate_pitch_match_rate(
+        standard.get('pitch_curve'),
+        user.get('pitch_curve')
+    )
+
+    # 计算平均音分偏差
+    avg_cents_error = calculate_avg_cents_error(
+        standard.get('pitch_curve'),
+        user.get('pitch_curve')
+    )
+
+    # 计算节奏匹配率
+    rhythm_match_rate = calculate_rhythm_match_rate(
+        standard.get('rhythm_curve'),
+        user.get('rhythm_curve')
+    )
+
+    # 综合评分计算（音准权重60%，节奏权重40%）
+    overall_score = pitch_match_rate * 0.6 + rhythm_match_rate * 0.4
+
+    # 等级评定
+    if overall_score >= 90:
+        level = '优秀'
+    elif overall_score >= 80:
+        level = '良好'
+    elif overall_score >= 70:
+        level = '中等'
+    elif overall_score >= 60:
+        level = '及格'
+    else:
+        level = '需改进'
+
+    # 生成诊断信息
+    diagnosis = generate_diagnosis(
+        pitch_match_rate,
+        rhythm_match_rate,
+        avg_cents_error,
+        standard.get('pitch_curve'),
+        user.get('pitch_curve')
+    )
+
+    return {
+        'pitch_match_rate': round(pitch_match_rate, 1),
+        'rhythm_match_rate': round(rhythm_match_rate, 1),
+        'overall_score': round(overall_score, 1),
+        'level': level,
+        'avg_cents_error': round(avg_cents_error, 1),
+        'diagnosis': diagnosis
+    }
+
+
+def calculate_avg_cents_error(std_pitch_curve: dict, user_pitch_curve: dict) -> float:
+    """计算平均音分偏差"""
+    if not std_pitch_curve or not user_pitch_curve:
+        return 50.0
+
+    std_freqs = std_pitch_curve.get('frequencies', [])
+    user_freqs = user_pitch_curve.get('frequencies', [])
+
+    if not std_freqs or not user_freqs:
+        return 50.0
+
+    std_freqs = np.array(std_freqs)
+    user_freqs = np.array(user_freqs)
+
+    # 过滤有效频率
+    std_valid = std_freqs[(std_freqs > 50) & (std_freqs < 1000)]
+    user_valid = user_freqs[(user_freqs > 50) & (user_freqs < 1000)]
+
+    if len(std_valid) < 10 or len(user_valid) < 10:
+        return 50.0
+
+    min_len = min(len(std_valid), len(user_valid))
+
+    # 重采样
+    std_resampled = np.interp(
+        np.linspace(0, len(std_valid) - 1, min_len),
+        np.arange(len(std_valid)),
+        std_valid
+    )
+    user_resampled = np.interp(
+        np.linspace(0, len(user_valid) - 1, min_len),
+        np.arange(len(user_valid)),
+        user_valid
+    )
+
+    # 计算音分差距
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cents_diff = np.abs(1200 * np.log2(user_resampled / std_resampled))
+        cents_diff = cents_diff[~np.isinf(cents_diff) & ~np.isnan(cents_diff)]
+
+    if len(cents_diff) == 0:
+        return 50.0
+
+    return float(np.mean(cents_diff))
+
+
+def calculate_rhythm_match_rate(std_rhythm_curve: dict, user_rhythm_curve: dict) -> float:
+    """计算节奏匹配率（基于能量包络相似度）"""
+    if not std_rhythm_curve or not user_rhythm_curve:
+        return 70.0  # 默认值
+
+    std_energy = std_rhythm_curve.get('energy', [])
+    user_energy = user_rhythm_curve.get('energy', [])
+
+    if not std_energy or not user_energy:
+        return 70.0
+
+    std_energy = np.array(std_energy)
+    user_energy = np.array(user_energy)
+
+    if len(std_energy) < 10 or len(user_energy) < 10:
+        return 70.0
+
+    min_len = min(len(std_energy), len(user_energy))
+
+    # 重采样到相同长度
+    std_resampled = np.interp(
+        np.linspace(0, len(std_energy) - 1, min_len),
+        np.arange(len(std_energy)),
+        std_energy
+    )
+    user_resampled = np.interp(
+        np.linspace(0, len(user_energy) - 1, min_len),
+        np.arange(len(user_energy)),
+        user_energy
+    )
+
+    # 归一化
+    std_norm = (std_resampled - np.min(std_resampled)) / (np.max(std_resampled) - np.min(std_resampled) + 1e-6)
+    user_norm = (user_resampled - np.min(user_resampled)) / (np.max(user_resampled) - np.min(user_resampled) + 1e-6)
+
+    # 计算相关性
+    correlation = np.corrcoef(std_norm, user_norm)[0, 1]
+
+    if np.isnan(correlation):
+        return 70.0
+
+    # 将相关性转换为匹配率 (0-100)
+    match_rate = max(0, min(100, (correlation + 1) * 50))
+
+    return float(match_rate)
+
+
+def generate_diagnosis(
+    pitch_match_rate: float,
+    rhythm_match_rate: float,
+    avg_cents_error: float,
+    std_pitch_curve: dict,
+    user_pitch_curve: dict
+) -> list:
+    """生成诊断信息"""
+    diagnosis = []
+
+    # 音准诊断
+    if pitch_match_rate >= 90:
+        diagnosis.append('音准表现优秀，与标准音频高度匹配')
+    elif pitch_match_rate >= 80:
+        diagnosis.append('音准整体良好，部分段落略有偏差')
+    elif pitch_match_rate >= 70:
+        diagnosis.append('音准需要提高，建议多听标准音频找准音高')
+    else:
+        diagnosis.append('音准偏差较大，建议先练习音阶建立音准感')
+
+    # 音分偏差诊断
+    if avg_cents_error < 20:
+        diagnosis.append('音高控制精准，音分误差很小')
+    elif avg_cents_error < 40:
+        diagnosis.append('音高控制尚可，注意微调')
+    elif avg_cents_error < 60:
+        diagnosis.append('音高偏差明显，需要加强音准训练')
+
+    # 节奏诊断
+    if rhythm_match_rate >= 85:
+        diagnosis.append('节奏把握准确，与标准音频同步良好')
+    elif rhythm_match_rate >= 70:
+        diagnosis.append('节奏基本正确，注意不要抢拍或拖拍')
+    else:
+        diagnosis.append('节奏需要加强，建议跟着节拍器练习')
+
+    # 分析偏高/偏低趋势
+    if std_pitch_curve and user_pitch_curve:
+        std_freqs = np.array(std_pitch_curve.get('frequencies', []))
+        user_freqs = np.array(user_pitch_curve.get('frequencies', []))
+
+        if len(std_freqs) > 10 and len(user_freqs) > 10:
+            min_len = min(len(std_freqs), len(user_freqs))
+            std_resampled = np.interp(
+                np.linspace(0, len(std_freqs) - 1, min_len),
+                np.arange(len(std_freqs)),
+                std_freqs
+            )
+            user_resampled = np.interp(
+                np.linspace(0, len(user_freqs) - 1, min_len),
+                np.arange(len(user_freqs)),
+                user_freqs
+            )
+
+            # 过滤有效值
+            valid_mask = (std_resampled > 50) & (std_resampled < 1000) & (user_resampled > 50) & (user_resampled < 1000)
+            if np.sum(valid_mask) > 10:
+                cents_diff = 1200 * np.log2(user_resampled[valid_mask] / std_resampled[valid_mask])
+                positive_count = np.sum(cents_diff > 10)
+                negative_count = np.sum(cents_diff < -10)
+
+                if positive_count > negative_count * 2:
+                    diagnosis.append('整体偏高，注意控制气息不要过于用力')
+                elif negative_count > positive_count * 2:
+                    diagnosis.append('整体偏低，注意加强气息支撑')
+
+    return diagnosis
+
+
 def calculate_comparison(standard: dict, user: dict) -> dict:
     """
     计算两个音频的对比结果

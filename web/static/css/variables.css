@@ -141,3 +141,34 @@
     --chart-line: var(--primary);
     --chart-area: rgba(99, 102, 241, 0.1);
 }
+
+/* ========== 暗色主题 ========== */
+body.dark-theme {
+    --bg-page: #0f172a;
+    --bg-card: #1e293b;
+    --bg-elevated: #334155;
+    --bg-hover: #475569;
+    --bg-active: #64748b;
+
+    --primary-light: rgba(99, 102, 241, 0.2);
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-disabled: #64748b;
+
+    --border: #334155;
+    --border-light: #1e293b;
+    --border-dark: #475569;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.4);
+
+    --gradient-hero: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+
+    --chart-grid: rgba(255, 255, 255, 0.05);
+    --chart-area: rgba(99, 102, 241, 0.2);
+}

@@ -14,7 +14,9 @@ from playwright.sync_api import Page, expect
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent  # tests/e2e/ -> tests/ -> project root
 UPLOAD_FOLDER = PROJECT_ROOT / "uploads"
-TEST_MUSIC_FOLDER = PROJECT_ROOT / "test_music"
+TEST_DATA_DIR = PROJECT_ROOT / "tests" / "test_data" / "audio"
+VOCAL_DIR = TEST_DATA_DIR / "vocal"
+NON_VOCAL_DIR = TEST_DATA_DIR / "non_vocal"
 WEB_APP_SCRIPT = PROJECT_ROOT / "web_app.py"
 
 UPLOAD_FOLDER.mkdir(exist_ok=True)
@@ -77,12 +79,12 @@ def get_test_files():
     test_files = {}
 
     # 真实音乐文件
-    real_music = list(TEST_MUSIC_FOLDER.glob("*.mp3"))
+    real_music = list(VOCAL_DIR.glob("*.mp3"))
     if real_music:
         test_files['real_music'] = real_music[0]
 
     # WAV 测试文件
-    wav_files = list(TEST_MUSIC_FOLDER.glob("*.wav"))
+    wav_files = list(NON_VOCAL_DIR.glob("*.wav"))
     for f in wav_files:
         if 'synthetic' in f.name:
             test_files['synthetic'] = f
@@ -107,9 +109,9 @@ class TestHomePage:
         expect(page).to_have_title("声乐评估系统 - 离线版")
         # fileInput is hidden, check for presence instead
         expect(page.locator("#fileInput")).to_be_attached()
-        # Check for the upload button (visible button that triggers file input)
-        upload_btn = page.locator("button[onclick*=\"fileInput\"]")
-        expect(upload_btn).to_be_visible()
+        # Check for the action cards
+        import_card = page.locator(".action-card.primary")
+        expect(import_card).to_be_visible()
 
     def test_navigation_tabs(self, page: Page):
         """测试导航标签"""
@@ -118,6 +120,9 @@ class TestHomePage:
         expect(home_tab).to_be_visible()
         history_tab = page.get_by_role("button", name="历史记录")
         expect(history_tab).to_be_visible()
+        # 对比分析现在是链接
+        compare_link = page.locator("#navCompare")
+        expect(compare_link).to_be_visible()
 
 
 class TestPageNavigation:

@@ -64,6 +64,31 @@ class PhraseService:
     # hop length for f0
     HOP_LENGTH = 512
 
+    # ==================== 评分阈值配置 ====================
+    # 音准评分阈值：基于相对标准差 (std/mean)
+    # 注意：演唱中转音、滑音会导致高 relative_std，这是正常的
+    # 评分应该更宽松，关注"是否有意外波动"而非"音高变化范围"
+    PITCH_THRESHOLD_EXCELLENT = 0.12   # <12% 波动 = 优秀 (85-100)
+    PITCH_THRESHOLD_GOOD = 0.30        # 12-30% 波动 = 良好 (70-85)
+    PITCH_THRESHOLD_FAIR = 0.50        # 30-50% 波动 = 中等 (60-70)
+    PITCH_MIN_SCORE = 60.0             # 音准最低分提升到60
+
+    # 节奏评分阈值：基于变异系数 (cv)
+    RHYTHM_STABLE_MIN = 75.0           # 稳定节奏最低分提升到75
+    RHYTHM_IDEAL_RANGE = (0.3, 1.5)    # 理想变异系数范围
+
+    # 气息评分阈值：基于相对变化率
+    BREATH_THRESHOLD_EXCELLENT = 0.10  # <10% 变化 = 优秀
+    BREATH_THRESHOLD_GOOD = 0.25       # 10-25% 变化 = 良好
+    BREATH_MIN_SCORE = 60.0            # 气息最低分提升到60
+
+    # 情绪评分基准分
+    EMOTION_BASE_SCORE = 70.0          # 情绪基准分提升到70
+    EMOTION_MIN_SCORE = 60.0           # 情绪最低分提升到60
+
+    # 音量评分最低分
+    VOLUME_MIN_SCORE = 60.0            # 音量最低分
+
     def __init__(self, sample_rate: int = 22050, max_workers: int = 4):
         """
         初始化逐句评分服务
@@ -379,24 +404,24 @@ class PhraseService:
         评分音量（优化版）
 
         使用更合理的归一化范围，使正常音量能获得合理分数
+        最低分下限 60 分
         """
         rms = librosa.feature.rms(y=audio)[0]
         mean_rms = np.mean(rms)
 
         # 理想 RMS 范围: 0.02 - 0.15
-        # 低于 0.02 音量太小，高于 0.15 音量过大
         if mean_rms < 0.02:
-            # 音量太小，线性增长
-            score = mean_rms / 0.02 * 60 + 20  # 20-80分
+            # 音量太小，但保底 60 分
+            score = max(self.VOLUME_MIN_SCORE, mean_rms / 0.02 * 20 + 60)  # 60-80分
         elif mean_rms > 0.15:
-            # 音量过大，逐渐降低
+            # 音量过大，逐渐降低，但保底 65 分
             excess = (mean_rms - 0.15) / 0.15
-            score = max(60, 90 - excess * 30)
+            score = max(65, 90 - excess * 15)
         else:
-            # 理想范围，映射到 70-95 分
-            score = 70 + (mean_rms - 0.02) / (0.15 - 0.02) * 25
+            # 理想范围，映射到 75-95 分
+            score = 75 + (mean_rms - 0.02) / (0.15 - 0.02) * 20
 
-        return min(100, max(0, score))
+        return min(100, max(self.VOLUME_MIN_SCORE, score))
 
     def _score_pitch_fast(
         self,
@@ -406,7 +431,10 @@ class PhraseService:
         """
         快速音准评分（复用已计算的 f0）
 
-        优化评分公式，使合理波动不会过度惩罚
+        评分思路：
+        - 演唱中的转音、滑音会导致高 relative_std，这是正常的音乐表达
+        - 评分应该宽松，关注"是否有意外波动"而非"音高变化范围"
+        - 最低分 60，让大部分演唱都能获得及格以上的分数
         """
         valid_f0 = None
 
@@ -418,14 +446,13 @@ class PhraseService:
         # 如果没有有效的 f0，快速计算
         if valid_f0 is None or len(valid_f0) < 5:
             try:
-                # 使用更快的 pYIN 参数
                 local_f0, _, _ = librosa.pyin(
                     audio,
                     fmin=65,
                     fmax=1047,
                     sr=self.sample_rate,
                     hop_length=self.HOP_LENGTH,
-                    centers=None  # 加速
+                    centers=None
                 )
                 valid_f0 = local_f0[~np.isnan(local_f0)]
             except Exception:
@@ -435,27 +462,36 @@ class PhraseService:
             f0_std = np.std(valid_f0)
             f0_mean = np.mean(valid_f0)
 
-            # 优化：相对标准差，正常人声波动 5-15%
+            # 相对标准差
             relative_std = f0_std / f0_mean if f0_mean > 0 else 0.5
 
-            # 更合理的评分：5% 波动 = 90分，15% 波动 = 70分，30% 波动 = 50分
-            if relative_std < 0.05:
-                score = 90 + (0.05 - relative_std) / 0.05 * 10  # 90-100
-            elif relative_std < 0.15:
-                score = 90 - (relative_std - 0.05) / 0.10 * 20  # 70-90
-            elif relative_std < 0.30:
-                score = 70 - (relative_std - 0.15) / 0.15 * 20  # 50-70
+            # 宽松评分曲线：大部分演唱应该能得 70 分以上
+            if relative_std < self.PITCH_THRESHOLD_EXCELLENT:
+                # <12% 波动：优秀 85-100
+                score = 85 + (self.PITCH_THRESHOLD_EXCELLENT - relative_std) / self.PITCH_THRESHOLD_EXCELLENT * 15
+            elif relative_std < self.PITCH_THRESHOLD_GOOD:
+                # 12-30% 波动：良好 70-85
+                score = 85 - (relative_std - self.PITCH_THRESHOLD_EXCELLENT) / (self.PITCH_THRESHOLD_GOOD - self.PITCH_THRESHOLD_EXCELLENT) * 15
+            elif relative_std < self.PITCH_THRESHOLD_FAIR:
+                # 30-50% 波动：中等 60-70
+                score = 70 - (relative_std - self.PITCH_THRESHOLD_GOOD) / (self.PITCH_THRESHOLD_FAIR - self.PITCH_THRESHOLD_GOOD) * 10
             else:
-                score = max(30, 50 - (relative_std - 0.30) / 0.10 * 10)
+                # >50% 波动：仍给 60 分保底
+                score = self.PITCH_MIN_SCORE
 
             note_range = (float(np.min(valid_f0)), float(np.max(valid_f0)))
-            return score, note_range
+            return min(100, max(self.PITCH_MIN_SCORE, score)), note_range
 
-        return 50.0, (0.0, 0.0)
+        return self.PITCH_MIN_SCORE, (0.0, 0.0)
 
     def _score_rhythm_fast(self, audio: np.ndarray) -> float:
         """
         快速节奏评分（优化版）
+
+        优化点：
+        - 稳定节奏得分更高
+        - 使用更合理的阈值范围
+        - 最低分 65
         """
         try:
             onset_env = librosa.onset.onset_strength(y=audio, sr=self.sample_rate)
@@ -467,27 +503,37 @@ class PhraseService:
             # 使用变异系数评估节奏稳定性
             cv = onset_std / (onset_mean + 1e-6)
 
-            # 合理范围：0.5-2.0 的变异系数表示有节奏感
-            if cv < 0.5:
-                score = 60 + cv / 0.5 * 20  # 60-80，太稳定
-            elif cv < 1.5:
-                score = 80 + (cv - 0.5) / 1.0 * 15  # 80-95，理想范围
-            else:
-                score = max(50, 95 - (cv - 1.5) * 10)  # 太不稳定
+            # 优化评分：稳定节奏得分更高
+            cv_min, cv_max = self.RHYTHM_IDEAL_RANGE
 
-            return min(100, max(0, score))
+            if cv < cv_min:
+                # 很稳定：给 75-90 分
+                score = self.RHYTHM_STABLE_MIN + (cv / cv_min) * 15
+            elif cv < cv_max:
+                # 理想范围：85-95 分
+                score = 85 + (cv - cv_min) / (cv_max - cv_min) * 10
+            else:
+                # 不稳定：适度降低，但保底 65 分
+                score = max(65, 95 - (cv - cv_max) * 6)
+
+            return min(100, max(65, score))
         except Exception:
-            return 60.0
+            return 75.0
 
     def _score_breath_fast(self, audio: np.ndarray) -> float:
         """
         快速气息评分（优化版）
+
+        优化点：
+        - 使用更宽松的阈值
+        - 表演性动态变化不被过度惩罚
+        - 最低分提升到 60
         """
         try:
             rms = librosa.feature.rms(y=audio)[0]
 
             if len(rms) < 2:
-                return 60.0
+                return 75.0
 
             # 计算 RMS 变化率
             rms_changes = np.abs(np.diff(rms))
@@ -497,23 +543,32 @@ class PhraseService:
             # 相对变化率
             relative_change = mean_change / (mean_rms + 1e-6)
 
-            # 优化评分：5% 变化率 = 90分，15% = 75分，30% = 60分
-            if relative_change < 0.05:
-                score = 90 + (0.05 - relative_change) / 0.05 * 10  # 90-100
-            elif relative_change < 0.15:
-                score = 90 - (relative_change - 0.05) / 0.10 * 15  # 75-90
-            elif relative_change < 0.30:
-                score = 75 - (relative_change - 0.15) / 0.15 * 15  # 60-75
+            # 宽松评分曲线
+            if relative_change < self.BREATH_THRESHOLD_EXCELLENT:
+                # <10% 变化：优秀 85-100
+                score = 85 + (self.BREATH_THRESHOLD_EXCELLENT - relative_change) / self.BREATH_THRESHOLD_EXCELLENT * 15
+            elif relative_change < self.BREATH_THRESHOLD_GOOD:
+                # 10-25% 变化：良好 70-85
+                score = 85 - (relative_change - self.BREATH_THRESHOLD_EXCELLENT) / (self.BREATH_THRESHOLD_GOOD - self.BREATH_THRESHOLD_EXCELLENT) * 15
+            elif relative_change < 0.40:
+                # 25-40% 变化：中等 60-70
+                score = 70 - (relative_change - self.BREATH_THRESHOLD_GOOD) / 0.15 * 10
             else:
-                score = max(40, 60 - (relative_change - 0.30) / 0.10 * 10)
+                # >40% 变化：保底 60 分
+                score = self.BREATH_MIN_SCORE
 
-            return min(100, max(0, score))
+            return min(100, max(self.BREATH_MIN_SCORE, score))
         except Exception:
-            return 60.0
+            return 75.0
 
     def _score_emotion_fast(self, audio: np.ndarray) -> float:
         """
-        快速情绪评分（简化版）
+        快速情绪评分（优化版）
+
+        优化点：
+        - 提高基准分到 70
+        - 移除魔法数字
+        - 最低分 60
         """
         try:
             # 基于能量和频谱特征
@@ -526,19 +581,24 @@ class PhraseService:
             brightness_mean = np.mean(spectral_centroid)
             energy_std = np.std(rms)
 
-            # 能量贡献（归一化到合理范围）
-            energy_score = min(100, max(50, energy_mean * 400 + 50))
+            # 能量贡献：基准分 + 能量加分
+            # 正常 RMS 范围 0.01-0.15，映射到 0-12 分加分
+            energy_bonus = min(12, max(0, energy_mean * 80))
 
-            # 亮度贡献（正常范围 1000-4000 Hz）
-            brightness_score = min(100, max(50, brightness_mean / 50))
+            # 亮度贡献：基准分 + 亮度加分
+            # 正常亮度范围 1000-4000 Hz，映射到 0-10 分加分
+            brightness_bonus = min(10, max(0, (brightness_mean - 1000) / 300))
 
-            # 动态变化贡献
-            variation_score = min(100, max(50, energy_std * 500 + 50))
+            # 动态变化贡献：适度的变化表示情感表达
+            # std 范围 0-0.1，映射到 0-8 分加分
+            variation_bonus = min(8, max(0, energy_std * 80))
 
-            # 综合评分
-            return (energy_score * 0.4 + brightness_score * 0.3 + variation_score * 0.3)
+            # 综合评分：基准分 + 各维度加分
+            score = self.EMOTION_BASE_SCORE + energy_bonus * 0.4 + brightness_bonus * 0.3 + variation_bonus * 0.3
+
+            return min(100, max(self.EMOTION_MIN_SCORE, score))
         except Exception:
-            return 60.0
+            return self.EMOTION_BASE_SCORE
 
     def _generate_phrase_advice(
         self,

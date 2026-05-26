@@ -67,7 +67,6 @@ separated/
 *.onnx
 *.ckpt
 models/
-pretrained_models/
 
 # Audio files (user data)
 uploads/*.mp3

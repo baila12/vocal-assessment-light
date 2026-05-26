@@ -83,20 +83,21 @@ class TestPageNavigation:
         expect(home_page).to_have_class("page active")
 
     def test_switch_to_compare_page(self, page: Page):
-        """测试切换到对比分析页"""
+        """测试切换到对比分析页 - 现在是独立页面"""
         page.goto(BACKEND_URL)
 
-        # 点击对比分析
+        # 点击对比分析链接
         compare_tab = page.locator("#navCompare")
         compare_tab.click()
 
-        # 验证页面切换
-        compare_page = page.locator("#page-compare")
-        expect(compare_page).to_be_visible()
-        expect(compare_page).to_have_class("page active")
+        # 等待页面加载并验证URL
+        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_timeout(1000)
+        assert "compare.html" in page.url, f"Expected compare.html in URL, got {page.url}"
 
-        # 验证标签高亮
-        expect(compare_tab).to_have_class("nav-tab active")
+        # 验证页面元素
+        standard_card = page.locator("#standardCard")
+        expect(standard_card).to_be_visible()
 
     def test_switch_to_history_page(self, page: Page):
         """测试切换到历史记录页"""

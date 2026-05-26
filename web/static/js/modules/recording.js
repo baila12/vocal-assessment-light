@@ -10,9 +10,14 @@ async function startQuickRecord() {
     if (AppState.recording.isRecording) { stopRecording(); return; }
 
     // 检查安全上下文（HTTPS 或 localhost）
-    if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    // 注意：localhost 应该被视为安全上下文，但某些情况下 isSecureContext 可能为 false
+    const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '[::1]';
+    const isSecure = window.isSecureContext || isLocalhost;
+
+    if (!isSecure) {
         showToast('录音功能需要 HTTPS 或 localhost 环境', 'error');
         console.error('录音失败: 非安全上下文，请使用 https:// 或 http://localhost');
+        console.log('当前 hostname:', location.hostname, 'isSecureContext:', window.isSecureContext);
         return;
     }
 
@@ -50,7 +55,22 @@ async function startQuickRecord() {
         drawRecordingWaveform();
     } catch (error) {
         console.error('录音启动失败:', error);
-        showToast('录音启动失败: ' + error.message, 'error');
+        // 更详细的错误处理
+        let errorMsg = '录音启动失败';
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            errorMsg = '麦克风权限被拒绝，请在浏览器设置中允许访问麦克风';
+        } else if (error.name === 'NotFoundError') {
+            errorMsg = '未检测到麦克风设备，请连接麦克风后重试';
+        } else if (error.name === 'NotReadableError') {
+            errorMsg = '麦克风被其他应用程序占用，请关闭其他应用后重试';
+        } else if (error.name === 'OverconstrainedError') {
+            errorMsg = '麦克风不支持所需参数，请尝试使用其他麦克风';
+        } else if (error.name === 'SecurityError') {
+            errorMsg = '安全限制：请使用 HTTPS 或 localhost 访问';
+        } else if (error.message) {
+            errorMsg = '录音失败: ' + error.message;
+        }
+        showToast(errorMsg, 'error');
     }
 }
 

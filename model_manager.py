@@ -94,9 +94,7 @@ class ModelManager:
                 classifier = torch.nn.Linear(768, 4)
 
                 # 尝试加载分类器权重 (model.ckpt)
-                # 优先检查 pretrained_models 目录
                 classifier_paths = [
-                    os.path.join('pretrained_models', 'emotion-recognition', 'model.ckpt'),
                     os.path.join(model_dir, 'model.ckpt'),
                 ]
 
@@ -131,7 +129,7 @@ class ModelManager:
 
             classifier = EncoderClassifier.from_hparams(
                 source='speechbrain/emotion-recognition-wav2vec2-IEMOCAP',
-                savedir='pretrained_models/emotion-recognition'
+                savedir='models/emotion'
             )
 
             self.models['emotion'] = {

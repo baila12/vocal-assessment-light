@@ -61,7 +61,7 @@ def get_audio():
 
     # 安全检查4：确保文件在允许的目录内
     upload_dir = config.UPLOAD_FOLDER.resolve()
-    test_dir = (config.PROJECT_ROOT / 'test_music').resolve()
+    test_dir = (config.PROJECT_ROOT / 'tests' / 'test_data' / 'audio').resolve()
 
     filepath_str = str(filepath)
     if not (

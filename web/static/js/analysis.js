@@ -303,6 +303,10 @@ function initEventListeners() {
 
 // ==================== 显示结果 ====================
 function displayResults(result) {
+    // 获取评估模式
+    const evalMode = sessionStorage.getItem('evalMode') || 'quick';
+    const isProfessional = evalMode === 'professional';
+
     // 检查是否为有效人声
     if (result.is_voice === false) {
         displayVoiceQualityWarning(result);
@@ -337,19 +341,30 @@ function displayResults(result) {
         displayAdvice(result.advice);
     }
 
-    // 可视化图片
-    if (result.visualization) {
+    // 可视化图片 - 仅专业模式显示
+    const vizSection = document.querySelector('.detail-section .card:has(.viz-tabs)');
+    if (isProfessional && result.visualization) {
         displayVisualization(result.visualization);
+        if (vizSection) vizSection.style.display = 'block';
+    } else if (vizSection) {
+        // 快速模式隐藏可视化区域
+        vizSection.style.display = 'none';
     }
 
-    // 音色分析
-    if (result.timbre) {
+    // 音色分析 - 仅专业模式显示
+    const timbreSection = document.getElementById('timbreSection');
+    if (isProfessional && result.timbre) {
         displayTimbre(result.timbre);
+    } else if (timbreSection) {
+        timbreSection.style.display = 'none';
     }
 
-    // 逐句评分
-    if (result.phrases) {
+    // 逐句评分 - 仅专业模式显示
+    const phraseSection = document.getElementById('phraseSection');
+    if (isProfessional && result.phrases) {
         displayPhrases(result.phrases);
+    } else if (phraseSection) {
+        phraseSection.style.display = 'none';
     }
 
     // 显示导出区域

@@ -5,10 +5,13 @@
 """
 from .audio_analysis import analyze_and_score, analyze_emotion
 from .audio_comparison import calculate_comparison, generate_comparison_suggestions
+from services.comparison import compare_with_dtw, ComparisonService
 
 __all__ = [
     'analyze_and_score',
     'analyze_emotion',
     'calculate_comparison',
     'generate_comparison_suggestions',
+    'compare_with_dtw',
+    'ComparisonService',
 ]

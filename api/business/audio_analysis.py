@@ -424,7 +424,7 @@ def _build_success_result(
         rhythm_info=_to_python_type(audio_result.rhythm_info),
         emotion_info={
             'dominant': emotion_info['dominant'],
-            'scores': {k: round(v * 100, 1) for k, v in emotion_info['emotions'].items()}
+            'scores': {k: round(float(v) * 100, 1) for k, v in emotion_info['emotions'].items()}
         }
     )
 
@@ -611,8 +611,8 @@ def _waveform_to_dict(waveform):
     if waveform is None:
         return None
     return {
-        'times': waveform.times,
-        'amplitudes': waveform.amplitudes
+        'times': _to_python_type(waveform.times),
+        'amplitudes': _to_python_type(waveform.amplitudes)
     }
 
 
@@ -621,8 +621,8 @@ def _pitch_curve_to_dict(pitch_curve):
     if pitch_curve is None:
         return None
     return {
-        'times': pitch_curve.times,
-        'frequencies': pitch_curve.frequencies,
-        'confidence': pitch_curve.confidence,
-        'error': pitch_curve.error
+        'times': _to_python_type(pitch_curve.times),
+        'frequencies': _to_python_type(pitch_curve.frequencies),
+        'confidence': _to_python_type(pitch_curve.confidence),
+        'error': _to_python_type(pitch_curve.error)
     }

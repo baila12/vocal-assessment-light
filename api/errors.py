@@ -79,7 +79,7 @@ def register_error_handlers(app):
         # 仅在服务器端记录详细错误
         print(f"[ERROR] Unexpected error: {error}")
         print(error_trace)
-        # 返回通用错误信息给客户端，不泄露内部细节
+        # 返回通用错误信息给客户端
         return jsonify({
             'success': False,
             'error': '服务器内部错误'

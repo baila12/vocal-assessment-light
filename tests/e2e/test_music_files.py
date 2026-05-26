@@ -98,8 +98,8 @@ class TestAllMusicFiles:
         """测试真实人声音频的可视化图片显示"""
         # 使用真实人声文件（恋人.mp3 或 手写的从前.mp3）
         real_vocal_files = [
-            TEST_MUSIC_FOLDER / "恋人.mp3",
-            TEST_MUSIC_FOLDER / "手写的从前.mp3"
+            VOCAL_DIR / "恋人.mp3",
+            VOCAL_DIR / "手写的从前.mp3"
         ]
 
         test_file = None

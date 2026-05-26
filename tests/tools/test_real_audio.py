@@ -138,10 +138,10 @@ def main():
 
     # 测试音频列表
     test_audios = [
-        'test_music/恋人.mp3',
-        'test_music/手写的从前.mp3',
+        'tests/test_data/audio/vocal/恋人.mp3',
+        'tests/test_data/audio/vocal/手写的从前.mp3',
         'uploads/测试音频.wav',
-        'test_music/simulated_voice.wav',
+        'tests/test_data/audio/non_vocal/simulated_voice.wav',
     ]
 
     # 过滤存在的文件
