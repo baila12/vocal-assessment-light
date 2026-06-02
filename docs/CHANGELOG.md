@@ -1,5 +1,88 @@
 # 更新日志
 
+## v5.11 - 评分区分度修复 + 人声分离管线修复 (2026-06-02)
+
+### 核心问题
+
+评分系统对"难听"和"好听"的音频几乎无区分度。经全链路代码审查，发现**两层分数压缩机制叠加 + 维度评分器内部高 floor/浅斜率**，导致快速模式分数被锁死在 55-92 区间。
+
+### 修复内容
+
+#### 1. 移除快速模式分数压缩 (Step 0)
+
+**问题**: `_apply_quick_mode_smoothing()` 将分数强制映射到 60-90，ScoreCalibrator 的 REFERENCE_MAPPING 将 (0,50)→(55,65)。
+
+**修复**:
+- 删除 `_apply_quick_mode_smoothing()` 函数及其调用 (~160行)
+- 删除 `_create_quick_mode_config()` — 快速/专业模式使用相同评分标准
+- 清理未使用的 `score_calibrator` / `enhanced_assessor` 导入
+- **修改文件**: `api/business/audio_analysis.py`
+
+#### 2. 修复 Demucs 人声分离管线 (Step 0.5)
+
+**问题**: Demucs 正常执行并输出文件 (`web/static/htdemucs_ft/vocals.mp3`)，但 `_find_separated_files` 因 `--filename` 参数导致输出扁平化，在错误目录查找文件，最终静默回退到原始混合音频。
+
+**修复**:
+- `_find_separated_files`: 3个候选位置查找 (flat/subdir/direct)，返回文件系统绝对路径
+- `_preprocess_for_scoring`: 兼容新旧路径格式
+- **修改文件**: `services/separation_service.py`, `services/audio_service.py`
+
+**效果**: 专业模式下分离成功，Breath 从 100 (假) 降至 70 (真)，Technique 降 6-9 分。
+
+#### 3. 移除评分硬底限 + 降低基线 (Step 1-2)
+
+**问题**: 气息硬底限 max(50,...)、艺术子维度基线 50-60、技术 HNR/CPP floor 30-50、音准/节奏"待改进"起始分 70 且斜率过缓。
+
+**修复**:
+- `BreathThresholds.get_score()`: `max(50,...)` → `max(0,...)`, 斜率 50→60
+- `PitchThresholds.get_score()`: 待改进斜率 0.5→0.85 (MAE=160音分→0分)
+- `RhythmThresholds.get_score()`: 斜率 100→120
+- `ArtistryScorer`: 4处子维度基线 60→30, 55→25, 50→25
+- `TechniqueScorer`: 4处 HNR/CPP floor 降低 60% (40→15, 30→10, 50→20, 30→10)
+- **修改文件**: `services/scoring_config.py`, `services/scoring/artistry_scorer.py`, `services/scoring/technique_scorer.py`
+
+#### 4. 节奏评分系统性修复 (Step 3-6)
+
+**问题**: 节奏维度在所有文件上得分 0-6，拉低总分 ~14 分。五重问题叠加：
+
+| 子问题 | 修复 |
+|--------|------|
+| CV→deviation 映射将人声CV当做器乐评分 | 重新校准6段映射，CV=0.7→dev=0.40 (原 0.70) |
+| 16kHz onset检测精度差 | 内部重采样到 22050Hz |
+| 响度归一化 (target_rms=0.05) 压平动态 | 节奏分析使用原始未归一化音频 |
+| 长音频全程CV被段落密度差异污染 (276s CV=1.33) | 60s窗口分段分析，取中位数CV |
+| 不规则惩罚阈值 0.3 对声乐太严格 | 0.3→0.5，四级分级惩罚 |
+
+**修改文件**: `services/features/rhythm.py`, `services/scoring/rhythm_scorer.py`, `services/audio_features_service.py`, `services/scoring_config.py`
+
+#### 5. 新增级联惩罚 + 优化人声质量惩罚 (Step 7-8)
+
+- 人声质量三层分级惩罚: vq<30 cap 40, vq<50 penalty 35, vq<65 小幅惩罚
+- 多维度联合极差惩罚: 3维<40 cap 55, 4维<40 cap 40
+- 等级区间更新匹配新分数分布: (88,100)专业级 → (0,25)待改进
+- **修改文件**: `services/score_service.py`
+
+### 效果对比
+
+| 音频 | 修改前 | 修改后 | 提升 |
+|------|--------|--------|------|
+| 清唱 (obj_...) | 70.7 | **82.9** | +12.2 |
+| 恋人 | 70.9 | **86.4** | +15.5 |
+| 手写的从前 | 73.4 | **83.0** | +9.6 |
+
+| 维度 | 修改前 | 修改后 |
+|------|--------|--------|
+| Rhythm | 0-6 (全损) | 67-77 (正常) |
+| Breath (分离后) | 100 (假) | 70-93 (真) |
+| Technique (分离后) | 78-84 (偏高) | 72-76 (合理) |
+
+### 测试
+
+- 79/79 单元测试通过
+- 6/6 集成测试通过
+
+---
+
 ## v5.9 - 逐句评分优化 (2026-05-10)
 
 ### 问题修复

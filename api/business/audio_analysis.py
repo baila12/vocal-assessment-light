@@ -35,18 +35,7 @@ except Exception as e:
     logger.warning(f"DL assessor init failed: {e}")
     dl_assessor = None
 
-# v5.3 增强的DL评估器（带评分校准）
-try:
-    from services.dl_services.enhanced_dl_assessor import get_enhanced_assessor, ScoreCalibrator
-    enhanced_assessor = get_enhanced_assessor()
-    score_calibrator = ScoreCalibrator()
-except Exception as e:
-    logger.warning(f"Enhanced assessor init failed: {e}")
-    enhanced_assessor = None
-    score_calibrator = None
-
-
-def analyze_and_score(filepath: str, mode: str = 'quick') -> dict:
+def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = None) -> dict:
     """
     分析音频并计算评分
 
@@ -55,6 +44,7 @@ def analyze_and_score(filepath: str, mode: str = 'quick') -> dict:
         mode: 评估模式
             - 'quick': 快速评估（跳过逐句评分，简化可视化，约30秒）
             - 'professional': 专业评估（完整分析，约2-5分钟）
+        reference_path: 参考音频路径（可选，用于DTW对比评分）
 
     Returns:
         分析结果字典
@@ -95,13 +85,9 @@ def analyze_and_score(filepath: str, mode: str = 'quick') -> dict:
         # 快速模式跳过深度学习评估，节省时间
         dl_result = {'mos_score': 0.0, 'mos_normalized': 0.0, 'method': 'none', 'confidence': 0.0}
 
-    # 根据模式选择评分配置
-    if mode == 'quick':
-        # 快速模式：使用更宽松、公正的评分标准
-        scoring_config = _create_quick_mode_config()
-    else:
-        # 专业模式：使用标准配置
-        scoring_config = None  # 使用默认配置
+    # 快速/专业模式使用相同的评分标准
+    # 快速模式的"快"来自跳过的分析步骤（DL评估、逐句评分、可视化等），而非放宽评分标准
+    scoring_config = None  # 使用默认配置
 
     score_result = score_service.calculate(
         features=advanced_features,
@@ -114,12 +100,10 @@ def analyze_and_score(filepath: str, mode: str = 'quick') -> dict:
         dl_mos_normalized=dl_result['mos_normalized'],
         dl_method=dl_result['method'],
         dl_confidence=dl_result['confidence'],
-        scoring_config=scoring_config  # 传入配置
+        scoring_config=scoring_config,
+        user_filepath=filepath,
+        reference_path=reference_path
     )
-
-    # 快速模式分数平滑：确保分数在合理范围（60-90）
-    if mode == 'quick':
-        score_result = _apply_quick_mode_smoothing(score_result)
 
     # 5. 生成建议
     advice_result = advice_service.generate(score_result)
@@ -207,160 +191,6 @@ def _assess_with_dl(filepath: str) -> dict:
     except Exception as e:
         logger.warning(f"DL assessment failed: {e}")
         return {'mos_score': 0.0, 'mos_normalized': 0.0, 'method': 'none', 'confidence': 0.0}
-
-
-def _create_quick_mode_config():
-    """
-    创建快速模式的评分配置
-
-    快速模式特点：
-    - 更宽松的阈值，避免过度惩罚
-    - 基础分数范围更合理（60-90分）
-    - 减少极端评分
-    """
-    from services.scoring_config import (
-        ScoringConfig, PitchThresholds, RhythmThresholds,
-        BreathThresholds, CriticalRuleThresholds, WeightsConfig
-    )
-
-    return ScoringConfig(
-        # 音准：放宽阈值，正常波动不惩罚
-        pitch=PitchThresholds(
-            excellent=20.0,    # 20音分内满分（放宽）
-            good=50.0,         # 50音分内良好
-            pass_threshold=80.0  # 80音分内合格
-        ),
-        # 节奏：放宽阈值
-        rhythm=RhythmThresholds(
-            excellent=0.18,    # 18%偏差内满分
-            good=0.35,         # 35%偏差内良好
-            pass_threshold=0.50  # 50%偏差内合格
-        ),
-        # 气息：放宽阈值
-        breath=BreathThresholds(
-            excellent=0.25,    # 25%波动内满分
-            good=0.40,         # 40%波动内良好
-            pass_threshold=0.55  # 55%波动内合格
-        ),
-        # 底线规则：更宽松
-        critical=CriticalRuleThresholds(
-            consecutive_off_notes=8,   # 8个连续跑调才惩罚
-            off_beat_segments=5,       # 5段脱离节拍才惩罚
-            off_beat_ratio=0.6,        # 60%脱离才惩罚
-            min_hnr=2.0                # 最低HNR放宽
-        ),
-        # 权重保持不变
-        weights=WeightsConfig(),
-        # 禁用DL融合（快速模式）
-        dl_enabled=False,
-        dl_min_confidence=0.5,
-        dl_max_weight=0.0,
-        dl_boost_factor=0.0
-    )
-
-
-def _apply_quick_mode_smoothing(score_result):
-    """
-    快速模式分数平滑处理 v5.3
-
-    使用评分校准器确保评分公正合理：
-    - 基于测试数据的校准参数
-    - 分数映射到合理范围
-    - 保持快速/专业模式一致性
-
-    Args:
-        score_result: 评分结果对象
-
-    Returns:
-        处理后的评分结果
-    """
-    # 使用校准器进行精确校准
-    if score_calibrator:
-        # 校准各维度分数
-        score_result.pitch_score = score_calibrator.calibrate_score(
-            score_result.pitch_score, 'pitch', 'quick'
-        )
-        score_result.rhythm_score = score_calibrator.calibrate_score(
-            score_result.rhythm_score, 'rhythm', 'quick'
-        )
-        score_result.breath_score = score_calibrator.calibrate_score(
-            score_result.breath_score, 'breath', 'quick'
-        )
-        score_result.technique_score = score_calibrator.calibrate_score(
-            score_result.technique_score, 'technique', 'quick'
-        )
-        score_result.artistry_score = score_calibrator.calibrate_score(
-            score_result.artistry_score, 'artistry', 'quick'
-        )
-
-        # 校准总分
-        weights = {'pitch': 0.28, 'rhythm': 0.20, 'breath': 0.20,
-                   'technique': 0.18, 'artistry': 0.14}
-        scores = {
-            'pitch': score_result.pitch_score,
-            'rhythm': score_result.rhythm_score,
-            'breath': score_result.breath_score,
-            'technique': score_result.technique_score,
-            'artistry': score_result.artistry_score
-        }
-        score_result.total_score = score_calibrator.calibrate_total(scores, weights, 'quick')
-    else:
-        # 后备方案：简单的平滑函数
-        MIN_SCORE = 60.0
-        MAX_SCORE = 90.0
-
-        def smooth_score(score):
-            if score <= MIN_SCORE:
-                return MIN_SCORE + (score / 100) * 10
-            elif score >= MAX_SCORE:
-                excess = score - MAX_SCORE
-                return MAX_SCORE - excess * 0.2
-            else:
-                return score
-
-        score_result.pitch_score = smooth_score(score_result.pitch_score)
-        score_result.rhythm_score = smooth_score(score_result.rhythm_score)
-        score_result.breath_score = smooth_score(score_result.breath_score)
-        score_result.technique_score = smooth_score(score_result.technique_score)
-        score_result.artistry_score = smooth_score(score_result.artistry_score)
-
-        total = (
-            score_result.pitch_score * 0.28 +
-            score_result.rhythm_score * 0.20 +
-            score_result.breath_score * 0.20 +
-            score_result.technique_score * 0.18 +
-            score_result.artistry_score * 0.14
-        )
-        score_result.total_score = round(smooth_score(total), 1)
-
-    # 更新等级
-    if score_result.total_score >= 85:
-        score_result.level = "优秀"
-        score_result.stars = "★★☆"
-        score_result.color = "#3b82f6"
-    elif score_result.total_score >= 75:
-        score_result.level = "良好"
-        score_result.stars = "★★"
-        score_result.color = "#10b981"
-    elif score_result.total_score >= 65:
-        score_result.level = "中等"
-        score_result.stars = "★☆"
-        score_result.color = "#f59e0b"
-    else:
-        score_result.level = "及格"
-        score_result.stars = "★"
-        score_result.color = "#f97316"
-
-    # 更新兼容字段
-    score_result.pitch = score_result.pitch_score
-    score_result.rhythm = score_result.rhythm_score
-    score_result.breath = score_result.breath_score
-    score_result.technique = score_result.technique_score
-    score_result.emotion = score_result.artistry_score
-    score_result.volume = score_result.breath_score
-    score_result.total = score_result.total_score
-
-    return score_result
 
 
 def _build_success_result(

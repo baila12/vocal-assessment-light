@@ -18,12 +18,16 @@ from scipy import signal
 
 from config import Config
 from services.audio_features_service import AudioFeaturesService, AudioFeaturesResult
+from services.features.acoustic import AcousticAnalyzer
 
 # 深度学习服务 v5.0
 from services.dl_services import VoiceQualityDetector, SingingStyleClassifier, SelfReferencedDTW
 
 # 风格自适应评分 v5.1
 from services.style_aware_scorer import StyleAnalyzer, MusicStyle
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -95,6 +99,12 @@ class AudioAnalysisResult:
     _style_confidence: float = 0.0  # 风格分类置信度
     _music_mood: Optional[str] = field(default=None, repr=False)  # 音乐情绪
     _style_profile: Optional['StyleProfile'] = field(default=None, repr=False)  # 风格配置档案
+
+    # 人声分离 v5.10
+    _used_separation: bool = False  # 是否使用了人声分离
+    _separated_vocals_path: Optional[str] = field(default=None, repr=False)  # 分离后的人声路径
+    _is_mixed_audio: bool = False  # 是否检测为混合音频
+    _mixed_audio_confidence: float = 0.0  # 混合音频检测置信度
 
     # 错误信息
     error: Optional[str] = None
@@ -222,6 +232,28 @@ class AudioService:
             result.rms_energy = self._compute_rms_energy(
                 audio_data, sample_rate
             )
+
+            # ========== v5.10 评分预处理：检测混合音频并按需分离人声 ==========
+            scoring_audio, scoring_sr, separated_path, used_sep, is_mixed, mixed_conf = \
+                self._preprocess_for_scoring(filepath, audio_data, sample_rate, quick_mode)
+
+            result._used_separation = used_sep
+            result._separated_vocals_path = separated_path
+            result._is_mixed_audio = is_mixed
+            result._mixed_audio_confidence = mixed_conf
+
+            # 如果使用了分离后的人声，需要重新提取 f0
+            if used_sep:
+                audio_data = scoring_audio
+                sample_rate = scoring_sr
+                result._audio_data = audio_data
+                pitch_result = self._analyze_pitch(audio_data, sample_rate)
+                result.pitch_info = pitch_result['info']
+                result._valid_freqs = pitch_result['valid_freqs']
+                result._f0 = pitch_result['f0']
+                result._pitch_stability = pitch_result['stability']
+                # 更新音量信息（基于纯净人声）
+                result.volume_info = self._analyze_volume(audio_data)
 
             # 高级特征提取 v4.1（传递f0用于气息评估）
             result._advanced_features = self._features_service.extract_all_features(
@@ -647,6 +679,92 @@ class AudioService:
             }
         except Exception as e:
             return {'error': str(e)}
+
+    # ========== 深度学习服务辅助方法 v5.0 ==========
+
+    def _preprocess_for_scoring(
+        self,
+        filepath: str,
+        audio_data: np.ndarray,
+        sample_rate: int,
+        quick_mode: bool = False
+    ) -> tuple:
+        """
+        评分前预处理：检测混合音频并按需进行人声分离 v5.10
+
+        如果检测到混合音频（带伴奏），运行 Demucs 分离出纯净人声，
+        后续所有特征提取基于纯净人声进行，避免伴奏污染 HNR/CPP/RMS。
+
+        Args:
+            filepath: 原始音频文件路径
+            audio_data: 已加载的音频数据（用于混合检测）
+            sample_rate: 采样率
+            quick_mode: 快速模式（跳过分离以避免耗时）
+
+        Returns:
+            (audio_data, sample_rate, separated_vocals_path, used_separation, is_mixed, mixed_confidence)
+        """
+        # 快速模式跳过耗时分离
+        if quick_mode:
+            return audio_data, sample_rate, None, False, False, 0.0
+
+        # 检测是否为混合音频
+        try:
+            is_mixed, confidence, _, _ = AcousticAnalyzer(
+                sample_rate, self._hop_length
+            ).detect_mixed_audio(audio_data)
+        except Exception:
+            return audio_data, sample_rate, None, False, False, 0.0
+
+        if not is_mixed or confidence < 0.5:
+            logger.debug(f"纯人声或低混合置信度 (confidence={confidence:.2f}), 跳过分离")
+            return audio_data, sample_rate, None, False, is_mixed, confidence
+
+        logger.info(f"检测到混合音频 (confidence={confidence:.2f}), 开始 Demucs 分离...")
+
+        try:
+            from services.separation_service import SeparationService
+
+            separation_service = SeparationService(
+                output_dir=self.config.SEPARATED_DIR.parent
+            )
+            sep_result = separation_service.separate(
+                audio_path=filepath,
+                model='htdemucs_ft',
+                two_stems='vocals'
+            )
+
+            if not sep_result.success or not sep_result.vocals_path:
+                logger.warning(f"Demucs 分离失败: {sep_result.error_message}, 回退到原始音频")
+                return audio_data, sample_rate, None, False, is_mixed, confidence
+
+            # 加载分离后的人声（vocals_path 现在是文件系统绝对路径）
+            vocals_full_path = Path(sep_result.vocals_path)
+            if not vocals_full_path.exists():
+                # 兼容旧路径格式：尝试从 PROJECT_ROOT 拼接
+                vocals_full_path = Path(self.config.PROJECT_ROOT) / sep_result.vocals_path.lstrip('/')
+            if not vocals_full_path.exists():
+                logger.warning(f"分离文件不存在: {vocals_full_path}, 回退到原始音频")
+                return audio_data, sample_rate, None, False, is_mixed, confidence
+
+            vocals_audio, vocals_sr = librosa.load(str(vocals_full_path), sr=None, mono=True)
+
+            # 降采样到16kHz（与主流程一致）
+            TARGET_SR = 16000
+            if vocals_sr > TARGET_SR:
+                vocals_audio = librosa.resample(vocals_audio, orig_sr=vocals_sr, target_sr=TARGET_SR)
+                vocals_sr = TARGET_SR
+
+            logger.info(
+                f"Demucs 分离成功: 原始={len(audio_data)/sample_rate:.1f}s, "
+                f"分离人声={len(vocals_audio)/vocals_sr:.1f}s"
+            )
+
+            return vocals_audio, vocals_sr, str(vocals_full_path), True, is_mixed, confidence
+
+        except Exception as e:
+            logger.warning(f"Demucs 分离异常: {e}, 回退到原始音频")
+            return audio_data, sample_rate, None, False, is_mixed, confidence
 
     # ========== 深度学习服务辅助方法 v5.0 ==========
 

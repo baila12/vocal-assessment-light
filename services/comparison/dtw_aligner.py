@@ -55,21 +55,21 @@ class DTWAligner:
     # DTW参数
     LIBROSA_DTW_KWARGS = {
         'subseq': False,
-        'band_rad': 0.1,  # 限制在±10%对角线范围，减少计算量
+        'band_rad': 0.1,  # 限制在±10%对角线范围 — 经验值，平衡精度与速度
         'metric': 'euclidean'
     }
 
-    # 多特征权重
+    # 多特征权重 — 经验值，未经实验校准
     MULTI_FEATURE_WEIGHTS = {
-        'pitch': 0.50,
-        'energy': 0.30,
-        'zcr': 0.20
+        'pitch': 0.50,   # 音高权重
+        'energy': 0.30,  # 能量权重
+        'zcr': 0.20      # 过零率权重
     }
 
     # 性能参数
-    MAX_DTW_DURATION = 300  # 秒，超过则分段处理
-    GLOBAL_DOWNSAMPLE_RATE = 10  # Hz，全局对齐降采样率
-    SENTENCE_DOWNSAMPLE_FACTOR = 10  # 句子级降采样因子
+    MAX_DTW_DURATION = 300  # 秒，超过则分段处理 — 经验值
+    GLOBAL_DOWNSAMPLE_RATE = 10  # Hz，全局对齐降采样率 — 经验值
+    SENTENCE_DOWNSAMPLE_FACTOR = 10  # 句子级降采样因子 — 经验值
 
     def __init__(self, sample_rate: int = 22050, hop_length: int = 512):
         self.sample_rate = sample_rate
@@ -588,7 +588,11 @@ class DTWAligner:
 
     def extract_features(self, audio_path: str) -> MultiFeatureSequence:
         """
-        从音频文件提取多特征序列
+        从音频文件提取多特征序列 v5.10
+
+        新增预处理：
+        - 响度归一化：减少录音条件差异
+        - 混合音频检测与分离：避免伴奏污染音高/能量特征
 
         Args:
             audio_path: 音频文件路径
@@ -598,6 +602,38 @@ class DTWAligner:
         """
         # 加载音频
         y, sr = librosa.load(audio_path, sr=self.sample_rate, mono=True)
+
+        # v5.10 预处理：响度归一化
+        from services.features.acoustic import AcousticAnalyzer
+        y = AcousticAnalyzer.normalize_loudness(y)
+
+        # v5.10 预处理：检测混合音频并按需分离
+        try:
+            is_mixed, confidence, _, _ = AcousticAnalyzer(
+                sr, self.hop_length
+            ).detect_mixed_audio(y)
+
+            if is_mixed and confidence > 0.5:
+                logger.info(f"[DTW] 检测到混合音频 (confidence={confidence:.2f})，尝试分离...")
+                try:
+                    from services.separation_service import SeparationService
+                    from config import config
+                    from pathlib import Path
+
+                    sep_service = SeparationService(output_dir=config.SEPARATED_DIR.parent)
+                    sep_result = sep_service.separate(
+                        audio_path=audio_path, model='htdemucs_ft', two_stems='vocals'
+                    )
+                    if sep_result.success and sep_result.vocals_path:
+                        vocals_path = Path(config.PROJECT_ROOT) / sep_result.vocals_path.lstrip('/')
+                        if vocals_path.exists():
+                            logger.info(f"[DTW] 使用分离后的人声: {vocals_path}")
+                            y, sr = librosa.load(str(vocals_path), sr=self.sample_rate, mono=True)
+                            y = AcousticAnalyzer.normalize_loudness(y)
+                except Exception as e:
+                    logger.warning(f"[DTW] 分离失败，使用原始音频: {e}")
+        except Exception as e:
+            logger.debug(f"[DTW] 混合检测跳过: {e}")
 
         return self.extract_features_from_audio(y, sr)
 

@@ -158,7 +158,7 @@ class TestRhythmScorer:
         """测试不规则度惩罚"""
         result = RhythmAlignmentResult(
             avg_deviation_ratio=0.15,
-            irregularity=0.5,  # 高不规则度
+            irregularity=0.65,  # 高不规则度 (v5.11: threshold raised to 0.5)
             beats_per_second=2.0,
             onset_count=100,
             off_beat_segments=10
@@ -166,7 +166,7 @@ class TestRhythmScorer:
         score, diagnosis = self.scorer.calculate(result)
 
         assert len(diagnosis.issues) > 0
-        assert any("不规则" in issue for issue in diagnosis.issues)
+        assert any("波动" in issue or "不规则" in issue for issue in diagnosis.issues)
 
 
 class TestBreathScorer:
@@ -318,7 +318,8 @@ class TestArtistryScorer:
             technique=technique
         )
 
-        assert score >= 70.0
+        # v5.10: 无气息数据时动态/气息表现力维度基线降至30，总分降低
+        assert score >= 55.0
         assert any("丰富" in issue for issue in diagnosis.issues)
 
     def test_monotonic_emotion(self):

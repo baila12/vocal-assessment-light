@@ -51,12 +51,12 @@ class DeviationCalculator:
     基于DTW对齐路径计算各维度偏差
     """
 
-    # 偏差阈值
-    PITCH_THRESHOLD_MINOR = 20      # 音分，小问题
-    PITCH_THRESHOLD_MAJOR = 50      # 音分，大问题
-    RHYTHM_THRESHOLD_MINOR = 50     # 毫秒，小问题
-    RHYTHM_THRESHOLD_MAJOR = 150    # 毫秒，大问题
-    BREATH_STABILITY_THRESHOLD = 0.7  # 气息稳定性阈值
+    # 偏差阈值 — 经验值，未经实验校准
+    PITCH_THRESHOLD_MINOR = 20      # 音分，轻微音准问题
+    PITCH_THRESHOLD_MAJOR = 50      # 音分，严重音准问题
+    RHYTHM_THRESHOLD_MINOR = 50     # 毫秒，轻微节奏偏移
+    RHYTHM_THRESHOLD_MAJOR = 150    # 毫秒，严重节奏偏移
+    BREATH_STABILITY_THRESHOLD = 0.7  # 气息稳定性阈值 (CV倒数归一化)
 
     def __init__(self, sample_rate: int = 22050, hop_length: int = 512):
         self.sample_rate = sample_rate

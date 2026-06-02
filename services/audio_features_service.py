@@ -61,7 +61,11 @@ class AudioFeaturesService:
         singing_style: str = 'pop'
     ) -> AudioFeaturesResult:
         """
-        提取所有高级特征
+        提取所有高级特征 v5.10
+
+        新增预处理：
+        - 响度归一化：减少录音条件差异
+        - VAD人声分段：过滤前奏/间奏/尾奏，避免器乐段污染评分
 
         Args:
             audio_data: 音频数据
@@ -74,28 +78,61 @@ class AudioFeaturesService:
         try:
             result = AudioFeaturesResult()
 
+            # v5.10 预处理：响度归一化（保留原始音频用于节奏分析）
+            audio_data_raw = audio_data.copy()
+            audio_data = AcousticAnalyzer.normalize_loudness(audio_data)
+
             # 提取基频（如果未提供）
             if f0 is None:
                 f0, voiced_flags = self._extract_f0(audio_data)
             else:
                 voiced_flags = ~np.isnan(f0)
 
-            # 计算声学指标（用于气息分析）
-            hnr = self.acoustic_analyzer.calculate_hnr(audio_data)
+            # v5.10 预处理：VAD人声分段，过滤纯器乐段
+            vocal_segments = AcousticAnalyzer.find_vocal_segments(
+                f0, self.hop_length, self.sample_rate
+            )
+            result._vocal_segment_count = len(vocal_segments)
 
-            # 并行调用各分析器
+            if vocal_segments:
+                # 提取人声段音频用于声学特征计算
+                vocal_audio = AcousticAnalyzer.filter_audio_to_vocal_segments(
+                    audio_data, vocal_segments, self.hop_length
+                )
+                # 声学指标在纯净人声段上计算，减少器乐段干扰
+                hnr = self.acoustic_analyzer.calculate_hnr(vocal_audio)
+                cpp = self.acoustic_analyzer.calculate_cpp(vocal_audio)
+
+                # v5.11: 节奏分析使用原始全音频（未归一化）
+                # 响度归一化会压平动态范围，导致onset检测产生大量误检
+                # 使用f0=None强制走传统onset检测路径
+                rhythm_result = self.rhythm_analyzer.calculate_rhythm_alignment(
+                    audio_data_raw, f0=None, voiced_flags=None
+                )
+                # 气息分析在人声段上进行
+                breath_result = self.breath_analyzer.calculate_breath_stability(
+                    vocal_audio, f0=None, singing_style=singing_style, hnr=hnr
+                )
+            else:
+                # 无有效人声段，使用全音频
+                hnr = self.acoustic_analyzer.calculate_hnr(audio_data)
+                cpp = self.acoustic_analyzer.calculate_cpp(audio_data)
+                rhythm_result = self.rhythm_analyzer.calculate_rhythm_alignment(
+                    audio_data_raw, f0=None, voiced_flags=None
+                )
+                breath_result = self.breath_analyzer.calculate_breath_stability(
+                    audio_data, f0=f0, singing_style=singing_style, hnr=hnr
+                )
+
+            # 音准分析始终使用完整f0（需要全局音高轨迹）
             result.pitch_deviation = self.pitch_analyzer.calculate_pitch_deviation_cents(f0, voiced_flags)
-            result.rhythm_alignment = self.rhythm_analyzer.calculate_rhythm_alignment(
-                audio_data, f0=f0, voiced_flags=voiced_flags
-            )
-            result.breath_stability = self.breath_analyzer.calculate_breath_stability(
-                audio_data, f0=f0, singing_style=singing_style, hnr=hnr
-            )
+            result.rhythm_alignment = rhythm_result
+            result.breath_stability = breath_result
             result.vocal_technique = self.technique_analyzer.detect_vocal_techniques(f0, audio_data)
 
             # 声学指标
             result.hnr = hnr
-            result.cpp = self.acoustic_analyzer.calculate_cpp(audio_data)
+            result.cpp = cpp
 
             # 混合音频检测
             is_mixed, confidence, low_ratio, flatness = self.acoustic_analyzer.detect_mixed_audio(audio_data)

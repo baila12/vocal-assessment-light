@@ -86,8 +86,19 @@ def upload_file():
     filepath = config.get_upload_path(safe_name)
     file.save(str(filepath))
 
+    # 处理可选的参考音频 (v5.10 DTW参考对比评分)
+    reference_path = None
+    if 'reference_file' in request.files:
+        ref_file = request.files['reference_file']
+        if ref_file.filename != '' and config.is_allowed_extension(ref_file.filename):
+            ref_safe_name = sanitize_filename(ref_file.filename)
+            ref_filepath = config.get_upload_path(ref_safe_name)
+            ref_file.save(str(ref_filepath))
+            reference_path = str(ref_filepath)
+            logger.info(f"上传参考音频: {reference_path}")
+
     try:
-        result = analyze_and_score(str(filepath), mode=mode)
+        result = analyze_and_score(str(filepath), mode=mode, reference_path=reference_path)
     except Exception as e:
         logger.exception(f"Analysis failed: {e}")
         return jsonify({'success': False, 'error': f'分析失败: {str(e)}'}), 500
@@ -101,19 +112,117 @@ def upload_file():
 
 @upload_bp.route('/analyze', methods=['POST'])
 def analyze_file():
-    """分析已存在的音频文件"""
+    """分析已存在的音频文件，支持可选参考音频"""
     filepath = request.json.get('filepath')
     if not filepath:
         raise ValidationError('缺少 filepath 参数')
 
     filepath_obj = validate_filepath(filepath)
-    result = analyze_and_score(str(filepath_obj))
+
+    # 可选的参考音频路径 (v5.10 DTW参考对比评分)
+    reference_path = None
+    ref_filepath = request.json.get('reference_filepath')
+    if ref_filepath:
+        try:
+            ref_path_obj = validate_filepath(ref_filepath)
+            reference_path = str(ref_path_obj)
+        except Exception as e:
+            logger.warning(f"参考音频验证失败: {e}")
+
+    result = analyze_and_score(str(filepath_obj), reference_path=reference_path)
 
     if result['success']:
         _save_history(result, str(filepath_obj))
         result['filepath'] = str(filepath_obj)
 
     return jsonify(result)
+
+
+@upload_bp.route('/extract-pitch', methods=['POST'])
+def extract_pitch():
+    """
+    提取音频的音高曲线 v5.10
+
+    用于实时对比模式的前端获取标准音频音高数据。
+    支持两种调用方式：
+    1. FormData: 上传音频文件
+    2. JSON: {\"filepath\": \"...\"} 指定已有文件路径
+
+    Returns:
+        {
+            \"success\": true,
+            \"data\": {
+                \"duration\": 225.5,
+                \"sample_rate\": 22050,
+                \"hop_length\": 512,
+                \"frequencies\": [261.6, 264.5, ...],
+                \"times\": [0.0, 0.023, ...],
+                \"confidence\": [1.0, 0.95, ...],
+                \"frame_count\": 9780
+            }
+        }
+    """
+    import librosa
+    import numpy as np
+
+    # 处理上传文件
+    if 'file' in request.files:
+        file = request.files['file']
+        if file.filename == '':
+            raise ValidationError('没有选择文件')
+        if not config.is_allowed_extension(file.filename):
+            raise ValidationError('不支持的文件格式')
+        safe_name = sanitize_filename(file.filename)
+        filepath = config.get_upload_path(safe_name)
+        file.save(str(filepath))
+        filepath = str(filepath)
+    elif request.is_json:
+        json_data = request.get_json(silent=True)
+        filepath = (json_data or {}).get('filepath')
+        if not filepath:
+            raise ValidationError('缺少 filepath 参数')
+        filepath_obj = validate_filepath(filepath)
+        filepath = str(filepath_obj)
+    else:
+        raise ValidationError('需要上传音频文件或指定 filepath')
+
+    try:
+        # 加载并降采样到16kHz
+        TARGET_SR = 16000
+        y, sr = librosa.load(filepath, sr=None, mono=True)
+        if sr > TARGET_SR:
+            y = librosa.resample(y, orig_sr=sr, target_sr=TARGET_SR)
+            sr = TARGET_SR
+
+        hop_length = 512
+
+        # 提取基频 (yin算法)
+        f0 = librosa.yin(
+            y,
+            fmin=65.0,   # C2
+            fmax=1047.0, # C6
+            sr=sr,
+            hop_length=hop_length
+        )
+
+        times = librosa.times_like(f0, sr=sr, hop_length=hop_length)
+        confidence = (~np.isnan(f0)).astype(float)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'duration': float(len(y) / sr),
+                'sample_rate': sr,
+                'hop_length': hop_length,
+                'frequencies': [float(np.nan_to_num(f, nan=0.0)) for f in f0],
+                'times': times.tolist(),
+                'confidence': confidence.tolist(),
+                'frame_count': len(f0)
+            }
+        })
+    except Exception as e:
+        logger.exception(f"音高提取失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @upload_bp.route('/separate', methods=['POST'])

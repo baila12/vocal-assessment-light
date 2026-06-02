@@ -7,7 +7,7 @@ from typing import Tuple
 import logging
 
 from services.audio_features_service import PitchDeviationResult
-from services.scoring_config import PitchThresholds
+from services.scoring_config import PitchThresholds, EmpiricalThresholds
 from services.scoring import PitchDiagnosis
 
 logger = logging.getLogger(__name__)
@@ -24,14 +24,16 @@ class PitchScorer:
     - 底线：连续超过阈值个音符跑调超半音，扣20分
     """
 
-    def __init__(self, thresholds: PitchThresholds):
+    def __init__(self, thresholds: PitchThresholds, empirical: EmpiricalThresholds = None):
         """
         初始化音准评分器
 
         Args:
             thresholds: 音准阈值配置
+            empirical: 经验阈值配置
         """
         self.thresholds = thresholds
+        self.empirical = empirical or EmpiricalThresholds()
 
     def calculate(
         self,
@@ -60,14 +62,15 @@ class PitchScorer:
             diagnosis.issues.append(f"音高检测率低({pitch_deviation.detection_rate*100:.0f}%)")
 
         # 音高断层惩罚
-        if pitch_deviation.pitch_breaks > 3:
+        if pitch_deviation.pitch_breaks > 3:  # 经验值: 3处以上断层触发惩罚
             penalty = min(15, pitch_deviation.pitch_breaks * 2)
             score -= penalty
             diagnosis.issues.append(f"换声区存在{pitch_deviation.pitch_breaks}处音高断层")
 
-        # 长音波动惩罚
-        if pitch_deviation.pitch_wobble > 30:
-            penalty = min(10, (pitch_deviation.pitch_wobble - 30) * 0.3)
+        # 长音波动惩罚 (阈值来自empirical配置)
+        wobble_threshold = self.empirical.pitch_wobble_threshold
+        if pitch_deviation.pitch_wobble > wobble_threshold:
+            penalty = min(10, (pitch_deviation.pitch_wobble - wobble_threshold) * 0.3)
             score -= penalty
             diagnosis.issues.append(f"长音波动较大({pitch_deviation.pitch_wobble:.0f}音分)")
 

@@ -14,6 +14,8 @@ class ComparePage {
         this.isPlaying = { standard: false, user: false };
         this.currentMode = 'upload'; // 'upload' or 'realtime'
         this.realtimeCompare = null;
+        // v5.10: 预提取的标准音频音高曲线
+        this.standardPitchData = null;
         this.init();
     }
 
@@ -59,13 +61,30 @@ class ComparePage {
         this.checkReadyState();
     }
 
-    handleStandardFile(f) {
+    async handleStandardFile(f) {
         this.standardAudioFile = f;
         document.getElementById('standardCard').classList.add('has-file');
         document.getElementById('standardFileName').textContent = f.name;
         this.standardAudioEl.src = URL.createObjectURL(f);
         this.checkReadyState();
         document.getElementById('tipBanner').classList.remove('show');
+
+        // v5.10: 预提取标准音频的音高曲线
+        try {
+            const fd = new FormData();
+            fd.append('file', f);
+            const res = await fetch(this.apiBase + '/extract-pitch', { method: 'POST', body: fd });
+            const r = await res.json();
+            if (r.success && r.data) {
+                this.standardPitchData = r.data;
+                const sdEl = document.getElementById('standardDuration');
+                if (sdEl) sdEl.textContent = '时长: ' + this.fmt(r.data.duration);
+                console.log('[Compare] 音高曲线已提取: ' + r.data.frame_count + ' 帧, ' + r.data.duration.toFixed(1) + 's');
+            }
+        } catch (e) {
+            console.warn('[Compare] 音高曲线提取失败:', e);
+            // 非致命错误，实时模式将不可用但上传模式仍可工作
+        }
     }
 
     handleUserFile(f) {
@@ -197,33 +216,79 @@ class ComparePage {
             return;
         }
 
+        // v5.10: 检查音高曲线是否已提取
+        if (!this.standardPitchData || !this.standardPitchData.frequencies || this.standardPitchData.frequencies.length === 0) {
+            try {
+                const fd = new FormData();
+                fd.append('file', this.standardAudioFile);
+                const res = await fetch(this.apiBase + '/extract-pitch', { method: 'POST', body: fd });
+                const r = await res.json();
+                if (r.success && r.data) {
+                    this.standardPitchData = r.data;
+                } else {
+                    alert('音高曲线提取失败，请重试');
+                    return;
+                }
+            } catch (e) {
+                alert('音高曲线提取失败: ' + e.message);
+                return;
+            }
+        }
+
         try {
             // 动态加载实时对比模块
             if (!this.realtimeCompare) {
                 const module = await import('/js/modules/realtime-compare.js');
-                this.realtimeCompare = new module.RealtimeCompare({});
+                this.realtimeCompare = new module.RealtimeCompare({
+                    pitch_curve: this.standardPitchData,
+                    duration: this.standardPitchData.duration
+                });
+            } else {
+                // 更新已有实例的数据
+                this.realtimeCompare.standardFrequencies = this.standardPitchData.frequencies || [];
+                this.realtimeCompare.standardDuration = this.standardPitchData.duration || 0;
+                this.realtimeCompare.standardPitchCurve = this.standardPitchData;
             }
 
             // 显示实时面板
-            document.getElementById('realtimePanel').style.setProperty('display', 'block');
+            document.getElementById('realtimePanel').style.display = 'flex';
             document.getElementById('realtimeBtn').disabled = true;
 
+            // 设置歌名
+            const songNameEl = document.getElementById('ktvSongName');
+            if (songNameEl) {
+                songNameEl.textContent = this.standardAudioFile.name.replace(/\.[^.]+$/, '');
+            }
+
             // 初始化
-            await this.realtimeCompare.init(this.standardAudioEl, URL.createObjectURL(this.standardAudioFile));
+            await this.realtimeCompare.init(
+                this.standardAudioEl,
+                URL.createObjectURL(this.standardAudioFile)
+            );
 
             // 设置回调
             this.realtimeCompare.setCallbacks(
                 (deviation) => this.updateDeviationUI(deviation),
-                (score) => this.updateRealtimeScore(score),
+                (score, combo) => this.updateRealtimeScore(score, combo),
                 (result) => this.handleRealtimeComplete(result)
             );
+
+            // KTV 风格命中反馈
+            this.realtimeCompare.onHitFeedback = (type, combo) => {
+                this.showHitFeedback(type, combo);
+            };
+
+            // 初始化音高对比 Canvas
+            const canvas = document.getElementById('pitchCompareCanvas');
+            if (canvas) {
+                this.realtimeCompare.initPitchCanvas(canvas);
+            }
 
             // 开始
             await this.realtimeCompare.start();
 
         } catch (e) {
             console.error('实时录音失败:', e);
-            // 更详细的错误提示
             let errorMsg = '实时录音启动失败';
             if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
                 errorMsg = '麦克风权限被拒绝，请在浏览器设置中允许访问麦克风';
@@ -235,7 +300,8 @@ class ComparePage {
                 errorMsg = e.message;
             }
             alert(errorMsg);
-            document.getElementById('realtimePanel')?.style.setProperty('display', 'none');
+            const rp = document.getElementById('realtimePanel');
+            if (rp) rp.style.display = 'none';
             document.getElementById('realtimeBtn').disabled = false;
         }
     }
@@ -243,23 +309,51 @@ class ComparePage {
     updateDeviationUI(deviation) {
         const valueEl = document.getElementById('deviationValue');
         const hintEl = document.getElementById('deviationHint');
+        const curNoteEl = document.getElementById('currentUserNote');
+        const tgtNoteEl = document.getElementById('targetNote');
+        const hitDot = document.getElementById('hitLevelDot');
 
         if (valueEl) {
             const cents = deviation.cents;
             valueEl.textContent = (cents > 0 ? '+' : '') + cents + ' 音分';
-            valueEl.className = 'deviation-value' + (cents > 20 ? ' positive' : cents < -20 ? ' negative' : '');
+            valueEl.className = 'deviation-value' + (Math.abs(cents) > 20 ? (cents > 0 ? ' positive' : ' negative') : '');
         }
 
-        if (hintEl) {
-            hintEl.textContent = deviation.hint || '保持稳定';
+        if (hintEl) hintEl.textContent = deviation.hint || '保持稳定';
+        if (curNoteEl && deviation.userNote) curNoteEl.textContent = deviation.userNote.fullName || '--';
+        if (tgtNoteEl && deviation.targetNote) tgtNoteEl.textContent = deviation.targetNote;
+
+        // 命中等级颜色点
+        if (hitDot && deviation.hitLevel) {
+            const colors = { perfect: '#ffd700', great: '#54a0ff', good: '#10b981', miss: '#666' };
+            hitDot.style.backgroundColor = colors[deviation.hitLevel] || '#666';
         }
     }
 
-    updateRealtimeScore(score) {
+    updateRealtimeScore(score, combo) {
         const scoreEl = document.getElementById('realtimeScore');
-        if (scoreEl) {
-            scoreEl.textContent = score;
+        const comboEl = document.getElementById('realtimeCombo');
+        if (scoreEl) scoreEl.textContent = score;
+        if (comboEl) {
+            comboEl.textContent = (combo || 0) > 1 ? combo + ' COMBO' : '';
+            comboEl.style.display = (combo || 0) > 1 ? 'block' : 'none';
         }
+    }
+
+    showHitFeedback(type, combo) {
+        const fbEl = document.getElementById('hitFeedback');
+        if (!fbEl) return;
+
+        const labels = { perfect: 'PERFECT!', great: 'GREAT', good: 'GOOD' };
+        const text = labels[type] || '';
+
+        fbEl.textContent = text;
+        fbEl.className = 'hit-feedback ' + type + ' show';
+
+        clearTimeout(this._hitFeedbackTimer);
+        this._hitFeedbackTimer = setTimeout(() => {
+            fbEl.classList.remove('show');
+        }, 600);
     }
 
     async stopRealtimeCompare() {
@@ -270,17 +364,19 @@ class ComparePage {
     }
 
     handleRealtimeComplete(result) {
-        document.getElementById('realtimePanel').style.setProperty('display', 'none');
+        document.getElementById('realtimePanel').style.display = 'none';
         document.getElementById('realtimeBtn').disabled = false;
 
-        if (result && result.score) {
+        if (result && result.score !== undefined) {
             this.compareResult = {
                 score: result.score,
                 level: result.level,
                 pitch_match_rate: result.pitchMatchRate,
                 avg_cents_error: result.avgCentsError,
                 diagnosis: result.diagnosis || [],
-                suggestions: []
+                suggestions: [],
+                hitCounts: result.hitCounts || {},
+                maxCombo: result.maxCombo || 0
             };
             this.showResult();
         }
@@ -290,6 +386,22 @@ class ComparePage {
         document.getElementById('resultPanel').classList.add('active');
         document.getElementById('resultScore').textContent = this.compareResult?.score || '--';
         document.getElementById('resultLevel').textContent = this.compareResult?.level || '评估完成';
+
+        // KTV 统计
+        const statsEl = document.getElementById('hitStats');
+        if (statsEl && this.compareResult?.hitCounts) {
+            const h = this.compareResult.hitCounts;
+            statsEl.innerHTML =
+                `<span class="hit-stat perfect">PERFECT ${h.perfect||0}</span>` +
+                `<span class="hit-stat great">GREAT ${h.great||0}</span>` +
+                `<span class="hit-stat good">GOOD ${h.good||0}</span>` +
+                `<span class="hit-stat miss">MISS ${h.miss||0}</span>` +
+                (this.compareResult.maxCombo > 0 ? `<span class="hit-stat combo">MAX COMBO ${this.compareResult.maxCombo}</span>` : '');
+            statsEl.style.display = 'flex';
+        } else if (statsEl) {
+            statsEl.style.display = 'none';
+        }
+
         this.renderDimensions();
         this.renderSuggestions();
     }

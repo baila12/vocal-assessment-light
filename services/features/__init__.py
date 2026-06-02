@@ -93,6 +93,7 @@ class AudioFeaturesResult:
     cpp: float = 0.0
     is_mixed_audio: bool = False
     mixed_audio_confidence: float = 0.0
+    _vocal_segment_count: int = 0  # v5.10 VAD人声段数量
     error_message: Optional[str] = None
 
 

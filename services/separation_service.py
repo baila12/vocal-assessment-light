@@ -199,12 +199,20 @@ class SeparationService:
         files = {}
 
         # 查找模型输出目录
-        model_dir = output_path.parent / model / output_path.name
-        if not model_dir.exists():
-            # 尝试直接在 output_path 下查找
-            model_dir = output_path
+        # Demucs with --filename flag outputs flat: output_dir/model/stem.ext
+        # Without --filename flag: output_dir/model/audio_name/stem.ext
+        candidates = [
+            output_path.parent / model,              # flat: web/static/htdemucs_ft/
+            output_path.parent / model / output_path.name,  # subdir: web/static/htdemucs_ft/audio_name/
+            output_path,                             # direct: web/static/audio_name/
+        ]
+        model_dir = None
+        for candidate in candidates:
+            if candidate.exists():
+                model_dir = candidate
+                break
 
-        if not model_dir.exists():
+        if model_dir is None:
             return files
 
         # 支持的扩展名
@@ -214,9 +222,14 @@ class SeparationService:
         for ext in extensions:
             for stem_file in model_dir.glob(f'*{ext}'):
                 stem_name = stem_file.stem
-                # 转换为相对路径（用于 Web 访问）
-                relative_path = str(stem_file.relative_to(self.output_dir.parent))
-                files[stem_name] = f'/static/separated/{stem_file.relative_to(self.output_dir)}'
+                # 存储实际文件系统路径（用于加载）和相对Web路径（用于前端显示）
+                files[stem_name] = str(stem_file.resolve())
+                # 同时存储 web 路径用于前端
+                try:
+                    web_relative = str(stem_file.relative_to(self.output_dir.parent))
+                    files[f'web_{stem_name}'] = f'/static/{web_relative}'
+                except ValueError:
+                    files[f'web_{stem_name}'] = f'/static/separated/{stem_file.name}'
 
         return files
 

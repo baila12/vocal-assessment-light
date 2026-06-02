@@ -26,6 +26,9 @@ class RhythmAnalyzer:
     def __init__(self, sample_rate: int = 22050, hop_length: int = 512):
         self.sample_rate = sample_rate
         self.hop_length = hop_length
+        # v5.11: 节奏分析使用22050Hz以获得更好的onset检测精度
+        # 16kHz下onset检测产生更多误检(呼吸/辅音被误判为onset)
+        self._rhythm_sr = 22050
 
     def calculate_rhythm_alignment(
         self,
@@ -62,64 +65,170 @@ class RhythmAnalyzer:
         return result
 
     def _calculate_rhythm_traditional(self, audio_data: np.ndarray) -> RhythmAlignmentResult:
-        """传统onset检测方法"""
+        """
+        基于onset密度和规律性的节奏分析 v5.11
+
+        替代原来基于librosa.beat.beat_track的方法，不再假设恒定BPM/4/4拍号。
+        onset间隔的变异系数(CV)用于评估节奏规律性，适用于：
+        - 无伴奏独唱
+        - 弹性速度(Rubato)
+        - 非西方节奏体系
+        - 传统流行乐
+
+        v5.11: 长音频分段分析，避免全程CV被段落密度差异污染
+        """
         result = RhythmAlignmentResult()
 
+        # v5.11: 重采样到22kHz以获得更好的onset检测精度
+        if self.sample_rate != self._rhythm_sr:
+            audio_data = librosa.resample(audio_data, orig_sr=self.sample_rate, target_sr=self._rhythm_sr)
+            sr = self._rhythm_sr
+        else:
+            sr = self.sample_rate
+
+        # v5.11: 长音频分段分析（60s窗口，30s步长），取中位数CV
+        segment_dur = 60.0  # 60 second windows
+        segment_hop = 30.0  # 30 second overlap
+        total_duration = len(audio_data) / sr
+
+        if total_duration > segment_dur * 1.5:
+            # 长音频：分段分析
+            segment_cvs = []
+            segment_devs = []
+            total_onsets = 0
+            total_off_beat = 0
+            max_bps = 0.0
+
+            for start_t in np.arange(0, total_duration - segment_dur, segment_hop):
+                end_t = min(start_t + segment_dur, total_duration)
+                start_sample = int(start_t * sr)
+                end_sample = int(end_t * sr)
+                segment = audio_data[start_sample:end_sample]
+
+                if len(segment) < sr * 3:  # skip segments < 3s
+                    continue
+
+                seg_onset_env = librosa.onset.onset_strength(
+                    y=segment, sr=sr, hop_length=self.hop_length
+                )
+                seg_onset_frames = librosa.onset.onset_detect(
+                    onset_envelope=seg_onset_env, sr=sr, hop_length=self.hop_length
+                )
+
+                if len(seg_onset_frames) < 3:
+                    continue
+
+                seg_times = librosa.frames_to_time(seg_onset_frames, sr=sr, hop_length=self.hop_length)
+                seg_ioi = np.diff(seg_times)
+                seg_mean = np.mean(seg_ioi)
+                if seg_mean > 0:
+                    seg_cv = float(np.std(seg_ioi) / seg_mean)
+                    segment_cvs.append(seg_cv)
+                    seg_dev = self._cv_to_deviation(seg_cv)
+                    segment_devs.append(seg_dev)
+                    total_onsets += len(seg_onset_frames)
+                    total_off_beat += self._count_irregular_segments(seg_ioi, seg_mean)
+                    seg_bps = len(seg_onset_frames) / (seg_times[-1] - seg_times[0]) if seg_times[-1] > seg_times[0] else 0
+                    max_bps = max(max_bps, seg_bps)
+
+            if segment_cvs:
+                # 使用中位数CV（比均值更鲁棒，不受极端段影响）
+                result.irregularity = float(np.median(segment_cvs))
+                result.avg_deviation_ratio = float(np.median(segment_devs))
+                result.onset_count = total_onsets
+                result.beats_per_second = max_bps
+                result.off_beat_segments = total_off_beat
+                return result
+
+        # 短音频或分段失败：直接分析
         onset_env = librosa.onset.onset_strength(
-            y=audio_data, sr=self.sample_rate, hop_length=self.hop_length
+            y=audio_data, sr=sr, hop_length=self.hop_length
         )
-
-        tempo, beat_frames = librosa.beat.beat_track(
-            onset_envelope=onset_env,
-            sr=self.sample_rate,
-            hop_length=self.hop_length
-        )
-
-        result.beats_per_second = float(np.atleast_1d(tempo)[0]) / 60.0
 
         onset_frames = librosa.onset.onset_detect(
             onset_envelope=onset_env,
-            sr=self.sample_rate,
+            sr=sr,
             hop_length=self.hop_length
         )
         result.onset_count = len(onset_frames)
 
-        if len(beat_frames) < 2 or len(onset_frames) < 2:
+        if len(onset_frames) < 2:
             return result
 
-        beat_times = librosa.frames_to_time(
-            beat_frames, sr=self.sample_rate, hop_length=self.hop_length
-        )
         onset_times = librosa.frames_to_time(
-            onset_frames, sr=self.sample_rate, hop_length=self.hop_length
+            onset_frames, sr=sr, hop_length=self.hop_length
         )
 
-        beat_interval = np.mean(np.diff(beat_times))
+        ioi = np.diff(onset_times)
+        mean_ioi = np.mean(ioi)
 
-        deviations = []
-        for onset_t in onset_times:
-            nearest_beat_idx = np.argmin(np.abs(beat_times - onset_t))
-            nearest_beat = beat_times[nearest_beat_idx]
-            deviation = abs(onset_t - nearest_beat)
-            normalized_deviation = deviation / beat_interval
-            deviations.append(normalized_deviation)
-
-        if deviations:
-            result.avg_deviation_ratio = float(np.mean(deviations))
-            result.max_deviation_ratio = float(np.max(deviations))
-
-        # 脱离节拍段检测
-        result.off_beat_segments = self._count_off_beat_segments(deviations)
-
-        # 节奏不规则度
-        if len(beat_frames) > 2:
-            beat_intervals = np.diff(beat_times)
-            if len(beat_intervals) > 0:
-                mean_interval = np.mean(beat_intervals)
-                if mean_interval > 0:
-                    result.irregularity = float(np.std(beat_intervals) / mean_interval)
+        if mean_ioi > 0:
+            total_dur = onset_times[-1] - onset_times[0]
+            result.beats_per_second = result.onset_count / total_dur if total_dur > 0 else 0.0
+            result.irregularity = float(np.std(ioi) / mean_ioi)
+            result.avg_deviation_ratio = self._cv_to_deviation(result.irregularity)
+            result.off_beat_segments = self._count_irregular_segments(ioi, mean_ioi)
 
         return result
+
+    @staticmethod
+    def _cv_to_deviation(cv: float) -> float:
+        """
+        将CV（变异系数）映射到deviation_ratio (0-1)
+
+        v5.11 重新校准：人声onset自然比器乐更不规则。
+        CV解读:
+          <0.3: 非常规律 (专业级)
+          0.3-0.5: 正常 (良好)
+          0.5-0.8: 中等 (可接受业余)
+          0.8-1.2: 较不规则
+          >1.2: 严重不规则
+        """
+        if cv < 0.3:
+            return cv * 0.4
+        elif cv < 0.5:
+            return 0.12 + (cv - 0.3) * 0.6
+        elif cv < 0.8:
+            return 0.24 + (cv - 0.5) * 0.8
+        elif cv < 1.2:
+            return 0.48 + (cv - 0.8) * 1.0
+        else:
+            return min(1.0, 0.88 + (cv - 1.2) * 0.3)
+
+    def _count_irregular_segments(self, ioi: np.ndarray, mean_ioi: float) -> int:
+        """
+        检测节奏不规则段
+
+        将onset间隔远离平均值的区域标记为不规则段。
+        这在概念上替代了原来的"脱离节拍"检测，更适合非严格拍子的音乐。
+
+        Args:
+            ioi: onset间隔数组
+            mean_ioi: 平均onset间隔
+
+        Returns:
+            不规则段数量
+        """
+        if len(ioi) < 3 or mean_ioi <= 0:
+            return 0
+
+        # 标记偏离均值超过50%的间隔
+        irregular_mask = np.abs(ioi - mean_ioi) > mean_ioi * 0.5
+
+        # 找到连续的不规则段
+        segments = []
+        start = None
+        for i, val in enumerate(irregular_mask):
+            if val and start is None:
+                start = i
+            elif not val and start is not None:
+                if i - start >= 2:  # 至少2个连续不规则间隔
+                    segments.append((start, i))
+                start = None
+        if start is not None and len(irregular_mask) - start >= 2:
+            segments.append((start, len(irregular_mask)))
+
+        return len(segments)
 
     def _calculate_rhythm_from_pitch(
         self,
@@ -127,10 +236,22 @@ class RhythmAnalyzer:
         f0: np.ndarray,
         voiced_flags: np.ndarray
     ) -> RhythmAlignmentResult:
-        """基于人声基频变化检测节奏（减少伴奏干扰）"""
+        """
+        基于人声基频变化检测节奏 v5.10
+
+        使用音高变化onset替代传统onset检测，不受伴奏干扰。
+        使用onset间隔变异系数评估节奏规律性，不再依赖beat_track。
+        """
         result = RhythmAlignmentResult()
 
         try:
+            # v5.11: 重采样到22kHz
+            if self.sample_rate != self._rhythm_sr:
+                audio_data = librosa.resample(audio_data, orig_sr=self.sample_rate, target_sr=self._rhythm_sr)
+                sr = self._rhythm_sr
+            else:
+                sr = self.sample_rate
+
             valid_mask = ~np.isnan(f0) & (f0 > self.VOICE_FMIN) & (f0 < self.VOICE_FMAX)
 
             if np.sum(valid_mask) < 20:
@@ -144,69 +265,36 @@ class RhythmAnalyzer:
             valid_diff_mask = valid_mask[:-1] & valid_mask[1:] & (~np.isnan(f0_diff))
             pitch_onset_frames = np.where(valid_diff_mask & (f0_diff > 100))[0]
 
-            if len(pitch_onset_frames) < 5:
-                return result
-
-            # 获取全局节拍
-            onset_env = librosa.onset.onset_strength(
-                y=audio_data, sr=self.sample_rate, hop_length=self.hop_length
-            )
-            tempo, beat_frames = librosa.beat.beat_track(
-                onset_envelope=onset_env,
-                sr=self.sample_rate,
-                hop_length=self.hop_length
-            )
-
-            result.beats_per_second = float(np.atleast_1d(tempo)[0]) / 60.0
-
-            if len(beat_frames) < 2:
+            if len(pitch_onset_frames) < 3:
                 return result
 
             pitch_onset_times = librosa.frames_to_time(
                 pitch_onset_frames,
-                sr=self.sample_rate,
+                sr=sr,
                 hop_length=self.hop_length
-            )
-
-            beat_times = librosa.frames_to_time(
-                beat_frames, sr=self.sample_rate, hop_length=self.hop_length
             )
 
             result.onset_count = len(pitch_onset_times)
 
-            if len(beat_times) < 2 or len(pitch_onset_times) < 2:
+            if len(pitch_onset_times) < 2:
                 return result
 
-            beat_interval = np.mean(np.diff(beat_times))
+            # v5.10: 使用onset间隔变异系数评估节奏规律性
+            ioi = np.diff(pitch_onset_times)
+            mean_ioi = np.mean(ioi)
 
-            # 计算人声音符起始与节拍的对齐度
-            first_beat = beat_times[0]
-            last_beat = beat_times[-1]
+            if mean_ioi > 0:
+                total_duration = pitch_onset_times[-1] - pitch_onset_times[0]
+                result.beats_per_second = result.onset_count / total_duration if total_duration > 0 else 0.0
 
-            deviations = []
-            for onset_t in pitch_onset_times:
-                if onset_t < first_beat or onset_t > last_beat + beat_interval:
-                    continue
+                # onset变异系数 = 节奏不规则度
+                result.irregularity = float(np.std(ioi) / mean_ioi)
 
-                nearest_beat_idx = np.argmin(np.abs(beat_times - onset_t))
-                nearest_beat = beat_times[nearest_beat_idx]
-                deviation = abs(onset_t - nearest_beat)
-                normalized_deviation = min(deviation / beat_interval, 1.0)
-                deviations.append(normalized_deviation)
+                # 映射到avg_deviation_ratio (v5.11 重新校准)
+                result.avg_deviation_ratio = self._cv_to_deviation(result.irregularity)
 
-            if deviations:
-                result.avg_deviation_ratio = float(np.mean(deviations))
-                result.max_deviation_ratio = float(np.max(deviations))
-
-            result.off_beat_segments = self._count_off_beat_segments(deviations)
-
-            # 节奏不规则度
-            if len(beat_frames) > 2:
-                beat_intervals = np.diff(beat_times)
-                if len(beat_intervals) > 0:
-                    mean_interval = np.mean(beat_intervals)
-                    if mean_interval > 0:
-                        result.irregularity = float(np.std(beat_intervals) / mean_interval)
+                # 检测不规则段
+                result.off_beat_segments = self._count_irregular_segments(ioi, mean_ioi)
 
         except Exception as e:
             logger.warning(f"基于音高的节奏分析失败: {e}")

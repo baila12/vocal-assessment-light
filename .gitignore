@@ -60,6 +60,11 @@ uploads/
 outputs/
 separated/
 
+# Generated files (Demucs output, reports)
+web/static/htdemucs*/
+web/static/htdemucs_ft/
+web/static/reports/
+
 # Model files (too large for GitHub)
 *.pt
 *.pth

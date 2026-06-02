@@ -50,7 +50,7 @@ class ComparisonScoringEngine:
     基于偏差计算结果进行加权评分
     """
 
-    # 默认权重
+    # 默认权重 — 经验值，与主评分系统保持一致
     DEFAULT_WEIGHTS = {
         'pitch': 0.40,
         'rhythm': 0.30,
@@ -58,7 +58,7 @@ class ComparisonScoringEngine:
         'breath': 0.15
     }
 
-    # 风格自适应权重
+    # 风格自适应权重 — 经验值，未经实验校准
     STYLE_WEIGHTS = {
         'pop': {
             'pitch': 0.40,
@@ -86,7 +86,7 @@ class ComparisonScoringEngine:
         }
     }
 
-    # 等级阈值
+    # 等级阈值 — 经验值
     LEVEL_THRESHOLDS = [
         (90, '优秀'),
         (80, '良好'),
@@ -166,7 +166,7 @@ class ComparisonScoringEngine:
         """
         音准评分
 
-        使用分段线性评分曲线：
+        使用分段线性评分曲线（经验值）：
         - 0音分 -> 100分
         - 50音分 -> 75分
         - 100音分 -> 25分
@@ -175,18 +175,15 @@ class ComparisonScoringEngine:
         avg_cents = deviation.avg_pitch_cents
         max_cents = deviation.max_pitch_cents
 
-        # 分段线性评分
+        # 分段线性评分 — 经验值，未经实验校准
         if avg_cents <= 0:
             score = 100.0
         elif avg_cents <= 50:
-            # 0-50音分：100 -> 75
-            score = 100 - (avg_cents / 50) * 25
+            score = 100 - (avg_cents / 50) * 25   # 经验值: 每音分扣0.5分
         elif avg_cents <= 100:
-            # 50-100音分：75 -> 25
-            score = 75 - ((avg_cents - 50) / 50) * 50
+            score = 75 - ((avg_cents - 50) / 50) * 50  # 经验值: 每音分扣1分
         else:
-            # 100音分以上：25 -> 10
-            score = max(10, 25 - ((avg_cents - 100) / 50) * 15)
+            score = max(10, 25 - ((avg_cents - 100) / 50) * 15)  # 经验值: 每音分扣0.3分
 
         # 保底10分
         score = max(10, score)
@@ -212,12 +209,11 @@ class ComparisonScoringEngine:
         """
         节奏评分
 
-        基于平均节奏偏差
+        基于平均节奏偏差（经验值）
         """
         avg_ms = deviation.avg_rhythm_ms
 
-        # 节奏偏差评分
-        # 50ms以内满分，每增加50ms扣10分
+        # 50ms以内满分，每增加5ms扣1分 — 经验值
         if avg_ms <= 50:
             score = 100
         else:
@@ -243,12 +239,11 @@ class ComparisonScoringEngine:
         """
         音量评分
 
-        基于音量偏差百分比
+        基于音量偏差百分比（经验值）
         """
         avg_percent = deviation.avg_volume_percent
 
-        # 音量偏差评分
-        # 10%以内满分，每增加10%扣10分
+        # 10%以内满分，每增加1%扣1分 — 经验值
         if avg_percent <= 10:
             score = 100
         else:

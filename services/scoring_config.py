@@ -39,7 +39,7 @@ class PitchThresholds:
             score = 90 - (mae_cents - self.good) / (self.pass_threshold - self.good) * 20
             return score, "合格"
         else:
-            score = max(0, 70 - (mae_cents - self.pass_threshold) * 0.5)
+            score = max(0, 70 - (mae_cents - self.pass_threshold) * 0.85)
             return score, "待改进"
 
 
@@ -61,7 +61,7 @@ class RhythmThresholds:
             score = 90 - (deviation_ratio - self.good) / (self.pass_threshold - self.good) * 20
             return score, "合格"
         else:
-            score = max(0, 70 - (deviation_ratio - self.pass_threshold) * 100)
+            score = max(0, 70 - (deviation_ratio - self.pass_threshold) * 120)
             return score, "待改进"
 
 
@@ -83,7 +83,7 @@ class BreathThresholds:
             score = 70 + (self.pass_threshold - fluctuation) / (self.pass_threshold - self.good) * 15
             return score, "合格"
         else:
-            score = max(50, 70 - (fluctuation - self.pass_threshold) * 50)
+            score = max(0, 70 - (fluctuation - self.pass_threshold) * 60)
             return score, "待改进"
 
 
@@ -123,6 +123,37 @@ class TechniqueThresholds:
     # CPP阈值
     cpp_classical_excellent: float = 2.0
     cpp_pop_excellent: float = 1.0
+
+    # 混合音频HNR修正系数 — 经验值，未经实验验证
+    hnr_mixed_correction: float = 1.5
+
+
+@dataclass(frozen=True)
+class EmpiricalThresholds:
+    """
+    经验阈值配置 v5.10
+
+    所有硬编码魔法数字集中管理，标注为经验值。
+    这些阈值来自声乐教学实践观察，尚未经过严格的实验校准。
+    """
+    # 音准特征
+    pitch_break_cents: float = 200.0      # 音高断层阈值(音分) — 经验值
+    pitch_wobble_threshold: float = 30.0  # 长音波动惩罚阈值 — 经验值
+
+    # 节奏特征
+    rhythm_irregularity_threshold: float = 0.5  # onset不规则度惩罚阈值 — 经验值, v5.11: 0.3→0.5 (人声天然更不规则)
+    onset_off_beat_multiplier: float = 0.5      # onset偏移判定倍率 — 经验值
+
+    # 气息特征
+    breath_baseline_score: float = 60.0      # 各子维度基线分 — 经验值
+    breath_soft_threshold_ratio: float = 0.6  # 弱唱判定阈值(RMS均值比例) — 经验值
+
+    # 技巧特征
+    technique_baseline_score: float = 50.0   # 技巧综合基线分 — 经验值
+    vibrato_fft_window_ratio: float = 4.0    # 颤音FFT窗口大小/总长度的最大比例 — 经验值
+
+    # 声学特征
+    hnr_mixed_correction: float = 1.5        # 混合音频HNR修正系数 — 经验值
 
 
 @dataclass(frozen=True)
@@ -202,6 +233,7 @@ class ScoringConfig:
     critical: CriticalRuleThresholds = field(default_factory=CriticalRuleThresholds)
     technique: TechniqueThresholds = field(default_factory=TechniqueThresholds)
     weights: WeightsConfig = field(default_factory=WeightsConfig)
+    empirical: EmpiricalThresholds = field(default_factory=EmpiricalThresholds)
 
     # DL融合配置
     dl_enabled: bool = True
