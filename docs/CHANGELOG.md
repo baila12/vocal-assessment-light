@@ -1,5 +1,58 @@
 # 更新日志
 
+## v5.14 — 音准多指标 + 艺术评分重构 + 专业模式深度测试 (2026-06-03)
+
+### 真实音频测试 (Quick Mode)
+
+| 音频 | Total | Pitch | Rhythm | Breath | Tech | Art |
+|------|-------|-------|--------|--------|------|-----|
+| 高分组 (n=4) | **73-76** | 79-81 | 67-77 | 53-66 | 78-84 | **80-84** |
+| 低分组 (n=1) | **47.0** | 75.9 | **2.5** | 51.2 | 57.5 | **53.2** |
+| 差距 | **27.4** | 4.2 | 68.6 | 4.3 | 21.7 | **28.4** |
+
+### 阶段一：音准多指标体系
+
+从 pitch-benchmark 移植 (~100行):
+- `PitchDeviationResult` 新增 6 字段: RPA, RCA, gross_error_rate, octave_error_rate, relative_smoothness, continuity_breaks
+- `PitchAnalyzer._calculate_pitch_multimetric()` — 移植 evaluate_pitch_accuracy + evaluate_pitch_smoothness
+- 字段已计算但暂不驱动评分 (无参考音高时 MAE 更可靠, 保留供校准后用)
+- 修改文件: `services/features/__init__.py`, `services/features/pitch.py`, `services/scoring/pitch_scorer.py`
+
+### 阶段二：艺术评分重构 (v5.14 核心)
+
+**根因**: v5.13 艺术分 78 vs 78 (零差距)。旧 ArtistryScorer 依赖不可靠的技巧检测器 (颤音FFT/滑音阈值/假声频谱质心)。
+
+**方案**: 从四个可靠维度加权合成 + 声学特征调制:
+```
+artistry = pitch*0.20 + rhythm*0.25 + breath*0.20 + technique*0.35
+           + modulation (RMS dynamic ratio ±6, F0 variation ±4)
+```
+- 低分演唱因节奏 2.5 和技术 57.5 被自然拉低
+- 声学调制提供 ±10 分微调
+- 修改文件: `services/scoring/artistry_scorer.py`, `services/score_service.py`, `api/business/audio_analysis.py`
+
+**效果**: Artistry 差距 0.3 → 28.4, Total 差距 24.0 → 27.4
+
+### 专业模式深度测试 (v5.14)
+
+| 音频 | Quick Total | Pro Total | Pro Rhythm | Pro Breath |
+|------|------------|-----------|------------|------------|
+| 恋人(高) | 75.6 | **57.6** | **18.6** | **9.8** |
+| 陈奕迅(低) | 45.9 | 50.0 | 2.5 | 51.2 |
+
+**发现**:
+- Demucs 分离后 CV=134% 经 is_clean_vocal 映射 + RhythmScorer 额外惩罚后仍跌至 18.6
+- SingMOS: 低分演唱 MOS=95.9 > 高分演唱 MOS=73.9 (确认跨域不适用)
+- 陈奕迅(低) 无伴奏跳过 Demucs, Quick/Pro 一致性良好
+
+### 已知遗留
+
+| P0 | 专业模式 Demucs 后评分仍偏低, SingMOS 严重跨域 |
+| P1 | 气息/音准区分度偏窄, 23参数未校准 |
+| P2 | f0节奏路径待恢复, 技巧检测仅3种, 无混响补偿 |
+
+---
+
 ## v5.13 — 区分度恢复 + 专业模式修复 (2026-06-03)
 
 ### 真实音频测试结果
