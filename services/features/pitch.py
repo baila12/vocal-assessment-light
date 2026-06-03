@@ -1,13 +1,13 @@
 """
-音准分析模块 - 音分偏差计算
+音准分析模块 - 音分偏差计算 v5.14
 
-核心算法：
+核心算法:
 1. 将每个检测到的频率转换为 MIDI 音符
 2. 计算与最近标准音符的音分偏差
-3. 统计平均绝对偏差、最大偏差、连续跑调等
+3. 多指标体系 (移植自 pitch-benchmark): RPA, RCA, gross_error, octave_error, smoothness
 """
 import numpy as np
-from scipy.ndimage import uniform_filter1d
+from scipy.ndimage import uniform_filter1d, find_objects, label
 import logging
 
 from . import PitchDeviationResult
@@ -90,4 +90,90 @@ class PitchAnalyzer:
             windowed_std = uniform_filter1d(cents_deviation ** 2, window_size) ** 0.5
             result.pitch_wobble = float(np.max(windowed_std))
 
+        # v5.14: 多指标体系 (移植自 pitch-benchmark: evaluate_pitch_accuracy + evaluate_pitch_smoothness)
+        self._calculate_pitch_multimetric(cents_deviation, valid_f0, voiced_flags, result)
+
         return result
+
+    def _calculate_pitch_multimetric(
+        self,
+        cents_deviation: np.ndarray,
+        valid_f0: np.ndarray,
+        voiced_flags: np.ndarray,
+        result: PitchDeviationResult
+    ):
+        """
+        v5.14: 多指标音准评估 (移植自 pitch-benchmark)
+
+        移植来源:
+        - evaluate_pitch_accuracy()  → RPA, RCA, gross_error_rate, octave_error_rate
+        - evaluate_pitch_smoothness() → relative_smoothness, continuity_breaks
+
+        注意: pitch-benchmark 使用 ground truth voice labels,
+        这里改用 pred_voicing (from voiced_flags) 做适配。
+        """
+        epsilon = 50.0  # |cents| < 50 = accurate
+        gross_threshold = 200.0  # |cents| > 200 = gross error
+
+        # --- RPA: Raw Pitch Accuracy ---
+        result.rpa = float(np.nanmean(np.abs(cents_deviation) < epsilon))
+
+        # --- RCA: Raw Chroma Accuracy (octave-folded) ---
+        wrapped_cents = np.abs(cents_deviation) % 1200
+        chroma_diff = np.minimum(wrapped_cents, 1200 - wrapped_cents)
+        result.rca = float(np.nanmean(chroma_diff < epsilon))
+
+        # --- Gross Error Rate ---
+        result.gross_error_rate = float(np.nanmean(np.abs(cents_deviation) > gross_threshold))
+
+        # --- Octave Error Rate (无参考音高时用相邻帧跳变检测) ---
+        valid_diff = np.abs(np.diff(valid_f0))
+        relative_jumps = valid_diff / (valid_f0[:-1] + np.finfo(float).eps)
+        # 相邻帧频率跳变 > 0.7x = 接近八度跳变 (ratio ~2.0 or ~0.5)
+        near_octave_jumps = (relative_jumps > 0.7) & (relative_jumps < 1.3)
+        result.octave_error_rate = float(np.nanmean(near_octave_jumps)) if len(near_octave_jumps) > 0 else 0.0
+
+        # --- Relative Smoothness (移植自 evaluate_pitch_smoothness) ---
+        # 使用 pred_voicing (voiced_flags) 替代 ground truth voice labels
+        pred_voiced = voiced_flags.copy()
+        voiced_idx = np.where(pred_voiced)[0]
+        if len(voiced_idx) >= 2:
+            consecutive_mask = np.diff(voiced_idx) == 1
+            starts_idx = voiced_idx[:-1][consecutive_mask]
+            ends_idx = voiced_idx[1:][consecutive_mask]
+            if starts_idx.size > 0:
+                # 从原始 f0 获取 pitch values
+                f0_valid = valid_f0
+                # 映射 voiced 索引到 valid_f0 中的位置
+                # voiced_flags 在全 f0 上的索引 vs valid_f0 (仅有效帧) 需要映射
+                full_f0_vals = np.zeros(len(voiced_flags))
+                valid_indices = np.where(voiced_flags & (np.arange(len(voiced_flags)) < len(voiced_flags)))[0]
+                # 简化: 直接在 valid_f0 相邻帧上计算
+                if len(valid_f0) >= 2:
+                    pitch_starts = valid_f0[:-1]
+                    pitch_ends = valid_f0[1:]
+                    valid_pairs = (pitch_starts > 0) & (pitch_ends > 0)
+                    if np.any(valid_pairs):
+                        pitch_starts = pitch_starts[valid_pairs]
+                        pitch_ends = pitch_ends[valid_pairs]
+                        rel_changes = np.abs(pitch_ends - pitch_starts) / (pitch_starts + 1e-8)
+                        mean_chg, std_chg = np.mean(rel_changes), np.std(rel_changes)
+                        if mean_chg > 1e-9:
+                            result.relative_smoothness = float(std_chg / mean_chg)
+                        else:
+                            result.relative_smoothness = 0.0 if std_chg < 1e-8 else float('nan')
+
+        # --- Continuity Breaks ---
+        labeled_segments, num_segments = label(voiced_flags)
+        if num_segments > 0:
+            gt_segments = find_objects(labeled_segments)
+            break_count = 0
+            total_relevant = 0
+            for seg_slice_tuple in gt_segments:
+                seg_slice = seg_slice_tuple[0]
+                if seg_slice.stop - seg_slice.start > 1:
+                    total_relevant += 1
+                    if not np.all(voiced_flags[seg_slice]):
+                        break_count += 1
+            if total_relevant > 0:
+                result.continuity_breaks = float(break_count / total_relevant)

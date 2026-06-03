@@ -14,6 +14,7 @@ v5.2 改进：
 - 单一职责：ScoreServiceV4 作为协调器，委托具体评分给各评分器
 """
 from typing import Dict, Optional
+import numpy as np
 import logging
 
 from services.audio_features_service import AudioFeaturesResult
@@ -171,7 +172,11 @@ class ScoreServiceV4:
         dl_confidence: float = 0.0,
         scoring_config: 'ScoringConfig' = None,
         user_filepath: str = None,
-        reference_path: str = None
+        reference_path: str = None,
+        # v5.14: 原始音频特征 (供 ArtistryScorer 直接计算)
+        audio_data: np.ndarray = None,
+        f0: np.ndarray = None,
+        sample_rate: int = 22050
     ) -> ScoreResultV4:
         """
         计算五维评分 v5.10 - DTW参考评分增强
@@ -268,12 +273,19 @@ class ScoreServiceV4:
         result.technique_score = technique_score
         result.technique_diagnosis = technique_diagnosis
 
-        # 5. 艺术表现评分 v5.10 — 基于声乐特征，不再依赖跨域情绪模型
+        # 5. 艺术表现评分 v5.14 — 从四个可靠维度加权合成 + 声学调制
         artistry_score, artistry_diagnosis = self._artistry_scorer.calculate(
             technique=features.vocal_technique,
             breath=features.breath_stability,
             emotion_confidence=emotion_confidence,
-            emotions=emotions
+            emotions=emotions,
+            audio_data=audio_data,
+            f0=f0,
+            sr=sample_rate,
+            pitch_score=pitch_score,
+            rhythm_score=rhythm_score,
+            breath_score=breath_score,
+            technique_score=technique_score
         )
         if style_scorer:
             artistry_score = style_scorer.adjust_artistry_score(

@@ -102,6 +102,9 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         dl_confidence=dl_result['confidence'],
         scoring_config=scoring_config,
         user_filepath=filepath,
+        audio_data=audio_result._audio_data,
+        f0=audio_result._f0,
+        sample_rate=audio_result.sample_rate,
         reference_path=reference_path
     )
 

@@ -9,7 +9,7 @@ from typing import Optional
 
 @dataclass
 class PitchDeviationResult:
-    """音分偏差分析结果"""
+    """音分偏差分析结果 v5.14: 新增多指标体系 (移植自 pitch-benchmark)"""
     mae_cents: float = 0.0
     max_cents: float = 0.0
     consecutive_off_notes: int = 0
@@ -17,6 +17,14 @@ class PitchDeviationResult:
     pitch_wobble: float = 0.0
     detection_rate: float = 0.0
     valid_frame_count: int = 0
+    # v5.14: 多指标体系 (移植自 pitch-benchmark evaluate_pitch_accuracy)
+    rpa: float = 0.0              # Raw Pitch Accuracy: |cents| < 50
+    rca: float = 0.0              # Raw Chroma Accuracy: octave-folded chroma match
+    gross_error_rate: float = 0.0 # |cents| > 200 severe error ratio
+    octave_error_rate: float = 0.0 # octave misclassification rate
+    # v5.14: 音高平滑度 (移植自 pitch-benchmark evaluate_pitch_smoothness)
+    relative_smoothness: float = 0.0  # std/mean of adjacent frame pitch changes
+    continuity_breaks: float = 0.0    # voiced segment break ratio
 
 
 @dataclass
