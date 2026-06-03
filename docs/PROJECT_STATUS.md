@@ -72,6 +72,48 @@ Flask 3.0 | librosa | PyTorch | SingMOS | Demucs | Chart.js | pytest
 | P2 | 无混响补偿 | 不同录音环境 HNR/CPP 不可比 |
 | P2 | 音量维度未独立 | 被并入Breath，缺少独立SPL/动态范围评估 |
 
+---
+
+## 尚未完成的优化 (v5.13 计划)
+
+### 阶段三：校准数据集建设 (P0, 未开始)
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| 3×3 对照数据集 | ⏳ | 3首歌 × 3水平（优秀/中等/较差）= 9个音频 |
+| 校准数据结构 | ⏳ | `data/calibration/calibration_data.json` |
+| 校准工具脚本 | ⏳ | `tools/calibrate_thresholds.py` |
+| 优先校准参数 | ⏳ | cv断点, breath基线(×4), artistry上限, pitch_break_cents |
+| 校准报告 | ⏳ | `data/calibration/report_YYYYMMDD.json` |
+
+### 阶段四：DL 模型策略 (P1, 未开始)
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| SVQTD 权重可用性确认 | ⏳ | 论文1 (2210.17367v2) 预训练权重 |
+| TorchCREPE 备选接入 | ⏳ | PYIN 置信度低时启用 (~5MB) |
+| SVQTD 7属性分类器 | ⏳ | 需确认权重可用。备选: openSMILE+SVM |
+| ECAPA-TDNN 音色分析 | ⏳ | 填补 README 声称的音色功能 (明亮度/厚度) |
+| VocalCritic 评估 | ⏳ | 替代 SingMOS (需确认权重 + API 可用) |
+
+### 阶段五：鲁棒性增强 (P1, 未开始)
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| 混响补偿 | ⏳ | `services/audio_dereverb.py` — HPSS谐波分离+谱减法 |
+| 音量维度独立 | ⏳ | `services/scoring/volume_scorer.py` — 六维评分 |
+| f0节奏路径恢复 | ⏳ | 需校准数据验证后启用 |
+| 历史数据迁移 | ⏳ | `repositories/history_repository.py` — 5维→6维 |
+
+### 阶段六/七 (未开始)
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| 区分度验证测试 | ⏳ | `tests/integration/test_differentiation.py` |
+| 鲁棒性验证测试 | ⏳ | `tests/integration/test_robustness.py` |
+| 文档完善 | ⏳ | CALIBRATION.md, DL_MODELS.md |
+| Feature Flag 机制 | ⏳ | ScoringConfig 增加灰度开关 |
+
 ## 版本历史摘要
 
 | 版本 | 日期 | 核心变更 |

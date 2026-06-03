@@ -95,6 +95,37 @@
 
 ---
 
+---
+
+## 尚未完成的优化 (v5.13 计划 Phase 3-7)
+
+### 阶段三：校准数据集建设 (P0)
+- ⏳ 3×3 对照数据集 (3首歌 × 3水平 = 9个音频)
+- ⏳ `tools/calibrate_thresholds.py` 校准工具脚本
+- ⏳ 优先校准: cv断点, breath基线(×4), artistry上限, pitch_break_cents
+- ⏳ 校准方法: MAD×3 (替代差分极大值)
+
+### 阶段四：DL 模型策略 (P1)
+- ⏳ SVQTD 7属性分类器 — 需确认论文1权重可用。备选: openSMILE+SVM
+- ⏳ TorchCREPE 备选 — 已有依赖, PYIN置信度低时启用
+- ⏳ ECAPA-TDNN 音色分析 — 权重可用
+- ⏳ VocalCritic 评估 — 替代SingMOS
+
+### 阶段五：鲁棒性增强 (P1)
+- ⏳ 混响补偿 — HPSS谐波分离+谱减法
+- ⏳ 音量维度独立 — 六维评分 (Pitch 26% / Rhythm 18% / Breath 16% / Tech 16% / Art 12% / Vol 12%)
+- ⏳ f0节奏路径恢复 — 需校准验证
+- ⏳ 历史数据版本迁移 (5维→6维)
+- ⏳ Feature Flag 机制 (ScoringConfig 灰度开关)
+
+### 阶段六/七：测试验证 + 文档
+- ⏳ `tests/integration/test_differentiation.py`
+- ⏳ `tests/integration/test_robustness.py`
+- ⏳ `docs/CALIBRATION.md` — 校准文档
+- ⏳ `docs/DL_MODELS.md` — DL模型策略文档
+
+---
+
 ## 历史修复记录
 
 ### v5.13 (2026-06-03) — 区分度恢复 + Demucs修复
