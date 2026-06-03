@@ -68,9 +68,8 @@ class ArtistryScorer:
             breath_express_score * 0.20
         )
 
-        # 5. 情感模型输出作为小幅加分（已降权至 +5 顶分）
-        emotion_bonus = min(5.0, emotion_confidence * 10)
-        score += emotion_bonus
+        # v5.12: Wav2Vec2 emotion bonus removed (model removed entirely).
+        # Artistry scoring now relies purely on vocal features.
 
         score = max(0, min(100, score))
 
@@ -97,27 +96,27 @@ class ArtistryScorer:
         technique: VocalTechniqueResult,
         diagnosis: ArtistryDiagnosis
     ) -> float:
-        """基于颤音质量计算表现力得分"""
+        """基于颤音质量计算表现力得分 v5.12: 降低上限"""
         vibrato_count = technique.vibrato_count
         vibrato_quality = technique.vibrato_quality
 
         if vibrato_count == 0:
-            return 30.0  # 无颤音 = 基础分
+            return 25.0  # v5.12: 基础分30→25
 
         # 颤音质量 70+ 表示规范性好
         if vibrato_quality >= 80:
-            score = 85.0
+            score = 80.0  # v5.12: 85→80
             diagnosis.issues.append(f"颤音技巧优秀({vibrato_count}次, 质量{vibrato_quality:.0f})")
         elif vibrato_quality >= 60:
-            score = 75.0
+            score = 70.0  # v5.12: 75→70
             diagnosis.issues.append(f"颤音技巧良好({vibrato_count}次)")
         else:
             score = 60.0 + vibrato_quality * 0.15
 
-        # 颤音次数加分
-        score += min(15, vibrato_count * 1.5)
+        # 颤音次数加分（v5.12: 设上限）
+        score += min(10, vibrato_count * 1.0)  # v5.12: 上限10, 系数1.5→1.0
 
-        return max(0, min(100, score))
+        return max(0, min(90, score))  # v5.12: 硬上限90
 
     def _calculate_dynamic_score(
         self,
@@ -154,62 +153,59 @@ class ArtistryScorer:
         technique: VocalTechniqueResult,
         diagnosis: ArtistryDiagnosis
     ) -> float:
-        """基于技巧多样性计算表现力得分"""
+        """基于技巧多样性计算表现力得分 v5.12: 降低慷慨度"""
         technique_count = sum([
             1 if technique.vibrato_count > 0 else 0,
             1 if technique.slide_count > 0 else 0,
             1 if technique.falsetto_segments > 0 else 0
         ])
 
-        score = 25.0  # 基础分
-
         if technique_count >= 3:
-            score = 90.0
+            score = 80.0  # v5.12: 90→80
             diagnosis.issues.append("演唱技巧丰富（颤音+滑音+假声）")
         elif technique_count == 2:
-            score = 75.0
+            score = 70.0  # v5.12: 75→70
             diagnosis.issues.append("演唱技巧多样")
         elif technique_count == 1:
-            score = 65.0
+            score = 60.0  # v5.12: 65→60
         else:
+            score = 20.0  # v5.12: 25→20
             diagnosis.issues.append("演唱技巧较为单调单一，建议丰富表现手法")
 
-        # 技巧完成度加分
-        if technique.technique_score > 70:
-            score += 10
+        # v5.12: 移除独立的 +10 加分（改为在 score 基础中包含）
 
-        return max(0, min(100, score))
+        return max(0, min(85, score))  # v5.12: 硬上限85
 
     def _calculate_breath_express_score(
         self,
         breath: BreathStabilityResult,
         diagnosis: ArtistryDiagnosis
     ) -> float:
-        """基于气息表现力计算得分"""
+        """基于气息表现力计算得分 v5.12: 限制叠加"""
         if breath is None:
-            return 30.0
+            return 25.0  # v5.12: 30→25
 
         prof_score = breath.professional_breath_score
         is_artistic = breath.is_artistic_fluctuation
         soft_quality = getattr(breath, 'soft_singing_quality', 0)
 
-        score = 30.0
+        score = 25.0  # v5.12: 30→25
 
         # 专业气息得分贡献
         if prof_score > 80:
-            score += 20
+            score += 15  # v5.12: 20→15
             if is_artistic:
                 diagnosis.issues.append("气息表现力强，具有艺术化起伏")
         elif prof_score > 60:
-            score += 10
+            score += 8   # v5.12: 10→8
         elif prof_score > 40:
             score += 5
 
         # 弱唱控制力
         if soft_quality > 70:
-            score += 15
+            score += 10  # v5.12: 15→10
             diagnosis.issues.append("弱唱控制力优秀")
         elif soft_quality > 50:
-            score += 8
+            score += 5   # v5.12: 8→5
 
-        return max(0, min(100, score))
+        return max(0, min(85, score))  # v5.12: 硬上限85

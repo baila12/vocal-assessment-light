@@ -23,13 +23,25 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 # ============================================
 # 兼容性补丁: torchaudio 2.x 移除了 set_audio_backend 和 sox_effects
-# 必须在任何使用 s3prl 的代码之前执行
+# v5.12: 仅在 sox_effects 不可用时应用补丁，避免覆盖已有实现（如Demucs依赖）
 # ============================================
 def _apply_torchaudio_compat_patch():
-    """应用 torchaudio 兼容性补丁"""
-    import types
+    """仅在 sox_effects 不可用时应用 torchaudio 兼容性补丁"""
+    import torchaudio
 
-    # 创建 sox_effects 兼容模块
+    # 检查是否已有 sox_effects（可能是其他库注册的）
+    if hasattr(torchaudio, 'sox_effects'):
+        return  # 已存在，不覆盖
+
+    # 尝试正常导入
+    try:
+        from torchaudio import sox_effects  # noqa: F401
+        return  # 导入成功，不需要补丁
+    except ImportError:
+        pass  # 需要补丁
+
+    # 仅在必要时应用补丁
+    import types
     sox_effects_module = types.ModuleType('torchaudio.sox_effects')
 
     def apply_effects_tensor(wav, sample_rate, effects, channels_first=True):
@@ -46,12 +58,7 @@ def _apply_torchaudio_compat_patch():
 
     sox_effects_module.apply_effects_tensor = apply_effects_tensor
     sox_effects_module.apply_effects_file = apply_effects_file
-
-    # 注册到 sys.modules
     sys.modules['torchaudio.sox_effects'] = sox_effects_module
-
-    # 添加到 torchaudio 模块
-    import torchaudio
     torchaudio.sox_effects = sox_effects_module
 
     # 添加 set_audio_backend
@@ -188,110 +195,21 @@ class SingMOSPredictor:
             return DLQualityResult(method='error')
 
 
-class Wav2Vec2MOSPredictor:
-    """
-    Wav2Vec2-MOS 语音质量预测器
-
-    使用wvmos库进行MOS预测
-    """
-
-    def __init__(self):
-        self._model = None
-        self._model_available = False
-        self._load_model()
-
-    def _load_model(self):
-        """加载Wav2Vec2-MOS模型"""
-        try:
-            import torch
-
-            # Patch torch.load to support CPU loading and weights_only parameter
-            original_load = torch.load
-            def patched_load(*args, **kwargs):
-                # 强制使用 CPU (解决 CUDA 模型在 CPU 环境加载的问题)
-                if 'map_location' not in kwargs:
-                    kwargs['map_location'] = torch.device('cpu')
-                if 'weights_only' not in kwargs:
-                    kwargs['weights_only'] = False
-                return original_load(*args, **kwargs)
-            torch.load = patched_load
-
-            from wvmos import get_wvmos
-
-            # 始终使用 CPU 加载 (CUDA 模型会自动映射到 CPU)
-            logger.info("[Wav2Vec2-MOS] Loading model (forcing CPU mode for compatibility)...")
-
-            self._model = get_wvmos(cuda=False)  # 强制使用 CPU
-            self._model_available = True
-            logger.info("[Wav2Vec2-MOS] Model loaded successfully")
-
-        except Exception as e:
-            logger.warning(f"[Wav2Vec2-MOS] Failed to load model: {e}")
-            self._model_available = False
-
-    def predict(self, audio_path: str) -> DLQualityResult:
-        """
-        预测语音MOS分数
-
-        Args:
-            audio_path: 音频文件路径
-
-        Returns:
-            DLQualityResult: 评估结果
-        """
-        if not self._model_available:
-            return DLQualityResult(method='unavailable')
-
-        try:
-            mos = self._model.calculate_one(audio_path)
-            mos_score = float(mos)
-
-            # 归一化到0-100
-            mos_normalized = (mos_score - 1.0) / 4.0 * 100
-
-            return DLQualityResult(
-                mos_score=mos_score,
-                mos_normalized=max(0, min(100, mos_normalized)),
-                naturalness=mos_normalized * 0.85,
-                clarity=mos_normalized * 0.9,
-                confidence=min(1.0, mos_score / 3.0),
-                method='wvmos'
-            )
-
-        except Exception as e:
-            logger.warning(f"[Wav2Vec2-MOS] Prediction failed: {e}")
-            return DLQualityResult(method='error')
-
-
 class DLQualityAssessor:
     """
-    深度学习质量评估器 v2.0
-
-    整合多个模型进行综合评估
-    支持模型热切换、健康检查和优雅降级
+    v5.12: Simplified to SingMOS only.
+    wvmos removed (evaluates telecom voice quality, not singing).
     """
 
-    def __init__(self, use_singmos: bool = True, use_wvmos: bool = True):
-        """
-        初始化评估器
-
-        Args:
-            use_singmos: 是否使用SingMOS模型
-            use_wvmos: 是否使用Wav2Vec2-MOS模型
-        """
+    def __init__(self, use_singmos: bool = True):
         self._singmos = None
-        self._wvmos = None
         self._manager = None
-
-        # 尝试使用模型管理器
         try:
             from services.dl_services.model_manager import get_mos_model_manager
             self._manager = get_mos_model_manager()
             logger.info("[DLQualityAssessor] Using MOSModelManager")
         except Exception as e:
             logger.warning(f"[DLQualityAssessor] MOSModelManager not available: {e}")
-
-        # 初始化模型
         if use_singmos:
             try:
                 self._singmos = SingMOSPredictor()
@@ -300,99 +218,37 @@ class DLQualityAssessor:
             except Exception as e:
                 logger.warning(f"[DLQualityAssessor] SingMOS init failed: {e}")
 
-        if use_wvmos:
-            try:
-                self._wvmos = Wav2Vec2MOSPredictor()
-                if self._wvmos._model_available and self._manager:
-                    self._manager.register('wvmos', self._wvmos, priority=2)
-            except Exception as e:
-                logger.warning(f"[DLQualityAssessor] Wav2Vec2-MOS init failed: {e}")
-
     @property
     def is_available(self) -> bool:
-        """检查是否有可用模型"""
-        if self._singmos and self._singmos._model_available:
-            return True
-        if self._wvmos and self._wvmos._model_available:
-            return True
-        return False
+        """Check if SingMOS is available."""
+        return self._singmos is not None and self._singmos._model_available
 
     def assess(self, audio_path: str) -> DLQualityResult:
         """
-        评估音频质量
-
-        如果启用了模型管理器，使用管理器的降级策略
-        否则使用原有的加权平均方法
-
-        Args:
-            audio_path: 音频文件路径
-
-        Returns:
-            DLQualityResult: 综合评估结果
+        v5.12: SingMOS-only quality assessment.
+        wvmos removed (evaluates telecom voice quality, not singing).
+        DL fusion weight reduced to 15% in score_service.py.
         """
-        # 如果使用模型管理器，通过管理器评估（支持降级）
         if self._manager:
             try:
                 result = self._manager.assess_with_fallback(audio_path)
-                # 确保返回正确的类型
                 if isinstance(result, DLQualityResult):
                     return result
-                else:
-                    # 转换为 DLQualityResult
-                    return DLQualityResult(
-                        mos_score=getattr(result, 'mos_score', 3.0),
-                        mos_normalized=getattr(result, 'mos_normalized', 50.0),
-                        naturalness=getattr(result, 'naturalness', 50.0),
-                        clarity=getattr(result, 'clarity', 50.0),
-                        timbre_quality=getattr(result, 'timbre_quality', 50.0),
-                        confidence=getattr(result, 'confidence', 0.3),
-                        method=getattr(result, 'method', 'manager')
-                    )
+                return DLQualityResult(
+                    mos_score=getattr(result, 'mos_score', 3.0),
+                    mos_normalized=getattr(result, 'mos_normalized', 50.0),
+                    confidence=getattr(result, 'confidence', 0.3),
+                    method=getattr(result, 'method', 'manager')
+                )
             except Exception as e:
                 logger.warning(f"[DLQualityAssessor] Manager assess failed: {e}")
 
-        # 降级到原有方法
-        results = []
-
-        # 使用SingMOS（歌声专用，权重更高）
         if self._singmos and self._singmos._model_available:
             result = self._singmos.predict(audio_path)
             if result.method == 'singmos':
-                results.append((result, 0.7))  # 权重0.7
+                return result
 
-        # 使用Wav2Vec2-MOS（通用语音）
-        if self._wvmos and self._wvmos._model_available:
-            result = self._wvmos.predict(audio_path)
-            if result.method == 'wvmos':
-                results.append((result, 0.3))  # 权重0.3
-
-        # 如果没有可用模型，返回默认结果
-        if not results:
-            return DLQualityResult(method='none')
-
-        # 加权平均
-        total_weight = sum(w for _, w in results)
-        if total_weight == 0:
-            return results[0][0]
-
-        mos_normalized = sum(r.mos_normalized * w for r, w in results) / total_weight
-        naturalness = sum(r.naturalness * w for r, w in results) / total_weight
-        clarity = sum(r.clarity * w for r, w in results) / total_weight
-        timbre_quality = sum(r.timbre_quality * w for r, w in results) / total_weight
-        confidence = sum(r.confidence * w for r, w in results) / total_weight
-
-        # 反归一化MOS
-        mos_score = mos_normalized / 100 * 4 + 1
-
-        return DLQualityResult(
-            mos_score=mos_score,
-            mos_normalized=mos_normalized,
-            naturalness=naturalness,
-            clarity=clarity,
-            timbre_quality=timbre_quality,
-            confidence=confidence,
-            method='+'.join(r.method for r, _ in results)
-        )
+        return DLQualityResult(method='none')
 
     def get_quality_level(self, mos: float) -> Tuple[str, str]:
         """
@@ -419,5 +275,5 @@ class DLQualityAssessor:
 
 
 def create_dl_assessor() -> DLQualityAssessor:
-    """创建深度学习评估器"""
-    return DLQualityAssessor(use_singmos=True, use_wvmos=True)
+    """v5.12: Create DL assessor (SingMOS only, wvmos removed)."""
+    return DLQualityAssessor(use_singmos=True)

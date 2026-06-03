@@ -318,8 +318,8 @@ class TestArtistryScorer:
             technique=technique
         )
 
-        # v5.10: 无气息数据时动态/气息表现力维度基线降至30，总分降低
-        assert score >= 55.0
+        # v5.12: 艺术评分全线降低基线/加分/设上限，丰富情感场景预期≥48分
+        assert score >= 48.0
         assert any("丰富" in issue for issue in diagnosis.issues)
 
     def test_monotonic_emotion(self):

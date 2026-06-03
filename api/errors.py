@@ -68,7 +68,7 @@ def register_error_handlers(app):
         """处理文件过大错误"""
         return jsonify({
             'success': False,
-            'error': '文件大小超过限制'
+            'error': '文件大小超过50MB限制，请压缩音频或分段上传'
         }), 413
 
     @app.errorhandler(Exception)

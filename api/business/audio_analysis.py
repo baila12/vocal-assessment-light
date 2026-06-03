@@ -145,7 +145,12 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
 
 
 def _build_non_voice_result(audio_result, voice_quality) -> dict:
-    """构建非人声结果"""
+    """
+    构建非人声结果
+
+    v5.12 修改: 非人声不返回假分数。所有维度返回 0 分，
+    由前端判断 is_voice=false 后显示专用提示而非雷达图。
+    """
     result_dto = AnalysisResult(
         filename=audio_result.filename,
         duration=f"{int(audio_result.duration // 60):02d}:{int(audio_result.duration % 60):02d}",
@@ -158,19 +163,23 @@ def _build_non_voice_result(audio_result, voice_quality) -> dict:
         silence_ratio=round(voice_quality.silence_ratio * 100, 1),
         harmonic_ratio=round(voice_quality.harmonic_ratio * 100, 1),
         total_score=0,
-        level='无效',
-        stars='☆☆☆☆☆',
+        level='无法评分',
+        stars='————',
         color='#888888',
-        breath_score=max(20, voice_quality.quality_score * 0.3),
-        pitch_score=max(10, voice_quality.voice_ratio * 30),
-        rhythm_score=20,
-        advice=voice_quality.suggestions if hasattr(voice_quality, 'suggestions') else []
+        breath_score=0.0,
+        pitch_score=0.0,
+        rhythm_score=0.0,
+        technique_score=0.0,
+        artistry_score=0.0,
+        advice=['未检测到有效人声，请确认上传的是歌唱音频（非纯音乐或白噪声）']
     )
-    result = build_response(result_dto, version='5.0')
+    result = build_response(result_dto, version='5.12')
     result['voice_quality']['warnings'] = voice_quality.warnings if hasattr(voice_quality, 'warnings') else []
     result['voice_quality']['suggestions'] = voice_quality.suggestions if hasattr(voice_quality, 'suggestions') else []
-    result['scores']['volume'] = max(20, voice_quality.quality_score * 0.3)
-    result['scores']['emotion'] = 20
+    result['scores']['volume'] = 0.0
+    result['scores']['emotion'] = 0.0
+    result['is_voice'] = False
+    result['warning'] = '未检测到有效人声，请确认上传的是歌唱音频（非纯音乐或白噪声）'
     return result
 
 

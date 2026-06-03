@@ -1,5 +1,107 @@
 # 更新日志
 
+## v5.12 - 安全加固 + 评分统一 + 算法校准 + DL模型清理 (2026-06-03)
+
+### 阶段一：安全加固 & 代码清理 (P0)
+
+#### 1. 移除 debug=True 安全风险
+- `debug=True` 改为环境变量 `FLASK_DEBUG=1` 控制
+- 修改文件: `web_app.py`
+
+#### 2. 移除 CREPE 僵尸代码 (~300行)
+- 删除 `CREPEPitchExtractor`、`SpeechBrainMOSPredictor`、`EnhancedDLAssessor` 三个类
+- 保留 `ScoreCalibrator` 供单元测试使用
+- 修改文件: `services/dl_services/enhanced_dl_assessor.py` (740→236行), `__init__.py`, `dl_manager.py`, `diagnostic.py`
+- 修复测试文件: `tests/tools/test_evaluation_optimization.py`
+
+#### 3. 修复非人声假评分
+- `_build_non_voice_result`: 所有维度分数归零，不再返回无意义的假分数（原来 pitch=10-30, rhythm=20）
+- 新增 `is_voice=False` 和 `warning` 字段到 API 响应
+- 修改文件: `api/business/audio_analysis.py`
+
+#### 4. 其他清理
+- 清理 22 个 `__pycache__` 目录
+- 413 上传限制错误提示改为中文友好信息
+- 修改文件: `api/errors.py`
+
+### 阶段二：评分路径统一 (P0)
+
+#### 1. 移除 Legacy 对比评分路径
+- `/api/compare` 端点不再调用 `analyze_and_score()` 做冗余绝对评分 + `calculate_comparison()` 做Legacy对比
+- DTW `dimensions` 字段直接构建 `comparison` 响应
+- 移除 `calculate_comparison`、`generate_comparison_suggestions` 导出
+- 修改文件: `api/routes/upload.py`, `api/business/__init__.py`
+
+### 阶段三：算法鲁棒性修复 (P1)
+
+#### 1. 气息评分天花板修复
+- 四个子维度基线从 60 统一降为 40
+- 非艺术波动惩罚加倍: `*30` → `*60`，触发阈值 0.35→0.25
+- 加分项设上限: 长音+5max, 换气+3max
+- Sigmoid 拉伸: 低分(<=50)压缩 0.6x, 高分自然延伸
+- 修改文件: `services/features/breath.py`
+
+#### 2. 艺术评分子维度校准
+- 颤音: 基础分 30→25, 次数加分 1.5x→1.0x, 上限 100→90
+- 动态: 基线 30→25
+- 技巧多样性: 3种技巧 90→80, 2种 75→70, 1种 65→60, 上限 100→85
+- 气息表现力: 基线 30→25, 各加分项减半, 上限 100→85
+- 修改文件: `services/scoring/artistry_scorer.py`
+
+#### 3. SingMOS 校准修正
+- DL 融合权重 0.4→0.15, boost 系数 0.3→0.15
+- 添加跨域应用警告注释
+- 修改文件: `services/score_service.py`
+
+#### 4. torchaudio 补丁副作用修复
+- 仅在 `sox_effects` 不可用时应用兼容补丁，不再无条件全局覆盖
+- 修改文件: `services/dl_services/dl_quality_assessor.py`
+
+### 阶段四：深度学习模型清理 (P1)
+
+#### 1. 移除 Wav2Vec2 情绪模型
+- 模型 ~300MB, 基于 IEMOCAP 英语语音训练, 用于中文唱歌=3x跨域
+- 仅贡献 +3~5 分, Phased 3 降至 +3, 现完全移除
+- 情绪分析统一使用启发式方法
+- 修改文件: `model_manager.py` (472→156行)
+
+#### 2. 移除 wvmos (Wav2Vec2-MOS)
+- 评估电信语音质量, 不是唱歌质量 = 二次跨域
+- 删除 `Wav2Vec2MOSPredictor` 类
+- `DLQualityAssessor` 简化为 SingMOS-only
+- 修改文件: `services/dl_services/dl_quality_assessor.py`
+
+### 阶段五：魔法数字集中化 (P1)
+- `EmpiricalThresholds` 新增 14 个字段，覆盖气息/节奏/艺术表现维度
+- 所有硬编码常量标注来源: [理论依据]/[实验校准]/[经验估计]/[论文参考]
+- 修改文件: `services/scoring_config.py`
+
+### 阶段六：测试覆盖扩展 (P2)
+- 新增 `tests/integration/test_full_pipeline.py` (6个测试用例)
+- 覆盖: 白噪声检测/人声评分范围/快速vs专业一致性/非人声零分/响应字段完整性/气息区分度
+- 修改文件: `tests/unit/test_scorers.py` (v5.12 艺术评分阈值更新)
+
+### 阶段七：前端质量修复 (P2)
+- `_get_level_info`: 修复 score=100 边界情况, 新增 score<0 处理
+- `displayVoiceQualityWarning`: 使用 API `warning` 字段, 非人声隐藏雷达图
+- 修改文件: `services/score_service.py`, `web/static/js/analysis.js`
+
+### 已知问题 (v5.12 测试发现)
+
+#### 专业模式 Demucs 分离后评分异常
+- **症状**: 恋人.mp3 专业模式总分 54.1 vs 快速模式 71.1
+- **节奏 0.0 分**: 分离后 CV=140%，onset 间隔分析失真
+- **气息 4.1 分**: 分离后人声 HNR 可能异常
+- **用时 305s**: 专业模式仍包含 SingMOS + Demucs 全流程
+- **待修复**: 排查 Demucs 分离后特征提取管线
+
+### 测试结果
+- 单元测试: **79/79 通过**
+- 快速模式: 3首真实音频分数区分度良好 (68-71分, 气息36-43)
+- 专业模式: 存在上述已知问题
+
+---
+
 ## v5.11 - 评分区分度修复 + 人声分离管线修复 (2026-06-02)
 
 ### 核心问题

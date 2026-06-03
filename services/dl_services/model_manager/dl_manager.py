@@ -17,7 +17,7 @@ class DLModelManager:
     管理的模型：
     - voice_quality: 人声质量检测模型 (~2MB)
     - style_classifier: 唱法分类模型 (~10MB)
-    - crepe: CREPE基频提取模型 (~5MB)
+    v5.12: CREPE 模型配置已移除（未在评分管线中使用）
     """
 
     _instance = None
@@ -34,11 +34,6 @@ class DLModelManager:
             'path': 'models/style_classifier/model.onnx',
             'size_mb': 10,
             'download_url': 'https://huggingface.co/your-repo/singing-style-classifier/resolve/main/model.onnx'
-        },
-        'crepe': {
-            'path': 'models/crepe/model.onnx',
-            'size_mb': 5,
-            'download_url': 'https://github.com/maxrmorrison/crepe/releases/download/v0.0.1/crepe.onnx'
         }
     }
 

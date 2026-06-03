@@ -23,10 +23,6 @@ class ModelDiagnostic:
                 'PyTorch 未安装，请运行: pip install torch',
                 '如果使用CUDA，请安装对应版本: pip install torch --index-url https://download.pytorch.org/whl/cu121'
             ],
-            'torchcrepe': [
-                'torchcrepe 未安装，请运行: pip install torchcrepe',
-                'CREPE基频提取将降级到librosa的YIN算法'
-            ],
             'wvmos': [
                 'wvmos 未安装，请运行: pip install wvmos',
                 'MOS评估将使用启发式方法'
@@ -143,17 +139,7 @@ class ModelDiagnostic:
                 'cuda_available': False
             }
 
-        # 检查torchcrepe
-        try:
-            import torchcrepe
-            dependencies['torchcrepe'] = {
-                'installed': True,
-                'version': getattr(torchcrepe, '__version__', 'unknown')
-            }
-        except ImportError:
-            dependencies['torchcrepe'] = {
-                'installed': False
-            }
+        # v5.12: torchcrepe 依赖检查已移除（CREPE 未在评分管线中使用）
 
         # 检查wvmos
         try:
@@ -203,9 +189,6 @@ class ModelDiagnostic:
 pip install torch librosa numpy
 
 ## 可选依赖（按功能）
-
-### CREPE 高精度基频提取
-pip install torchcrepe
 
 ### Wav2Vec2-MOS 语音质量评估
 pip install wvmos

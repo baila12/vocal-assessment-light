@@ -20,7 +20,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from api.business.audio_analysis import analyze_and_score
-from services.dl_services.enhanced_dl_assessor import get_enhanced_assessor, ScoreCalibrator
+from services.dl_services.enhanced_dl_assessor import ScoreCalibrator
 
 
 def test_evaluation_modes():
@@ -134,43 +134,12 @@ def test_score_calibrator():
 
 
 def test_enhanced_assessor():
-    """测试增强的DL评估器"""
+    """测试增强的DL评估器 (v5.12: EnhancedDLAssessor 已移除，此测试已废弃)"""
     print("\n" + "=" * 70)
     print("增强DL评估器测试")
     print("=" * 70)
-
-    assessor = get_enhanced_assessor()
-
-    print(f"\n评估器状态:")
-    print(f"  CREPE可用: {assessor._crepe.is_available if assessor._crepe else False}")
-    print(f"  SpeechBrain可用: {assessor._speechbrain_mos.is_available if assessor._speechbrain_mos else False}")
-    print(f"  SingMOS可用: {assessor._singmos._model_available if assessor._singmos else False}")
-
-    # 测试音频
-    test_file = 'tests/test_data/audio/vocal/恋人.mp3'
-    if os.path.exists(test_file):
-        import librosa
-
-        print(f"\n测试音频: {test_file}")
-        audio, sr = librosa.load(test_file, sr=16000, duration=30)
-
-        # 快速模式评估
-        print("\n快速模式评估:")
-        result = assessor.assess(audio, sr, mode='quick')
-        print(f"  基频方法: {result.f0_method}")
-        print(f"  MOS分数: {result.mos_score:.2f}")
-        print(f"  MOS方法: {result.mos_method}")
-        print(f"  处理时间: {result.processing_time:.2f}秒")
-        print(f"  使用模型: {result.models_used}")
-
-        # 专业模式评估
-        print("\n专业模式评估:")
-        result = assessor.assess(audio, sr, mode='professional', filepath=test_file)
-        print(f"  基频方法: {result.f0_method}")
-        print(f"  MOS分数: {result.mos_score:.2f}")
-        print(f"  MOS方法: {result.mos_method}")
-        print(f"  处理时间: {result.processing_time:.2f}秒")
-        print(f"  使用模型: {result.models_used}")
+    print("\n[v5.12] EnhancedDLAssessor 已移除。CREPE/SpeechBrain MOS 从未在评分管线中使用。")
+    print("         DL评估现由 DLQualityAssessor (SingMOS) 独立处理。")
 
 
 def main():

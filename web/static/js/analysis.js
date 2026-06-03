@@ -395,14 +395,25 @@ function displayVoiceQualityWarning(result) {
 
     warningDiv.style.display = 'flex';
 
-    if (result.voice_quality && result.voice_quality.warnings) {
+    // v5.12: Use the warning field from API response first (more user-friendly)
+    if (result.warning) {
+        warningMessage.textContent = result.warning;
+    } else if (result.voice_quality && result.voice_quality.warnings) {
         warningMessage.textContent = result.voice_quality.warnings.join('；') || '音频质量不符合评估要求';
+    } else {
+        warningMessage.textContent = '未检测到有效人声，请确认上传的是歌唱音频（非纯音乐或白噪声）';
     }
 
     if (result.voice_quality && result.voice_quality.suggestions) {
         warningSuggestions.innerHTML = result.voice_quality.suggestions
             .map(s => `<li>${s}</li>`)
             .join('');
+    }
+
+    // v5.12: Hide radar chart for non-voice results
+    const radarSection = document.getElementById('radarSection');
+    if (radarSection && result.total_score === 0) {
+        radarSection.style.display = 'none';
     }
 
     // 隐藏导出按钮

@@ -371,7 +371,12 @@ class ScoreServiceV4:
         dl_confidence: float
     ) -> float:
         """
-        应用深度学习融合
+        应用深度学习融合 v5.12
+
+        WARNING: SingMOS校准映射未经实验验证。
+        模型训练目标: 评估合成歌声(TTS singing)的自然度
+        实际使用场景: 评估真人演唱质量
+        这是跨域应用，融合权重已保守设置为15%。
 
         Args:
             total: 传统计算的总分
@@ -386,8 +391,8 @@ class ScoreServiceV4:
                 dl_confidence > dl_config.dl_min_confidence):
             return total
 
-        # DL分数与传统分数加权融合
-        dl_weight = min(dl_config.dl_max_weight, dl_confidence * 0.5)
+        # v5.12: DL融合权重从0.4降到0.15，降低跨域误差影响
+        dl_weight = min(0.15, dl_confidence * 0.25)  # 从0.4降到0.15
         traditional_weight = 1 - dl_weight
 
         # 融合总分
@@ -395,7 +400,7 @@ class ScoreServiceV4:
 
         # 确保融合后分数合理（避免低估）
         if dl_mos_normalized > total:
-            boost = (dl_mos_normalized - total) * dl_config.dl_boost_factor
+            boost = (dl_mos_normalized - total) * 0.15  # v5.12: 0.3→0.15
             total = min(100, total + boost)
 
         return total
@@ -463,12 +468,16 @@ class ScoreServiceV4:
 
 
     def _get_level_info(self, total_score: float) -> tuple:
-        """根据总分获取等级信息"""
+        """根据总分获取等级信息 v5.12: 修复边界情况 score>=100 和 score<0"""
+        if total_score >= 100:
+            return "专业级", "S", "★★★", "#22c55e"
+        if total_score < 0:
+            return "无效", "?", "☆☆☆☆☆", "#888888"
         for (low, high), (level, stars, color) in self.LEVELS.items():
             if low <= total_score < high:
                 grade = level[0] if level != "待改进" else "D"
                 return level, grade, stars, color
-
+        # 不应到达这里，但作为最终回退
         return "待改进", "D", "☆", "#ef4444"
 
 

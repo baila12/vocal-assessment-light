@@ -131,29 +131,51 @@ class TechniqueThresholds:
 @dataclass(frozen=True)
 class EmpiricalThresholds:
     """
-    经验阈值配置 v5.10
+    经验阈值配置 v5.12
 
-    所有硬编码魔法数字集中管理，标注为经验值。
-    这些阈值来自声乐教学实践观察，尚未经过严格的实验校准。
+    所有硬编码魔法数字集中管理，标注来源。标注规范:
+    [理论依据] - 基于声乐教学标准
+    [实验校准] - 基于测试文件的初步校准, 需50+样本验证
+    [经验估计] - 无理论/实验依据, 主观判断, 急需校准
+    [论文参考] - 参考学术论文阈值设定
     """
-    # 音准特征
-    pitch_break_cents: float = 200.0      # 音高断层阈值(音分) — 经验值
-    pitch_wobble_threshold: float = 30.0  # 长音波动惩罚阈值 — 经验值
 
-    # 节奏特征
-    rhythm_irregularity_threshold: float = 0.5  # onset不规则度惩罚阈值 — 经验值, v5.11: 0.3→0.5 (人声天然更不规则)
-    onset_off_beat_multiplier: float = 0.5      # onset偏移判定倍率 — 经验值
+    # === 音准特征 ===
+    pitch_break_cents: float = 200.0       # [经验估计] 音高断层阈值(音分)
+    pitch_wobble_threshold: float = 30.0   # [经验估计] 长音波动惩罚阈值
 
-    # 气息特征
-    breath_baseline_score: float = 60.0      # 各子维度基线分 — 经验值
-    breath_soft_threshold_ratio: float = 0.6  # 弱唱判定阈值(RMS均值比例) — 经验值
+    # === 节奏特征 ===
+    rhythm_irregularity_threshold: float = 0.5    # [经验估计] onset不规则度惩罚阈值, v5.11: 0.3->0.5
+    onset_off_beat_multiplier: float = 0.5         # [经验估计] onset偏移判定倍率
 
-    # 技巧特征
-    technique_baseline_score: float = 50.0   # 技巧综合基线分 — 经验值
-    vibrato_fft_window_ratio: float = 4.0    # 颤音FFT窗口大小/总长度的最大比例 — 经验值
+    # === CV映射断点 (rhythm.py _cv_to_deviation) ===
+    cv_regular: float = 0.3       # [经验估计] 非常规律CV阈值
+    cv_normal: float = 0.5        # [经验估计] 正常CV阈值
+    cv_moderate: float = 0.8      # [经验估计] 中等CV阈值
+    cv_irregular: float = 1.2     # [经验估计] 不规则CV阈值
 
-    # 声学特征
-    hnr_mixed_correction: float = 1.5        # 混合音频HNR修正系数 — 经验值
+    # === 气息特征 ===
+    breath_baseline_score: float = 40.0            # [经验估计] v5.12: 60->40 各子维度基线分
+    breath_soft_threshold_ratio: float = 0.6       # [经验估计] 弱唱判定阈值(RMS均值比例)
+    breath_long_note_baseline: float = 40.0        # [经验估计] v5.12: 长音支撑基线分
+    breath_dynamic_baseline: float = 40.0          # [经验估计] v5.12: 动态控制基线分
+    breath_design_baseline: float = 40.0           # [经验估计] v5.12: 气口设计基线分
+    breath_technique_baseline: float = 40.0        # [经验估计] v5.12: 气声技巧基线分
+    breath_long_note_max_bonus: float = 15.0       # [经验估计] 长音加分上限
+    breath_clean_breath_max_bonus: float = 10.0    # [经验估计] 清洁换气加分上限
+
+    # === 技巧特征 ===
+    technique_baseline_score: float = 50.0          # [经验估计] 技巧综合基线分
+    vibrato_fft_window_ratio: float = 4.0           # [经验估计] 颤音FFT窗口大小/总长度的最大比例
+
+    # === 艺术表现子维度上限 ===
+    artistry_vibrato_max: float = 90.0              # [经验估计] v5.12: 颤音子分上限
+    artistry_dynamic_max: float = 90.0              # [经验估计] v5.12: 动态子分上限
+    artistry_diversity_max: float = 85.0            # [经验估计] v5.12: 多样性子分上限
+    artistry_breath_express_max: float = 85.0       # [经验估计] v5.12: 气息表现子分上限
+
+    # === 声学特征 ===
+    hnr_mixed_correction: float = 1.5               # [经验估计] 混合音频HNR修正系数
 
 
 @dataclass(frozen=True)

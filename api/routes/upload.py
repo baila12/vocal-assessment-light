@@ -12,7 +12,7 @@ from config import config
 from services import SeparationService, ReportService
 from repositories import JsonHistoryRepository
 from api.errors import ValidationError, NotFoundError, ForbiddenError
-from api.business import analyze_and_score, calculate_comparison
+from api.business import analyze_and_score
 
 logger = logging.getLogger(__name__)
 
@@ -357,7 +357,7 @@ def compare_audio():
         if not dtw_result.get('success'):
             return jsonify({'success': False, 'error': dtw_result.get('error', 'DTW对比分析失败')}), 500
 
-        # 同时保留旧的分析结果用于兼容
+        # 保留标准/用户音频的基础分析结果，供前端可视化使用（波形、音高曲线等）
         standard_result = analyze_and_score(str(filepath_obj_std))
         user_result = analyze_and_score(str(filepath_obj_user))
 
@@ -365,12 +365,20 @@ def compare_audio():
         logger.exception(f"Compare analysis failed: {e}")
         return jsonify({'success': False, 'error': f'分析失败: {str(e)}'}), 500
 
-    if not standard_result.get('success'):
-        return jsonify({'success': False, 'error': '标准音频分析失败'}), 500
-    if not user_result.get('success'):
-        return jsonify({'success': False, 'error': '用户音频分析失败'}), 500
-
-    comparison = calculate_comparison(standard_result, user_result)
+    # v5.12: 使用 DTW dimensions 构建 comparison 字段，替代 Legacy audio_comparison.py 的简单相关度方法
+    dtw_dims = dtw_result.get('dimensions', {})
+    comparison = {
+        'pitch_diff': round(abs(dtw_dims.get('pitch', {}).get('score', 50) - 50), 1),
+        'volume_diff': 0.0,
+        'rhythm_diff': round(abs(dtw_dims.get('rhythm', {}).get('score', 50) - 50), 1),
+        'breath_diff': 0.0,
+        'emotion_diff': 0.0,
+        'total_diff': round(abs(dtw_result.get('score', 50) - 50), 1),
+        'std_total': 100.0,
+        'user_total': dtw_result.get('score', 50),
+        'pitch_match_rate': dtw_result.get('pitch_match_rate', 50),
+        'suggestions': dtw_result.get('suggestions', [])
+    }
 
     return jsonify({
         'success': True,
@@ -385,8 +393,8 @@ def compare_audio():
             'suggestions': dtw_result['suggestions'],
             'dimensions': dtw_result['dimensions'],
             'method': dtw_result.get('method', 'three_level_dtw'),
-            'standard': standard_result,
-            'user': user_result,
+            'standard': standard_result if standard_result.get('success') else None,
+            'user': user_result if user_result.get('success') else None,
             'comparison': comparison
         }
     })
