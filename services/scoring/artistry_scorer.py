@@ -113,34 +113,34 @@ class ArtistryScorer:
         else:
             score = 60.0 + vibrato_quality * 0.15
 
-        # 颤音次数加分（v5.12: 设上限）
-        score += min(10, vibrato_count * 1.0)  # v5.12: 上限10, 系数1.5→1.0
+        # 颤音次数加分（v5.13: 系数1.0→0.7，自然上限~92）
+        score += min(10, vibrato_count * 0.7)
 
-        return max(0, min(90, score))  # v5.12: 硬上限90
+        return max(0, min(100, score))  # v5.13: 移除硬上限90
 
     def _calculate_dynamic_score(
         self,
         breath: BreathStabilityResult,
         diagnosis: ArtistryDiagnosis
     ) -> float:
-        """基于动态范围计算表现力得分"""
+        """基于动态范围计算表现力得分 v5.13: 连续线性映射替代离散档位"""
         if breath is None:
-            return 30.0
+            return 25.0
 
         dynamic_range = breath.dynamic_range
         crescendo_quality = getattr(breath, 'crescendo_quality', 0)
 
-        # 动态范围 > 20dB 表示优秀的强弱对比
-        if dynamic_range > 30:
-            score = 85.0
-            diagnosis.issues.append(f"动态范围宽广({dynamic_range:.0f}dB)，表现力强")
+        # 连续线性插值替代离散 85/75/65/25
+        if dynamic_range > 40:
+            score = 92.0
+        elif dynamic_range > 30:
+            score = 75.0 + (dynamic_range - 30) / 10 * 17  # 75→92 连续
         elif dynamic_range > 20:
-            score = 75.0
+            score = 55.0 + (dynamic_range - 20) / 10 * 20  # 55→75 连续
         elif dynamic_range > 10:
-            score = 65.0
+            score = 25.0 + (dynamic_range - 10) / 10 * 30  # 25→55 连续
         else:
-            score = 25.0
-            diagnosis.issues.append("动态范围偏小，建议加强强弱对比")
+            score = max(10.0, dynamic_range * 1.5)
 
         # 渐强渐弱质量加分
         if crescendo_quality > 50:
@@ -174,38 +174,38 @@ class ArtistryScorer:
 
         # v5.12: 移除独立的 +10 加分（改为在 score 基础中包含）
 
-        return max(0, min(85, score))  # v5.12: 硬上限85
+        return max(0, min(100, score))  # v5.13: 移除硬上限85
 
     def _calculate_breath_express_score(
         self,
         breath: BreathStabilityResult,
         diagnosis: ArtistryDiagnosis
     ) -> float:
-        """基于气息表现力计算得分 v5.12: 限制叠加"""
+        """基于气息表现力计算得分 v5.13: 降低加分系数"""
         if breath is None:
-            return 25.0  # v5.12: 30→25
+            return 25.0
 
         prof_score = breath.professional_breath_score
         is_artistic = breath.is_artistic_fluctuation
         soft_quality = getattr(breath, 'soft_singing_quality', 0)
 
-        score = 25.0  # v5.12: 30→25
+        score = 25.0
 
-        # 专业气息得分贡献
+        # v5.13: 加分系数降低 (15/8/5 → 10/5/3)
         if prof_score > 80:
-            score += 15  # v5.12: 20→15
+            score += 10
             if is_artistic:
                 diagnosis.issues.append("气息表现力强，具有艺术化起伏")
         elif prof_score > 60:
-            score += 8   # v5.12: 10→8
-        elif prof_score > 40:
             score += 5
+        elif prof_score > 40:
+            score += 3
 
-        # 弱唱控制力
+        # v5.13: 弱唱加分降低 (10/5 → 7/3)
         if soft_quality > 70:
-            score += 10  # v5.12: 15→10
+            score += 7
             diagnosis.issues.append("弱唱控制力优秀")
         elif soft_quality > 50:
-            score += 5   # v5.12: 8→5
+            score += 3
 
-        return max(0, min(85, score))  # v5.12: 硬上限85
+        return max(0, min(100, score))  # v5.13: 移除硬上限85

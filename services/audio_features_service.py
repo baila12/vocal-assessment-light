@@ -58,19 +58,17 @@ class AudioFeaturesService:
         self,
         audio_data: np.ndarray,
         f0: Optional[np.ndarray] = None,
-        singing_style: str = 'pop'
+        singing_style: str = 'pop',
+        is_separated: bool = False
     ) -> AudioFeaturesResult:
         """
-        提取所有高级特征 v5.10
-
-        新增预处理：
-        - 响度归一化：减少录音条件差异
-        - VAD人声分段：过滤前奏/间奏/尾奏，避免器乐段污染评分
+        提取所有高级特征 v5.13
 
         Args:
             audio_data: 音频数据
             f0: 基频序列（可选，未提供则自动提取）
             singing_style: 唱法类型 (pop/classical/folk/rap)
+            is_separated: 是否为Demucs分离后的纯净人声 (用于CV映射修正)
 
         Returns:
             AudioFeaturesResult: 综合特征提取结果
@@ -103,15 +101,17 @@ class AudioFeaturesService:
                 hnr = self.acoustic_analyzer.calculate_hnr(vocal_audio)
                 cpp = self.acoustic_analyzer.calculate_cpp(vocal_audio)
 
-                # v5.11: 节奏分析使用原始全音频（未归一化）
-                # 响度归一化会压平动态范围，导致onset检测产生大量误检
-                # 使用f0=None强制走传统onset检测路径
+                # v5.13: 恢复f0路径。audio_data_raw未归一化，不受onset检测影响
+                # is_clean_vocal标记纯净人声(专业模式Demucs分离后)，用于CV映射修正
                 rhythm_result = self.rhythm_analyzer.calculate_rhythm_alignment(
-                    audio_data_raw, f0=None, voiced_flags=None
+                    audio_data_raw,
+                    f0=f0,
+                    voiced_flags=voiced_flags,
+                    is_clean_vocal=is_separated
                 )
                 # 气息分析在人声段上进行
                 breath_result = self.breath_analyzer.calculate_breath_stability(
-                    vocal_audio, f0=None, singing_style=singing_style, hnr=hnr
+                    vocal_audio, f0=f0, singing_style=singing_style, hnr=hnr
                 )
             else:
                 # 无有效人声段，使用全音频

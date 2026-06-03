@@ -34,7 +34,8 @@ class RhythmAnalyzer:
         self,
         audio_data: np.ndarray,
         f0: np.ndarray = None,
-        voiced_flags: np.ndarray = None
+        voiced_flags: np.ndarray = None,
+        is_clean_vocal: bool = False
     ) -> RhythmAlignmentResult:
         """
         计算节拍对齐度
@@ -52,19 +53,19 @@ class RhythmAnalyzer:
         try:
             # 优先使用人声基频变化检测节奏（减少伴奏干扰）
             if f0 is not None and voiced_flags is not None:
-                result = self._calculate_rhythm_from_pitch(audio_data, f0, voiced_flags)
+                result = self._calculate_rhythm_from_pitch(audio_data, f0, voiced_flags, is_clean_vocal)
                 if result.onset_count > 0:
                     return result
 
             # 降级到传统onset检测
-            result = self._calculate_rhythm_traditional(audio_data)
+            result = self._calculate_rhythm_traditional(audio_data, is_clean_vocal)
 
         except Exception as e:
             logger.warning(f"节拍对齐分析失败: {e}")
 
         return result
 
-    def _calculate_rhythm_traditional(self, audio_data: np.ndarray) -> RhythmAlignmentResult:
+    def _calculate_rhythm_traditional(self, audio_data: np.ndarray, is_clean_vocal: bool = False) -> RhythmAlignmentResult:
         """
         基于onset密度和规律性的节奏分析 v5.11
 
@@ -124,7 +125,7 @@ class RhythmAnalyzer:
                 if seg_mean > 0:
                     seg_cv = float(np.std(seg_ioi) / seg_mean)
                     segment_cvs.append(seg_cv)
-                    seg_dev = self._cv_to_deviation(seg_cv)
+                    seg_dev = self._cv_to_deviation(seg_cv, is_clean_vocal)
                     segment_devs.append(seg_dev)
                     total_onsets += len(seg_onset_frames)
                     total_off_beat += self._count_irregular_segments(seg_ioi, seg_mean)
@@ -166,34 +167,50 @@ class RhythmAnalyzer:
             total_dur = onset_times[-1] - onset_times[0]
             result.beats_per_second = result.onset_count / total_dur if total_dur > 0 else 0.0
             result.irregularity = float(np.std(ioi) / mean_ioi)
-            result.avg_deviation_ratio = self._cv_to_deviation(result.irregularity)
+            result.avg_deviation_ratio = self._cv_to_deviation(result.irregularity, is_clean_vocal)
             result.off_beat_segments = self._count_irregular_segments(ioi, mean_ioi)
 
         return result
 
     @staticmethod
-    def _cv_to_deviation(cv: float) -> float:
+    def _cv_to_deviation(cv: float, is_clean_vocal: bool = False) -> float:
         """
-        将CV（变异系数）映射到deviation_ratio (0-1)
+        将CV（变异系数）映射到deviation_ratio (0-1) v5.13
 
-        v5.11 重新校准：人声onset自然比器乐更不规则。
-        CV解读:
-          <0.3: 非常规律 (专业级)
-          0.3-0.5: 正常 (良好)
-          0.5-0.8: 中等 (可接受业余)
-          0.8-1.2: 较不规则
-          >1.2: 严重不规则
+        纯净人声(Demucs分离后)的onset间隔分布与混合音频完全不同:
+        - 混合音频: 伴奏提供规律节奏线索, onset CV < 0.3 为专业级
+        - 纯净人声: 只有咬字/气息切换, 句间天然长停顿, CV天然偏高
+
+        CV解读 (混合音频):
+          <0.3: 非常规律 / 0.3-0.5: 正常 / 0.5-0.8: 中等
+          0.8-1.2: 较不规则 / >1.2: 严重不规则
+
+        CV解读 (纯净人声, is_clean_vocal=True):
+          <0.5: 非常规律 / 0.5-0.8: 正常 / 0.8-1.2: 中等
+          1.2-1.8: 较不规则 / >1.8: 严重不规则
         """
-        if cv < 0.3:
-            return cv * 0.4
-        elif cv < 0.5:
-            return 0.12 + (cv - 0.3) * 0.6
-        elif cv < 0.8:
-            return 0.24 + (cv - 0.5) * 0.8
-        elif cv < 1.2:
-            return 0.48 + (cv - 0.8) * 1.0
+        if is_clean_vocal:
+            if cv < 0.5:
+                return cv * 0.35
+            elif cv < 0.8:
+                return 0.175 + (cv - 0.5) * 0.5
+            elif cv < 1.2:
+                return 0.325 + (cv - 0.8) * 0.6
+            elif cv < 1.8:
+                return 0.565 + (cv - 1.2) * 0.5
+            else:
+                return min(1.0, 0.865 + (cv - 1.8) * 0.2)
         else:
-            return min(1.0, 0.88 + (cv - 1.2) * 0.3)
+            if cv < 0.3:
+                return cv * 0.4
+            elif cv < 0.5:
+                return 0.12 + (cv - 0.3) * 0.6
+            elif cv < 0.8:
+                return 0.24 + (cv - 0.5) * 0.8
+            elif cv < 1.2:
+                return 0.48 + (cv - 0.8) * 1.0
+            else:
+                return min(1.0, 0.88 + (cv - 1.2) * 0.3)
 
     def _count_irregular_segments(self, ioi: np.ndarray, mean_ioi: float) -> int:
         """
@@ -234,7 +251,8 @@ class RhythmAnalyzer:
         self,
         audio_data: np.ndarray,
         f0: np.ndarray,
-        voiced_flags: np.ndarray
+        voiced_flags: np.ndarray,
+        is_clean_vocal: bool = False
     ) -> RhythmAlignmentResult:
         """
         基于人声基频变化检测节奏 v5.10
@@ -291,7 +309,7 @@ class RhythmAnalyzer:
                 result.irregularity = float(np.std(ioi) / mean_ioi)
 
                 # 映射到avg_deviation_ratio (v5.11 重新校准)
-                result.avg_deviation_ratio = self._cv_to_deviation(result.irregularity)
+                result.avg_deviation_ratio = self._cv_to_deviation(result.irregularity, is_clean_vocal)
 
                 # 检测不规则段
                 result.off_beat_segments = self._count_irregular_segments(ioi, mean_ioi)

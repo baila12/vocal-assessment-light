@@ -205,7 +205,7 @@ class BreathAnalyzer:
             if long_notes:
                 result.long_note_avg_quality = (result.pitch_stability_long + result.harmonic_stability) / 2
 
-            result.long_note_support_score = min(90, score)  # v5.12: 上限90
+            result.long_note_support_score = max(0, min(100, score))  # v5.13: 移除硬上限90
         except Exception:
             result.long_note_support_score = 40  # v5.12: 基线40
 
@@ -260,7 +260,7 @@ class BreathAnalyzer:
             if result.dynamic_range > 30:
                 score += 3
 
-            result.dynamic_control_score = min(90, score)  # v5.12: 上限90
+            result.dynamic_control_score = max(0, min(100, score))  # v5.13: 移除硬上限90
         except Exception:
             result.dynamic_control_score = 40  # v5.12: 基线40
 
@@ -304,7 +304,7 @@ class BreathAnalyzer:
             elif result.phrase_coherence > 50:
                 score += 8   # v5.12: 10→8
 
-            result.breath_design_score = min(90, score)  # v5.12: 上限90
+            result.breath_design_score = max(0, min(100, score))  # v5.13: 移除硬上限90
         except Exception:
             result.breath_design_score = 40  # v5.12: 基线40
 
@@ -346,7 +346,7 @@ class BreathAnalyzer:
             except Exception:
                 pass
 
-            result.breath_technique_score = max(0, min(90, score))  # v5.12: 上限90
+            result.breath_technique_score = max(0, min(100, score))  # v5.13: 移除硬上限90
         except Exception:
             result.breath_technique_score = 40  # v5.12: 基线40
 
@@ -391,15 +391,9 @@ class BreathAnalyzer:
             if result.clean_breath_count >= 2:
                 score += min(3, result.clean_breath_count * 1)
 
-            # v5.12: Sigmoid 拉伸 — 在50分处拐点，拉开区分度
-            # 映射前: 0-100 → 映射后: 0-100，中间段被拉伸
-            score = max(0, min(100, score))
-            if score <= 50:
-                stretched = score * 0.6  # 低分段压低
-            else:
-                stretched = 30 + (score - 50) * 1.0  # 高分段自然延伸，更难拿满分
-
-            result.professional_breath_score = max(0, min(100, stretched))
+            # v5.13: 移除 Sigmoid 拉伸，回归自然计分
+            # 参数调整通过 EmpiricalThresholds 完成
+            result.professional_breath_score = max(0, min(100, score))
         except Exception:
             result.professional_breath_score = 40
 

@@ -255,9 +255,10 @@ class AudioService:
                 # 更新音量信息（基于纯净人声）
                 result.volume_info = self._analyze_volume(audio_data)
 
-            # 高级特征提取 v4.1（传递f0用于气息评估）
+            # 高级特征提取 v5.13（传递分离状态用于CV映射修正）
             result._advanced_features = self._features_service.extract_all_features(
-                audio_data, result._f0, singing_style='pop'
+                audio_data, result._f0, singing_style='pop',
+                is_separated=used_sep
             )
 
             # ========== 深度学习分析 v5.0 ==========
@@ -290,7 +291,8 @@ class AudioService:
                     singing_style = style_result.style.value
                     # 使用识别的风格重新提取高级特征
                     result._advanced_features = self._features_service.extract_all_features(
-                        audio_data, result._f0, singing_style=singing_style
+                        audio_data, result._f0, singing_style=singing_style,
+                        is_separated=used_sep
                     )
 
                 # 自参照DTW音准评估（仅对有效人声）
