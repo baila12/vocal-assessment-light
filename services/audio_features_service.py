@@ -101,12 +101,12 @@ class AudioFeaturesService:
                 hnr = self.acoustic_analyzer.calculate_hnr(vocal_audio)
                 cpp = self.acoustic_analyzer.calculate_cpp(vocal_audio)
 
-                # v5.13: 恢复f0路径。audio_data_raw未归一化，不受onset检测影响
-                # is_clean_vocal标记纯净人声(专业模式Demucs分离后)，用于CV映射修正
+                # v5.13: 节奏分析使用原始音频(未归一化)
+                # f0路径暂不启用(需校准验证后恢复), 先修CV映射
+                # is_clean_vocal标记用于专业模式纯净人声的CV映射修正
                 rhythm_result = self.rhythm_analyzer.calculate_rhythm_alignment(
                     audio_data_raw,
-                    f0=f0,
-                    voiced_flags=voiced_flags,
+                    f0=None, voiced_flags=None,  # f0路径留到校准后启用
                     is_clean_vocal=is_separated
                 )
                 # 气息分析在人声段上进行
