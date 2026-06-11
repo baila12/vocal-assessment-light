@@ -1,0 +1,463 @@
+# 系统架构 v5.17
+
+> 更新: 2026-06-05 | 匹配 v5.17 实际代码结构 | 历史 v3.1 版本见 [5-archive/ARCHITECTURE.md](../5-archive/ARCHITECTURE.md)
+
+---
+
+## 一、架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        前端 (Browser)                            │
+│  index.html + ES6 Modules + Chart.js + Web Audio API + Canvas   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ HTTP (localhost:5000)
+┌──────────────────────────▼──────────────────────────────────────┐
+│                      API 层 (Flask)                              │
+│  api/__init__.py  →  routes (upload/audio/history/compare)      │
+│                   →  business/audio_analysis.py                  │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────┐
+│                    服务层 (Services)                              │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
+│  │ audio_      │  │ score_       │  │ separation_          │   │
+│  │ service.py  │  │ service.py   │  │ service.py (Demucs)  │   │
+│  └──────┬──────┘  └──────┬───────┘  └──────────┬───────────┘   │
+│         │                │                      │               │
+│  ┌──────▼───────────────▼──────────────────────▼───────────┐   │
+│  │              features/ 特征提取层                         │   │
+│  │  pitch.py │ breath.py │ rhythm.py │ technique.py │ acoustic.py │
+│  └──────────────────────┬───────────────────────────────────┘   │
+│                         │                                       │
+│  ┌──────────────────────▼───────────────────────────────────┐   │
+│  │              scoring/ 评分计算层                           │   │
+│  │  pitch_scorer │ breath_scorer │ rhythm_scorer             │   │
+│  │  technique_scorer │ artistry_scorer │ critical_rules      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              comparison/ DTW 对比引擎                      │   │
+│  │  dtw_aligner → deviation_calculator → scoring_engine      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              其他服务                                      │   │
+│  │  voice_quality │ visualization │ advice │ phrase │ report │   │
+│  │  timbre │ style_aware_scorer │ professional_feedback      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────┐
+│                   数据层 (Repositories)                           │
+│  repositories/history_repository.py  — JSON 文件持久化          │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────┐
+│                   配置层 (Config)                                 │
+│  config/default.py  │  services/scoring_config.py               │
+│  - 应用配置          │  - 五维阈值 (EmpiricalThresholds)        │
+│  - 路径/端口/文件    │  - 风格自适应权重                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 二、目录结构 (v5.17 实际)
+
+```
+vocal_assessment_light/
+├── api/                              # API 层 — Flask 蓝图
+│   ├── __init__.py                   # 蓝图注册 + /health 端点 + GPU 检测
+│   ├── errors.py                     # 统一错误处理
+│   ├── response_builder.py           # 响应格式构建
+│   ├── schemas.py                    # 请求/响应 Schema
+│   └── business/
+│       └── audio_analysis.py         # 核心分析编排: analyze_and_score()
+│
+├── services/                         # 服务层 — 所有业务逻辑
+│   ├── audio_service.py              # 音频分析主服务 (三模式入口)
+│   ├── score_service.py              # 总分协调: ScoreServiceV4.calculate()
+│   ├── separation_service.py         # Demucs 人声分离 + GPU 检测
+│   ├── voice_quality_service.py      # 人声质量检测 (is_voice判定)
+│   ├── audio_features_service.py     # 特征提取统一入口
+│   ├── visualization_service.py      # 频谱/基频/能量图生成
+│   ├── advice_service.py             # 改进建议生成
+│   ├── phrase_service.py             # 逐句评分
+│   ├── report_service.py             # PDF/图片报告导出
+│   ├── timbre_service.py             # 音色分析
+│   ├── style_aware_scorer.py         # 风格自适应评分
+│   ├── style_config_loader.py        # 风格配置加载
+│   ├── style_adjustment_strategies.py # 风格调整策略
+│   ├── professional_feedback.py      # 专业模式反馈
+│   ├── scoring_config.py             # ★ 所有阈值集中管理
+│   │
+│   ├── features/                     # 特征提取
+│   │   ├── pitch.py                  # PYIN 基频提取 + 音分偏差
+│   │   ├── breath.py                 # 四子维度气息分析
+│   │   ├── rhythm.py                 # Onset 检测 + CV 分段 + 双路径策略
+│   │   ├── technique.py             # HNR/CPP/颤音/滑音/假声
+│   │   └── acoustic.py              # 混合音频检测 + 通用声学特征
+│   │
+│   ├── scoring/                      # 评分计算
+│   │   ├── pitch_scorer.py           # 音准评分 (MAE + 惩罚项)
+│   │   ├── rhythm_scorer.py          # 节奏评分 (偏差 + irregularity)
+│   │   ├── breath_scorer.py          # 气息评分 (is_clean_vocal 校准)
+│   │   ├── technique_scorer.py       # 技术评分 (HNR/CPP + 技巧加分)
+│   │   ├── artistry_scorer.py        # 艺术评分 (四维度复合 + 声学调制)
+│   │   └── critical_rules.py         # 关键规则 (硬性惩罚)
+│   │
+│   ├── comparison/                   # DTW 对比分析
+│   │   ├── dtw_aligner.py            # 三级对齐引擎 (全局→句→音符)
+│   │   ├── deviation_calculator.py   # 逐帧偏差计算
+│   │   ├── scoring_engine.py         # DTW 评分引擎
+│   │   ├── benchmark_service.py      # 基准音频库管理
+│   │   └── comparison_service.py     # 对比分析主服务
+│   │
+│   ├── matching/                      # ★ v6.0 歌曲匹配引擎
+│   │   ├── feature_extractor.py       # 快速特征提取 (BPM/Key/Chromaprint)
+│   │   ├── similarity_scorer.py       # 多维度相似度评分
+│   │   └── matcher.py                 # 匹配编排: 搜索→排序→阈值判定
+│   │
+│   └── dl_services/                  # 深度学习服务 (精简后)
+│       ├── voice_quality_detector.py # 基于声学特征的人声判定
+│       ├── singing_style_classifier.py # 演唱风格分类
+│       ├── dl_quality_assessor.py    # DL 质量评估 (已禁用)
+│       └── model_manager/            # 模型加载管理
+│
+├── repositories/                     # 数据层 — 仓储模式
+│   ├── history_repository.py         # JSON 历史记录 CRUD
+│   └── song_repository.py            # ★ v6.0 标准歌曲数据库 (SQLite)
+│   └── history_repository.py         # JSON 文件历史记录 CRUD
+│
+├── config/                           # 配置管理
+│   └── default.py                    # Flask + 路径 + 模型默认配置
+│
+├── core/                             # 核心算法 (桌面版遗留，部分被 services/ 替代)
+│   ├── audio_analyzer.py             # 音频分析
+│   ├── vocal_processor.py            # 人声处理
+│   ├── comparison_analyzer.py        # 对比分析
+│   ├── recorder.py                   # 录音控制
+│   └── workers/                      # ⚠️ PyQt5 信号槽 (桌面版遗留)
+│       ├── signals.py                # Qt Core QObject + Signal
+│       └── manager.py                # Qt QThreadPool 线程管理
+│
+├── web/                              # 前端
+│   ├── static/
+│   │   ├── app.js                    # 应用入口
+│   │   ├── js/modules/               # ES6 模块
+│   │   │   ├── state.js              # 全局状态管理
+│   │   │   ├── api.js                # API 请求封装
+│   │   │   ├── audio.js              # 音频处理
+│   │   │   ├── charts.js             # Chart.js 图表
+│   │   │   ├── recording.js          # 录音模块
+│   │   │   └── utils.js              # 工具函数
+│   │   └── plots/                    # 生成的可视化图片
+│   └── templates/
+│       └── index.html                # 单页面应用入口
+│
+├── api/sse/                           # ★ v6.0 SSE 流式推送
+│   ├── analysis_progress.py           # 上传分析进度推送 (8 events)
+│   └── record_stream.py              # 录音实时 chunk 接收 + 分析
+│
+├── web_app.py                        # ★ Flask 应用工厂 + SSE 端点注册
+├── main.py                           # 旧入口 (保留)
+├── model_manager.py                  # Demucs 模型单例管理
+├── tests/                            # 测试
+└── docs/                             # 文档 (本目录)
+```
+
+---
+
+## 三、数据流
+
+### 3.1 Quick 模式
+
+```
+POST /api/upload?mode=quick
+  │
+  ▼
+audio_analysis.analyze_and_score()
+  │
+  ├─[1] voice_quality_service.check_voice_quality()
+  │     └─ 非人声? → is_voice=False, total_score=0 → 直接返回
+  │
+  ├─[2] audio_features_service.extract_all_features()
+  │     ├─ features/pitch.py     → PitchDeviationResult
+  │     ├─ features/rhythm.py    → RhythmAlignmentResult
+  │     ├─ features/breath.py    → BreathStabilityResult
+  │     ├─ features/technique.py → VocalTechniqueResult
+  │     └─ features/acoustic.py  → detect_mixed_audio()
+  │
+  ├─[3] score_service.ScoreServiceV4.calculate()
+  │     ├─ scoring/pitch_scorer.py
+  │     ├─ scoring/rhythm_scorer.py
+  │     ├─ scoring/breath_scorer.py
+  │     ├─ scoring/technique_scorer.py
+  │     ├─ scoring/artistry_scorer.py (四维度复合评分)
+  │     └─ _self_consistency_penalty() (自参照一致性)
+  │
+  └─[4] advice_service.generate_advice() → 响应 JSON
+```
+
+**耗时**: ~15-20s (特征提取 ~12s + 评分 ~3s)
+
+#### ★ v6.0 SSE 流式推送 (适用于所有上传分析模式)
+
+```
+POST /api/upload (Quick/Pro)
+  │
+  ├─ 返回 { task_id: "abc123" } (立即, ~100ms)
+  │
+  ├─ 后台异步执行分析管线
+  │
+  └─ Client 连接 GET /api/analysis/progress?task_id=abc123 (SSE)
+       │
+       ├─ event: voice_check     data: { is_voice: true, progress: 5 }
+       ├─ event: feature_pitch   data: { f0_curve: [...], progress: 15 }
+       │   └─ ★ 前端收到后立即渲染音准曲线 → 用户可播放查看
+       ├─ event: feature_rhythm  data: { onsets: [...], progress: 30 }
+       ├─ event: feature_breath  data: { hnr: 18.5, ... progress: 45 }
+       ├─ event: feature_technique data: { vibrato_count: 3, ... progress: 60 }
+       ├─ event: scoring         data: { partial_scores: {...}, progress: 80 }
+       ├─ event: matching        data: { matched_song: {...} | null, progress: 85 }
+       └─ event: complete        data: { full_result: {...}, progress: 100 }
+```
+
+> **关键体验**: feature_pitch 在 15% 进度时即推送 → 用户不必等 100% 就能看到音准曲线并开始播放。分析进度透明化, 不锁界面。
+
+### 3.2 Professional 模式
+
+```
+POST /api/upload?mode=professional
+  │
+  ▼
+audio_analysis.analyze_and_score()
+  │
+  ├─[1] voice_quality_service.check_voice_quality()
+  │
+  ├─[2] acoustic.detect_mixed_audio()
+  │     └─ 是混合音频? → separation_service.separate() (Demucs, ~100-150s CPU)
+  │                    → 否 (纯人声) → 直接使用原始音频
+  │
+  ├─[3] audio_features_service.extract_all_features(is_separated=...)
+  │     ├─ is_clean_vocal 标记传递到 breath.py / rhythm.py
+  │     ├─ breath.py: 纯净人声波动惩罚放宽 (0.25→0.35, 60→30)
+  │     └─ rhythm.py: 纯净人声 CV 阈值 ×3 重校准
+  │
+  ├─[4] score_service.ScoreServiceV4.calculate()
+  │     ├─ breath_scorer: is_clean_vocal 等级阈值放宽 (85→73/70→58/55→43)
+  │     ├─ breath_scorer: 总分补偿 ×1.8
+  │     └─ rhythm_scorer: 跳过 is_clean_vocal irregularity 双重惩罚
+  │
+  ├─[5] phrase_service.analyze_phrases() → 逐句评分
+  ├─[6] visualization_service.generate_plots() → 频谱/基频/能量图
+  └─[7] professional_feedback.generate() → 详细反馈
+```
+
+**耗时**: ~130-170s CPU / ~30-50s GPU (Demucs 占比 ~80%)
+
+### 3.3 Compare 模式 ★v6.0 (DTW 降级为特征提供者)
+
+```
+POST /api/compare
+  │
+  ▼
+comparison/comparison_service.compare()
+  │
+  ├─[1] audio_features_service 提取两路特征
+  │     ├─ reference: pitch_curve + onset
+  │     └─ user: pitch_curve + onset
+  │
+  ├─[2] dtw_aligner.align() — 三级对齐
+  │     └─ 产出: warp_path + segment_confidences
+  │
+  ├─[3] deviation_calculator.calculate() — ★ 仅产出偏差数据
+  │     ├─ dtw_pitch_cents: float[]    逐帧音分偏差
+  │     ├─ dtw_rhythm_offset: float[]  逐帧节拍偏移 (ms)
+  │     └─ alignment_confidence: float 全局置信度
+  │     (不再产出 dtw_score / dtw_pitch_score / dtw_breath_score)
+  │
+  ├─[4] ★ ScoreServiceV4.calculate(dtw_data=...)
+  │     ├─ pitch_scorer:   PYIN + dtw_pitch_cents 加权融合 (DTW≤70%)
+  │     ├─ rhythm_scorer:  onset + dtw_rhythm_offset 加权融合 (DTW≤50%)
+  │     ├─ breath_scorer:  四子维度独立 (DTW 不参与)
+  │     ├─ technique_scorer: HNR/CPP/技巧 (DTW 不参与)
+  │     ├─ artistry_scorer: 四维复合 (DTW 不参与)
+  │     └─ critical_rules: 全局生效 (DTW 不参与)
+  │
+  └─[5] 响应: 五维评分 + dtw_metadata (偏差摘要, 用于前端可视化)
+```
+
+**耗时**: ~45s (DTW 对齐 ~40s + ScoreServiceV4 ~5s)
+
+### 3.4 ★ v6.0 自动匹配 + 对比模式 (轨道A)
+
+```
+POST /api/upload (任意模式)
+  │
+  ├─[1] voice_quality_service.check_voice_quality()
+  │     └─ 非人声? → 直接返回 is_voice=False
+  │
+  ├─[2] matching/feature_extractor.extract_quick_features()
+  │     ├─ 提取: BPM, Key (chroma), Spectral fingerprint (chromaprint)
+  │     └─ 耗时: ~2-3s
+  │
+  ├─[3] matching/matcher.search(features)
+  │     ├─ song_repository.query() → 取所有预计算特征
+  │     ├─ similarity_scorer.score() — 多维度加权:
+  │     │   ├─ BPM 相似度 (容忍 ±15%)
+  │     │   ├─ Key 相似度 (同调 / 关系调 / 邻近调)
+  │     │   ├─ Chromaprint 相关度 (音频指纹)
+  │     │   └─ 时长比例 (0.5x-2x)
+  │     ├─ 排序 → Top-K 候选
+  │     ├─ 最佳匹配置信度 > 阈值 (0.6)?
+  │     │   ├─ YES → matched_song = {id, title, artist, confidence}
+  │     │   └─ NO  → matched_song = null, fallback_reason = "no_match"
+  │     └─ 耗时: ~2-3s (100 首歌曲)
+  │
+  ├─[4] 匹配成功?
+  │     ├─ YES → DTW 对比路径
+  │     │   └─ comparison/dtw_aligner (标准歌曲 vs 用户音频)
+  │     │
+  │     └─ NO  → ★ 完整绝对评分管线 (Quick/Pro)
+  │              ├─ audio_features_service (特征提取)
+  │              ├─ score_service.ScoreServiceV4 (五维评分)
+  │              │   ├─ 所有 v5.x 算法优化生效
+  │              │   ├─ Feature Flag 控制生效 (v5.18)
+  │              │   └─ 校准数据集参数生效 (v6.0 轨道B)
+  │              └─ advice_service (改进建议)
+  │
+  └─[5] 响应: matched_song + scoring_mode + 完整 scores
+```
+
+> **回退 ≠ 降级**: 匹配失败时的绝对评分走完整的五维评分管线（§3.1 Quick 或 §3.2 Pro），所有算法优化（多尺度HNR、Praat CPP、校准参数等）在回退路径中完全生效。
+
+**匹配耗时增加**: ~5s (特征提取 + 数据库搜索)，成功时总耗时 = 匹配 + DTW (~50s)，失败时总耗时 = 匹配 + 绝对评分 (~25s)。
+
+### 3.5 ★ v6.0 选歌 → 录音 → DTW 对比 (流式实时分析)
+
+```
+GET /api/songs → 浏览曲库 → 用户选择歌曲
+  │
+POST /api/record/stream (song_id?)
+  │
+  ├─ SSE 连接建立
+  ├─ 前端 MediaRecorder 每 2s 发送一个 audio chunk
+  │
+  ├─[后端实时处理, 每收到 chunk]
+  │   ├─ 追加到 session 音频缓冲区
+  │   ├─ 实时基频提取 (YIN, 增量计算)
+  │   ├─ 实时 onset 检测
+  │   └─ SSE 推送: pitch_stream (基频采样点)
+  │
+  ├─[累积 ≥ 15s 数据后]
+  │   ├─ 计算 partial_score: pitch_score + rhythm_score
+  │   └─ SSE 推送: partial_score
+  │
+  ├─[用户点击停止录音]
+  │   ├─ SSE 推送: recording_stopped
+  │   ├─ 处理剩余未分析 chunks
+  │   ├─ 若已选歌 → 直接 DTW 对比
+  │   ├─ 若未选歌 → 曲库匹配 → 命中=DTW, 未命中=绝对评分
+  │   └─ SSE 推送: final_score (完整五维评分)
+  │
+  └─ ★ 从停止到 final_score: <10s (2min 录音) / <3s (<30s 录音)
+```
+
+> **与旧流程的关键差异**: 旧流程是「录音→保存完整文件→上传→从头分析」, 需要 20-40s。
+> 新流程在录音中已分析 80%+ 数据, 停止后仅需处理剩余 ~20%, 体验接近即时。
+
+**Chunk 容错**:
+- 每个 chunk 带 `sequence_index`, 后端按序重组
+- 网络断开 → 前端缓存 chunks → 恢复后补发
+- 最大缓存: 30s 音频数据 (~2MB)
+
+### 3.6 选歌 → 录音 → DTW 对比 (旧版, v5.x)
+
+---
+
+## 四、关键设计决策 (ADR)
+
+### ADR-001: 移除 SingMOS，用自参照一致性替代
+
+- **日期**: 2026-06-03 (v5.15)
+- **问题**: SingMOS 在 TTS 合成歌声上训练，对真人演唱严重跨域。实测低分演唱 MOS=95.9 > 高分演唱 MOS=73.9
+- **决策**: 完全移除 `dl_assessor` 调用链，替换为 `_self_consistency_penalty()` — 将 f0 分 3 段计算稳定性 CV，段间 CV>0.15 时扣分 (上限 8 分)
+- **效果**: Pro 耗时 -83s，消除反向评分污染
+
+### ADR-002: CV 重校准替代原始音频回退
+
+- **日期**: 2026-06-03 (v5.15)
+- **问题**: Pro 模式 Demucs 分离后节奏 CV = 134%，原定方案"用分离前原始音频"实测发现混合音频 CV 同样偏高
+- **决策**: 在 `_cv_to_deviation(is_clean_vocal=True)` 中阈值 ×3 缩放，同时 RhythmScorer 跳过 irregularity 双重惩罚
+- **效果**: Pro Rhythm 18.6 → 66.0 (+255%)
+
+### ADR-003: is_clean_vocal 标记传递链
+
+- **日期**: 2026-06-03 (v5.16), 扩展自 ADR-002
+- **问题**: v5.15 只修复了 rhythm 的 is_clean_vocal 传递，breath 管线完全缺失
+- **决策**: 建立完整标记传递链: `AudioFeaturesService(is_separated)` → `BreathAnalyzer(is_clean_vocal)` → `BreathStabilityResult.is_clean_vocal` → `BreathScorer`
+- **效果**: Pro Breath 9.8 → 56.3 (+474%)
+
+### ADR-004: 歌曲匹配用多特征加权，不用 DL 嵌入 ★v6.0
+
+- **日期**: 2026-06-05 (v6.0 设计)
+- **问题**: 如何在海量标准歌曲中快速找到用户翻唱对应的原唱？DL 音频嵌入 (如 OpenL3) 需要 GPU 且跨域不可靠。
+- **决策**: 多维度经典特征加权融合:
+  - BPM (librosa.beat) — 权重 0.3
+  - Key/Chroma (librosa.chroma_cqt) — 权重 0.25
+  - Chromaprint 指纹 (acoustid) — 权重 0.35
+  - 时长比例 — 权重 0.1
+  - 综合阈值: ≥0.6 视为匹配成功
+- **理由**: 全部特征可 CPU 实时计算，BPM+Key+指纹 三者互补，对速度/调性变化鲁棒。
+- **替代方案**: DTW 暴力比对 (太慢, O(n²))、DL 嵌入 (需 GPU, 跨域风险)
+
+### ADR-005: 配置即真相 — 不设硬编码兜底 ★v6.0
+
+- **日期**: 2026-06-05 (v6.0 设计)
+- **问题**: 传统做法是 config 加载失败时回退硬编码默认值，但这会掩盖配置错误。用户改了权重但不生效（因为配置格式错了悄悄回退了），导致评分结果与预期不一致。
+- **决策**: 所有评分参数从 `config/styles.yaml` 读取，该文件是唯一真相来源 (Single Source of Truth)。文件缺失或格式错误 → 启动阶段 `ConfigError` → 拒绝服务。不设任何硬编码兜底值。
+- **理由**: 静默降级是调试噩梦。启动即报错让问题立即暴露，修复成本远低于事后排查「为什么权重没生效」。
+- **影响**: 评分逻辑中消除所有 `DEFAULT_WEIGHTS` 硬编码常量。`/health` 在配置正常时返回 `config_status: "ok"` + `config_fingerprint`。
+
+### ADR-006: 评分不使用 DL 模型 (Wav2Vec2/wvmos/CREPE 已移除)
+
+- **日期**: 2026-06-03 (v5.12-v5.15)
+- **问题**: Wav2Vec2 (情绪)、wvmos (自然度)、CREPE (f0) 三个 DL 模型均存在跨域或可靠性问题
+- **决策**: 全部移除。评分引擎回归经典信号处理 (PYIN + HNR + CPP + Onset Detection)，仅保留 Demucs 用于人声分离
+
+### ADR-007: DTW 降级为特征提供者, 不打分 ★v6.0
+
+- **日期**: 2026-06-05 (v6.0 设计)
+- **问题**: 当前 DTW 对比管线中 scoring_engine.py 越界评分 — 用能量包络对齐测"气息"(实际测的是节奏同步性)，技术和艺术维度直接缺失。Bohm 2017 实验: 纯DTW评分与人工听感相关度仅 0.52，DTW+声学特征融合达 0.87。
+- **决策**: 
+  - `scoring_engine.py` 移除所有 `_score_*()` 方法，仅输出偏差数据 (dtw_pitch_cents, dtw_rhythm_offset, warp_path, confidence)
+  - `ScoreServiceV4` 作为唯一评分入口，pitch_scorer 和 rhythm_scorer 接收 DTW 偏差数据做加权融合
+  - breath/technique/artistry/critical_rules 零改动，DTW 完全不参与
+  - 融合权重由对齐置信度动态调节: pitch_dtw_weight ≤ 0.70, rhythm_dtw_weight ≤ 0.50
+- **效果**: 对比分析路径改走五维评分管线，DTW 回归其擅长的角色 (精确对齐工具)。代码改动 ~200 行，breath_scorer/technique_scorer/artistry_scorer/critical_rules 四个文件零改动。
+
+---
+
+## 五、技术债务
+
+| 债务 | 说明 | 优先级 |
+|------|------|--------|
+| core/ 与 services/ 功能重叠 | audio_analyzer / comparison_analyzer 部分功能已在 services/ 重写 | P2 |
+| **core/workers/ PyQt5 信号槽** | `signals.py` 定义了 Qt 信号，`manager.py` 使用 QThreadPool。这是桌面版 (PyQt5) 遗留代码，Web 版 (Flask) 不使用。保留用于未来桌面端构建 | P2 |
+| main.py 旧入口 | 功能已被 web_app.py 覆盖 | P3 |
+| 23 个经验参数 | scoring_config.py 中全部 [经验估计]，0 个 [实验校准] | P1 |
+| tests/tools/ 散落测试脚本 | 8 个工具脚本未纳入 pytest 标准框架 | P2 |
+
+---
+
+## 六、参考文档
+
+| 文档 | 路径 |
+|------|------|
+| 产品需求文档 | [PRD.md](../1-product/PRD.md) |
+| 评分算法详解 | [SCORING.md](SCORING.md) |
+| API 接口 | [API.md](API.md) |
+| TDD 规范 | [TDD.md](../3-quality/TDD.md) |
+| BDD 规范 | [BDD.md](../3-quality/BDD.md) |

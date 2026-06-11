@@ -1,0 +1,147 @@
+/**
+ * layouts.css — 布局系统
+ *
+ * 职责:
+ * 1. 页面级布局 (双列、单列、网格)
+ * 2. 响应式断点
+ * 3. SPA 页面容器
+ */
+
+/* =========================================================================
+ * 页面容器
+ * ========================================================================= */
+
+.page-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.page-container-wide {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* =========================================================================
+ * 首页布局: 主内容 + 侧边栏
+ * ========================================================================= */
+
+.home-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+}
+
+.home-layout .main-content {
+    min-width: 0; /* 防止 grid item 溢出 */
+}
+
+.home-layout .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* =========================================================================
+ * 双列布局 (对比分析等)
+ * ========================================================================= */
+
+.dual-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+/* =========================================================================
+ * 三列网格 (统计卡片等)
+ * ========================================================================= */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+/* =========================================================================
+ * 页面切换容器
+ * ========================================================================= */
+
+#pageContainer {
+    position: relative;
+    min-height: calc(100vh - 56px); /* 减去顶部导航高度 */
+}
+
+#page-container > .page {
+    /* 页面由 JS 动态挂载，这里不设置 display */
+}
+
+/* =========================================================================
+ * 导航预留空间
+ * ========================================================================= */
+
+/* PC 端顶部导航占位 */
+.nav-spacer-top {
+    height: 56px;
+}
+
+/* 移动端底部导航占位 */
+.nav-spacer-bottom {
+    display: none;
+}
+
+/* =========================================================================
+ * 响应式
+ * ========================================================================= */
+
+/* 平板 */
+@media (max-width: 1024px) {
+    .home-layout {
+        grid-template-columns: 1fr 280px;
+    }
+}
+
+/* 手机 */
+@media (max-width: 767px) {
+    .page-container {
+        padding: 16px;
+    }
+
+    .page-container-wide {
+        padding: 16px;
+    }
+
+    .home-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .dual-column {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .nav-spacer-bottom {
+        display: block;
+        height: 64px; /* 底部导航高度 */
+    }
+
+    .nav-spacer-top {
+        height: 0;
+    }
+}
+
+/* 小屏手机 */
+@media (max-width: 375px) {
+    .page-container {
+        padding: 12px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+}
