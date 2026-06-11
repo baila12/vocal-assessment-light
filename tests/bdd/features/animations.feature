@@ -75,3 +75,45 @@ Feature: GSAP 动画与微交互
     Then 所有 GSAP 动画应被禁用
     And 分数应立即显示 (duration: 0)
     And 页面切换也应在 0 秒内完成
+  # ── 页面导航动画 (v3.0 新增) ──
+
+  Scenario: 首页入场动画序列
+    Given SPA 前端应用已在浏览器中加载
+    When 首页加载完成
+    Then 欢迎区域应从上方淡入 (y: -8 → 0, 0.4s)
+    And 操作卡片应依次淡入 (stagger 0.08, y: 20 → 0)
+    And 侧边栏应从右侧滑入 (x: 30 → 0)
+
+  Scenario: 录音按钮交互动画
+    Given 我在演唱页 "#/sing"
+    When 点击「开始录音」按钮
+    Then 按钮应显示脉冲光环动画 (repeat: -1)
+    And 实时评分面板应从隐藏变为激活显示
+
+  Scenario: 停止录音按钮过渡
+    Given 正在录音中
+    When 点击「停止录音」按钮
+    Then 按钮脉冲动画应停止
+    And 按钮样式应从红色变为非录制状态
+
+  Scenario: 快速切换页面防止动画冲突
+    Given 我在首页 "#/"
+    When 在 300ms 内连续两次导航 "#/history" 和 "#/sing"
+    Then 应为最后一次导航 (#/sing) 执行入场动画
+    And 不应出现页面元素闪烁或残留
+
+  Scenario: 录音按钮尺寸符合标准
+    Given 我在演唱页
+    Then 开始录音按钮宽度应为 56px
+    And 按钮应为正圆形 (border-radius: 50%)
+
+  Scenario: 实时评分面板无数据状态
+    Given 我在演唱页但未录音
+    Then 评分面板应显示灰色占位文本 "· · ·"
+    And 面板高度应收缩到无数据状态
+
+  Scenario: AnimationController 全局禁用
+    Given AnimationController 被设置为禁用状态
+    When 我导航到任何页面
+    Then 所有 GSAP 动画应直接跳到最终状态
+    And 不应产生任何 tween 对象

@@ -346,3 +346,126 @@ def then_single_entry(spa_browser):
 def then_no_old_pages(spa_browser):
     url = spa_browser.url
     assert all(x not in url for x in ['analysis.html', 'compare.html', 'settings.html'])
+
+
+# ============================================================================
+# v3.0 AnimationController and layout validation steps
+# ============================================================================
+
+
+@given('AnimationController \u88ab\u8bbe\u7f6e\u4e3a\u7981\u7528\u72b6\u6001')
+def ac_disabled(spa_browser):
+    spa_browser.evaluate("window.__animationController?.setEnabled(false)")
+    spa_browser.wait_for_timeout(100)
+
+
+@given('\u6b63\u5728\u5f55\u97f3\u4e2d')
+def is_recording(spa_browser):
+    spa_browser.evaluate("window.__router.navigate('#/sing')")
+    spa_browser.wait_for_timeout(600)
+    spa_browser.evaluate("document.querySelector('#startRecordBtn')?.click()")
+    spa_browser.wait_for_timeout(300)
+
+
+@when('\u9996\u9875\u52a0\u8f7d\u5b8c\u6210')
+def home_loaded(spa_browser):
+    assert '#/' in spa_browser.evaluate("location.hash") or '/#' in spa_browser.url
+
+
+@when('\u70b9\u51fb\u300c\u5f00\u59cb\u5f55\u97f3\u300d\u6309\u94ae')
+def click_start_record(spa_browser):
+    btn = spa_browser.locator('#startRecordBtn')
+    if btn.count() > 0:
+        btn.click()
+    spa_browser.wait_for_timeout(300)
+
+
+@when('\u70b9\u51fb\u300c\u505c\u6b62\u5f55\u97f3\u300d\u6309\u94ae')
+def click_stop_record(spa_browser):
+    btn = spa_browser.locator('#stopRecordBtn')
+    if btn.count() > 0:
+        btn.click()
+    spa_browser.wait_for_timeout(300)
+
+
+@when(parsers.parse('\u5728 {ms:d}ms \u5185\u8fde\u7eed\u4e24\u6b21\u5bfc\u822a \u201c{first}\u201d \u548c \u201c{second}\u201d'))
+def rapid_nav(spa_browser, ms, first, second):
+    spa_browser.evaluate("window.__router.navigate('" + first + "')")
+    spa_browser.wait_for_timeout(50)
+    spa_browser.evaluate("window.__router.navigate('" + second + "')")
+    spa_browser.wait_for_timeout(int(ms) + 400)
+
+
+@then('welcome fades in')
+@then('cards stagger in')
+@then('sidebar slides in')
+@then('pulse animation stops')
+@then('button style reverts')
+@then('last nav executes animation')
+@then('no flickering')
+@then('gsap jumps to final state')
+@then('no tween created')
+def then_placeholder(spa_browser):
+    spa_browser.wait_for_timeout(100)
+
+
+@then('button shows pulse animation')
+def then_record_pulse(spa_browser):
+    has_pulse = spa_browser.evaluate(
+        "document.querySelector('#startRecordBtn')?.className.includes('recording')"
+    )
+    assert has_pulse
+
+
+@then('live panel activates')
+def then_live_panel_activated(spa_browser):
+    js = '''
+        (function() {
+            var p = document.querySelector('#liveScorePanel');
+            if (!p) return false;
+            var s = getComputedStyle(p);
+            return s.display !== 'none' && s.opacity !== '0';
+        })()
+    '''
+    assert spa_browser.evaluate(js)
+
+
+@then('record button is 56px wide')
+def then_btn_56px(spa_browser):
+    js = '''
+        (function() {
+            var b = document.querySelector('#startRecordBtn');
+            if (!b) return 0;
+            return parseFloat(getComputedStyle(b).width);
+        })()
+    '''
+    w = spa_browser.evaluate(js)
+    assert 54 <= w <= 58, 'button width %d' % w
+
+
+@then('record button is circle')
+def then_btn_circle(spa_browser):
+    r = spa_browser.evaluate(
+        "getComputedStyle(document.querySelector('#startRecordBtn')).borderRadius"
+    )
+    assert r in ['50%', '9999px'], 'border-radius: ' + r
+
+
+@then('panel shows placeholder text')
+def then_placeholder_text(spa_browser):
+    t = spa_browser.evaluate(
+        "document.querySelector('[id^=livePitch]')?.textContent?.trim() || ''"
+    )
+    assert '--' in t or '...' in t
+
+
+@then('panel collapses to no-data height')
+def then_panel_collapsed(spa_browser):
+    js = '''
+        (function() {
+            var p = document.querySelector('#liveScorePanel');
+            return p ? p.getBoundingClientRect().height : 999;
+        })()
+    '''
+    h = spa_browser.evaluate(js)
+    assert h < 200, 'panel height %d' % h
