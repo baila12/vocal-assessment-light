@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git reset *)",
+      "Bash(git commit -m 'fix: score differentiation and vocal separation pipeline \\(v5.11\\) *)",
+      "Bash(git pull *)",
+      "Bash(git merge *)",
+      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "Bash(xargs rm -rf)",
+      "Bash(git commit -m 'feat: v5.12 major optimization — security, scoring unification, algorithm calibration, DL cleanup *)",
+      "Bash(git commit -m 'fix: v5.13 phase 1-2 — restore score differentiation + fix Demucs scoring *)",
+      "Bash(git commit -m 'fix: v5.13 — f0 rhythm revert + docs update with real audio test results *)",
+      "Bash(git commit -m 'docs: record unfinished Phase 3-7 items from v5.13 plan *)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -u test_v516_breath.py)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe test_v516_breath.py)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe diagnose_bugs.py)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -m pytest tests/unit/ -v --tb=short)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -c ' *)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -m demucs --help)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -m pytest tests/unit/ -q --tb=short)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -c \"import torch; print\\('PyTorch:', torch.__version__\\)\")",
+      "Bash(nvidia-smi)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -m pip uninstall torch torchaudio -y)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -c \"import torch; print\\('PyTorch:', torch.__version__\\); print\\('CUDA available:', torch.cuda.is_available\\(\\)\\); print\\('GPU:', torch.cuda.get_device_name\\(0\\) if torch.cuda.is_available\\(\\) else 'N/A'\\)\")",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -m pip install torch==2.11.0+cu124 torchaudio==2.11.0+cu124 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall)",
+      "Bash(/c/Users/jack/anaconda3/envs/pytorch2/python.exe -m pip install torch==2.6.0+cu124 torchaudio==2.6.0+cu124 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall --no-deps)",
+      "Bash(git rm *)"
+    ]
+  }
+}
