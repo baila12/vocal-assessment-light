@@ -60,6 +60,26 @@ uploads/
 outputs/
 separated/
 
+# Backup & temp dev files
+*.bak
+*.new
+*.fullbak
+fix_*.py
+check_*.py
+find_*.py
+inspect_*.py
+rewrite_*.py
+start_server.py
+server.py
+test.html
+test_import/
+err.txt
+test_out.txt
+server_err.txt
+server_out.txt
+server_*.log
+data/screenshots/
+
 # Generated files (Demucs output, reports)
 web/static/htdemucs*/
 web/static/htdemucs_ft/
