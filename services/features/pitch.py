@@ -1,4 +1,4 @@
-"""
+﻿"""
 音准分析模块 - 音分偏差计算 v5.14
 
 核心算法:
@@ -10,7 +10,7 @@ import numpy as np
 from scipy.ndimage import uniform_filter1d, find_objects, label
 import logging
 
-from . import PitchDeviationResult
+from .types import PitchDeviationResult
 
 logger = logging.getLogger(__name__)
 

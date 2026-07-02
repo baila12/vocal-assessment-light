@@ -3,14 +3,13 @@
  *
  * 位置: 页面顶部居中固定
  * 类型: success | error | warning | info
- * 动画: GSAP fromTo (y: -20 → 0)
+ * 动画: AnimationController 驱动
  * 限制: 最多 3 个同时显示
  *
- * @version 1.0
+ * @version 2.0
  */
 
 import { BaseComponent } from './BaseComponent.js';
-import { toastEnter, toastExit } from '../effects/micro.js';
 
 const TOAST_TYPES = {
     success: { icon: '✓', bg: 'var(--success)', color: '#fff' },
@@ -24,29 +23,12 @@ const MAX_TOASTS = 3;
 let activeToasts = 0;
 
 export class Toast extends BaseComponent {
-    /** @type {string} */
     #type;
-
-    /** @type {string} */
     #message;
-
-    /** @type {number} */
     #duration;
-
-    /** @type {Function|null} */
     #onAction;
-
-    /** @type {number|null} */
     #timer;
 
-    /**
-     * @param {Element} container
-     * @param {Object} options
-     * @param {string} options.type - 'success' | 'error' | 'warning' | 'info'
-     * @param {string} options.message
-     * @param {number} [options.duration=3000] - 自动消失时间 (ms)
-     * @param {Object} [options.action] - { label: '重试', handler: () => {} }
-     */
     constructor(container, options = {}) {
         super(container, options);
         this.#type = options.type || 'info';
@@ -57,10 +39,17 @@ export class Toast extends BaseComponent {
 
     render() {
         if (activeToasts >= MAX_TOASTS) {
-            // 移除最早的 Toast
             const first = this.container.querySelector('.toast-item');
             if (first) {
-                toastExit(first);
+                if (this.ac) {
+                    this.ac.leave(first, { preset: 'toast-exit' });
+                } else if (typeof gsap !== 'undefined') {
+                    gsap.to(first, { opacity: 0, y: -20, duration: 0.2, ease: 'power2.in',
+                        onComplete: () => { first.remove(); }
+                    });
+                } else {
+                    first.remove();
+                }
                 activeToasts--;
             }
         }
@@ -87,32 +76,21 @@ export class Toast extends BaseComponent {
             }
         });
 
-        // 图标
-        const icon = this.createElement('span', {
-            style: {
-                fontSize: '16px',
-                fontWeight: '700'
-            }
-        }, config.icon);
+        const icon = this.createElement('span', { style: { fontSize: '16px', fontWeight: '700' } }, config.icon);
         this.el.appendChild(icon);
 
-        // 文字
         const text = this.createElement('span', {}, this.#message);
         this.el.appendChild(text);
 
-        // 操作按钮 (仅 error 类型默认带"重试")
         if (this.#onAction) {
             const btn = this.createElement('button', {
                 style: {
-                    marginLeft: '12px',
-                    padding: '4px 12px',
+                    marginLeft: '12px', padding: '4px 12px',
                     background: 'rgba(255,255,255,0.2)',
                     border: '1px solid rgba(255,255,255,0.3)',
                     borderRadius: 'var(--radius-sm)',
-                    color: 'inherit',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    fontWeight: '600'
+                    color: 'inherit', fontSize: '12px',
+                    cursor: 'pointer', fontWeight: '600'
                 },
                 onClick: (e) => {
                     e.stopPropagation();
@@ -123,27 +101,38 @@ export class Toast extends BaseComponent {
             this.el.appendChild(btn);
         }
 
-        // 点击关闭
         this.el.addEventListener('click', () => this.dismiss());
-
         this.container.appendChild(this.el);
         activeToasts++;
 
-        // 入场动画
-        if (toastEnter) toastEnter(this.el);
+        // 入场动画 (使用 AnimationController)
+        if (this.ac) {
+            this.ac.enter(this.el, { preset: 'toast-enter' });
+        } else if (typeof gsap !== 'undefined') {
+            gsap.fromTo(this.el,
+                { opacity: 0, y: -20 },
+                { opacity: 1, y: 0, duration: 0.3, ease: 'back.out(1.5)' }
+            );
+        }
 
-        // 自动消失
         this.#timer = setTimeout(() => this.dismiss(), this.#duration);
     }
 
-    /**
-     * 主动关闭
-     */
     async dismiss() {
         if (!this.el) return;
         clearTimeout(this.#timer);
 
-        await toastExit(this.el);
+        if (this.ac) {
+            await this.ac.leave(this.el, { preset: 'toast-exit' });
+        } else if (typeof gsap !== 'undefined') {
+            await gsap.to(this.el, {
+                opacity: 0, y: -20, duration: 0.2, ease: 'power2.in',
+                onComplete: () => { this.el.remove(); }
+            }).then();
+        } else {
+            this.el.remove();
+        }
+
         activeToasts = Math.max(0, activeToasts - 1);
         this.el = null;
     }
@@ -156,14 +145,10 @@ export class Toast extends BaseComponent {
 
 /**
  * 快捷方法 — 显示 Toast
- * @param {string} message
- * @param {string} type
- * @param {Object} [options]
  */
 export function showToast(message, type = 'info', options = {}) {
     const container = document.getElementById('toastWrap');
     if (!container) return null;
-
     return new Toast(container, { ...options, message, type });
 }
 

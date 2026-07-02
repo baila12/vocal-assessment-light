@@ -1,4 +1,4 @@
-"""
+﻿"""
 发声技术评分器
 
 负责发声技术维度的评分计算和诊断生成
@@ -9,7 +9,7 @@ import logging
 
 from services.audio_features_service import VocalTechniqueResult
 from services.scoring_config import TechniqueThresholds, EmpiricalThresholds
-from services.scoring import TechniqueDiagnosis
+from services.scoring.types import TechniqueDiagnosis
 
 logger = logging.getLogger(__name__)
 

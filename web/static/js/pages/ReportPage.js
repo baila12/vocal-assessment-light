@@ -2,14 +2,13 @@
  * ReportPage — 报告页 (评分展示 + 雷达图 + 特征图)
  *
  * 路由: #/report/:analysisId
- *
- * GSAP 动画序列:
- *   1. 总分环形 + 数字滚动
- *   2. 五维进度条 stagger
+ * 动画序列 (v2.0, AnimationController 驱动):
+ *   1. 总分环形 + 数字滚动 (ScoreRing)
+ *   2. 五维进度条 fillBar
  *   3. 雷达图渐进
- *   4. 建议列表淡入
+ *   4. 建议列表 stagger fadeIn
  *
- * @version 1.0
+ * @version 2.0
  */
 
 import { BaseComponent } from '../components/BaseComponent.js';
@@ -18,38 +17,31 @@ import { ScoreCounter } from '../components/ScoreCounter.js';
 import { RadarChart } from '../components/RadarChart.js';
 import { PitchCurve } from '../components/PitchCurve.js';
 import { showToast } from '../components/Toast.js';
-import { animateReportEntrance } from '../effects/scores.js';
 
 export class ReportPage extends BaseComponent {
-    /** @type {ScoreRing} */
-    #scoreRing;
+    static animationPreset = 'page-enter-scale';
 
-    /** @type {RadarChart} */
-    #radarChart;
-
-    /** @type {PitchCurve} */
-    #pitchCurve;
-
-    /** @type {Object|null} */
-    #result = null;
+    _scoreRing;
+    _radarChart;
+    _pitchCurve;
+    _result = null;
 
     async mount(params) {
-        // 从 store 获取最新分析结果 (HomePage 完成分析后存入)
         if (this.store) {
-            this.#result = this.store.getState('analysis').result;
+            this._result = this.store.getState('analysis').result;
         }
 
         this.render();
         this.bindEvents();
 
-        if (!this.#result) {
+        if (!this._result) {
             this.el.querySelector('#reportContent').style.display = 'none';
             this.el.querySelector('#reportEmpty').style.display = 'block';
             return;
         }
 
-        this.#populateData(this.#result);
-        this.#animateEntrance(this.#result);
+        this._populateData(this._result);
+        this._animateEntrance(this._result);
     }
 
     render() {
@@ -83,13 +75,11 @@ export class ReportPage extends BaseComponent {
                 <div class="card-body" id="pitchCurveContainer"></div>
             </div>
 
-            <!-- 特征可视化 -->
             <div class="card" id="vizCard" style="margin-bottom:24px; display:none;">
                 <div class="card-header"><span class="card-title">🔬 特征可视化</span></div>
                 <div class="card-body" id="featureVisualization"></div>
             </div>
 
-            <!-- 逐句评分 -->
             <div class="card" id="phraseCard" style="margin-bottom:24px; display:none;">
                 <div class="card-header"><span class="card-title">📝 逐句评分</span></div>
                 <div class="card-body" id="phraseSection"></div>
@@ -111,24 +101,19 @@ export class ReportPage extends BaseComponent {
             </div>
         </div>
 
-        <!-- 空状态 -->
         <div id="reportEmpty" style="display:none; text-align:center; padding:60px 20px;">
             <div style="font-size:48px; margin-bottom:16px;">📭</div>
             <h2 style="color:var(--text-primary); margin-bottom:8px;">未找到分析结果</h2>
             <p style="color:var(--text-muted); margin-bottom:24px;">该分析记录不存在或已过期</p>
-            <button class="btn btn-primary" id="goHomeBtn">返回首页</button>
-        </div>`;
-
+            <button class="btn btn-primary" onclick="window.__router?.navigate('#/')">返回首页</button>
+        </div>
+        `;
         this.container.appendChild(this.el);
     }
 
     bindEvents() {
-        this.el.querySelector('#goHomeBtn')?.addEventListener('click', () => {
-            if (this.router) this.router.navigate('#/');
-        });
-
-        this.el.querySelector('#exportPdfBtn')?.addEventListener('click', () => this.#exportReport('pdf'));
-        this.el.querySelector('#exportImgBtn')?.addEventListener('click', () => this.#exportReport('image'));
+        this.el.querySelector('#exportPdfBtn')?.addEventListener('click', () => this._exportReport('pdf'));
+        this.el.querySelector('#exportImgBtn')?.addEventListener('click', () => this._exportReport('image'));
         this.el.querySelector('#reAnalyzeBtn')?.addEventListener('click', () => {
             if (this.router) this.router.navigate('#/');
         });
@@ -138,14 +123,14 @@ export class ReportPage extends BaseComponent {
     // 数据填充
     // ========================================================================
 
-    #populateData(result) {
+    _populateData(result) {
         const scores = result.scores || {};
 
         // 五维进度条
         const barsContainer = this.el.querySelector('#dimensionBars');
-        if (barsContainer) {
+        if (barsContainer && scores) {
             const dims = [
-                { key: 'pitch', label: '音准', color: 'var(--dim-pitch)', weight: '35%' },
+                { key: 'pitch', label: '音准', color: 'var(--dim-pitch)', weight: '25%' },
                 { key: 'rhythm', label: '节奏', color: 'var(--dim-rhythm)', weight: '25%' },
                 { key: 'breath', label: '气息', color: 'var(--dim-breath)', weight: '10%' },
                 { key: 'technique', label: '发声技术', color: 'var(--dim-technique)', weight: '25%' },
@@ -154,24 +139,23 @@ export class ReportPage extends BaseComponent {
 
             barsContainer.innerHTML = dims.map(d => {
                 const score = scores[d.key] || 0;
-                return `
-                <div class="dimension-row" style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-                    <span style="width:80px;font-size:13px;color:var(--text-secondary);text-align:right;">${d.label}</span>
-                    <div style="flex:1;height:8px;background:var(--bg-elevated);border-radius:var(--radius-full);overflow:hidden;">
-                        <div id="dim${d.key.charAt(0).toUpperCase() + d.key.slice(1)}Bar"
-                             style="height:100%;width:0%;background:${d.color};border-radius:var(--radius-full);transform-origin:left center;"></div>
-                    </div>
-                    <span id="dim${d.key.charAt(0).toUpperCase() + d.key.slice(1)}Value"
-                          style="width:36px;font-size:13px;font-weight:600;color:${d.color};text-align:right;">0</span>
-                    <span style="width:30px;font-size:11px;color:var(--text-muted);">${d.weight}</span>
-                </div>`;
+                return '<div class="dimension-row" style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">'
+                    + '<span style="width:80px;font-size:13px;color:var(--text-secondary);text-align:right;">' + d.label + '</span>'
+                    + '<div style="flex:1;height:8px;background:var(--bg-elevated);border-radius:var(--radius-full);overflow:hidden;">'
+                    + '<div id="dim' + d.key.charAt(0).toUpperCase() + d.key.slice(1) + 'Bar"'
+                    + ' style="height:100%;width:0%;background:' + d.color + ';border-radius:var(--radius-full);transform-origin:left center;"></div></div>'
+                    + '<span id="dim' + d.key.charAt(0).toUpperCase() + d.key.slice(1) + 'Value"'
+                    + ' style="width:36px;font-size:13px;font-weight:600;color:' + d.color + ';text-align:right;">0</span>'
+                    + '<span style="width:30px;font-size:11px;color:var(--text-muted);">' + d.weight + '</span></div>';
             }).join('');
         }
 
         // 改进建议
         const adviceList = this.el.querySelector('#adviceList');
         if (adviceList && result.advice?.length) {
-            adviceList.innerHTML = result.advice.map(a => `<li style="padding:10px 0;border-bottom:1px solid var(--border);color:var(--text-secondary);font-size:14px;">💡 ${a}</li>`).join('');
+            adviceList.innerHTML = result.advice.map(a =>
+                '<li style="padding:10px 0;border-bottom:1px solid var(--border);color:var(--text-secondary);font-size:14px;">💡 ' + a + '</li>'
+            ).join('');
         }
 
         // 评分等级
@@ -187,49 +171,100 @@ export class ReportPage extends BaseComponent {
     }
 
     // ========================================================================
-    // GSAP 动画
+    // GSAP 动画 (AnimationController 驱动)
     // ========================================================================
 
-    #animateEntrance(result) {
+    _animateEntrance(result) {
         const scores = result.scores || {};
+        const ac = this.ac;
 
-        // 1. 环形评分
-        const ringContainer = this.el.querySelector('#scoreRingContainer');
-        this.#scoreRing = new ScoreRing(ringContainer, { size: 140 });
-        this.#scoreRing.render();
-        this.#scoreRing.animate(result.total_score || 0);
+        // 1. 环形评分 (独立于 Controller, Canvas 动画)
+        const ringContainer = this.el.querySelector('_scoreRingContainer');
+        this._scoreRing = new ScoreRing(ringContainer, { size: 140 });
+        this._scoreRing.render();
+        this._scoreRing.animate(result.total_score || 0);
 
         // 2. 雷达图
-        const radarContainer = this.el.querySelector('#radarChartContainer');
-        this.#radarChart = new RadarChart(radarContainer);
-        this.#radarChart.render();
-        this.#radarChart.setData(scores);
-        this.#radarChart.animate();
+        const radarContainer = this.el.querySelector('_radarChartContainer');
+        this._radarChart = new RadarChart(radarContainer);
+        this._radarChart.render();
+        this._radarChart.setData(scores);
+        this._radarChart.animate();
 
-        // 3. GSAP 序列 (进度条 + 建议列表)
+        // 3. AnimationController 驱动的序列
         const dimBars = {};
         const dimValues = {};
         ['Pitch', 'Rhythm', 'Breath', 'Technique', 'Artistry'].forEach(name => {
-            dimBars[name.toLowerCase()] = this.el.querySelector(`#dim${name}Bar`);
-            dimValues[name.toLowerCase()] = this.el.querySelector(`#dim${name}Value`);
+            dimBars[name.toLowerCase()] = this.el.querySelector('#dim' + name + 'Bar');
+            dimValues[name.toLowerCase()] = this.el.querySelector('#dim' + name + 'Value');
         });
 
-        animateReportEntrance(result, {
-            totalScore: null, // 已由 ScoreRing 处理
-            scoreLevel: this.el.querySelector('#scoreLevel'),
-            dimBars,
-            dimValues,
-            adviceList: this.el.querySelector('#adviceList'),
-            drawRadar: () => this.#radarChart?.animate()
-        });
+        const adviceList = this.el.querySelector('#adviceList');
+
+        if (ac) {
+            const tl = ac.createTimeline();
+
+            // 进度条依次展开 (stagger +0.15s 间隔)
+            const dims = ['pitch', 'rhythm', 'breath', 'technique', 'artistry'];
+            dims.forEach((dim, i) => {
+                const bar = dimBars[dim];
+                const val = dimValues[dim];
+                const score = scores[dim] || 0;
+
+                if (bar) {
+                    tl.to(bar, {
+                        scaleX: score / 100,
+                        duration: 0.8,
+                        ease: 'power2.out',
+                        transformOrigin: 'left center'
+                    }, i === 0 ? '+=0.2' : '-=0.65');
+                }
+                if (val) {
+                    // 数字滚动
+                    tl.fromTo(val,
+                        { textContent: 0 },
+                        {
+                            textContent: Math.round(score),
+                            duration: 0.8,
+                            snap: { textContent: 1 },
+                            overwrite: 'auto'
+                        },
+                        bar ? '-=0.8' : '-=0.65'
+                    );
+                }
+            });
+
+            // 建议列表 stagger
+            if (adviceList) {
+                const items = adviceList.querySelectorAll('li');
+                if (items.length > 0) {
+                    tl.fromTo(items,
+                        { opacity: 0, y: 10 },
+                        { opacity: 1, y: 0, stagger: 0.1, duration: 0.4, ease: 'power2.out' },
+                        '+=0.2'
+                    );
+                }
+            }
+        } else if (typeof gsap !== 'undefined') {
+            // 回退: 使用直接 GSAP
+            import('../effects/scores.js').then(({ animateReportEntrance }) => {
+                animateReportEntrance(result, {
+                    totalScore: null,
+                    scoreLevel: this.el.querySelector('#scoreLevel'),
+                    dimBars, dimValues,
+                    adviceList,
+                    drawRadar: () => this._radarChart?.animate()
+                });
+            });
+        }
     }
 
-    async #exportReport(format) {
-        if (!this.#result) return;
+    async _exportReport(format) {
+        if (!this._result) return;
         try {
             const api = new (await import('../services/api.js')).ApiClient();
-            const filename = this.#result.filename || 'report';
-            const res = await api.exportReport(this.#result, filename, format);
+            const filename = this._result.filename || 'report';
+            const res = await api.exportReport(this._result, filename, format);
             if (res?.pdf_path || res?.image_path) {
                 const link = document.createElement('a');
                 link.href = res.pdf_path || res.image_path;
@@ -243,9 +278,9 @@ export class ReportPage extends BaseComponent {
     }
 
     destroy() {
-        this.#scoreRing?.destroy();
-        this.#radarChart?.destroy();
-        this.#pitchCurve?.destroy();
+        this._scoreRing?.destroy();
+        this._radarChart?.destroy();
+        this._pitchCurve?.destroy();
         super.destroy();
     }
 }

@@ -118,11 +118,6 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
     50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
 }
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
 .btn:hover { border-color: var(--primary); color: var(--primary); }
 .btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
 .btn.primary:hover { background: var(--primary-dark); }

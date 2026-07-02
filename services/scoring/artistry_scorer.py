@@ -1,4 +1,4 @@
-"""
+﻿"""
 艺术表现评分器 v5.14
 
 v5.14: 认识到艺术表现力是高阶感知维度，无法用简单声学统计量独立评估。
@@ -12,7 +12,7 @@ import numpy as np
 import logging
 
 from services.audio_features_service import VocalTechniqueResult, BreathStabilityResult
-from services.scoring import ArtistryDiagnosis
+from services.scoring.types import ArtistryDiagnosis
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-"""
+﻿"""
 演唱技巧检测模块
 
 检测项目：
@@ -12,7 +12,7 @@ import librosa
 from scipy.ndimage import uniform_filter1d
 import logging
 
-from . import VocalTechniqueResult
+from .types import VocalTechniqueResult
 
 logger = logging.getLogger(__name__)
 

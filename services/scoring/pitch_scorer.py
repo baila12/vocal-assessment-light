@@ -1,4 +1,4 @@
-"""
+﻿"""
 音准评分器 v5.14
 
 负责音准维度的评分计算和诊断生成。
@@ -11,7 +11,7 @@ import logging
 
 from services.audio_features_service import PitchDeviationResult
 from services.scoring_config import PitchThresholds, EmpiricalThresholds
-from services.scoring import PitchDiagnosis
+from services.scoring.types import PitchDiagnosis
 
 logger = logging.getLogger(__name__)
 

@@ -1,11 +1,11 @@
 /**
- * ApiClient — 统一 API 调用层
+ * ApiClient 鈥?缁熶竴 API 璋冪敤灞?
  *
- * 职责:
- * 1. 封装所有后端 API 调用
- * 2. 统一错误处理 + 超时 + 重试
- * 3. 请求去重 (防重复提交)
- * 4. 离线检测
+ * 鑱岃矗:
+ * 1. 灏佽鎵€鏈夊悗绔?API 璋冪敤
+ * 2. 缁熶竴閿欒澶勭悊 + 瓒呮椂 + 閲嶈瘯
+ * 3. 璇锋眰鍘婚噸 (闃查噸澶嶆彁浜?
+ * 4. 绂荤嚎妫€娴?
  *
  * @version 1.0
  */
@@ -13,8 +13,8 @@
 export class ApiError extends Error {
     /**
      * @param {string} message
-     * @param {number} status - HTTP 状态码
-     * @param {*} data - 响应数据
+     * @param {number} status - HTTP 鐘舵€佺爜
+     * @param {*} data - 鍝嶅簲鏁版嵁
      */
     constructor(message, status = 0, data = null) {
         super(message);
@@ -26,32 +26,32 @@ export class ApiError extends Error {
 
 export class ApiClient {
     /** @type {string} */
-    #baseURL;
+    _baseURL;
 
     /** @type {boolean} */
-    #isAnalyzing = false;
+    _isAnalyzing = false;
 
     /** @type {AbortController|null} */
-    #activeAnalysisController = null;
+    _activeAnalysisController = null;
 
     constructor(baseURL = '') {
-        this.#baseURL = baseURL;
+        this._baseURL = baseURL;
     }
 
     // ========================================================================
-    // 核心方法
+    // 鏍稿績鏂规硶
     // ========================================================================
 
     /**
-     * 统一请求
-     * @param {string} method - HTTP 方法
-     * @param {string} path - API 路径
+     * 缁熶竴璇锋眰
+     * @param {string} method - HTTP 鏂规硶
+     * @param {string} path - API 璺緞
      * @param {Object} [options={}]
-     * @param {Object} [options.body] - 请求体 (自动序列化为 JSON)
-     * @param {number} [options.timeout=30000] - 超时 (ms)
-     * @param {number} [options.retries=0] - 重试次数
-     * @param {boolean} [options.isFormData=false] - 是否为 FormData
-     * @param {AbortSignal} [options.signal] - 取消信号
+     * @param {Object} [options.body] - 璇锋眰浣?(鑷姩搴忓垪鍖栦负 JSON)
+     * @param {number} [options.timeout=30000] - 瓒呮椂 (ms)
+     * @param {number} [options.retries=0] - 閲嶈瘯娆℃暟
+     * @param {boolean} [options.isFormData=false] - 鏄惁涓?FormData
+     * @param {AbortSignal} [options.signal] - 鍙栨秷淇″彿
      */
     async request(method, path, options = {}) {
         const {
@@ -62,7 +62,7 @@ export class ApiClient {
             signal
         } = options;
 
-        const url = `${this.#baseURL}${path}`;
+        const url = `${this._baseURL}${path}`;
         const headers = {};
 
         if (!isFormData && body) {
@@ -84,13 +84,13 @@ export class ApiClient {
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
             try {
-                // 超时控制
+                // 瓒呮椂鎺у埗
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-                // 合并外部 signal
+                // 鍚堝苟澶栭儴 signal
                 const combinedSignal = signal
-                    ? this.#combineSignals(signal, controller.signal)
+                    ? this._combineSignals(signal, controller.signal)
                     : controller.signal;
 
                 const response = await fetch(url, {
@@ -100,7 +100,7 @@ export class ApiClient {
 
                 clearTimeout(timeoutId);
 
-                // 处理空响应
+                // 澶勭悊绌哄搷搴?
                 const text = await response.text();
                 let data;
                 try {
@@ -122,10 +122,10 @@ export class ApiClient {
             } catch (error) {
                 lastError = error;
 
-                // 不重试的情况:
-                // 1. 已被外部取消
-                // 2. 4xx 客户端错误 (非 429)
-                // 3. 最后一次尝试
+                // 涓嶉噸璇曠殑鎯呭喌:
+                // 1. 宸茶澶栭儴鍙栨秷
+                // 2. 4xx 瀹㈡埛绔敊璇?(闈?429)
+                // 3. 鏈€鍚庝竴娆″皾璇?
                 if (error.name === 'AbortError' || error instanceof ApiError) {
                     throw error;
                 }
@@ -133,7 +133,7 @@ export class ApiClient {
                     throw error;
                 }
 
-                // 指数退避重试
+                // 鎸囨暟閫€閬块噸璇?
                 const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
@@ -143,54 +143,54 @@ export class ApiClient {
     }
 
     // ========================================================================
-    // 音频相关
+    // 闊抽鐩稿叧
     // ========================================================================
 
     /**
-     * 上传音频进行分析
-     * @param {File} file - 音频文件
+     * 涓婁紶闊抽杩涜鍒嗘瀽
+     * @param {File} file - 闊抽鏂囦欢
      * @param {string} mode - 'quick' | 'professional'
      * @returns {Promise<{ success: boolean, task_id: string, analysis_id: string }>}
      */
     async uploadAudio(file, mode = 'quick') {
-        if (this.#isAnalyzing) {
-            throw new ApiError('分析正在进行中，请等待完成', 429);
+        if (this._isAnalyzing) {
+            throw new ApiError('Processing in progress', 429);
         }
 
         const formData = new FormData();
-        formData.append('file', file);  // 后端接收字段名: request.files['file']
+        formData.append('file', file);  // 鍚庣鎺ユ敹瀛楁鍚? request.files['file']
         formData.append('mode', mode);
 
-        this.#isAnalyzing = true;
-        this.#activeAnalysisController = new AbortController();
+        this._isAnalyzing = true;
+        this._activeAnalysisController = new AbortController();
 
         try {
             const result = await this.request('POST', '/api/audio/analyze', {
                 body: formData,
                 isFormData: true,
-                timeout: 300000, // 专业模式可能较慢
-                signal: this.#activeAnalysisController.signal
+                timeout: 300000, // 涓撲笟妯″紡鍙兘杈冩參
+                signal: this._activeAnalysisController.signal
             });
             return result;
         } finally {
-            this.#isAnalyzing = false;
-            this.#activeAnalysisController = null;
+            this._isAnalyzing = false;
+            this._activeAnalysisController = null;
         }
     }
 
     /**
-     * 取消当前分析
+     * 鍙栨秷褰撳墠鍒嗘瀽
      */
     cancelAnalysis() {
-        if (this.#activeAnalysisController) {
-            this.#activeAnalysisController.abort();
-            this.#activeAnalysisController = null;
-            this.#isAnalyzing = false;
+        if (this._activeAnalysisController) {
+            this._activeAnalysisController.abort();
+            this._activeAnalysisController = null;
+            this._isAnalyzing = false;
         }
     }
 
     /**
-     * 获取分析状态
+     * 鑾峰彇鍒嗘瀽鐘舵€?
      * @param {string} analysisId
      */
     async getAnalysisStatus(analysisId) {
@@ -198,7 +198,7 @@ export class ApiClient {
     }
 
     /**
-     * 获取分析结果
+     * 鑾峰彇鍒嗘瀽缁撴灉
      * @param {string} analysisId
      */
     async getAnalysisResult(analysisId) {
@@ -206,11 +206,11 @@ export class ApiClient {
     }
 
     // ========================================================================
-    // 历史记录
+    // 鍘嗗彶璁板綍
     // ========================================================================
 
     /**
-     * 获取历史记录
+     * 鑾峰彇鍘嗗彶璁板綍
      * @param {string} [filter='all'] - 'all' | 'today' | 'week' | 'month'
      */
     async getHistory(filter = 'all') {
@@ -218,7 +218,7 @@ export class ApiClient {
     }
 
     /**
-     * 删除单条记录
+     * 鍒犻櫎鍗曟潯璁板綍
      * @param {number} id
      */
     async deleteHistory(id) {
@@ -226,7 +226,7 @@ export class ApiClient {
     }
 
     /**
-     * 批量删除记录
+     * 鎵归噺鍒犻櫎璁板綍
      * @param {number[]} ids
      */
     async deleteHistoryBatch(ids) {
@@ -236,11 +236,11 @@ export class ApiClient {
     }
 
     // ========================================================================
-    // 对比分析
+    // 瀵规瘮鍒嗘瀽
     // ========================================================================
 
     /**
-     * 对比分析
+     * 瀵规瘮鍒嗘瀽
      * @param {File} standardFile
      * @param {File} userFile
      */
@@ -257,11 +257,11 @@ export class ApiClient {
     }
 
     // ========================================================================
-    // 报告导出
+    // 鎶ュ憡瀵煎嚭
     // ========================================================================
 
     /**
-     * 导出报告
+     * 瀵煎嚭鎶ュ憡
      * @param {Object} analysisResult
      * @param {string} filename
      * @param {string} format - 'pdf' | 'image'
@@ -277,18 +277,18 @@ export class ApiClient {
     }
 
     // ========================================================================
-    // 标准曲库
+    // 鏍囧噯鏇插簱
     // ========================================================================
 
     /**
-     * 获取标准曲库列表
+     * 鑾峰彇鏍囧噯鏇插簱鍒楄〃
      */
     async getSongList() {
         return this.request('GET', '/api/songs');
     }
 
     /**
-     * 获取歌曲详情 (含基频数据)
+     * 鑾峰彇姝屾洸璇︽儏 (鍚熀棰戞暟鎹?
      * @param {string} songId
      */
     async getSongDetail(songId) {
@@ -296,11 +296,11 @@ export class ApiClient {
     }
 
     // ========================================================================
-    // 人声分离
+    // 浜哄０鍒嗙
     // ========================================================================
 
     /**
-     * 人声分离
+     * 浜哄０鍒嗙
      * @param {File} file
      */
     async separateVocals(file) {
@@ -315,27 +315,27 @@ export class ApiClient {
     }
 
     // ========================================================================
-    // 工具方法
+    // 宸ュ叿鏂规硶
     // ========================================================================
 
     /**
-     * 检查是否在线
+     * 妫€鏌ユ槸鍚﹀湪绾?
      */
     isOnline() {
         return navigator.onLine;
     }
 
     /**
-     * 检查是否正在分析
+     * 妫€鏌ユ槸鍚︽鍦ㄥ垎鏋?
      */
     isAnalyzing() {
-        return this.#isAnalyzing;
+        return this._isAnalyzing;
     }
 
     /**
-     * 合并两个 AbortSignal
+     * 鍚堝苟涓や釜 AbortSignal
      */
-    #combineSignals(signal1, signal2) {
+    _combineSignals(signal1, signal2) {
         const controller = new AbortController();
 
         const onAbort = () => controller.abort();
@@ -350,5 +350,5 @@ export class ApiClient {
     }
 }
 
-// 默认导出单例
+// 榛樿瀵煎嚭鍗曚緥
 export default ApiClient;

@@ -1,4 +1,4 @@
-"""
+﻿"""
 节奏评分器 v5.10
 
 基于onset密度和规律性的节奏评估，替代原来的beat_track方法
@@ -8,7 +8,7 @@ import logging
 
 from services.audio_features_service import RhythmAlignmentResult
 from services.scoring_config import RhythmThresholds, EmpiricalThresholds
-from services.scoring import RhythmDiagnosis
+from services.scoring.types import RhythmDiagnosis
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-"""
+﻿"""
 底线规则处理器
 
 负责应用评分底线规则（一票否决机制）
@@ -6,7 +6,7 @@
 import logging
 
 from services.audio_features_service import AudioFeaturesResult
-from services.scoring import ScoreResultV4
+from services.scoring.types import ScoreResultV4
 from services.scoring_config import CriticalRuleThresholds
 
 logger = logging.getLogger(__name__)

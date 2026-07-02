@@ -1,16 +1,18 @@
 /**
- * SettingsPage — 设置页
+ * SettingsPage — 设置页 (主题、模式、偏好、动画控制)
  *
  * 路由: #/settings
+ * 新增: 减少动效开关直接绑定 AnimationController.setEnabled()
  *
- * @version 1.0
+ * @version 2.0
  */
 
 import { BaseComponent } from '../components/BaseComponent.js';
 import { showToast } from '../components/Toast.js';
-import { confirm } from '../components/Modal.js';
 
 export class SettingsPage extends BaseComponent {
+    static animationPreset = 'page-enter';
+
     async mount(params) {
         this.render();
         this.bindEvents();
@@ -19,145 +21,128 @@ export class SettingsPage extends BaseComponent {
     render() {
         this.el = this.createElement('div', { id: 'page-settings', className: 'page page-container' });
 
+        const prefs = this.store?.getState('preferences') || {};
+        const isReduced = this.ac?.reducedMotion || false;
+        const userDisabledAnim = localStorage.getItem('vocal_app_reducedMotion') === 'true';
+        const animDisabled = userDisabledAnim || isReduced;
+
         this.el.innerHTML = `
-        <h2 style="font-size:18px;font-weight:600;margin-bottom:24px;">⚙️ 设置</h2>
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:20px;">⚙️ 设置</h2>
 
-        <!-- 主题 -->
-        <div class="card" style="margin-bottom:20px;">
-            <div class="card-header"><span class="card-title">🎨 主题</span></div>
+        <div class="card" style="margin-bottom:16px;">
+            <div class="card-header"><span class="card-title">🎨 外观</span></div>
             <div class="card-body">
-                <div style="display:flex;gap:12px;">
-                    <button class="theme-btn active" data-theme="light" style="flex:1;padding:16px;border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-card);cursor:pointer;text-align:center;">
-                        <div style="font-size:24px;margin-bottom:4px;">☀️</div>
-                        <div style="font-size:13px;font-weight:600;color:var(--text-primary);">浅色</div>
-                    </button>
-                    <button class="theme-btn" data-theme="dark" style="flex:1;padding:16px;border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-card);cursor:pointer;text-align:center;">
-                        <div style="font-size:24px;margin-bottom:4px;">🌙</div>
-                        <div style="font-size:13px;font-weight:600;color:var(--text-primary);">深色</div>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 偏好设置 -->
-        <div class="card" style="margin-bottom:20px;">
-            <div class="card-header"><span class="card-title">📋 偏好设置</span></div>
-            <div class="card-body">
-                <div style="margin-bottom:16px;">
-                    <label style="display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:14px;color:var(--text-primary);">默认评估模式</span>
-                        <select id="defaultMode" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-card);color:var(--text-primary);font-size:13px;">
-                            <option value="quick">快速评估 (~30s)</option>
-                            <option value="professional">专业评估 (~2-5min)</option>
-                        </select>
+                <div class="setting-row" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;">
+                    <div><div style="font-weight:500;">深色模式</div><div style="font-size:12px;color:var(--text-muted);">切换暗色主题</div></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="themeToggle" >
+                        <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div style="margin-bottom:16px;">
-                    <label style="display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:14px;color:var(--text-primary);">分析完成自动跳转报告</span>
-                        <input type="checkbox" id="autoPlay" style="width:18px;height:18px;">
+                <div class="setting-row" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;">
+                    <div><div style="font-weight:500;">减少动效</div><div style="font-size:12px;color:var(--text-muted);">关闭 GSAP 动画效果（尊重系统偏好）</div></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="reducedMotionToggle" >
+                        <span class="toggle-slider"></span>
                     </label>
                 </div>
             </div>
         </div>
 
-        <!-- 缓存管理 -->
-        <div class="card" style="margin-bottom:20px;">
-            <div class="card-header"><span class="card-title">🗂️ 缓存管理</span></div>
+        <div class="card" style="margin-bottom:16px;">
+            <div class="card-header"><span class="card-title">🔊 音频</span></div>
             <div class="card-body">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                    <span style="font-size:14px;color:var(--text-primary);">存储空间使用</span>
-                    <span id="storageInfo" style="font-size:13px;color:var(--text-muted);">计算中...</span>
+                <div class="setting-row" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;">
+                    <div><div style="font-weight:500;">默认评估模式</div><div style="font-size:12px;color:var(--text-muted);">分析时使用的默认模式</div></div>
+                    <select id="defaultMode" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:13px;">
+                        <option value="quick" >快速模式</option>
+                        <option value="professional" >专业模式</option>
+                    </select>
                 </div>
-                <button class="btn btn-secondary" id="clearCacheBtn" style="width:100%;">清除分析缓存</button>
             </div>
         </div>
 
-        <!-- 版本信息 -->
+        <div class="card" style="margin-bottom:16px;">
+            <div class="card-header"><span class="card-title">📊 报告</span></div>
+            <div class="card-body">
+                <div class="setting-row" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;">
+                    <div><div style="font-weight:500;">自动播放</div><div style="font-size:12px;color:var(--text-muted);">分析完成后自动跳转到报告页</div></div>
+                    <label class="toggle">
+                        <input type="checkbox" id="autoPlayToggle" >
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+            <div class="card-header"><span class="card-title">📚 曲库</span></div>
+            <div class="card-body">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;">
+                    <div><div style="font-weight:500;">管理标准曲库</div><div style="font-size:12px;color:var(--text-muted);">导入、浏览、删除标准歌曲</div></div>
+                    <a href="#/songs" style="padding:6px 14px;border-radius:var(--radius-md);background:var(--primary-ghost);color:var(--primary);text-decoration:none;font-size:13px;font-weight:500;">前往曲库 →</a>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
-            <div class="card-body" style="text-align:center;color:var(--text-muted);font-size:12px;">
-                <p>声乐评估系统 v5.17</p>
-                <p>Web UI v2.0 — SPA + GSAP</p>
+            <div class="card-header"><span class="card-title">ℹ️ 关于</span></div>
+            <div class="card-body" style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">
+                <p>声乐评估系统 v2.1</p>
+                <p style="margin-top:4px;">Flask + SPA · GSAP Animation Controller</p>
+                <p style="margin-top:4px;">🔒 所有数据本地处理</p>
+                <p style="margin-top:8px;font-size:11px;">
+                    <span id="animStatus" style="color:">
+                        
+                    </span>
+                </p>
             </div>
-        </div>`;
+        </div>
+        `;
 
         this.container.appendChild(this.el);
-
-        // 恢复已保存的偏好
-        this.#restorePreferences();
     }
 
     bindEvents() {
-        // 主题切换
-        this.el.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.#setTheme(btn.dataset.theme));
+        // 深色模式
+        this.el.querySelector('#themeToggle')?.addEventListener('change', (e) => {
+            const isDark = e.target.checked;
+            document.body.classList.toggle('dark-theme', isDark);
+            localStorage.setItem('vocal_app_theme', isDark ? 'dark' : 'light');
+            if (this.store) this.store.setState({ theme: isDark ? 'dark' : 'light' }, 'preferences');
+            showToast(isDark ? '深色模式已启用' : '浅色模式已启用', 'success');
+        });
+
+        // 减少动效 — 绑定 AnimationController
+        this.el.querySelector('#reducedMotionToggle')?.addEventListener('change', (e) => {
+            const disabled = e.target.checked;
+            if (window.__ac) {
+                window.__ac.setEnabled(!disabled);
+            }
+            localStorage.setItem('vocal_app_reducedMotion', disabled ? 'true' : 'false');
+            const status = this.el.querySelector('#animStatus');
+            if (status) {
+                status.textContent = disabled ? '○ 动效已禁用' : '● 动效已启用';
+                status.style.color = disabled ? 'var(--text-muted)' : 'var(--success)';
+            }
+            showToast(disabled ? '已减少动效' : '动效已启用', 'success');
         });
 
         // 默认模式
         this.el.querySelector('#defaultMode')?.addEventListener('change', (e) => {
-            const mode = e.target.value;
-            if (this.store) this.store.setState({ evalMode: mode }, 'preferences');
-            localStorage.setItem('vocal_app_preferences', JSON.stringify({
-                ...JSON.parse(localStorage.getItem('vocal_app_preferences') || '{}'),
-                evalMode: mode
-            }));
+            localStorage.setItem('vocal_app_evalMode', e.target.value);
+            if (this.store) this.store.setState({ evalMode: e.target.value }, 'preferences');
+            showToast('默认模式已更新', 'success');
         });
 
-        // 自动跳转
-        this.el.querySelector('#autoPlay')?.addEventListener('change', (e) => {
+        // 自动播放
+        this.el.querySelector('#autoPlayToggle')?.addEventListener('change', (e) => {
             if (this.store) this.store.setState({ autoPlay: e.target.checked }, 'preferences');
         });
-
-        // 清除缓存
-        this.el.querySelector('#clearCacheBtn')?.addEventListener('click', async () => {
-            const ok = await confirm('清除缓存', '确定清除所有本地缓存数据？历史记录不会被删除。');
-            if (ok) {
-                localStorage.clear();
-                showToast('缓存已清除', 'success');
-                this.#updateStorageInfo();
-            }
-        });
     }
 
-    #setTheme(theme) {
-        document.body.classList.toggle('dark-theme', theme === 'dark');
-        if (this.store) this.store.setState({ theme }, 'preferences');
-
-        // 更新按钮状态
-        this.el.querySelectorAll('.theme-btn').forEach(btn => {
-            const isActive = btn.dataset.theme === theme;
-            btn.classList.toggle('active', isActive);
-            btn.style.borderColor = isActive ? 'var(--primary)' : 'var(--border)';
-        });
-
-        localStorage.setItem('vocal_app_theme', theme);
-    }
-
-    #restorePreferences() {
-        // 主题
-        const savedTheme = localStorage.getItem('vocal_app_theme') || 'light';
-        this.#setTheme(savedTheme);
-
-        // 评估模式
-        const prefs = JSON.parse(localStorage.getItem('vocal_app_preferences') || '{}');
-        const modeSelect = this.el.querySelector('#defaultMode');
-        if (modeSelect && prefs.evalMode) modeSelect.value = prefs.evalMode;
-
-        const autoPlay = this.el.querySelector('#autoPlay');
-        if (autoPlay && prefs.autoPlay !== undefined) autoPlay.checked = prefs.autoPlay;
-
-        this.#updateStorageInfo();
-    }
-
-    #updateStorageInfo() {
-        let total = 0;
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            const val = localStorage.getItem(key);
-            total += (key.length + val.length) * 2; // UTF-16
-        }
-        const kb = total / 1024;
-        this.el.querySelector('#storageInfo').textContent = kb < 1024 ? `${kb.toFixed(1)} KB` : `${(kb / 1024).toFixed(1)} MB`;
+    destroy() {
+        super.destroy();
     }
 }
 

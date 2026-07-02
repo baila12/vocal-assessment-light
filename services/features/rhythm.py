@@ -1,4 +1,4 @@
-"""
+﻿"""
 节奏分析模块 - 节拍对齐分析
 
 核心算法：
@@ -12,7 +12,7 @@ import numpy as np
 import librosa
 import logging
 
-from . import RhythmAlignmentResult
+from .types import RhythmAlignmentResult
 
 logger = logging.getLogger(__name__)
 

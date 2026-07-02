@@ -1,4 +1,4 @@
-"""
+﻿"""
 气息评分器
 
 负责气息维度的评分计算和诊断生成
@@ -9,7 +9,7 @@ import logging
 
 from services.audio_features_service import BreathStabilityResult
 from services.scoring_config import BreathThresholds
-from services.scoring import BreathDiagnosis
+from services.scoring.types import BreathDiagnosis
 
 logger = logging.getLogger(__name__)
 

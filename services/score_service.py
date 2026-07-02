@@ -20,15 +20,8 @@ import logging
 from services.audio_features_service import AudioFeaturesResult
 from services.style_aware_scorer import StyleProfile
 from services.scoring_config import ScoringConfig, default_scoring_config
-from services.scoring import (
-    ScoreResultV4,
-    PitchScorer,
-    RhythmScorer,
-    BreathScorer,
-    TechniqueScorer,
-    ArtistryScorer,
-    CriticalRulesHandler
-)
+from services.scoring.types import ScoreResultV4
+from services.scoring import PitchScorer, RhythmScorer, BreathScorer, TechniqueScorer, ArtistryScorer, CriticalRulesHandler
 
 logger = logging.getLogger(__name__)
 

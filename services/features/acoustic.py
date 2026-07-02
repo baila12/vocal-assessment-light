@@ -10,19 +10,10 @@ from dataclasses import dataclass
 import numpy as np
 import librosa
 import logging
+from .types import AcousticResult
+from .types import AcousticResult
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class AcousticResult:
-    """声学分析结果"""
-    hnr: float = 0.0
-    cpp: float = 0.0
-    is_mixed_audio: bool = False
-    mixed_audio_confidence: float = 0.0
-    low_freq_ratio: float = 0.0
-    spectral_flatness: float = 0.0
 
 
 class AcousticAnalyzer:

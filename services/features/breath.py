@@ -1,4 +1,4 @@
-"""
+﻿"""
 气息分析模块 - 气息稳定性分析 v4.1
 
 核心改进：
@@ -14,7 +14,7 @@ from scipy import signal
 from scipy.ndimage import uniform_filter1d
 import logging
 
-from . import BreathStabilityResult
+from .types import BreathStabilityResult
 
 logger = logging.getLogger(__name__)
 
