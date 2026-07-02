@@ -1,28 +1,56 @@
 # API 接口文档
 
-> 更新日期: 2026-06-04 | v5.17 — 对照源码 `api/routes/` 验证
+> 更新日期: 2026-07-02 | v5.18 — 新增性能 SLA 与缓存策略
 
 ---
 
 ## 接口列表
 
-| API | 方法 | 功能 | 状态 |
-|-----|------|------|------|
-| `/api/upload` | POST | 上传音频并分析 (支持 mode=quick/professional) | ✅ 稳定 |
-| `/api/analyze` | POST | 分析已存在音频 | ✅ 稳定 |
-| `/api/compare` | POST | DTW 对比分析两个音频 | ✅ 稳定 |
-| `/api/separate` | POST | 人声分离 (Demucs) | ✅ 稳定 |
-| `/api/separate/models` | GET | 获取分离模型列表 | ✅ 稳定 |
-| `/api/extract-pitch` | POST | 音高提取 | ✅ 稳定 |
-| `/api/audio` | GET | 音频文件流服务 | ✅ 稳定 |
-| `/api/history` | GET | 历史记录 (支持分页) | ✅ 稳定 |
-| `/api/history/<id>` | GET | 获取单条历史记录 | ✅ 稳定 |
-| `/api/history/<id>` | DELETE | 删除单条记录 | ✅ 稳定 |
-| `/api/history/batch` | DELETE | 批量删除 | ✅ 稳定 |
-| `/api/history/all` | DELETE | 清空全部记录 | ✅ 稳定 |
-| `/api/report` | POST | 生成评估报告 | ✅ 稳定 |
-| `/api/test-files` | GET | 获取测试文件列表 | ✅ 稳定 |
-| `/health` | GET | 健康检查 (含 GPU 状态) | ✅ 稳定 |
+| API | 方法 | 功能 | 状态 | P95 延迟 | 超时 |
+|-----|------|------|------|---------|------|
+| `/api/upload` | POST | 上传音频并分析 (支持 mode=quick/professional) | ✅ 稳定 | Quick<30s, Pro<180s | 300s |
+| `/api/analyze` | POST | 分析已存在音频 | ✅ 稳定 | 同 upload | 300s |
+| `/api/compare` | POST | DTW 对比分析两个音频 | ✅ 稳定 | <60s | 120s |
+| `/api/separate` | POST | 人声分离 (Demucs) | ✅ 稳定 | CPU<140s, GPU<30s | 200s |
+| `/api/separate/models` | GET | 获取分离模型列表 | ✅ 稳定 | <50ms | 5s |
+| `/api/extract-pitch` | POST | 音高提取 | ✅ 稳定 | <10s | 30s |
+| `/api/audio` | GET | 音频文件流服务 | ✅ 稳定 | <200ms (首字节) | 30s |
+| `/api/history` | GET | 历史记录 (支持分页) | ✅ 稳定 | <100ms | 5s |
+| `/api/history/<id>` | GET | 获取单条历史记录 | ✅ 稳定 | <50ms | 5s |
+| `/api/history/<id>` | DELETE | 删除单条记录 | ✅ 稳定 | <50ms | 5s |
+| `/api/history/batch` | DELETE | 批量删除 | ✅ 稳定 | <200ms | 10s |
+| `/api/history/all` | DELETE | 清空全部记录 | ✅ 稳定 | <500ms | 10s |
+| `/api/report` | POST | 生成评估报告 | ✅ 稳定 | PDF<5s, 图片<3s | 15s |
+| `/api/test-files` | GET | 获取测试文件列表 | ✅ 稳定 | <50ms | 5s |
+| `/health` | GET | 健康检查 (含 GPU 状态) | ✅ 稳定 | <100ms | 3s |
+
+### 性能监控
+
+- **P95 延迟**: 95% 请求在此时间内完成
+- **超时**: 超过此时间返回 504 Gateway Timeout
+- **所有读取接口** (`GET`, `HEAD`) 必须 < 200ms 首字节响应
+- **写入接口** (`POST`, `DELETE`) 根据操作复杂度有独立超时
+
+### 缓存策略
+
+| 资源类型 | 缓存位置 | TTL | 失效策略 |
+|---------|---------|-----|---------|
+| 静态资源 (JS/CSS/图标) | 浏览器 HTTP Cache | 1h (带 hash 的文件永久) | 文件名 hash 变更 |
+| 可视化图表 (PNG) | 本地文件系统 | 与历史记录同生命周期 | 记录删除时清理 |
+| 风格配置 (`styles.yaml`) | 内存 | 服务重启前 | 文件 mtime 变化时重载 |
+| 匹配结果 | 内存 dict | 10min | 音频内容哈希 (SHA-256) |
+| Demucs 分离结果 | 本地文件系统 | 永久 (手动清理) | 同名文件覆盖 |
+| 曲库特征 (v6.0) | SQLite | 永久 (歌曲录入时计算) | 歌曲删除时级联删除 |
+
+### 速率限制
+
+| 接口组 | 限制 | 说明 |
+|--------|------|------|
+| `/api/upload`, `/api/analyze` | 1 并发 (无队列) | CPU 密集型，排队则阻塞 |
+| `/api/compare`, `/api/separate` | 1 并发 | GPU/CPU 密集型 |
+| `/api/history/*` | 无限制 | 纯文件 IO，轻量 |
+| `/health` | 无限制 | 纯内存，无副作用 |
+| 所有接口 | 50MB 请求体上限 | Flask `MAX_CONTENT_LENGTH` |
 
 ---
 

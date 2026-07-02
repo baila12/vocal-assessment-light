@@ -281,7 +281,153 @@ pytest tests/ -v -m bdd       # BDD 测试
 
 ---
 
-## 9. 参考文档
+## 9. 性能测试 (Performance Testing)
+
+### 9.1 性能测试作为一等测试类型
+
+> 性能测试不是可选的"优化项"，而是每个功能模块的验收标准之一。
+
+```
+       ╱  E2E  ╲         
+      ╱──────────╲       
+     ╱ Integration ╲     
+    ╱────────────────╲   
+   ╱    Unit Tests     ╲  
+  ╱──────────────────────╲
+ ╱   Performance Tests    ╲  ← 新增: 耗时/内存/帧率断言
+╱──────────────────────────╲
+```
+
+### 9.2 后端性能测试
+
+#### 特征提取器耗时断言
+
+```python
+# tests/unit/test_performance.py
+import time
+import pytest
+
+def test_pyin_extraction_within_budget():
+    """PYIN f0 提取: 3分钟音频 ≤ 8秒"""
+    audio, sr = librosa.load(TEST_AUDIO_3MIN, sr=44100)
+    
+    start = time.perf_counter()
+    f0, voiced_flag, voiced_prob = librosa.pyin(
+        audio, fmin=65, fmax=2093, sr=sr
+    )
+    elapsed = time.perf_counter() - start
+    
+    assert elapsed < 8.0, f"PYIN 超预算: {elapsed:.1f}s > 8s"
+
+
+def test_quick_mode_total_within_budget():
+    """Quick 模式端到端 ≤ 30秒"""
+    start = time.perf_counter()
+    result = analyze_and_score(TEST_VOCAL_FILE, mode='quick')
+    elapsed = time.perf_counter() - start
+    
+    assert elapsed < 30.0, f"Quick 超时: {elapsed:.1f}s > 30s"
+    assert result['total_score'] > 0  # 确保结果是有效的
+
+
+def test_memory_no_leak_after_10_runs():
+    """连续 10 次 Pro 模式，内存增量 < 200MB"""
+    import tracemalloc
+    tracemalloc.start()
+    
+    snapshot1 = tracemalloc.take_snapshot()
+    for _ in range(10):
+        analyze_and_score(TEST_VOCAL_FILE, mode='quick')
+    snapshot2 = tracemalloc.take_snapshot()
+    
+    diff = snapshot2.compare_to(snapshot1, 'lineno')
+    total_increase = sum(stat.size_diff for stat in diff if stat.size_diff > 0)
+    increase_mb = total_increase / 1024 / 1024
+    
+    assert increase_mb < 200, f"内存增长超标: {increase_mb:.0f}MB > 200MB"
+```
+
+#### 评分计算耗时
+
+```python
+def test_scoring_calculation_within_budget():
+    """五维评分计算 ≤ 3秒"""
+    features = extract_all_features(TEST_VOCAL)
+    
+    start = time.perf_counter()
+    scores = ScoreServiceV4().calculate(features)
+    elapsed = time.perf_counter() - start
+    
+    assert elapsed < 3.0, f"评分计算超预算: {elapsed:.1f}s > 3s"
+```
+
+### 9.3 前端性能测试
+
+#### 动画帧率 (JS 单元测试)
+
+```javascript
+// tests/unit/test_animation_performance.js
+test('page-enter animation completes within 600ms', async () => {
+  const start = performance.now();
+  await ac.enter(testEl, { preset: 'page-enter' });
+  const elapsed = performance.now() - start;
+  
+  expect(elapsed).toBeLessThan(600);
+});
+
+test('stagger-cards does not block main thread', async () => {
+  const cards = Array.from({ length: 20 }, () => createCardEl());
+  
+  const tasks = [];
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      tasks.push(entry.duration);
+    }
+  });
+  observer.observe({ type: 'longtask', buffered: true });
+  
+  await ac.stagger(cards, { preset: 'stagger-cards' });
+  
+  // 不应产生 > 50ms 的长任务
+  expect(tasks.filter(d => d > 50).length).toBe(0);
+});
+```
+
+#### Canvas 帧率测试
+
+```javascript
+test('Canvas pitch render maintains 30fps minimum', async () => {
+  const fps = await measureCanvasFps(pitchCanvas, 2000); // 2秒采样
+  expect(fps).toBeGreaterThanOrEqual(30);
+});
+```
+
+### 9.4 性能测试运行
+
+```bash
+# 运行性能测试 (需要较长运行时间)
+pytest tests/unit/test_performance.py -v -m performance
+
+# 跳过性能测试 (日常开发)
+pytest tests/ -v -m "not performance and not e2e"
+
+# CI 中运行 (夜间构建)
+pytest tests/ -v -m "performance"
+```
+
+### 9.5 性能回归触发条件
+
+| 事件 | 运行 | 通过标准 |
+|------|------|---------|
+| PR 合并 | Quick 性能冒烟 (1个文件) | < 30s |
+| 新特征提取器 | 该提取器耗时断言 | 在预算内 |
+| 新评分器 | 评分计算耗时断言 | < 3s |
+| 夜间构建 | 全量性能测试 | 全部在预算 ±20% 内 |
+| 发布前 | Quick + Pro 全链路 | 满足 v4.1.1 表格所有目标 |
+
+---
+
+## 10. 参考文档
 
 | 文档 | 路径 |
 |------|------|

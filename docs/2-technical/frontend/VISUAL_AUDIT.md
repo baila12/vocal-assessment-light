@@ -100,7 +100,20 @@ GSAP 已有文件结构，但缺少可审美验收的样例。下一阶段应把
 | Compare 对比完成 | 标准/用户轨迹和偏差段落形成叙事 | 20 秒录屏 |
 | Reduced motion | 禁用强位移和长过渡 | 浏览器检查记录 |
 
-## 6. BDD 跳转验收补充
+## 6. 性能审计补充
+
+基于浏览器真实页面检查的性能发现：
+
+| 页面 | 问题 | 影响 | 建议 |
+|------|------|------|------|
+| Home | 27 个 inline style 节点 | 样式计算延迟，每次重绘触发 CSSOM 重建 | 全部迁移到 CSS 变量 |
+| Home | 侧边栏渲染时机 | 移动端在首屏前渲染 (order:-1)，延迟 LCP | 移动端侧边栏延迟加载 |
+| Compare | 47 个 inline style | 对比页样式计算开销大 | 迁移到组件 CSS |
+| Settings | 38 个 inline style | 同上 | 同上 |
+| 所有页面 | GSAP 绑定的 DOM 元素无 `will-change` | 动画触发不必要的 repaint | 动画前后动态设置/移除 `will-change` |
+| SingPage | Canvas 200px 高度 | 低分辨率设备渲染吃力 | 按设备像素比动态缩放 |
+
+## 7. BDD 跳转验收补充
 
 现有 BDD 已覆盖 navigation、animations、database、song-select、scoring-config 等方向，但前端页面还没有完全按这些场景收束。建议新增或强化以下 Gherkin 语义:
 

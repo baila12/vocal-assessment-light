@@ -4,6 +4,45 @@
 
 ---
 
+## v5.18 — GSAP 动画系统重设计 + ScoreServiceV4 + 性能文档化 (2026-07-02, 进行中)
+
+### 性能文档化
+
+所有产品/技术/质量文档已全面加入性能约束：
+
+| 文档 | 新增内容 |
+|------|---------|
+| PRD.md | 4.1 性能章节扩展为 8 个子章节: 端到端/特征提取/评分配置/前端/SSE/存储/降级/回归防护 |
+| GOALS.md | 功能模块全景标注每模块耗时预算; 新增 4.2 性能设计原则 |
+| ARCHITECTURE.md | 每个数据流标注耗时+内存+复杂度; 新增第五章"性能设计决策"(4个PERF-ADR); 技术债务新增2项 |
+| API.md | 接口列表新增 P95延迟+超时列; 新增缓存策略表; 新增速率限制表 |
+| SCORING.md | 新增算法复杂度与耗时分解表(12个算法); Quick/Pro 耗时火焰图 |
+| ANIMATION_DESIGN.md | 新增第九章"动画性能合约"(帧率/时长/GC/prefers-reduced-motion/回归检测) |
+| PAGE_DESIGN.md | 新增性能总览表(每页面: 首屏/切换/动画/内存) |
+| ROUTES.md | 新增路由性能合约; 路由级代码分割计划表 |
+| BACKEND_ALIGNMENT.md | 新增前后端性能对接表; 前端错误降级策略 |
+| VISUAL_AUDIT.md | 新增第六章"性能审计补充"(6项性能问题发现) |
+| TDD.md | 新增第九章"性能测试"(5个测试示例+运行命令+回归触发条件) |
+| BDD.md | 新增第七章"性能BDD场景"(7个Gherkin场景+Step Definitions) |
+| PROJECT_STATUS.md | 性能基准表扩展: 增加特征提取阶段耗时/前端性能/未测量指标 |
+
+### 核心性能目标汇总
+
+| 维度 | 目标 | 测量 |
+|------|------|------|
+| Quick 端到端 | < 30s | `time.perf_counter()` |
+| Pro CPU | < 180s | `time.perf_counter()` |
+| Pro GPU | < 60s | `time.perf_counter()` |
+| 前端 FCP | < 1.5s | Lighthouse |
+| GSAP 动画 | ≥ 30fps | DevTools |
+| Canvas 实时 | ≥ 30fps | DevTools |
+| 路由切换 | < 300ms | `performance.now()` |
+| 内存峰值 (Quick) | < 400MB | tracemalloc |
+| 内存峰值 (Pro) | < 800MB | tracemalloc |
+| 特征提取总耗时 | < 16s (Quick) | 各 extractor 独立计时 |
+
+---
+
 ## v5.17 — 混合音频检测修复 + GPU 加速 (2026-06-04, 已完成)
 
 ### 修复1：轻伴奏人声 混合音频检测失败

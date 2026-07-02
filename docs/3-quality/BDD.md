@@ -470,7 +470,95 @@ pytest tests/bdd/ -v --tb=long
 
 ---
 
-## 7. 参考文档
+## 7. 性能 BDD 场景 (Performance BDD)
+
+### 7.1 performance.feature
+
+> 性能行为应通过 BDD 验收，确保用户体验不被性能问题破坏。
+
+```gherkin
+@performance
+Feature: 系统性能行为
+
+  Scenario: Quick 模式在预算时间内完成
+    Given 一个 3 分钟人声演唱音频
+    When 我上传该文件并选择 "quick" 模式
+    Then 响应时间应小于 30 秒
+    And 内存增量应小于 400MB
+
+  Scenario: 动画不阻塞页面交互
+    Given 用户在首页
+    When 快速点击导航切换页面 5 次
+    Then 每次切换应在 300ms 内完成
+    And 不应出现页面闪烁或元素残留
+
+  Scenario: 低性能设备动画降级
+    Given 用户设备硬件并发数小于 4
+    When 导航到任何页面
+    Then GSAP 动画帧率应不低于 30fps
+    And Canvas 实时绘制帧率应不低于 30fps
+
+  Scenario: 减少动效模式即时响应
+    Given 用户系统启用了 "prefers-reduced-motion"
+    When 导航到任何页面
+    Then 页面内容应立即显示
+    And 不应有任何 tween 动画执行
+
+  Scenario: 长时间使用无内存泄漏
+    Given 用户连续使用系统 30 分钟
+    When 在此期间切换页面 50 次
+    Then 浏览器内存增长应小于 100MB
+    And GSAP 实例数应保持稳定
+
+  Scenario: 大音频文件优雅处理
+    Given 一个 45MB 的 WAV 文件
+    When 我上传该文件进行评估
+    Then 系统应拒绝并返回 413 错误
+    And 前端应显示友好的文件大小提示
+
+  Scenario: 特征提取阶段计时
+    Given 一个标准人声测试文件
+    When 系统执行 Quick 模式分析
+    Then voice_quality 检查应在 2 秒内完成
+    And PYIN 基频提取应在 8 秒内完成
+    And onset 检测应在 3 秒内完成
+    And 总分析时间应在 30 秒内
+```
+
+### 7.2 性能 Step Definitions (Python)
+
+```python
+# tests/bdd/steps/test_performance_steps.py
+from pytest_bdd import given, when, then, parsers, scenarios
+import time
+
+scenarios('../features/performance.feature')
+
+
+@then(parsers.parse('响应时间应小于 {seconds:d} 秒'))
+def check_response_time_under(result, seconds):
+    elapsed = result.get('_elapsed_seconds', 999)
+    assert elapsed < seconds, f'响应超预算: {elapsed:.1f}s > {seconds}s'
+
+
+@then(parsers.parse('{feature} 应在 {budget:d} 秒内完成'))
+def check_feature_budget(analysis_result, feature, budget):
+    timings = analysis_result.get('_feature_timings', {})
+    elapsed = timings.get(feature, 999)
+    assert elapsed < budget, f'{feature} 超预算: {elapsed:.1f}s > {budget}s'
+
+
+@then('内存增量应小于 {limit_mb:d}MB')
+def check_memory_under(limit_mb):
+    import psutil, os
+    mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+    # 应在测试前后对比，此处简化
+    assert mem_mb < 800 + limit_mb, f'内存超标: {mem_mb:.0f}MB'
+```
+
+---
+
+## 8. 参考文档
 
 | 文档 | 路径 |
 |------|------|

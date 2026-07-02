@@ -35,6 +35,31 @@
 | `/compare.html` | `/#/compare` | 手动对比入口 |
 | `/settings.html` | `/#/settings` | 设置入口 |
 
+## 路由性能合约
+
+| 指标 | 目标 | 说明 |
+|------|------|------|
+| **首屏加载** (无缓存) | < 1.5s | `index.html` + `app.js` + 初始 CSS |
+| **路由切换** (JS 内) | < 300ms | hashchange → Page mount → animateIn 完成 |
+| **懒加载页面** (v6.0) | < 500ms | 动态 import 页面模块 + CSS |
+| **404/错误页** | < 100ms | 纯静态，无 API 依赖 |
+| **旧页面重定向** | < 200ms | HTTP 301/302 → SPA hash route |
+
+### 路由级代码分割 (计划)
+
+| 页面模块 | 预估大小 | 加载策略 |
+|---------|---------|---------|
+| `pages/HomePage.js` | ~15KB | 初始 bundle |
+| `pages/SingPage.js` | ~25KB | 初始 bundle |
+| `pages/ReportPage.js` | ~20KB | 初始 bundle |
+| `pages/SongLibraryPage.js` | ~18KB | 懒加载 (访问时) |
+| `pages/ComparePage.js` | ~22KB | 懒加载 |
+| `pages/HistoryPage.js` | ~12KB | 懒加载 |
+| `pages/SettingsPage.js` | ~15KB | 懒加载 |
+| `animation/Controller.js` | ~8KB | 初始 bundle (全局) |
+| `animation/presets.js` | ~5KB | 初始 bundle |
+| `components/*` | ~20KB | 初始 bundle |
+
 ## BDD 对齐要求
 
 | 要求 | 说明 |
@@ -43,4 +68,5 @@
 | 报告页必须支持刷新恢复 | `#/report/:analysisId` 不应只依赖内存 store |
 | 无效路由要有用户可见反馈 | Router 不只 `console.warn`，还要 Toast 或状态提示 |
 | 旧页面重定向单独测试 | 不和主导航流程混在一起 |
+| 路由切换性能必须可测试 | BDD 场景: "页面应在 300ms 内完成入场动画" |
 

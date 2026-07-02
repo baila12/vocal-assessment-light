@@ -28,6 +28,7 @@
 | **可测试性** | 动画行为有 BDD 场景覆盖，JS 逻辑有单元测试 |
 | **可维护性** | 动画配置统一在 Controller 层，页面不再散落 GSAP 代码 |
 | **包容性** | prefers-reduced-motion 完全支持 |
+| **性能** | 所有动画在 compositor 线程运行；入场 < 600ms，微交互 < 300ms；60fps 目标 |
 
 ## 2. 当前问题分析
 
@@ -524,7 +525,67 @@ async #handleRoute() {
 | comb 连击 | 增加 | 数字弹跳 scale 1→1.3→1, 0.3s | gsap.timeline + yoyo |
 | nav dot 指示 | 切换 | dot x 滑动 0.2s + active color 渐变 | gsap.to |
 
-## 9. BDD 验收场景
+## 9. 动画性能合约 (Performance Contract)
+
+### 9.1 帧率要求
+
+| 场景 | 最低 FPS | 目标 FPS | 降级后 FPS | 测量方式 |
+|------|---------|---------|-----------|---------|
+| 页面入场动画 | 30 | 60 | 即时显示 (跳过) | `requestAnimationFrame` 采样 |
+| 评分数字滚动 | 30 | 60 | 直接设置 textContent | DevTools FPS |
+| Canvas 实时音高 | 30 | 60 | 降低采样率 + 关抗锯齿 | Canvas `getContext` 测量 |
+| 脉冲/抖动微交互 | 30 | 60 | 跳过 | 肉眼 + BDD |
+| Toast 弹出/消失 | 30 | 60 | 即时显示/移除 | BDD timing |
+| 模态打开/关闭 | 30 | 60 | 即时显示/移除 | BDD timing |
+
+### 9.2 动画时长限制
+
+| 动画类型 | 最小时长 | 默认时长 | 最大时长 | 说明 |
+|---------|---------|---------|---------|------|
+| 页面入场 | 0.3s | 0.4s | 0.6s | 超过 0.6s 用户感觉慢 |
+| 页面出场 | 0.15s | 0.2s | 0.3s | 出场应比入场快 |
+| 卡片 stagger | 0.3s | 0.45s | 0.8s | 取决于卡片数量 |
+| 评分数字滚动 | 0.6s | 1.0s | 1.5s | 长数字可适当延长 |
+| 进度条填充 | 0.3s | 0.6s | 1.0s | 配合数字滚动 |
+| 微交互 (按钮/图标) | 0.1s | 0.15s | 0.3s | 反馈必须即时 |
+| Toast 显示 | 0.2s | 0.3s | 0.4s | 不阻塞操作 |
+| 脉冲动画 | 0.4s | 0.6s | 1.0s | repeat: 2 或 infinite |
+
+### 9.3 GC 与内存
+
+| 规则 | 说明 |
+|------|------|
+| **Timeline 自动清理** | 每个页面挂载时创建新 Timeline，`beforeUnmount` 时 `tl.kill()` |
+| **gsap.context() 隔离** | 页面级动画使用 `gsap.context()` 包裹，unmount 时 `ctx.revert()` |
+| **quickTo 复用** | 实时更新的属性 (音高值、音量值) 使用 `gsap.quickTo()` 而非每次创建新 tween |
+| **无内存泄漏** | 连续 20 次页面切换后，GSAP 实例数应保持稳定 (≤ 每个页面的 Timeline 数 + stagger 数) |
+| **Canvas 数据清理** | 音高曲线数据点 > 5000 时，按 2:1 降采样，保持最近 1000 个点高精度 |
+
+### 9.4 prefers-reduced-motion 完整覆盖
+
+```
+当 prefers-reduced-motion: reduce 时：
+  - AnimationController.setEnabled(false) 
+  - 所有 enter() → 直接 gsap.set(el, {opacity: 1, clearProps: "transform"})
+  - 所有 leave() → 直接 remove 元素 (无动画)
+  - 所有 countUp() → 直接设置 textContent 为目标值
+  - 所有 stagger() → 直接 gsap.set(els, {opacity: 1, y: 0})
+  - 所有微交互 (pulse/shake/highlight) → 跳过
+  - Canvas 实时绘制 → 保持功能，仅跳过装饰性粒子效果
+  - 路由切换 → 瞬间切换，不等待
+```
+
+### 9.5 性能回归检测
+
+| 检测项 | 方法 | 阈值 | 频率 |
+|--------|------|------|------|
+| 动画帧率 | Chrome DevTools Performance 录制 | ≥ 30fps | 每次 PR |
+| 页面入场耗时 | `performance.now()` BDD 断言 | < 600ms | 每次 BDD 运行 |
+| 内存增长 | `performance.memory.usedJSHeapSize` diff | < 50MB / 20 次切换 | 手动测试 |
+| 主线程阻塞 | Long Tasks API | 无 > 50ms 的 task | Lighthouse CI |
+| GSAP 实例泄漏 | `gsap.globalTimeline.getChildren().length` | 稳定不增长 | 手动测试 |
+
+## 10. BDD 验收场景
 
 ### 9.1 animation.feature（新增场景）
 

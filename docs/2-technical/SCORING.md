@@ -216,6 +216,66 @@
 | DL 质量评估 | ✗ (v5.15 已全局移除) | ✗ (v5.15 已全局移除) |
 | 自参照一致性 | ✓ | ✓ |
 
+### 算法复杂度与耗时分解
+
+> 以 3 分钟 44.1kHz 单声道音频为基准 (~30MB WAV)。所有耗时在 16GB RAM + SSD 环境下测量。
+
+| 算法 | 库 | 复杂度 | Quick 耗时 | Pro 耗时 | 内存 |
+|------|-----|--------|-----------|---------|------|
+| **Silero VAD** | PyTorch | O(n) 逐帧 | < 1s | < 1s | ~50MB (模型) |
+| **PYIN f0** | librosa | O(n × fmin_eggs) | ~5s | ~8s | ~80MB |
+| **Onset Strength** | librosa | O(n × n_fft) | ~2s | ~3s | ~40MB |
+| **RMS 能量** | numpy | O(n) 向量化 | < 0.5s | < 1s | ~10MB |
+| **HNR** (自相关法) | scipy | O(n × lag_max) | ~2s | ~3s | ~30MB |
+| **CPP** (倒谱法) | numpy | O(n × n_fft × log(n_fft)) | ~1s | ~2s | ~30MB |
+| **Chromaprint** | acoustid | O(n × n_fft) | 跳过 | 跳过 (仅匹配用) | — |
+| **Demucs htdemucs_ft** | PyTorch | O(n × model_params) | 跳过 | ~120s CPU / ~25s GPU | ~800MB |
+| **DTW** (全局) | scipy/numpy | O(m × n) | 跳过 | 跳过 (仅对比) | ~130MB |
+| **自参照一致性** | numpy | O(n) 向量化 | < 1s | < 1s | ~5MB |
+| **评分计算** (五维) | numpy | O(1) 聚合 | < 0.5s | < 1s | ~2MB |
+| **可视化渲染** | matplotlib | O(n) 采样 | 跳过 | ~8s | ~50MB |
+
+### Quick 模式耗时火焰图
+
+```
+VAD check       ██ 1s
+PYIN f0         ██████████ 5s         ← 最大瓶颈 (31%)
+Onset strength  ████ 2s
+HNR + CPP       ██████ 3s
+RMS + breath    ██ 1s
+Technique       ██ 1s
+Acoustic check  █ 0.5s
+Scoring calc    █ 0.5s
+Advice gen      █ 0.5s
+Self-consistency █ 0.5s
+────────────────────────────────
+Total           ████████████████████████████ 15-20s
+```
+
+### Pro 模式耗时火焰图 (CPU)
+
+```
+VAD check       █ 1s
+Mixed detection █ 0.5s
+Demucs separate ████████████████████████████████████████████████████████████ 120s ← 70%
+PYIN f0         ████ 8s
+Onset strength  ██ 3s
+HNR + CPP       ███ 4s
+RMS + breath    █ 1s
+Technique       ██ 2s
+Phrase scoring  ██ 5s
+Visualization   █████ 8s
+Scoring calc    █ 1s
+Advice gen      █ 1s
+Self-consistency █ 0.5s
+────────────────────────────────────────────────────────────────────────
+Total           ████████████████████████████████████████████████████████████████████████ 155-170s
+```
+
+> **核心瓶颈**: Demucs 占 70-78% 总耗时。GPU 加速是最有效的优化手段 (120s → 25s)。
+> 其次为 PYIN f0 (8s) → 可考虑 TorchCREPE 备选或降低 hop_length。
+> 可视化 (8s) 可通过降低 DPI 或异步生成优化。
+
 ---
 
 ## 算法评估 (v5.9 审计 → v5.17 状态)

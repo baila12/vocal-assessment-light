@@ -20,6 +20,22 @@
 | [BACKEND_ALIGNMENT.md](BACKEND_ALIGNMENT.md) | 前端页面与后端 v5.18/v6.0 计划对齐 |
 | [VISUAL_AUDIT.md](VISUAL_AUDIT.md) | 基于浏览器真实页面的视觉、结构和移动端问题审计 |
 
+## 性能要求
+
+所有前端页面和组件必须满足以下性能底线：
+
+| 指标 | 目标 | 测量方式 |
+|------|------|---------|
+| FCP (首次内容绘制) | < 1.5s | Lighthouse |
+| TBT (总阻塞时间) | < 200ms | Lighthouse |
+| CLS (累计布局偏移) | < 0.1 | Lighthouse |
+| JS Bundle (gzip) | < 300KB | 构建工具 |
+| CSS (gzip) | < 50KB | 构建工具 |
+| SPA 路由切换 | < 300ms (含动画) | `performance.now()` |
+| GSAP 动画帧率 | ≥ 30fps | DevTools FPS |
+| Canvas 实时绘制 | ≥ 30fps | DevTools FPS |
+| IndexedDB 占用 | < 50MB | Storage API |
+
 ## 设计检查方式
 
 实现具体前端页面时，应在浏览器中检查实际页面，而不是只看代码判断：
@@ -29,7 +45,8 @@
 | 首页第一屏 | 浏览器打开 `/` 和 `/#/`，确认核心任务是否清晰 |
 | 移动端 | 使用浏览器 viewport 检查 375px、768px、1280px |
 | 路由 | 检查 `#/sing`、`#/compare`、`#/report/:id`、`#/library`、`#/settings/scoring` |
-| 动效 | 检查 GSAP 时间线是否服务流程，是否尊重 reduced motion |
+| 动效 | 检查 GSAP 时间线是否服务流程，是否尊重 reduced motion，FPS 是否稳定 |
 | 视觉 | 检查是否仍依赖 emoji、inline style、无意义样例卡片 |
+| 性能 | 检查页面加载时间、动画帧率、内存占用、无 layout thrashing |
 
 当前已完成一轮浏览器真实页面抽样，详见 [VISUAL_AUDIT.md](VISUAL_AUDIT.md)。后续进入实际 UI 重做时，应持续用浏览器检查桌面与移动端首屏，而不是只看代码判断。
