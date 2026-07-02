@@ -32,6 +32,30 @@ export class SongLibraryPage extends BaseComponent {
     constructor(container, options = {}) {
         super(container, options);
         this._api = options.api || window.__api || new ApiClient();
+
+        // Override store as getter/setter on instance (BaseComponent sets it as plain property)
+        let _store = this.store;
+        Object.defineProperty(this, 'store', {
+            get() { return _store; },
+            set(v) {
+                _store = v;
+                if (v && v.get) {
+                    const songs = v.get('songs');
+                    if (songs && Array.isArray(songs)) {
+                        this._songs = songs;
+                        this._loading = false;
+                        if (this.el) {
+                            if (songs.length === 0) {
+                                this._showEmpty();
+                            } else {
+                                this._showContent(songs);
+                            }
+                        }
+                    }
+                }
+            },
+            configurable: true, enumerable: true
+        });
     }
 
     async mount(params) {
@@ -81,6 +105,13 @@ export class SongLibraryPage extends BaseComponent {
         `;
 
         this.container.appendChild(this.el);
+
+        // If store was injected before render (test pattern), populate content now
+        if (this.store && !this._loading && this._songs.length > 0) {
+            this._showContent(this._songs);
+        } else if (this.store && !this._loading && this._songs.length === 0) {
+            this._showEmpty();
+        }
     }
 
     bindEvents() {
@@ -131,9 +162,9 @@ export class SongLibraryPage extends BaseComponent {
     // ========================================================================
 
     _showLoading() {
-        const loading = this.el.querySelector('_songsLoading');
-        const empty = this.el.querySelector('_songsEmpty');
-        const content = this.el.querySelector('_songsContent');
+        const loading = this.el.querySelector('#songsLoading');
+        const empty = this.el.querySelector('#songsEmpty');
+        const content = this.el.querySelector('#songsContent');
 
         if (loading) loading.style.display = '';
         if (empty) empty.style.display = 'none';
@@ -141,9 +172,9 @@ export class SongLibraryPage extends BaseComponent {
     }
 
     _showEmpty() {
-        const loading = this.el.querySelector('_songsLoading');
-        const empty = this.el.querySelector('_songsEmpty');
-        const content = this.el.querySelector('_songsContent');
+        const loading = this.el.querySelector('#songsLoading');
+        const empty = this.el.querySelector('#songsEmpty');
+        const content = this.el.querySelector('#songsContent');
 
         if (loading) loading.style.display = 'none';
         if (empty) empty.style.display = '';
@@ -151,17 +182,17 @@ export class SongLibraryPage extends BaseComponent {
     }
 
     _showContent(songs) {
-        const loading = this.el.querySelector('_songsLoading');
-        const empty = this.el.querySelector('_songsEmpty');
-        const content = this.el.querySelector('_songsContent');
+        const loading = this.el.querySelector('#songsLoading');
+        const empty = this.el.querySelector('#songsEmpty');
+        const content = this.el.querySelector('#songsContent');
 
         if (loading) loading.style.display = 'none';
         if (empty) empty.style.display = 'none';
         if (content) content.style.display = '';
 
         // 渲染选择器 (inline 模式, 只展示不选)
-        const container = this.el.querySelector('_songsSelectorContainer');
-        card.innerHTML = `
+        const container = this.el.querySelector('#songsSelectorContainer');
+        if (!container) return;
 
         this._selector = new StandardAudioSelector(container, {
             mode: 'inline',
@@ -196,7 +227,7 @@ export class SongLibraryPage extends BaseComponent {
         const card = document.createElement('div');
         card.style.cssText = 'background:var(--bg-card);border-radius:var(--radius-lg);padding:24px;max-width:480px;width:100%;box-shadow:var(--shadow-xl);';
 
-        card.innerHTML = 
+        card.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
             <h3 style="font-size:16px;font-weight:600;margin:0;">导入标准音频</h3>
             <button id="closeImportBtn" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--text-muted);">✕</button>
@@ -384,3 +415,8 @@ export class SongLibraryPage extends BaseComponent {
 }
 
 export default SongLibraryPage;
+
+// Expose for tests
+if (typeof window !== 'undefined') {
+  window.__SongLibraryPage = SongLibraryPage;
+}

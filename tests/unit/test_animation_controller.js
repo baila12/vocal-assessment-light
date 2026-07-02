@@ -44,7 +44,8 @@ function createMockGSAP() {
             return mockTween(vars);
         },
         fromTo: (target, fromVars, toVars) => {
-            tweens.push({ type: 'fromTo', target, fromVars, toVars });
+            const mergedVars = Object.assign({}, toVars, { stagger: toVars.stagger, snap: toVars.snap, scaleX: toVars.scaleX });
+            tweens.push({ type: 'fromTo', target, fromVars, toVars, vars: mergedVars });
             return mockTween(toVars);
         },
         set: (target, vars) => {
@@ -112,7 +113,7 @@ window.__animationTests = {
 
         return {
             pass: checks.every(Boolean),
-            detail: checks.map((c, i) => check: ),
+            detail: checks.map(function(c, i) { return 'check:' + i + ':' + c; }),
             count: checks.length,
             passed: checks.filter(Boolean).length
         };
@@ -306,6 +307,6 @@ window.__animationTests = {
         const passed = Object.values(results).filter(r => r.pass).length;
         const total = Object.keys(results).length;
 
-        return { results, summary: ${passed}/ tests passed };
+        return { results, summary: passed + '/' + total + ' tests passed' };
     }
 };

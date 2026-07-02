@@ -63,6 +63,22 @@ export class StandardAudioSelector extends BaseComponent {
         this.#mode = options.mode || 'inline';
         this.#onSelect = options.onSelect || (() => {});
         this.#excludeId = options.excludeSongId || null;
+
+        // Override store as getter/setter on instance (BaseComponent sets it as plain property)
+        let _store = this.store; // preserve any value BaseComponent set
+        Object.defineProperty(this, 'store', {
+            get() { return _store; },
+            set(v) {
+                _store = v;
+                if (v && v.get) {
+                    const songs = v.get('songs');
+                    if (songs && Array.isArray(songs)) {
+                        this.setSongs(songs);
+                    }
+                }
+            },
+            configurable: true, enumerable: true
+        });
     }
 
     // ========================================================================
@@ -520,6 +536,7 @@ export class StandardAudioSelector extends BaseComponent {
 
         const empty = this.createElement('div', {
             id: reason === 'empty' ? 'selectorEmpty' : 'searchEmpty',
+            className: 'selector-empty',
             style: { textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }
         });
 
@@ -627,3 +644,8 @@ function escapeHtml(str) {
 }
 
 export default StandardAudioSelector;
+
+// Expose for tests
+if (typeof window !== 'undefined') {
+  window.__StandardAudioSelector = StandardAudioSelector;
+}

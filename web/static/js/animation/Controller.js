@@ -17,7 +17,7 @@
  * @version 1.0
  */
 
-import { getPreset, hasPreset } from './presets.js';
+import { getPreset, hasPreset, PRESETS } from './presets.js';
 
 export class AnimationController {
   /** @type {boolean} */
@@ -441,4 +441,9 @@ export class AnimationController {
     if (typeof window === 'undefined' || !window.matchMedia) return false;
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
+}
+
+// Expose for tests
+if (typeof window !== 'undefined') {
+  window.__animationModule = { AnimationController, getPreset, hasPreset, PRESETS };
 }

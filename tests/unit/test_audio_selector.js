@@ -111,12 +111,13 @@ window.__audioSelectorTests = {
   testLoadingState(page) {
     const container = document.createElement('div');
     const selector = new window.__StandardAudioSelector(container, { mode: 'inline' });
-    selector._renderLoading();
+    selector.render();  // Creates _listContainer, loading=true triggers _renderLoading
 
     const skeleton = container.querySelector('.skeleton');
     return {
       pass: skeleton !== null,
-      hasSkeleton: skeleton !== null
+      hasSkeleton: skeleton !== null,
+      detail: 'loading state should show skeleton placeholders'
     };
   },
 

@@ -225,3 +225,8 @@ export function getPreset(name) {
 export function hasPreset(name) {
   return name in PRESETS;
 }
+
+// Expose for tests
+if (typeof window !== 'undefined') {
+  window.__presets = PRESETS;
+}
