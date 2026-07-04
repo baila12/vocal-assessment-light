@@ -454,10 +454,6 @@ class TestVolumeDimension:
         assert 'artistry' in scores
         assert 0 <= scores['volume'] <= 100
 
-    @pytest.mark.xfail(
-        reason="TDD RED: volume 维度应独立驱动评分 (目前可能与其他维度耦合)。"
-               "v6.1 目标: 独立 SPL 评估，不依赖 Breath 合并值"
-    )
     def test_volume_independent_from_breath(self):
         """volume 评分应独立于 breath (当前可能未完全解耦)"""
         from api.business.audio_analysis import analyze_and_score

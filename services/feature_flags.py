@@ -31,8 +31,10 @@ class FeatureFlags:
         enable_praat_cpp: Praat CPP via parselmouth — 替换手动 FFT 倒谱
         enable_voicing_detection: Voicing detection 评估 — 召回率/误报率
         enable_torchcrepe_fallback: TorchCREPE 备选接入 — PYIN 降级时启用
+        enable_cross_dimension_modifiers: v5.19 跨维度集成 (HNR稳定性→气息, Voicing→音准)
     """
     enable_multiscale_hnr: bool = False
     enable_praat_cpp: bool = False
     enable_voicing_detection: bool = False
     enable_torchcrepe_fallback: bool = False
+    enable_cross_dimension_modifiers: bool = False  # v5.19

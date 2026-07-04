@@ -123,70 +123,83 @@ class TechniqueScorer:
             hnr_adjusted = hnr
 
         if self.singing_style == 'classical':
-            # 美声：HNR > 20dB 满分
-            return min(100, hnr_adjusted / 20 * 100)
+            # 美声：HNR > 28dB 满分 (v5.19: 20→28)
+            return min(100, hnr_adjusted / 28 * 100)
         elif self.singing_style == 'folk':
-            # 民族：HNR 15-20dB 满分
-            if hnr_adjusted >= 18:
+            # 民族：HNR 18-25dB 满分 (v5.19: 提升天花板)
+            if hnr_adjusted >= 25:
                 return 100
+            elif hnr_adjusted >= 18:
+                return 80 + (hnr_adjusted - 18) * 2.86
             elif hnr_adjusted >= 12:
-                return 70 + (hnr_adjusted - 12) * 5
+                return 60 + (hnr_adjusted - 12) * 3.33
             else:
-                return max(40, hnr_adjusted / 12 * 70)
+                return max(30, hnr_adjusted / 12 * 60)
         else:
-            # 流行：需要区分唱法类型
+            # v5.19 流行：提升天花板避免好评歌手堆叠在满分
             if technique_score >= 70:
                 # 高技巧得分，HNR低可能是艺术选择（气声唱法）
-                if hnr_adjusted >= 12:
+                if hnr_adjusted >= 22:      # v5.19: 12→22
                     return 100
+                elif hnr_adjusted >= 14:    # v5.19: 8→14
+                    return 80 + (hnr_adjusted - 14) * 2.5
                 elif hnr_adjusted >= 8:
-                    return 75 + (hnr_adjusted - 8) * 6.25
+                    return 60 + (hnr_adjusted - 8) * 3.33
                 elif hnr_adjusted >= 5:
-                    return 60 + (hnr_adjusted - 5) * 5
+                    return 45 + (hnr_adjusted - 5) * 5
                 else:
-                    return max(15, hnr_adjusted / 5 * 60)
+                    return max(10, hnr_adjusted / 5 * 45)
             else:
                 # 低技巧分，可能是真正的技术问题
-                if hnr_adjusted >= 15:
+                if hnr_adjusted >= 22:      # v5.19: 15→22
                     return 100
-                elif hnr_adjusted >= 10:
-                    return 80 + (hnr_adjusted - 10) * 4
+                elif hnr_adjusted >= 14:    # v5.19: 10→14
+                    return 75 + (hnr_adjusted - 14) * 3.13
+                elif hnr_adjusted >= 8:
+                    return 50 + (hnr_adjusted - 8) * 4.17
                 else:
-                    return max(10, hnr_adjusted / 10 * 80)
+                    return max(5, hnr_adjusted / 8 * 50)
 
     def _calculate_cpp_score(self, cpp: float, technique_score: float) -> float:
         """
-        计算 CPP 分数
+        计算 CPP 分数 v5.19 — 提高满分天花板
 
         CPP反映声带闭合质量，但流行唱法（尤其是轻柔唱法）CPP天然较低
         参考：
-        - 美声: CPP > 2.0 为优秀
-        - 流行实声: CPP > 1.0 为优秀
-        - 流行轻柔/气声: CPP > 0.3 为正常
+        - 美声: CPP > 3.0 为优秀 (v5.19: 2.0→3.0)
+        - 流行实声: CPP > 2.5 为优秀 (v5.19: 1.0→2.5)
+        - 流行轻柔/气声: CPP > 0.5 为正常
         """
         if self.singing_style == 'classical':
-            if cpp >= 2.0:
+            # v5.19: 提升 CPP 天花板
+            if cpp >= 3.0:
                 return 100
+            elif cpp >= 2.0:
+                return 80 + (cpp - 2.0) * 20
             elif cpp >= 1.0:
-                return 70 + (cpp - 1.0) * 30
+                return 60 + (cpp - 1.0) * 20
             else:
-                return max(40, cpp / 1.0 * 70)
+                return max(30, cpp / 1.0 * 60)
         else:
             # 流行/民族：如果技巧分高，CPP低可能是艺术选择
             if technique_score >= 70:
-                if cpp >= 0.5:
-                    return 85
-                elif cpp >= 0.2:
-                    return 70 + (cpp - 0.2) * 50
+                if cpp >= 2.0:      # v5.19: 0.5→2.0
+                    return 90
+                elif cpp >= 1.0:    # v5.19: 0.2→1.0
+                    return 70 + (cpp - 1.0) * 20
+                elif cpp >= 0.3:
+                    return 50 + (cpp - 0.3) * 28.6
                 else:
-                    return max(20, 50 + cpp * 100)
+                    return max(15, 30 + cpp * 66.7)
             else:
-                if cpp >= 1.0:
+                if cpp >= 2.5:      # v5.19: 1.0→2.5
                     return 100
+                elif cpp >= 1.5:    # v5.19: 0.5→1.5
+                    return 75 + (cpp - 1.5) * 25
                 elif cpp >= 0.5:
-                    return 70 + (cpp - 0.5) * 60
+                    return 50 + (cpp - 0.5) * 25
                 else:
-                    return max(10, cpp / 0.5 * 70)
+                    return max(5, cpp / 0.5 * 50)  # v5.19: */70→*50
 
     def _generate_diagnosis(
         self,

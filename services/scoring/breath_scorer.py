@@ -123,12 +123,12 @@ class BreathScorer:
         diagnosis.score = score
         diagnosis.fluctuation = breath_stability.rms_fluctuation
 
-        # 更新等级
-        if score >= 85:
+        # v5.19: 调整等级阈值匹配新分数分布
+        if score >= 80:
             diagnosis.level = "专业级"
-        elif score >= 70:
+        elif score >= 60:
             diagnosis.level = "良好"
-        elif score >= 55:
+        elif score >= 40:
             diagnosis.level = "合格"
         else:
             diagnosis.level = "待改进"

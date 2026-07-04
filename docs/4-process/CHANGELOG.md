@@ -4,6 +4,72 @@
 
 ---
 
+## v5.19 — 评分区分度修复 + 跨维度集成 + Feature Flag扩展 (2026-07-04, 进行中)
+
+### 气息评分区分度修复 (P0)
+
+**根因**: 四子维度基线全为 40，仅靠少量加分区分好坏，导致所有演唱者气息分压缩在 ~15 分区间。
+
+**修复**:
+- 子维度基线归零 (40→0): `_evaluate_long_note_support`, `_evaluate_dynamic_control`, `_evaluate_breath_design`, `_evaluate_breath_technique`
+- 加分幅度扩大 2-3×: 长音稳定性 +35 (曾 +12), 动态控制 +40 (曾 +15), 气口设计 +35 (曾 +15)
+- 移除 `_calculate_professional_breath_score` 中的 -20 调整 (基线已归零)
+- 波动惩罚更早触发 (0.25→0.18) + 更大斜率 (60→80)
+- `EmpiricalThresholds` 基线参数全部更新 (40.0→0.0)
+- `BreathScorer` 等级阈值调整: 80/60/40 (曾 85/70/55)
+
+### 音准评分区分度修复 (P0)
+
+**根因**: MAE 12-35 音分区间仅 10 分跨度，好歌手全部堆叠在 92-99 分。
+
+**修复**:
+- `PitchThresholds`: excellent 12→8, good 35→45, pass 60→65
+- 第一段斜率 `*10→*30` (30 分跨 37 音分)
+- 第二段斜率 `*20→*25` (25 分跨 20 音分)
+- 第三段起点 70→45，下降率 0.85→0.6
+
+效果: MAE=15→94 (曾 99), MAE=25→86 (曾 94), MAE=50→64 (曾 78)
+
+### HNR/CPP 天花板重校准 (P1)
+
+- 流行 HNR 满分阈值: 12→22 dB (高技巧), 15→22 dB (低技巧)
+- 美声 HNR 满分阈值: 20→28 dB
+- 流行 CPP 满分阈值: 1.0→2.5 (低技巧), 0.5→2.0 (高技巧)
+- 美声 CPP 满分阈值: 2.0→3.0
+- `TechniqueThresholds` 参数同步更新
+
+### 跨维度集成基础设施 (P1)
+
+- 新增 `enable_cross_dimension_modifiers` Feature Flag (默认关闭)
+- `AudioFeaturesResult` 预留 `_hnr_multiscale` 字段
+- `ScoreServiceV4` 预留 v5.19 TODO 注释
+
+### 音量维度独立 (P2)
+
+- `score_service.py`: volume 从 `= breath_score` 改为基于 `dynamic_range` 独立计算
+- `test_future_features.py`: 移除 `test_volume_independent_from_breath` xfail
+
+### 测试
+
+- 新增 `tests/tdd/test_v5_19_features.py` (16 tests):
+  - 3 气息区分度, 4 音准区分度, 3 技术天花板, 4 跨维度集成, 2 音量独立
+- 移除 10 个 xfail 标记: breath_baseline, pitch x3, cpp, hnr_breathy, cross_dim x3, volume
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `services/features/breath.py` | 子维度基线归零 + 加分扩大 + 波动惩罚调整 |
+| `services/scoring_config.py` | PitchThresholds/BreathThresholds/TechniqueThresholds/EmpiricalThresholds 全部更新 |
+| `services/scoring/breath_scorer.py` | 等级阈值更新 |
+| `services/scoring/technique_scorer.py` | HNR/CPP 天花板提升 |
+| `services/feature_flags.py` | 新增 `enable_cross_dimension_modifiers` |
+| `services/score_service.py` | volume 独立计算 |
+| `tests/tdd/test_v5_19_features.py` | 🆕 新增 |
+| `tests/tdd/test_future_features.py` | 移除 volume xfail |
+
+---
+
 ## v5.18 — GSAP 动画系统重设计 + ScoreServiceV4 + 性能文档化 + 测试体系审计 + 开源算法移植 (2026-07-04, 已完成)
 
 ### 代码审查与修复 (2026-07-04)

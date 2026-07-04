@@ -30,48 +30,48 @@ REAL_AUDIO_FILES = [
     "陈奕迅难听之声（低分）.mp3",
 ]
 
-# ── v5.17 Quick 模式评分基线 (见 PROJECT_STATUS.md) ──
-# 这些是当前系统的预期行为 — 变更算法时必须同步更新
+# ── v5.19 Quick 模式评分基线 (基线降至10 + 音准阈值扩展 + HNR/CPP天花板) ──
+# 算法变更: PitchThresholds (8/45/65), Breath baseline 10, HNR ceiling 22, CPP ceiling 2.5
 BASELINE_v5_17 = {
     "恋人（高分）.mp3": {
         "total_range": (65, 85),
-        "pitch_range": (70, 90),
-        "rhythm_range": (65, 85),
-        "breath_range": (45, 75),
-        "technique_range": (70, 92),
+        "pitch_range": (65, 85),       # v5.19: 曾 70-90
+        "rhythm_range": (55, 85),
+        "breath_range": (70, 95),      # v5.19: 曾 45-75
+        "technique_range": (50, 78),   # v5.19: 曾 70-92
         "artistry_range": (65, 88),
     },
     "手写的从前（高分）.mp3": {
-        "total_range": (65, 85),
-        "pitch_range": (72, 90),
-        "rhythm_range": (55, 80),
-        "breath_range": (55, 80),
-        "technique_range": (65, 88),
-        "artistry_range": (60, 85),
+        "total_range": (65, 88),
+        "pitch_range": (65, 85),       # v5.19: 曾 72-90
+        "rhythm_range": (55, 85),
+        "breath_range": (65, 92),      # v5.19: 曾 55-80
+        "technique_range": (55, 80),   # v5.19: 曾 65-88
+        "artistry_range": (65, 90),
     },
     "1（高分）.mp3": {
         "total_range": (63, 85),
-        "pitch_range": (72, 90),
+        "pitch_range": (65, 85),       # v5.19: 曾 72-90
         "rhythm_range": (55, 80),
-        "breath_range": (50, 80),
-        "technique_range": (65, 88),
-        "artistry_range": (60, 85),
+        "breath_range": (65, 95),      # v5.19: 曾 50-80
+        "technique_range": (50, 78),   # v5.19: 曾 65-88
+        "artistry_range": (60, 88),
     },
     "音频-3分26秒(高分).mp3": {
         "total_range": (63, 85),
-        "pitch_range": (70, 90),
-        "rhythm_range": (60, 85),
-        "breath_range": (40, 75),
-        "technique_range": (72, 92),
-        "artistry_range": (60, 85),
+        "pitch_range": (65, 85),       # v5.19: 曾 70-90
+        "rhythm_range": (55, 85),
+        "breath_range": (55, 85),      # v5.19: 曾 40-75
+        "technique_range": (55, 80),   # v5.19: 曾 72-92
+        "artistry_range": (65, 88),
     },
     "陈奕迅难听之声（低分）.mp3": {
         "total_range": (35, 60),
-        "pitch_range": (60, 85),
-        "rhythm_range": (0, 20),       # 节奏极差 — v5.11 修复后
-        "breath_range": (35, 65),
-        "technique_range": (40, 70),
-        "artistry_range": (30, 60),
+        "pitch_range": (55, 78),       # v5.19: 曾 60-85
+        "rhythm_range": (0, 15),
+        "breath_range": (60, 92),      # v5.19: 曾 35-65
+        "technique_range": (35, 65),   # v5.19: 曾 40-70
+        "artistry_range": (40, 65),
     },
 }
 

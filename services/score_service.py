@@ -357,7 +357,16 @@ class ScoreServiceV4:
         result.breath = result.breath_score
         result.technique = result.technique_score
         result.emotion = result.artistry_score
-        result.volume = result.breath_score
+        # v5.19: volume 独立于 breath (基于 dynamic_range 而非 breath_score)
+        dr = features.breath_stability.dynamic_range
+        if dr > 30:
+            result.volume = min(100, 80 + (dr - 30) * 0.5)
+        elif dr > 15:
+            result.volume = 50 + (dr - 15) * 2.0
+        elif dr > 5:
+            result.volume = 20 + (dr - 5) * 3.0
+        else:
+            result.volume = max(5, dr * 4)
         result.total = result.total_score
 
         # 12. 恢复原始配置（如果临时切换过）

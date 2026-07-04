@@ -14,14 +14,19 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PitchThresholds:
-    """音准评分阈值配置"""
-    excellent: float = 12.0    # 满分阈值（音分）- v5.0 放宽
-    good: float = 35.0         # 良好阈值 - v5.0 放宽
-    pass_threshold: float = 60.0  # 合格阈值 - v5.0 放宽
+    """音准评分阈值配置 v5.19 — 扩大区分度"""
+    excellent: float = 8.0     # v5.19: 12→8 — 收紧满分阈值
+    good: float = 45.0         # v5.19: 35→45 — 扩展优秀-良好区间 (8-45音分, 37音分跨度)
+    pass_threshold: float = 65.0  # v5.19: 60→65 — 微调
 
     def get_score(self, mae_cents: float) -> Tuple[float, str]:
         """
-        根据MAE计算基础分数
+        根据MAE计算基础分数 v5.19
+
+        v5.19: 扩大各区间斜率，增加区分度
+        - 优秀→良好: 30分跨37音分 (曾10分跨23音分, 3x 增大)
+        - 良好→合格: 25分跨20音分 (曾20分跨25音分)
+        - 不合格: 45→0 下降率 0.6/音分
 
         Args:
             mae_cents: 平均音分偏差
@@ -32,14 +37,16 @@ class PitchThresholds:
         if mae_cents <= self.excellent:
             return 100.0, "专业级"
         elif mae_cents <= self.good:
-            # 线性插值
-            score = 100 - (mae_cents - self.excellent) / (self.good - self.excellent) * 10
+            # v5.19: 扩大斜率 *10→*30
+            score = 100 - (mae_cents - self.excellent) / (self.good - self.excellent) * 30
             return score, "良好"
         elif mae_cents <= self.pass_threshold:
-            score = 90 - (mae_cents - self.good) / (self.pass_threshold - self.good) * 20
+            # v5.19: 起点 90→70, 扩大斜率 *20→*25
+            score = 70 - (mae_cents - self.good) / (self.pass_threshold - self.good) * 25
             return score, "合格"
         else:
-            score = max(0, 70 - (mae_cents - self.pass_threshold) * 0.85)
+            # v5.19: 起点 70→45, 下降率 0.85→0.6
+            score = max(0, 45 - (mae_cents - self.pass_threshold) * 0.6)
             return score, "待改进"
 
 
@@ -115,14 +122,14 @@ class TechniqueThresholds:
     cpp_weight: float = 0.3             # CPP权重
     technique_weight: float = 0.3       # 技巧完成度权重
 
-    # HNR阈值（按唱法）
-    hnr_classical_excellent: float = 20.0
-    hnr_pop_excellent: float = 15.0
-    hnr_pop_soft_min: float = 5.0       # 气声唱法最低HNR
+    # HNR阈值（按唱法）v5.19: 提升天花板
+    hnr_classical_excellent: float = 28.0   # v5.19: 20→28
+    hnr_pop_excellent: float = 22.0         # v5.19: 15→22
+    hnr_pop_soft_min: float = 5.0           # 气声唱法最低HNR
 
-    # CPP阈值
-    cpp_classical_excellent: float = 2.0
-    cpp_pop_excellent: float = 1.0
+    # CPP阈值 v5.19: 提升天花板
+    cpp_classical_excellent: float = 3.0    # v5.19: 2.0→3.0
+    cpp_pop_excellent: float = 2.5          # v5.19: 1.0→2.5
 
     # 混合音频HNR修正系数 — 经验值，未经实验验证
     hnr_mixed_correction: float = 1.5
@@ -155,14 +162,14 @@ class EmpiricalThresholds:
     cv_irregular: float = 1.2     # [经验估计] 不规则CV阈值
 
     # === 气息特征 ===
-    breath_baseline_score: float = 40.0            # [经验估计] v5.12: 60->40 各子维度基线分
+    breath_baseline_score: float = 10.0            # v5.19: 基线降至10 [曾 40.0] — 扩大区分度
     breath_soft_threshold_ratio: float = 0.6       # [经验估计] 弱唱判定阈值(RMS均值比例)
-    breath_long_note_baseline: float = 40.0        # [经验估计] v5.12: 长音支撑基线分
-    breath_dynamic_baseline: float = 40.0          # [经验估计] v5.12: 动态控制基线分
-    breath_design_baseline: float = 40.0           # [经验估计] v5.12: 气口设计基线分
-    breath_technique_baseline: float = 40.0        # [经验估计] v5.12: 气声技巧基线分
-    breath_long_note_max_bonus: float = 15.0       # [经验估计] 长音加分上限
-    breath_clean_breath_max_bonus: float = 10.0    # [经验估计] 清洁换气加分上限
+    breath_long_note_baseline: float = 10.0        # v5.19: 基线降至10 [曾 40.0]
+    breath_dynamic_baseline: float = 10.0          # v5.19: 基线降至10 [曾 40.0]
+    breath_design_baseline: float = 10.0           # v5.19: 基线降至10 [曾 40.0]
+    breath_technique_baseline: float = 10.0        # v5.19: 基线降至10 [曾 40.0]
+    breath_long_note_max_bonus: float = 30.0       # v5.19: 15→30 — 扩大奖励范围
+    breath_clean_breath_max_bonus: float = 20.0    # v5.19: 10→20 — 扩大奖励范围
 
     # === 技巧特征 ===
     technique_baseline_score: float = 50.0          # [经验估计] 技巧综合基线分
