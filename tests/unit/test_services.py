@@ -7,9 +7,6 @@ import numpy as np
 from pathlib import Path
 import tempfile
 
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from services.score_service import ScoreService, ScoreResult
 from services.advice_service import AdviceService, AdviceResult
 from services.audio_service import AudioAnalysisResult

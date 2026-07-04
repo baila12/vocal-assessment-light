@@ -5,11 +5,6 @@ ScoreCalibrator 单元测试 v1.0
 """
 
 import pytest
-import sys
-import os
-
-# 添加项目路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.dl_services.enhanced_dl_assessor import ScoreCalibrator
 

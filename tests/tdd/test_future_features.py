@@ -1,38 +1,36 @@
 """
-TDD RED-Phase 测试 — v5.18/v6.0 计划功能
+TDD RED-Phase 测试 — v5.18 (GREEN) + v6.0 (RED) 计划功能
 
 这些测试为 PROJECT_STATUS.md 中规划的功能定义预期行为。
 当前应标记为 expected failure (xfail)，实现后改为正常断言。
 
 TDD 流程:
   1. RED:   这些测试当前 FAIL (功能未实现)
-  2. GREEN: 实现功能后 → 测试通过
+  2. GREEN: 实现功能后 → 测试通过 (v5.18: 所有算法移植已GREEN)
   3. REFACTOR: 优化实现 → 测试仍通过
 
 功能清单:
-  - Feature Flag 机制 (v5.18)
-  - 多尺度 HNR (v5.18)
-  - Praat CPP via parselmouth (v5.18)
-  - Voicing Detection 评估 (v5.18)
-  - TorchCREPE 备选接入 (v5.18)
-  - SSE 流式进度推送 (v6.0)
-  - 标准歌曲自动匹配 (v6.0)
-  - 实时音准对比 Canvas (v6.0)
+  - ✅ Feature Flag 机制 (v5.18 GREEN)
+  - ✅ 多尺度 HNR (v5.18 GREEN)
+  - ✅ Praat CPP via parselmouth (v5.18 GREEN)
+  - ✅ Voicing Detection 评估 (v5.18 GREEN)
+  - ✅ TorchCREPE 备选接入 (v5.18 GREEN)
+  - ✅ 音量维度独立 (v5.19 GREEN, xfail已移除)
+  - 🔴 SSE 流式进度推送 (v6.0 RED)
+  - 🔴 标准歌曲自动匹配 (v6.0 RED)
+  - 🔴 实时音准对比 Canvas (v6.0 RED)
 """
 import pytest
 import json
 from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 # ============================================================================
-# Feature Flag 机制 (v5.18)
+# Feature Flag 机制 (v5.18 GREEN)
 # ============================================================================
 
 class TestFeatureFlags:
-    """Feature Flag 系统 — 控制实验功能的开/关"""
+    """Feature Flag 系统 — 控制实验功能的开/关 (v5.18 已实现)"""
 
     def test_feature_flags_dataclass_exists(self):
         """FeatureFlags dataclass 应存在且所有 flag 默认 False"""
@@ -43,9 +41,12 @@ class TestFeatureFlags:
         assert hasattr(flags, 'enable_praat_cpp')
         assert hasattr(flags, 'enable_voicing_detection')
         assert hasattr(flags, 'enable_torchcrepe_fallback')
+        # v5.19
+        assert hasattr(flags, 'enable_cross_dimension_modifiers')
         # 默认全部关闭 (选择性开启)
         assert flags.enable_multiscale_hnr is False
         assert flags.enable_praat_cpp is False
+        assert flags.enable_cross_dimension_modifiers is False
 
     def test_feature_flags_not_affect_default_scoring(self):
         """FeatureFlags 全默认 → Quick 评分与不传 flags 一致 (回归保护)"""
@@ -85,11 +86,11 @@ class TestFeatureFlags:
 
 
 # ============================================================================
-# 多尺度 HNR (v5.18)
+# 多尺度 HNR (v5.18 GREEN)
 # ============================================================================
 
 class TestMultiScaleHNR:
-    """多尺度 HNR — 短窗/中窗/长窗 + 稳定性"""
+    """多尺度 HNR — 短窗/中窗/长窗 + 稳定性 (v5.18 已实现)"""
 
     def test_multiscale_hnr_returns_three_windows(self):
         """多尺度 HNR 应返回短/中/长三个窗口的 HNR 值"""
@@ -128,11 +129,11 @@ class TestMultiScaleHNR:
 
 
 # ============================================================================
-# Praat CPP via parselmouth (v5.18)
+# Praat CPP via parselmouth (v5.18 GREEN)
 # ============================================================================
 
 class TestPraatCPP:
-    """Praat CPP — parselmouth 替换手动 FFT 倒谱"""
+    """Praat CPP — parselmouth 替换手动 FFT 倒谱 (v5.18 已实现)"""
 
     def test_praat_cpp_returns_consistent_values(self):
         """Praat CPP 应与手动 FFT 倒谱在 10% 内一致"""
@@ -188,11 +189,11 @@ class TestPraatCPP:
 
 
 # ============================================================================
-# Voicing Detection 评估 (v5.18)
+# Voicing Detection 评估 (v5.18 GREEN)
 # ============================================================================
 
 class TestVoicingDetection:
-    """Voicing 检测质量评估 — PYIN voiced/unvoiced 决策诊断"""
+    """Voicing 检测质量评估 — PYIN voiced/unvoiced 决策诊断 (v5.18 已实现)"""
 
     def test_voicing_detector_evaluates_pyin_output(self):
         """VoicingDetector 应计算置信度、有声帧比例和一致性分数"""
@@ -262,11 +263,11 @@ class TestVoicingDetection:
 
 
 # ============================================================================
-# TorchCREPE 备选接入 (v5.18)
+# TorchCREPE 备选接入 (v5.18 GREEN)
 # ============================================================================
 
 class TestTorchCREPEFallback:
-    """TorchCREPE — PYIN 置信度低时降级启用"""
+    """TorchCREPE — PYIN 置信度低时降级启用 (v5.18 已实现)"""
 
     def test_crepe_fallback_produces_valid_f0(self):
         """TorchCREPE 应返回有效 f0 序列，长度与 PYIN 一致"""
@@ -430,7 +431,7 @@ class TestSongAutoMatch:
 # ============================================================================
 
 class TestVolumeDimension:
-    """音量作为独立维度 (✅ 已实现 — scores 中已包含 volume 和 emotion 维度)"""
+    """音量作为独立维度 (✅ v5.19 已实现 — volume 基于 dynamic_range, 独立于 breath)"""
 
     def test_volume_dimension_present_in_scores(self):
         """评分结果应包含独立的 volume 维度 (当前已实现)"""

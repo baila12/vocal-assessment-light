@@ -19,10 +19,7 @@ TDD 流程:
 import pytest
 import json
 from pathlib import Path
-import sys
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 # ============================================================================
@@ -384,10 +381,6 @@ class TestCrossDimensionIntegration:
 class TestVolumeIndependence:
     """音量维度独立 — volume 应基于 SPL 测量而非 breath 别名"""
 
-    @pytest.mark.xfail(
-        reason="TDD RED: volume 和 breath 分数相同 → 尚未独立解耦。"
-               "v5.19: volume 应基于独立 SPL 评估"
-    )
     def test_volume_different_from_breath(self):
         """volume 评分应独立于 breath (不应相同)"""
         from api.business.audio_analysis import analyze_and_score

@@ -14,11 +14,8 @@
 import pytest
 import numpy as np
 from pathlib import Path
-import sys
 import tempfile
 import os
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from services.comparison.dtw_aligner import (
     DTWAligner,
