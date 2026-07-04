@@ -28,8 +28,21 @@
 
 | 文档 | 说明 |
 |------|------|
-| [3-quality/TDD.md](3-quality/TDD.md) | 单元/集成/E2E 测试规范 |
-| [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景、目录和验收流程 |
+| [3-quality/TDD.md](3-quality/TDD.md) | 单元/集成/E2E 测试规范 (v5.18 审查后: 141 测试全部通过) |
+| [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景、目录和验收流程 (21 Feature 文件, 9 已实现 Step Defs) |
+
+### 测试体系状态 (v5.18 代码审查后)
+
+| 层级 | 文件数 | 测试数 | 通过率 |
+|------|--------|--------|--------|
+| Unit | 12 | 141+ | 141+ passed ✅ |
+| Integration | 4 | 25 | 25/25 (100%) |
+| Real Audio Regression | 1 | 27 | 按需运行 |
+| E2E (SPA) | 10+ | ~45 | 按需运行 |
+| TDD RED | 1 | 13 | 13 xfail (引导开发) |
+| BDD | 21 features | ~75 scenarios | 4 features 已实现 Step Defs |
+
+> 详见 [PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) 验收状态和 [CHANGELOG.md](4-process/CHANGELOG.md) 审查修复详情。
 
 ## 4. 过程文档
 

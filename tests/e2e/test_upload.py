@@ -1,13 +1,20 @@
 """
-声乐评估系统 - 文件上传和分析测试
+声乐评估系统 - 文件上传和分析测试 (已弃用)
 
-测试音频文件上传、分析按钮状态、进度显示等功能。
+⚠️ 此文件中的测试基于旧的多页面架构 (analysis.html)。
+当前 SPA 中 /analysis.html 已 301 重定向到 /。
+请使用 test_spa_e2e.py 中的 SPA 兼容测试。
 """
 import pytest
 
 from playwright.sync_api import Page, expect
 
 from .conftest import BACKEND_URL
+
+pytestmark = pytest.mark.skip(
+    reason="旧版多页面架构测试 — 当前 SPA 中 /analysis.html 已 301 重定向。"
+           "请使用 test_spa_e2e.py 中的 TestSPAUploadAndAnalysis"
+)
 
 
 class TestAudioUploadAndAnalysis:

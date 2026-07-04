@@ -50,36 +50,46 @@
 
 ```
 tests/bdd/
-├── features/                         # Gherkin .feature 文件 (13 个, ~75 scenarios)
-│   ├── upload.feature                # 音频上传与评分
-│   ├── compare.feature               # DTW 对比 (DTW降级为特征提供者)
-│   ├── differentiation.feature       # 评分区分度验证
-│   ├── history.feature               # 历史记录管理
-│   ├── database.feature              # ★ v6.0 标准歌曲数据库
-│   ├── auto-match.feature            # ★ v6.0 上传自动匹配
-│   ├── song-select.feature           # ★ v6.0 选歌录音流程
-│   ├── dtw-demotion.feature          # ★ v6.0 DTW 降级为特征提供者
-│   ├── scoring-config.feature        # ★ v6.0 评分配置可定制
-│   ├── multi-dim-analysis.feature    # ★ v6.0 有参考时多维度分析
-│   ├── nonblocking-analysis.feature  # ★ v6.0 非阻塞分析体验
-│   ├── pitch-realtime.feature        # ★ v6.0 实时音准对比显示
-│   └── realtime-analysis.feature     # ★ v6.0 录音实时后台分析
-├── steps/                            # Step 实现 (4 已实现 + 9 待实现)
-│   ├── test_upload_steps.py          ✅
-│   ├── test_compare_steps.py         ✅
-│   ├── test_differentiation_steps.py ✅
-│   ├── test_history_steps.py         ✅
-│   ├── test_database_steps.py        ⏳ 待实现
-│   ├── test_auto_match_steps.py      ⏳ 待实现
-│   ├── test_song_select_steps.py     ⏳ 待实现
-│   ├── test_dtw_demotion_steps.py    ⏳ 待实现
-│   ├── test_scoring_config_steps.py  ⏳ 待实现
-│   ├── test_multi_dim_steps.py       ⏳ 待实现
-│   ├── test_nonblocking_steps.py     ⏳ 待实现
-│   ├── test_pitch_realtime_steps.py  ⏳ 待实现
-│   └── test_realtime_analysis_steps.py ⏳ 待实现
-├── conftest.py                       # BDD 专用 fixtures ✅
+├── features/                         # Gherkin .feature 文件 (21 个, ~75 scenarios)
+│   ├── upload.feature                # ✅ 音频上传与五维评分 (当前功能)
+│   ├── compare.feature               # ✅ DTW 对比分析 (当前功能)
+│   ├── compare-ui.feature            # ✅ 对比分析 UI 交互 (当前功能)
+│   ├── differentiation.feature       # ✅ 评分区分度验证 (当前功能)
+│   ├── history.feature               # ✅ 历史记录管理 (当前功能)
+│   ├── mode-select.feature           # ✅ 快速/专业模式选择 (当前功能)
+│   ├── navigation.feature            # ✅ SPA 路由导航 (当前功能)
+│   ├── sing-song-select.feature      # ✅ 演唱选歌流程 (当前功能)
+│   ├── song-library.feature          # ✅ 标准曲库管理 (当前功能)
+│   ├── animations.feature            # ⚠️ 部分实现 (GSAP 动画框架已就绪，部分场景待实现)
+│   ├── responsive.feature            # ⚠️ 部分实现 (响应式布局基础就绪)
+│   ├── offline.feature               # ⚠️ 部分实现 (本地库加载已验证)
+│   ├── database.feature              # ⏳ v6.0 标准歌曲数据库
+│   ├── auto-match.feature            # ⏳ v6.0 上传自动匹配
+│   ├── song-select.feature           # ⏳ v6.0 选歌录音完整流程
+│   ├── dtw-demotion.feature          # ⏳ v6.0 DTW 降级为特征提供者
+│   ├── scoring-config.feature        # ⏳ v6.0 评分配置可定制
+│   ├── multi-dim-analysis.feature    # ⏳ v6.0 有参考时多维度分析
+│   ├── nonblocking-analysis.feature  # ⏳ v6.0 非阻塞分析体验 (SSE)
+│   ├── pitch-realtime.feature        # ⏳ v6.0 实时音准对比显示 (Canvas)
+│   └── realtime-analysis.feature     # ⏳ v6.0 录音实时后台分析
+├── steps/                            # Step 实现
+│   ├── test_upload_steps.py          ✅ 上传 + 评分 (当前功能)
+│   ├── test_compare_steps.py         ✅ DTW 对比 (当前功能)
+│   ├── test_compare_ui_steps.py      ✅ 对比 UI (当前功能)
+│   ├── test_differentiation_steps.py ✅ 评分区分度 (当前功能)
+│   ├── test_history_steps.py         ✅ 历史记录 (当前功能)
+│   ├── test_mode_select_steps.py     ✅ 模式选择 (当前功能)
+│   ├── test_navigation_steps.py      ✅ SPA 导航 (当前功能)
+│   ├── test_sing_song_select_steps.py ✅ 演唱选歌 (当前功能)
+│   ├── test_song_library_steps.py    ✅ 曲库管理 (当前功能)
+│   └── test_spa_steps.py             ✅ SPA 通用步骤 (当前功能)
+├── conftest.py                       # BDD 专用 fixtures + Playwright 浏览器支持 ✅
 └── __init__.py                       ✅
+
+版本标记说明:
+  ✅ 当前功能 — 系统已实现，Step Defs 可执行
+  ⚠️ 部分实现 — 基础设施就绪，部分场景待完成
+  ⏳ v6.0 规划 — 需先实现后端功能再完成 Step Defs
 ```
 
 ---

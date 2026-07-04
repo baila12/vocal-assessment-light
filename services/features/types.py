@@ -3,6 +3,7 @@
 
 从 __init__.py 分离，消除与子模块的循环导入
 """
+from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -88,6 +89,7 @@ class AudioFeaturesResult:
     is_mixed_audio: bool = False
     mixed_audio_confidence: float = 0.0
     _vocal_segment_count: int = 0
+    _voicing_detection: Optional['VoicingDetectionResult'] = None  # v5.18
     error_message: Optional[str] = None
 
 

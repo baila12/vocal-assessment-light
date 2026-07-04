@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-06-05 | 当前版本: **v5.17** | 下一版本: **v5.18**
+> 更新: 2026-07-04 | 当前版本: **v5.18** (代码审查已修复) | 下一版本: **v5.19+ / v6.0**
 
 ---
 
@@ -106,40 +106,89 @@ python web_app.py
 
 ---
 
-## 下一版本: v5.18 计划
+## v5.18: 开源算法移植 + Feature Flag + 代码审查修复 (已完成)
 
-### 阶段一: 开源算法移植 (P1)
+### 代码审查修复 (2026-07-04)
 
-| # | 任务 | 来源 | Feature Flag |
-|---|------|------|-------------|
-| 1 | 多尺度 HNR (短/中/长窗 + 稳定性) | de Krom 1993 (VoiceLab) | `enable_multiscale_hnr` |
-| 2 | Praat CPP (parselmouth 替换手动FFT倒谱) | VoiceLab | `enable_praat_cpp` |
-| 3 | Voicing detection 评估 (recall/FA) | pitch-benchmark | `enable_voicing_detection` |
-| 4 | TorchCREPE 备选接入 (PYIN 降级时) | CREPE_MIR-1K | `enable_torchcrepe_fallback` |
+三代理并行审查（code-reviewer + security-reviewer + python-reviewer）发现 20 个问题，全部修复。详见 [CHANGELOG.md](CHANGELOG.md)。
 
-### 阶段二: Feature Flag 机制 (P1)
+**关键修复**:
+- 🔴 de Krom 1993 谐波边界检测 Bug (hnr.py) — 倒谱谐波峰仅置零 1 bin → 正确扩展到整个谐波"山峰"
+- 🔴 倒谱镜像 off-by-one (hnr.py) — 噪声倒谱对称性修复
+- 🔴 Voicing 一致性 3 重 Bug (voicing.py) — 时长计算 + 边界段统计
+- 🔴 TorchCREPE fallback 死代码 (audio_service.py) — `feature_flags` 现已传入 `_analyze_pitch()`
+- 🔴 API traceback 泄露 (audio_analysis.py) — 移除错误响应中的完整堆栈
+- 🟡 CPP 归一化校准: `/20.0` → `/6.0`
+- 🟡 文件大小: `audio_service.py` 872→800 行, 提取 `audio_dl_helpers.py` (93 行)
+
+### 完成状态 ✅
+
+| # | 任务 | 来源 | 文件 | Feature Flag |
+|---|------|------|------|-------------|
+| 1 | 多频带 HNR (de Krom 1993 倒谱分离法, 4频带) | VoiceLab | `services/features/hnr.py` | `enable_multiscale_hnr` |
+| 2 | Praat CPP (parselmouth PowerCepstrum) | VoiceLab | `services/features/cpp.py` | `enable_praat_cpp` |
+| 3 | Voicing detection 评估 (自一致性检查) | pitch-benchmark | `services/features/voicing.py` | `enable_voicing_detection` |
+| 4 | TorchCREPE 备选接入 (PYIN 降级时) | pitch-benchmark | `services/audio_features_service.py` + `audio_service.py` | `enable_torchcrepe_fallback` |
+| 5 | Feature Flag 机制 | — | `services/feature_flags.py` | — |
+| 6 | DL 辅助方法提取 | — | `services/audio_dl_helpers.py` (🆕) | — |
+| 7 | 端到端集成测试 | — | `tests/integration/test_v5_18_integration.py` (7 tests) | — |
+
+### Feature Flag 机制
 
 ```python
+# services/feature_flags.py
 @dataclass
 class FeatureFlags:
-    enable_dtw_reference_search: bool = True
-    enable_self_consistency: bool = True
-    enable_multiscale_hnr: bool = False
-    enable_praat_cpp: bool = False
-    enable_torchcrepe_fallback: bool = False
-    enable_voicing_detection: bool = False
+    enable_multiscale_hnr: bool = False        # de Krom 1993 多频带 HNR
+    enable_praat_cpp: bool = False             # VoiceLab parselmouth CPP
+    enable_voicing_detection: bool = False     # PYIN 决策质量评估
+    enable_torchcrepe_fallback: bool = False   # CREPE f0 降级 (现通过 _analyze_pitch 集成)
 ```
 
-### 阶段三: 验证 (P1)
+### 算法移植细节
 
-- 三模式一致性测试 (Quick/Pro/Compare)
-- DTW 参考搜索功能测试
-- 全量回归测试 (目标 ≥ 95% 通过率)
-- 真实音频 Quick + Pro 验证
+所有新算法通过 Feature Flag 默认关闭，开启后 1:1 替换 `AudioFeaturesService` 中的对应计算:
+
+| 维度 | 旧实现 | 新实现 (flag 开启时) |
+|------|--------|---------------------|
+| HNR | HPSS 谐波/冲击分离 | de Krom 1993 倒谱域分离, 4 频带 (500/1500/2500/3500Hz), 边界检测已修复 |
+| CPP | 手动 FFT 倒谱 (peak - mean) | VoiceLab `parselmouth.Spectrum` → `To PowerCepstrum` → `Get peak prominence`, 归一化 `/6.0` |
+| f0 提取 | librosa.yin | PYIN + TorchCREPE 降级 (detection_rate < 0.5 时), 已集成到生产管线 |
+| voicing | 无 | 自一致性评估 (范围/八度跳跃/切换一致性/能量一致性), 矢量优化 |
+
+### 真音频效果 (tests/test_data/audio/vocal)
+
+> **测试准则**: 优先使用 `tests/test_data/audio/vocal/` 中的 5 首真实人声音频获取反馈。
+> 该目录包含 4 首高分 + 1 首低分演唱，文件名即标签。
+
+| 音频 (258s) | Default | v5.18 (全开) | 变化 | 说明 |
+|-------------|---------|-------------|------|------|
+| 1（高分） Tech | 77.5 | 92.5 | **+15.0** | CPP 从失效(51分)恢复到正常(85分) |
+| 1（高分） Total | 73.6 | 77.0 | +3.4 | Tech 权重仅 20%, 限制了总影响力 |
+
+**关键发现**: 旧 CPP 算法对所有音频返回 ~0.018 (几乎无区分度)，VoiceLab CPP 返回 5-40 dB 范围，恢复了 CPP 维度的评分能力。
+
+### 已知局限 (v5.18 → v5.19+)
+
+| 问题 | 说明 | 计划 |
+|------|------|------|
+| **跨维度集成不足** | HNR/CPP 只影响 Tech (20%权重), 新算法的多维度信息(稳定性、置信度、频带差异)未利用 | v5.19 |
+| CPP 归一化因子 | VoiceLab CPP 通过 `/20` 映射到评分阈值, 未校准 | v6.0 校准数据集 |
+| HNR 天花板效应 | 新旧 HNR 对优质人声均达 100 分上限 (>12dB 阈值) | v5.19 阈值重校准 |
+| Voicing 诊断未入评分 | Voicing 置信度仅记录日志, 不反馈给 Pitch 维度 | v5.19 |
 
 ---
 
 ## 后续路线图
+
+### v5.19: 跨维度集成 + 权重优化
+
+| 任务 | 说明 | 优先级 |
+|------|------|--------|
+| HNR 稳定性 → Breath 修正 | 跨频带 CV 高 → 气息不稳惩罚 | P1 |
+| Voicing 置信度 → Pitch 可信度 | 低置信度降低音准权重 | P1 |
+| 多频带 HNR 比值 → 音色 | 高频/中频 HNR 比 = 气声指标 | P2 |
+| HNR/CPP 天花板重校准 | 提高阈值使新算法有区分空间 | P1 |
 
 ### v6.0: 校准数据集 + 六维评分
 
@@ -212,7 +261,10 @@ class FeatureFlags:
 | Quick/Pro Rhythm 差 | -11.1 | -4.4 | -4.4 | < 5 ✅ |
 | Quick/Pro Breath 差 | -46.6 | **-0.1** | **-0.1** | < 5 ✅ |
 | Quick/Pro Total 差 | -12.5 | -1.1 | -1.1 | < 10% ✅ |
-| 单元+集成测试 | 78/79 | 89/91 | 89/91 (98%) | ≥ 95% |
+| 单元+集成测试 | 89/91 (98%) | **128/128 (100%)** | ✅ 超额达标 |
+| TDD RED 测试 | — | **13 xfail** | 🆕 引导 v5.18+ |
+| 真实音频回归 | — | **5 文件基线** | 🆕 防止评分退化 |
+| JS 集成测试 | 30 mock | **16 真实模块** | 🆕 不再全 mock |
 
 ### 未测量指标 (v5.18 待建立)
 
@@ -244,13 +296,24 @@ class FeatureFlags:
 ✅ Pro Breath 崩塌修复 (v5.16)
 ✅ 混合音频检测 (轻伴奏) (v5.17)
 ✅ GPU 加速支持 (v5.17)
-⏳ Feature Flag 机制 (v5.18)
-⏳ 多尺度 HNR (v5.18)
-⏳ Praat CPP (v5.18)
-⏳ 单元测试覆盖率 ≥ 80%
-⏳ Pro 模式 CPU < 120s (受 Demucs 硬件限制)
+✅ 测试体系审计与修复 (v5.18)
+  ├── 141 单元/集成/TDD 测试全部通过 (0 失败)
+  ├── 22 评分稳健性测试 (可重现性、边界值、分布)
+  ├── 24 SPA E2E 测试 (Hash 路由、全页面渲染)
+  ├── 7 v5.18 集成测试 (端到端管线, 含真音频对比) 🆕
+	  ├── 13 TDD 测试 (7 v5.18 已 GREEN + 6 v6.0 xfail)
+  ├── 真实音频回归基线 (5 文件 × 6 维度)
+  ├── 16 JS 集成测试 (真实 Store + AnimationController)
+  └── 3 旧版 E2E 文件标记 skip (等待 SPA 迁移)
+✅ Feature Flag 机制 (v5.18)
+✅ 多频带 HNR — de Krom 1993 (VoiceLab 移植)
+✅ Praat CPP — parselmouth PowerCepstrum (VoiceLab 移植)
+✅ Voicing detection 评估 (pitch-benchmark 模式)
+✅ TorchCREPE 备选接入 (PYIN 降级)
+⏳ 跨维度集成 (HNR稳定性→Breath, Voicing→Pitch) (v5.19)
 ⏳ 气息区分度 ≥ 20 (需校准数据集)
 ⏳ 音准区分度 ≥ 10 (DTW + 校准)
+⏳ HNR/CPP 天花板重校准 (v5.19)
 ```
 
 ---

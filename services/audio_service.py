@@ -20,11 +20,11 @@ from config import Config
 from services.audio_features_service import AudioFeaturesService, AudioFeaturesResult
 from services.features.acoustic import AcousticAnalyzer
 
-# 深度学习服务 v5.0
-from services.dl_services import VoiceQualityDetector, SingingStyleClassifier, SelfReferencedDTW
+from services.feature_flags import FeatureFlags
 
-# 风格自适应评分 v5.1
-from services.style_aware_scorer import StyleAnalyzer, MusicStyle
+# v5.18 DL 辅助方法 (从本文件提取以控制文件大小; 原 DL imports 已移入 AudioDLHelpers)
+from services.audio_dl_helpers import AudioDLHelpers
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -135,19 +135,16 @@ class AudioService:
             sample_rate=16000,  # 与TARGET_SR一致
             hop_length=self._hop_length
         )
-        # 深度学习服务 v5.0（延迟初始化）
-        self._voice_quality_detector = None
-        self._style_classifier = None
-        self._self_ref_dtw = None
-        # 风格分析器 v5.1（延迟初始化）
-        self._style_analyzer = None
+        # v5.18: 深度学习服务委托给 AudioDLHelpers
+        self._dl = AudioDLHelpers()
 
     def analyze(
         self,
         filepath: str,
         include_waveform: bool = True,
         include_pitch_curve: bool = True,
-        quick_mode: bool = False
+        quick_mode: bool = False,
+        feature_flags: Optional[FeatureFlags] = None
     ) -> AudioAnalysisResult:
         """
         分析音频文件
@@ -192,8 +189,8 @@ class AudioService:
             # 音量分析
             result.volume_info = self._analyze_volume(audio_data)
 
-            # 音高检测（使用更快的yin算法）
-            pitch_result = self._analyze_pitch(audio_data, sample_rate)
+            # 音高检测 v5.18 (支持 TorchCREPE fallback)
+            pitch_result = self._analyze_pitch(audio_data, sample_rate, feature_flags)
             result.pitch_info = pitch_result['info']
             result._valid_freqs = pitch_result['valid_freqs']
             result._f0 = pitch_result['f0']
@@ -247,7 +244,7 @@ class AudioService:
                 audio_data = scoring_audio
                 sample_rate = scoring_sr
                 result._audio_data = audio_data
-                pitch_result = self._analyze_pitch(audio_data, sample_rate)
+                pitch_result = self._analyze_pitch(audio_data, sample_rate, feature_flags)
                 result.pitch_info = pitch_result['info']
                 result._valid_freqs = pitch_result['valid_freqs']
                 result._f0 = pitch_result['f0']
@@ -255,10 +252,10 @@ class AudioService:
                 # 更新音量信息（基于纯净人声）
                 result.volume_info = self._analyze_volume(audio_data)
 
-            # 高级特征提取 v5.13（传递分离状态用于CV映射修正）
+            # 高级特征提取 v5.18（传递分离状态用于CV映射修正 + FeatureFlags）
             result._advanced_features = self._features_service.extract_all_features(
                 audio_data, result._f0, singing_style='pop',
-                is_separated=used_sep
+                is_separated=used_sep, feature_flags=feature_flags
             )
 
             # ========== 深度学习分析 v5.0 ==========
@@ -292,7 +289,7 @@ class AudioService:
                     # 使用识别的风格重新提取高级特征
                     result._advanced_features = self._features_service.extract_all_features(
                         audio_data, result._f0, singing_style=singing_style,
-                        is_separated=used_sep
+                        is_separated=used_sep, feature_flags=feature_flags
                     )
 
                 # 自参照DTW音准评估（仅对有效人声）
@@ -360,22 +357,36 @@ class AudioService:
     def _analyze_pitch(
         self,
         audio_data: np.ndarray,
-        sample_rate: int
+        sample_rate: int,
+        feature_flags: Optional[FeatureFlags] = None
     ) -> Dict:
         """
-        分析音高信息
+        分析音高信息 v5.18
 
-        性能优化：使用yin算法替代pyin，速度提升约2倍
-        yin不返回voiced_flag，需要自行计算
+        默认使用 librosa.yin。当 feature_flags.enable_torchcrepe_fallback=True
+        且 PYIN detection_rate < 0.5 时，自动切换到 TorchCREPE。
         """
-        # 使用yin算法（比pyin快约2倍）
-        f0 = librosa.yin(
-            audio_data,
-            fmin=self.config.PITCH_FMIN,
-            fmax=self.config.PITCH_FMAX,
-            sr=sample_rate,
-            hop_length=self._hop_length
-        )
+        # v5.18: TorchCREPE fallback 集成
+        if (feature_flags is not None
+                and feature_flags.enable_torchcrepe_fallback):
+            f0_crepe = self._features_service._extract_f0(
+                audio_data, feature_flags
+            )
+            f0 = f0_crepe[0] if len(f0_crepe[0]) > 0 else librosa.yin(
+                audio_data,
+                fmin=self.config.PITCH_FMIN,
+                fmax=self.config.PITCH_FMAX,
+                sr=sample_rate,
+                hop_length=self._hop_length
+            )
+        else:
+            f0 = librosa.yin(
+                audio_data,
+                fmin=self.config.PITCH_FMIN,
+                fmax=self.config.PITCH_FMAX,
+                sr=sample_rate,
+                hop_length=self._hop_length
+            )
 
         # yin返回的是频率，nan表示无声
         valid_mask = ~np.isnan(f0) & (f0 > 80) & (f0 < 1200)
@@ -534,8 +545,10 @@ class AudioService:
                 )
                 if len(peaks) > 1:
                     vibrato_count = len(peaks)
+        except (ValueError, np.linalg.LinAlgError) as e:
+            logger.debug(f"Vibrato detection skipped: {e}")
         except Exception:
-            pass
+            logger.debug("Vibrato detection failed with unexpected error")
 
         return vibrato_count
 
@@ -768,104 +781,20 @@ class AudioService:
             logger.warning(f"Demucs 分离异常: {e}, 回退到原始音频")
             return audio_data, sample_rate, None, False, is_mixed, confidence
 
-    # ========== 深度学习服务辅助方法 v5.0 ==========
-
-    def _get_voice_quality_detector(self):
-        """延迟初始化人声质量检测器"""
-        if self._voice_quality_detector is None:
-            self._voice_quality_detector = VoiceQualityDetector()
-        return self._voice_quality_detector
-
-    def _get_style_classifier(self):
-        """延迟初始化唱法分类器"""
-        if self._style_classifier is None:
-            self._style_classifier = SingingStyleClassifier()
-        return self._style_classifier
-
-    def _get_self_ref_dtw(self):
-        """延迟初始化自参照DTW"""
-        if self._self_ref_dtw is None:
-            self._self_ref_dtw = SelfReferencedDTW()
-        return self._self_ref_dtw
-
-    def _get_style_analyzer(self):
-        """延迟初始化风格分析器 v5.1"""
-        if self._style_analyzer is None:
-            self._style_analyzer = StyleAnalyzer(use_dl=True)
-        return self._style_analyzer
+    # ========== 深度学习服务辅助方法 v5.18 (委托给 AudioDLHelpers) ==========
 
     def _run_voice_quality_detection(self, filepath: str):
-        """
-        运行人声质量检测
-
-        Args:
-            filepath: 音频文件路径
-
-        Returns:
-            VoiceQualityResult 或 None
-        """
-        try:
-            detector = self._get_voice_quality_detector()
-            return detector.detect(filepath)
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Voice quality detection failed: {e}")
-            return None
+        """运行人声质量检测 (委托给 AudioDLHelpers)"""
+        return self._dl.run_voice_quality_detection(filepath)
 
     def _run_style_classification(self, filepath: str):
-        """
-        运行唱法识别
-
-        Args:
-            filepath: 音频文件路径
-
-        Returns:
-            StyleClassificationResult 或 None
-        """
-        try:
-            classifier = self._get_style_classifier()
-            return classifier.classify(filepath)
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Style classification failed: {e}")
-            return None
+        """运行唱法识别 (委托给 AudioDLHelpers)"""
+        return self._dl.run_style_classification(filepath)
 
     def _run_self_referenced_dtw(self, filepath: str):
-        """
-        运行自参照DTW音准评估
-
-        Args:
-            filepath: 音频文件路径
-
-        Returns:
-            SelfReferencedPitchResult 或 None
-        """
-        try:
-            dtw = self._get_self_ref_dtw()
-            return dtw.analyze(filepath)
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Self-referenced DTW failed: {e}")
-            return None
+        """运行自参照DTW音准评估 (委托给 AudioDLHelpers)"""
+        return self._dl.run_self_referenced_dtw(filepath)
 
     def _run_music_style_analysis(self, filepath: str):
-        """
-        运行音乐风格分析 v5.1
-
-        使用深度学习模型分析音乐风格和情绪
-
-        Args:
-            filepath: 音频文件路径
-
-        Returns:
-            tuple: (MusicStyle, StyleProfile, style_features) 或 None
-        """
-        try:
-            analyzer = self._get_style_analyzer()
-            style, style_features = analyzer.analyze(filepath)
-            profile = analyzer.get_style_profile(style)
-            return style, profile, style_features
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Music style analysis failed: {e}")
-            return None
+        """运行音乐风格分析 (委托给 AudioDLHelpers)"""
+        return self._dl.run_music_style_analysis(filepath)

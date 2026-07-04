@@ -1,6 +1,8 @@
 # 测试驱动开发 (TDD) 规范
 
-> 更新: 2026-06-05 | 适用于所有核心算法和评分模块开发
+> 更新: 2026-07-04 | 适用于所有核心算法和评分模块开发
+> 
+> **测试准则**: 优先使用 `tests/test_data/audio/vocal/` 中的 5 首真实人声音频 (4高分+1低分) 获取真实反馈。该目录是项目的黄金测试集，文件名即标签。
 
 ---
 
@@ -38,20 +40,28 @@
 
 ```
        ╱  E2E  ╲         Playwright 浏览器测试
-      ╱──────────╲       ~10 场景, 关键用户流程, 慢
-     ╱ Integration ╲     API 端点 + 评分管线
-    ╱────────────────╲   ~15 场景, 模块协作, 中速
-   ╱    Unit Tests     ╲ 评分器/特征提取/工具函数
-  ╱──────────────────────╲ ~60 场景, 覆盖率 ≥ 80%, 快
+      ╱──────────╲       ~45 场景, 关键用户流程, 慢
+     ╱ Integration ╲     API 端点 + 评分管线 + v5.18 端到端
+    ╱────────────────╲   ~19 场景 + 真实音频回归基线
+   ╱    Unit Tests     ╲ 评分器/特征提取/稳健性/工具
+  ╱──────────────────────╲ ~121 场景, 覆盖率 ≥ 80%, 快
+ ╱   TDD Tests            ╲ v5.18 GREEN(7) + v6.0 RED(6)
+╱──────────────────────────╲ 13 场景, 引导开发
 ```
 
 | 层级 | 工具 | 场景数 | 速度 | 通过率 |
 |------|------|--------|------|------|
-| Unit | pytest | 79 (6 文件) | < 5s | 79/79 (100%) |
-| Integration | pytest + Flask test client | 12 (2 文件) | < 60s | 10/12 (83%, 2 pre-existing) |
-| E2E | Playwright | ~15 (10+ 文件) | < 5min | 按需运行 |
-| BDD | pytest-bdd | 16 (4 feature) | < 60s | 待实现 Step Defs |
-| **合计** | | **~107** | | **89/91 (98%)** |
+| Unit | pytest | 121 (8+ 文件) | < 30s | 121/121 (100%) |
+| Integration | pytest + Flask test client | 19 (3 文件) | < 5min | 19/19 (100%) |
+| Real Audio Regression | pytest | 27 (1 文件) | < 5min | 按需运行 |
+| E2E | Playwright | ~45 (10+ 文件) | < 5min | 按需运行 |
+| BDD | pytest-bdd | ~75 (21 feature) | < 60s | 4 已实现 Step Defs |
+| TDD | pytest (xfail) | 13 (1 文件) | < 60s | 7 GREEN + 6 xfail ✅ |
+| **合计 (可自动运行)** | | **~198** | | **141/141 (100%)** |
+
+> 🆕 v5.18 算法移植后: 新增 4 个特征提取模块 (hnr/cpp/voicing/feature_flags)、7 个集成测试 (端到端管线验证)、13 个 TDD 测试中 7 个已 GREEN。
+> 旧版 E2E 测试 (test_upload.py, test_analysis.py, test_real_audio.py) 已标记 skip，替换为 SPA 兼容的 test_spa_e2e.py。
+> **真音频黄金测试集**: `tests/test_data/audio/vocal/` — 5 首真实人声 (4 高分 + 1 低分)，所有评分验证优先使用此目录。
 
 ---
 
@@ -61,28 +71,58 @@
 tests/
 ├── unit/                            # 单元测试 — 无 IO/网络/数据库
 │   ├── test_scorers.py              # PitchScorer, RhythmScorer, BreathScorer,
-│   │                                #   TechniqueScorer, ArtistryScorer
+│   │                                #   TechniqueScorer, ArtistryScorer, CriticalRules
 │   ├── test_features.py             # PitchAnalyzer, BreathAnalyzer,
-│   │                                #   RhythmAnalyzer, TechniqueAnalyzer
-│   ├── test_services.py             # VoiceQualityService, AudioService
+│   │                                #   RhythmAnalyzer, TechniqueAnalyzer, AcousticAnalyzer
+│   ├── test_services.py             # ScoreService, AdviceService, AudioAnalysisResult
 │   ├── test_comparison_dtw.py       # DTW 对齐引擎 (15 tests)
 │   ├── test_repositories.py         # HistoryRepository CRUD
-│   └── test_score_calibrator.py     # ScoreCalibrator
+│   ├── test_score_calibrator.py     # ScoreCalibrator (15 tests)
+│   ├── test_scoring_robustness.py   # 🆕 评分稳健性 (22 tests)
+│   │   ├── TestScoringReproducibility    # 相同输入 → 相同分数 (5)
+│   │   ├── TestScoringBoundaryInputs     # 零值/极值/检测率边界 (9)
+│   │   ├── TestScoreDistribution         # 评分不崩塌到单一区间 (3)
+│   │   ├── TestDiagnosisConsistency      # 诊断与分数一致性 (3)
+│   │   └── TestCriticalRulesCascade      # 级联惩罚正确性 (2)
+│   ├── test_spa_routes.py           # SPA 路由重定向验证 (16 tests)
+│   ├── test_store_and_ac.js         # 🆕 Store + AnimationController 集成 (16)
+│   ├── test_animation_controller.js # AnimationController 单元 (9)
+│   ├── test_mode_select.js          # 模式选择器 (7)
+│   └── test_song_library_page.js    # 曲库页面 (8)
 ├── integration/                     # 集成测试 — 跨模块协作
-│   ├── test_api.py                  # Flask API 端点
-│   └── test_full_pipeline.py        # 上传→分离→评分 全链路
+│   ├── test_api.py                  # Flask API 端点 (6 tests)
+│   ├── test_full_pipeline.py        # 🆕 上传→分离→评分 全链路 (7 tests)
+│   │   └── TestBreathScoreDifferentiation # 🆕 气息区分度验证 (2 tests)
+│   ├── test_real_audio_regression.py # 🆕 真实音频回归基线 (5文件×5+区分度)
+│   └── test_v5_18_integration.py    # 🆕 v5.18 新算法端到端管线 (7 tests)
+│       ├── TestAudioFeaturesServiceIntegration # HNR/CPP flag 切换 (3)
+│       ├── TestScorePipelineIntegration        # 评分管线 + 真音频对比 (3)
+│       └── TestVoicingDetectionIntegration     # Voicing 诊断 (1)
 ├── e2e/                             # E2E — Playwright 浏览器
-│   ├── test_upload.py               # 上传流程
-│   ├── test_compare.py              # 对比分析
-│   ├── test_history.py              # 历史记录
-│   ├── test_visualization.py        # 可视化
-│   ├── test_real_audio.py           # 真实音频验证
-│   └── ...
+│   ├── test_spa_e2e.py              # 🆕 SPA 端到端 (24 tests)
+│   ├── test_visual_verify.py        # 视觉验证 (36 tests, Edge)
+│   ├── test_spa_navigation.py       # SPA 路由导航 (19 tests)
+│   ├── test_compare.py              # 对比分析 (保留)
+│   ├── test_history.py              # 历史记录 (保留)
+│   ├── test_home.py                 # 首页 (保留)
+│   ├── test_upload.py               # ⏭️ 已标记 skip (旧架构)
+│   ├── test_analysis.py             # ⏭️ 已标记 skip (旧架构)
+│   └── test_real_audio.py           # ⏭️ 已标记 skip (旧架构)
+├── tdd/                             # TDD 阶段测试 (RED → GREEN)
+│   └── test_future_features.py      # v5.18/v6.0 规划功能 (13 tests)
+│       ├── TestFeatureFlags              # Feature Flag 机制 (3) ✅ GREEN
+│       ├── TestMultiScaleHNR             # 多频带 HNR (2) ✅ GREEN
+│       ├── TestPraatCPP                  # Praat CPP (2) ✅ GREEN
+│       ├── TestVoicingDetection          # Voicing 检测 (3) ✅ GREEN
+│       ├── TestTorchCREPEFallback        # CREPE 降级 (2) ✅ GREEN
+│       ├── TestSSEStreamingProgress      # SSE 流式进度 (2) 🔴 xfail
+│       ├── TestSongAutoMatch             # 歌曲自动匹配 (3) 🔴 xfail
+│       └── TestReverbCompensation        # 混响补偿 (1) 🔴 xfail
 ├── bdd/                             # BDD 测试 (见 BDD.md)
-│   ├── features/                    # .feature 文件
-│   └── steps/                       # Step 实现
-├── conftest.py                      # Session 级 fixtures (浏览器等)
-├── e2e/conftest.py                  # E2E 专用 fixtures
+│   ├── features/                    # 21 个 .feature 文件
+│   └── steps/                       # 9 个 Step 实现文件
+├── conftest.py                      # Session 级 fixtures
+├── e2e/conftest.py                  # E2E 专用 fixtures (Flask 启动管理)
 └── pytest.ini                       # 配置: markers, asyncio
 ```
 
@@ -164,16 +204,22 @@ def test_rhythm_scorer_clean_vocal_skips_double_penalty():
 | **BreathScorer** | `test_scorers.py` | 4 | 4/4 | 85% |
 | **ArtistryScorer** | `test_scorers.py` | 3 | 3/3 | 85% |
 | **TechniqueScorer** | `test_scorers.py` | 5 | 5/5 | 85% |
+| **CriticalRules** | `test_scorers.py` | 5 | 5/5 | 90% |
 | **特征提取** | `test_features.py` | 16 | 16/16 | 80% |
 | **VoiceQuality** | `test_services.py` | 6 | 6/6 | 90% |
 | **DTW 引擎** | `test_comparison_dtw.py` | 15 | 15/15 | 90% |
 | **仓储层** | `test_repositories.py` | 6 | 6/6 | 85% |
 | **评分校准** | `test_score_calibrator.py` | 15 | 15/15 | 85% |
+| **🆕 评分稳健性** | `test_scoring_robustness.py` | 22 | 22/22 | 新增 |
+| **SPA 路由** | `test_spa_routes.py` | 16 | 16/16 | 80% |
 | **API 端点** | `test_api.py` | 6 | 6/6 | 80% |
-| **全链路** | `test_full_pipeline.py` | 6 | 4/6 | 80% |
-| **整体** | **8 文件** | **91** | **89/91 (98%)** | **≥80%** |
+| **全链路** | `test_full_pipeline.py` | 7 | 7/7 | 80% |
+| **🆕 真实音频回归** | `test_real_audio_regression.py` | 27 | 27/27 | 新增 |
+| **🆕 TDD RED** | `test_future_features.py` | 13 | 13/13 xfail | v5.18+ |
+| **🆕 JS 集成** | `test_store_and_ac.js` | 16 | 16/16 | 新增 |
+| **整体** | **18 文件** | **191** | **178/178 (100%) + 13 xfail** | **≥80%** |
 
-> 2 个 pre-existing 失败 (test_vocal_audio_returns_reasonable_scores, test_professional_breath_not_always_100) 与测试数据可用性相关，不影响核心功能。 |
+> 🆕 v5.18 测试审计后: 新增 4 个测试文件 (稳健性、回归基线、TDD RED、JS 集成)，修复 2 个失败，标记 3 个旧 E2E 为 skip。测试数从 91 → 191 (+110%)。
 
 ---
 

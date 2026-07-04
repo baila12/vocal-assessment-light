@@ -57,7 +57,8 @@
       "Bash(python -m pytest tests/e2e/test_visual_verify.py -v --tb=line --browser-channel=msedge --headed)",
       "Bash(python -m pytest tests/e2e/test_visual_verify.py::TestComponentVerification::test_toast_dom_container_exists -v --tb=long --browser-channel=msedge --headed)",
       "Bash(git commit -m 'test: add comprehensive E2E visual verification suite \\(36 tests, Edge browser\\) *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(python -m pytest tests/unit/test_scorers.py tests/unit/test_features.py tests/unit/test_services.py tests/unit/test_comparison_dtw.py tests/unit/test_score_calibrator.py tests/unit/test_spa_routes.py tests/integration/test_api.py tests/integration/test_full_pipeline.py -v --tb=short)"
     ]
   }
 }

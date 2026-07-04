@@ -1,7 +1,9 @@
 """
-声乐评估系统 - 分析页面测试
+声乐评估系统 - 分析页面测试 (已弃用)
 
-测试分析页面加载、音频播放器、可视化标签页切换等功能。
+⚠️ 此文件中的测试基于旧的多页面架构 (analysis.html)。
+当前 SPA 使用 Hash 路由，分析结果在 #/report/:id 中展示。
+请使用 test_spa_e2e.py 和 test_visual_verify.py 中的 SPA 兼容测试。
 """
 import json
 
@@ -10,6 +12,11 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from .conftest import BACKEND_URL
+
+pytestmark = pytest.mark.skip(
+    reason="旧版多页面架构测试 — /analysis.html 已 301 重定向到 /。"
+           "分析结果现在通过 SPA 路由 #/report/:id 展示"
+)
 
 
 class TestAnalysisPage:

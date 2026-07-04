@@ -3,6 +3,7 @@
 
 处理音频分析、评分计算、结果构建
 """
+from typing import Optional
 from pathlib import Path
 import numpy as np
 import logging
@@ -14,6 +15,7 @@ from services import (
 )
 from services.score_service import ScoreServiceV4
 from services.audio_features_service import AudioFeaturesResult
+from services.feature_flags import FeatureFlags
 from api.response_builder import AnalysisResult, build_response
 
 logger = logging.getLogger(__name__)
@@ -35,7 +37,8 @@ except Exception as e:
     logger.warning(f"DL assessor init failed: {e}")
     dl_assessor = None
 
-def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = None) -> dict:
+def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = None,
+                     feature_flags: Optional[FeatureFlags] = None) -> dict:
     """
     分析音频并计算评分
 
@@ -45,18 +48,21 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
             - 'quick': 快速评估（跳过逐句评分，简化可视化，约30秒）
             - 'professional': 专业评估（完整分析，约2-5分钟）
         reference_path: 参考音频路径（可选，用于DTW对比评分）
+        feature_flags: FeatureFlags 功能开关（可选，默认全部关闭）
 
     Returns:
         分析结果字典
     """
     # 1. 音频分析（快速模式跳过耗时DL分析）
-    audio_result = audio_service.analyze(filepath, quick_mode=(mode == 'quick'))
+    audio_result = audio_service.analyze(
+        filepath, quick_mode=(mode == 'quick'), feature_flags=feature_flags
+    )
 
     if not audio_result.success:
+        logger.error(f"Audio analysis failed: {audio_result.error}")
         return {
             'success': False,
-            'error': audio_result.error,
-            'traceback': audio_result.traceback
+            'error': audio_result.error
         }
 
     # 2. 人声质量检测

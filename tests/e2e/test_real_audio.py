@@ -1,13 +1,19 @@
 """
-声乐评估系统 - 真实音频 E2E 测试
+声乐评估系统 - 真实音频 E2E 测试 (已弃用)
 
-使用真实音频文件测试完整分析流程
+⚠️ 此文件测试旧的多页面架构流程 (analysis.html) 且引用不存在的硬编码文件名。
+请使用 test_spa_e2e.py 中的 SPA 兼容测试。
 """
 import pytest
 
 from playwright.sync_api import Page, expect
 
 from .conftest import BACKEND_URL, TEST_MUSIC_FOLDER
+
+pytestmark = pytest.mark.skip(
+    reason="旧版多页面架构 + 硬编码不存在的文件名。"
+           "SPA 真实音频测试请使用 test_spa_e2e.py"
+)
 
 
 class TestRealAudioAnalysis:

@@ -22,6 +22,8 @@ from services.style_aware_scorer import StyleProfile
 from services.scoring_config import ScoringConfig, default_scoring_config
 from services.scoring.types import ScoreResultV4
 from services.scoring import PitchScorer, RhythmScorer, BreathScorer, TechniqueScorer, ArtistryScorer, CriticalRulesHandler
+# v5.18: FeatureFlags 预留 — v5.19 跨维度集成时接入
+# from services.feature_flags import FeatureFlags
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +171,7 @@ class ScoreServiceV4:
         # v5.14: 原始音频特征 (供 ArtistryScorer 直接计算)
         audio_data: np.ndarray = None,
         f0: np.ndarray = None,
-        sample_rate: int = 22050
+        sample_rate: int = 22050,
     ) -> ScoreResultV4:
         """
         计算五维评分 v5.10 - DTW参考评分增强
