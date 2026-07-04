@@ -9,7 +9,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| [1-product/PRD.md](1-product/PRD.md) | 产品需求、用户场景、v5.18/v6.0 路线 |
+| [1-product/PRD.md](1-product/PRD.md) | 产品需求、用户场景、v5.19/v6.0 路线 |
 | [1-product/GOALS.md](1-product/GOALS.md) | 产品定位、功能全景、设计原则 |
 
 ## 2. 技术文档
@@ -21,25 +21,25 @@
 | [2-technical/SCORING.md](2-technical/SCORING.md) | 评分算法、权重、阈值和 DTW 降级策略 |
 | [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 |
 | [2-technical/frontend/ROUTES.md](2-technical/frontend/ROUTES.md) | SPA 路由契约与预留页面 |
-| [2-technical/frontend/BACKEND_ALIGNMENT.md](2-technical/frontend/BACKEND_ALIGNMENT.md) | 前端与后端 v5.18/v6.0 计划对齐 |
+| [2-technical/frontend/BACKEND_ALIGNMENT.md](2-technical/frontend/BACKEND_ALIGNMENT.md) | 前端与后端 v5.19/v6.0 计划对齐 |
 | [2-technical/frontend/VISUAL_AUDIT.md](2-technical/frontend/VISUAL_AUDIT.md) | 基于浏览器真实页面的前端视觉审计 |
 
 ## 3. 质量文档
 
 | 文档 | 说明 |
 |------|------|
-| [3-quality/TDD.md](3-quality/TDD.md) | 单元/集成/E2E 测试规范 (v5.18 审查后: 141 测试全部通过) |
+| [3-quality/TDD.md](3-quality/TDD.md) | 单元/集成/E2E 测试规范 (v5.19: 157+ 测试全部通过) |
 | [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景、目录和验收流程 (21 Feature 文件, 9 已实现 Step Defs) |
 
-### 测试体系状态 (v5.18 代码审查后)
+### 测试体系状态 (v5.19 评分修复后)
 
 | 层级 | 文件数 | 测试数 | 通过率 |
 |------|--------|--------|--------|
-| Unit | 12 | 141+ | 141+ passed ✅ |
+| Unit | 13 | 150+ | 150+ passed ✅ |
 | Integration | 4 | 25 | 25/25 (100%) |
-| Real Audio Regression | 1 | 27 | 按需运行 |
+| Real Audio Regression | 1 | 27 | v5.19 基线已更新 |
 | E2E (SPA) | 10+ | ~45 | 按需运行 |
-| TDD RED | 1 | 13 | 13 xfail (引导开发) |
+| TDD (v5.19 GREEN) | 2 | 29 | 15 GREEN + 6 xfail (引导 v6.0) |
 | BDD | 21 features | ~75 scenarios | 4 features 已实现 Step Defs |
 
 > 详见 [PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) 验收状态和 [CHANGELOG.md](4-process/CHANGELOG.md) 审查修复详情。

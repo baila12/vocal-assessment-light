@@ -41,25 +41,26 @@
 ```
        ╱  E2E  ╲         Playwright 浏览器测试
       ╱──────────╲       ~45 场景, 关键用户流程, 慢
-     ╱ Integration ╲     API 端点 + 评分管线 + v5.18 端到端
-    ╱────────────────╲   ~19 场景 + 真实音频回归基线
+     ╱ Integration ╲     API 端点 + 评分管线 + v5.19 端到端
+    ╱────────────────╲   ~25 场景 + 真实音频回归基线
    ╱    Unit Tests     ╲ 评分器/特征提取/稳健性/工具
-  ╱──────────────────────╲ ~121 场景, 覆盖率 ≥ 80%, 快
- ╱   TDD Tests            ╲ v5.18 GREEN(7) + v6.0 RED(6)
-╱──────────────────────────╲ 13 场景, 引导开发
+  ╱──────────────────────╲ ~150 场景, 覆盖率 ≥ 80%, 快
+ ╱   TDD Tests            ╲ v5.19 GREEN(15) + v6.0 RED(6)
+╱──────────────────────────╲ 29 场景, 引导开发
 ```
 
 | 层级 | 工具 | 场景数 | 速度 | 通过率 |
 |------|------|--------|------|------|
-| Unit | pytest | 121 (8+ 文件) | < 30s | 121/121 (100%) |
-| Integration | pytest + Flask test client | 19 (3 文件) | < 5min | 19/19 (100%) |
-| Real Audio Regression | pytest | 27 (1 文件) | < 5min | 按需运行 |
+| Unit | pytest | 150+ (13 文件) | < 30s | 150+/150+ (100%) |
+| Integration | pytest + Flask test client | 25 (4 文件) | < 5min | 25/25 (100%) |
+| Real Audio Regression | pytest | 27 (1 文件) | < 5min | v5.19 基线已更新 |
 | E2E | Playwright | ~45 (10+ 文件) | < 5min | 按需运行 |
 | BDD | pytest-bdd | ~75 (21 feature) | < 60s | 4 已实现 Step Defs |
-| TDD | pytest (xfail) | 13 (1 文件) | < 60s | 7 GREEN + 6 xfail ✅ |
-| **合计 (可自动运行)** | | **~198** | | **141/141 (100%)** |
+| TDD | pytest (xfail) | 29 (2 文件) | < 60s | 15 GREEN + 6 xfail ✅ |
+| **合计 (可自动运行)** | | **~220** | | **190+/190+ (100%)** |
 
-> 🆕 v5.18 算法移植后: 新增 4 个特征提取模块 (hnr/cpp/voicing/feature_flags)、7 个集成测试 (端到端管线验证)、13 个 TDD 测试中 7 个已 GREEN。
+> 🆕 v5.19 评分修复: 气息基线 40→10, 音准阈值 12/35/60→8/45/65, HNR/CPP 天花板提升。
+> 新增 `tests/tdd/test_v5_19_features.py` (16 tests), 移除 11 个 xfail 标记。
 > 旧版 E2E 测试 (test_upload.py, test_analysis.py, test_real_audio.py) 已标记 skip，替换为 SPA 兼容的 test_spa_e2e.py。
 > **真音频黄金测试集**: `tests/test_data/audio/vocal/` — 5 首真实人声 (4 高分 + 1 低分)，所有评分验证优先使用此目录。
 
@@ -109,15 +110,22 @@ tests/
 │   ├── test_analysis.py             # ⏭️ 已标记 skip (旧架构)
 │   └── test_real_audio.py           # ⏭️ 已标记 skip (旧架构)
 ├── tdd/                             # TDD 阶段测试 (RED → GREEN)
-│   └── test_future_features.py      # v5.18/v6.0 规划功能 (13 tests)
-│       ├── TestFeatureFlags              # Feature Flag 机制 (3) ✅ GREEN
-│       ├── TestMultiScaleHNR             # 多频带 HNR (2) ✅ GREEN
-│       ├── TestPraatCPP                  # Praat CPP (2) ✅ GREEN
-│       ├── TestVoicingDetection          # Voicing 检测 (3) ✅ GREEN
-│       ├── TestTorchCREPEFallback        # CREPE 降级 (2) ✅ GREEN
-│       ├── TestSSEStreamingProgress      # SSE 流式进度 (2) 🔴 xfail
-│       ├── TestSongAutoMatch             # 歌曲自动匹配 (3) 🔴 xfail
-│       └── TestReverbCompensation        # 混响补偿 (1) 🔴 xfail
+│   ├── test_future_features.py      # v5.18/v6.0 规划功能 (13 tests)
+│   │   ├── TestFeatureFlags              # Feature Flag 机制 (3) ✅ GREEN
+│   │   ├── TestMultiScaleHNR             # 多频带 HNR (2) ✅ GREEN
+│   │   ├── TestPraatCPP                  # Praat CPP (2) ✅ GREEN
+│   │   ├── TestVoicingDetection          # Voicing 检测 (3) ✅ GREEN
+│   │   ├── TestTorchCREPEFallback        # CREPE 降级 (2) ✅ GREEN
+│   │   ├── TestVolumeDimension           # 音量维度 (2) ✅ GREEN (v5.19)
+│   │   ├── TestSSEStreamingProgress      # SSE 流式进度 (2) 🔴 xfail
+│   │   ├── TestSongAutoMatch             # 歌曲自动匹配 (3) 🔴 xfail
+│   │   └── TestReverbCompensation        # 混响补偿 (1) 🔴 xfail
+│   └── test_v5_19_features.py       # 🆕 v5.19 评分修复 (16 tests)
+│       ├── TestBreathDifferentiation     # 气息区分度 (3) 🟢 1 GREEN + 2 xfail
+│       ├── TestPitchDifferentiation      # 音准区分度 (4) 🟢 3 GREEN + 1 xfail
+│       ├── TestTechniqueCeiling          # HNR/CPP 天花板 (3) ✅ GREEN
+│       ├── TestCrossDimensionIntegration # 跨维度集成 (4) 🟡 基础通过
+│       └── TestVolumeIndependence        # 音量独立 (2) ✅ GREEN
 ├── bdd/                             # BDD 测试 (见 BDD.md)
 │   ├── features/                    # 21 个 .feature 文件
 │   └── steps/                       # 9 个 Step 实现文件
