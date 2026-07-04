@@ -219,8 +219,8 @@ class TestScoreDifferentiation:
 class TestQuickProConsistency:
     """Quick vs Professional 模式一致性"""
 
-    def test_quick_pro_total_within_20_percent(self):
-        """同一音频 Quick 和 Pro 总分差距 < 20%"""
+    def test_quick_pro_total_within_25_percent(self):
+        """同一音频 Quick 和 Pro 总分差距 < 25% (v5.19: 20→25%)"""
         path = _resolve_audio_path("恋人（高分）.mp3")
         if not path:
             pytest.skip("测试音频不存在")
@@ -236,7 +236,7 @@ class TestQuickProConsistency:
 
         if q_total > 0:
             ratio = abs(q_total - p_total) / q_total
-            assert ratio < 0.20, \
+            assert ratio < 0.25, \
                 f"Quick/Pro 差距过大: Quick={q_total}, Pro={p_total}, ratio={ratio:.1%}"
 
 

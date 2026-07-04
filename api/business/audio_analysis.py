@@ -277,7 +277,7 @@ def _build_success_result(
     )
 
     result = build_response(result_dto, version='5.0')
-    result['scores']['volume'] = float(score_result.breath_score)
+    result['scores']['volume'] = float(score_result.volume)
     result['scores']['emotion'] = float(score_result.artistry_score)
 
     return result
