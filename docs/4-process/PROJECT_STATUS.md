@@ -24,7 +24,7 @@ python web_app.py
 | **Professional** | `/api/upload?mode=professional` | ~130-170s | ~30-50s | 详细问题诊断 |
 | **Compare (DTW)** | `/api/compare` 或自动搜索 | ~45s | ~45s | 参考对比评分 |
 
-> ⚠️ 当前 PyTorch 为 CPU 版。安装 CUDA 版后 Pro 模式可快 3-4×。`/health` 端点可查看 GPU 状态。
+> ✅ PyTorch 2.6.0+cu124 (CUDA 12.4), GPU 加速已就绪。Demucs Pro 模式 GPU 耗时 ~30-50s。`/health` 端点可查看 GPU 状态。
 
 ---
 
@@ -105,6 +105,7 @@ python web_app.py
 | 无混响补偿 | 不同录音环境 HNR/CPP 不可比 | 📋 |
 | ~~音量维度未独立~~ | ~~与 Breath 合并~~ → v5.19 基于 dynamic_range 独立计算 | ✅ 已修复 |
 | 核心/服务层代码重叠 | legacy 模块待清理 | 📋 |
+| 混合音频检测误判 | 轻伴奏抒情歌 (如"手写的从前") 低频<0.35阈值被判为纯人声，跳过Demucs | 📋 v6.0 |
 
 ---
 
