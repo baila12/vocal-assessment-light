@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-07-04 | 当前版本: **v5.19** (评分区分度修复) | 下一版本: **v5.19+ / v6.0**
+> 更新: 2026-07-05 | 当前版本: **v5.20** (SPA 导航修复 + 架构升级 + 混响补偿) | 下一版本: **v6.0**
 
 ---
 
@@ -12,7 +12,7 @@ python web_app.py
 # http://localhost:5000
 ```
 
-**技术栈**: Flask 3.0 | librosa | PyTorch | Demucs | Chart.js | pytest | Playwright
+**技术栈**: Flask 3.0 | librosa | PyTorch | Demucs | Chart.js | GSAP 3 | AppContext DI | EventBus | pytest | Playwright
 
 ---
 
@@ -96,16 +96,82 @@ python web_app.py
 | **23 个经验参数未校准** | 全部 [经验估计], 部分已调整 (基线/阈值) | 📋 校准数据集 (v6.0) |
 | **Pro 模式耗时过长** | CPU ~130-170s (Demucs 占 ~80%) | ✅ GPU 加速已就绪 |
 
-### P2 (优化) — 5 项 (v5.19: 1 项已修复)
+### P2 (优化) — 6 项 (v5.20: 2 项已改进)
 
 | 问题 | 说明 | 状态 |
 |------|------|------|
 | f0 节奏路径待恢复 | v5.13 回退到 f0=None，需校准验证后启用 | 📋 |
 | 技巧检测仅 3 种 | 颤音/滑音/假声 vs 论文 7-15 种 | 📋 |
-| 无混响补偿 | 不同录音环境 HNR/CPP 不可比 | 📋 |
+| 无混响补偿 | 不同录音环境 HNR/CPP 不可比 | 🆕 v5.20: `ReverbCompensator` 已实现, 待接入管线 |
 | ~~音量维度未独立~~ | ~~与 Breath 合并~~ → v5.19 基于 dynamic_range 独立计算 | ✅ 已修复 |
 | 核心/服务层代码重叠 | legacy 模块待清理 | 📋 |
-| 混合音频检测误判 | 轻伴奏抒情歌 (如"手写的从前") 低频<0.35阈值被判为纯人声，跳过Demucs → 详见 [SCORING.md](../2-technical/SCORING.md) 算法与局限 | 📋 v6.0 |
+| 混合音频检测误判 | 轻伴奏抒情歌 (如"手写的从前") 低频<0.35阈值被判为纯人声 | 🆕 v5.20: 多特征融合算法, 待真音频验证 |
+
+### ✅ P0 (前端) — SPA 导航跳转 Bug (已修复)
+
+| 问题 | 说明 | 状态 |
+|------|------|------|
+| **SPA 导航不跳转** | 点击导航按钮后 URL hash 改变, 但页面内容不更新 | ✅ v5.20 已修复 |
+
+**根因**: 三重 Bug 叠加导致路由器 `#transition()` 死锁:
+
+1. `AnimationController._execute()` — `onComplete` 被从 GSAP vars 中丢弃
+2. `AnimationController._track()` — 覆盖而非链式调用已有 `onComplete`, 且 getter 对刚创建的 tween 返回 `undefined` 时未回退到 `vars.onComplete`
+3. `HashRouter.#handleRoute()` — `killAll()` 在 `#navPending` 检查之前执行, 单次点击触发的 popstate 事件杀掉了 hashchange 事件的 leave 动画
+
+**修复文件**: `web/static/js/animation/Controller.js` (3 处), `web/static/js/components/BaseComponent.js` (1 处), `web/static/router.js` (1 处)
+
+### 🆕 P1 (前端) — 其他已修复的 SPA 问题 (v5.20)
+
+| 问题 | 状态 |
+|------|------|
+| API 路径 `/api/audio/analyze` 不存在 (404) → `/api/upload` | ✅ 已修复 |
+| API 路径 `/api/history/batch-delete` 路径+方法错误 | ✅ 已修复 |
+| HistoryPage.js 全部中文乱码 (mojibake) + `ac is not defined` | ✅ 已修复 |
+| ComparePage Modal 弹窗无法关闭 (双重 overlay) | ✅ 已修复 |
+| 全部页面 `const ac = this.ac` 编码/作用域问题 | ✅ 已修复 |
+| 路由 `#transition()` 无错误恢复 | ✅ 已修复 |
+
+---
+
+## v5.20: 前端SPA修复 + 架构升级 + 混响补偿 + 混合音频检测重构 (2026-07-05, 已完成)
+
+### 🔴 SPA 导航死锁修复 (P0, 3 文件)
+
+三重 Bug 叠加 → 路由器 `#transition()` 死锁 → URL 变但页面不更新。
+
+| # | 文件 | 修复 |
+|---|------|------|
+| 1 | `web/static/js/animation/Controller.js` | `_execute()`: onComplete 传入 GSAP toVars; `_track()`: 链式回调 (cleanup + 原有), 双来源检查; `leave()`: 安全超时 |
+| 2 | `web/static/js/components/BaseComponent.js` | `beforeUnmount()`: 硬编码 'page-leave' 预设 |
+| 3 | `web/static/router.js` | `#navPending` 检查移到 `killAll()` 之前 |
+
+### 🏗️ 架构升级 — v7.0 Vue 迁移衔接 (3 文件新增, 3 文件重构)
+
+| # | 文件 | 说明 | v7.0 目标 |
+|---|------|------|----------|
+| 1 | `web/static/js/AppContext.js` 🆕 | 依赖注入容器 (store/router/api/ac/events) | Vue `provide/inject` |
+| 2 | `web/static/js/EventBus.js` 🆕 | 事件总线 (on/once/off/emit) | `mitt()` |
+| 3 | `web/static/js/components/BaseComponent.js` v3.0 | context 注入, Vue 生命周期对齐 | `<script setup>` |
+| 4 | `web/static/app.js` v3.0 | createApp 模式入口, context 组装 | `createApp()` |
+| 5 | `web/static/router.js` v3.0 | `useContext(context)` 注入 | Vue Router `createRouter` |
+
+### 前端 SPA Bug 修复 (6 类, 12 文件) — 基础修复, 见 CHANGELOG |
+
+### 后端改进
+
+| # | 模块 | 文件 | 依据 |
+|---|------|------|------|
+| 1 | 混响补偿 | `services/features/reverb.py` 🆕 | Fitzgerald 2010, Boll 1979, Berouti 1979 |
+| 2 | 混合音频检测重构 | `services/features/acoustic.py` | HPSS + 多特征融合, 采样率自适应 |
+| 3 | CPP 测试修复 | `tests/tdd/test_future_features.py` | 安装 parselmouth 0.4.7 |
+
+### 测试
+
+```
+单元+TDD: 149 passed, 0 failed, 7 xfail (v6.0)
+混响补偿: 1 xfail → 1 GREEN 🆕
+```
 
 ---
 
@@ -210,13 +276,28 @@ class FeatureFlags:
 | 混响补偿 (HPSS+谱减法) | P1 | 2天 |
 | f0 节奏路径恢复 (校准验证后) | P1 | 1天 |
 
-### v6.1+: 算法增强
+### v6.1: 算法增强 + 混响补偿管线接入
 
 | 任务 | 优先级 |
 |------|--------|
+| 混响补偿接入评分管线 (ReverbCompensator → HNR/CPP 修正) | P1 |
 | SVQTD 7属性分类器接入 | P2 |
 | ECAPA-TDNN 音色分析 (明亮度/厚度) | P2 |
 | 歌曲模板系统 | P2 |
+
+### v7.0: Electron 桌面应用 + Vue 3 前端重构
+
+> 详见 [PRD.md §9](../1-product/PRD.md#9--v70--electron-桌面应用--vue-3-前端重构-规划中)
+
+| 任务 | 优先级 | 工作量 |
+|------|--------|--------|
+| Vite + Vue 3 项目初始化 + Electron 集成 | P0 | 3 天 |
+| Flask 子进程管理 (Electron 主进程) | P0 | 2 天 |
+| 核心页面 Vue 重构 (首页 + 报告页) | P0 | 5 天 |
+| 完整页面迁移 (历史/对比/演唱/设置/曲库) | P0 | 5 天 |
+| 原生增强 (系统托盘/菜单/文件关联/自动更新) | P1 | 3 天 |
+| electron-builder + PyInstaller 打包配置 | P0 | 3 天 |
+| 全量测试 + 跨平台验证 | P0 | 3 天 |
 
 ---
 
@@ -323,6 +404,8 @@ class FeatureFlags:
 ⏳ 气息区分度 ≥ 20 (需校准数据集)
 ⏳ 音准区分度 ≥ 10 (DTW + 校准)
 ⏳ HNR/CPP 天花板重校准 (v5.19)
+✅ SPA 导航死锁修复 — 三重 Bug, 3 文件 (v5.20)
+✅ 前端架构升级 — AppContext + EventBus + Vue 对齐 (v5.20)
 ```
 
 ---

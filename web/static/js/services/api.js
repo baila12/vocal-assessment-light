@@ -165,7 +165,7 @@ export class ApiClient {
         this._activeAnalysisController = new AbortController();
 
         try {
-            const result = await this.request('POST', '/api/audio/analyze', {
+            const result = await this.request('POST', '/api/upload', {
                 body: formData,
                 isFormData: true,
                 timeout: 300000, // 涓撲笟妯″紡鍙兘杈冩參
@@ -230,7 +230,7 @@ export class ApiClient {
      * @param {number[]} ids
      */
     async deleteHistoryBatch(ids) {
-        return this.request('POST', '/api/history/batch-delete', {
+        return this.request('DELETE', '/api/history/batch', {
             body: { ids }
         });
     }

@@ -724,6 +724,7 @@ class AudioService:
             return audio_data, sample_rate, None, False, False, 0.0
 
         # 检测是否为混合音频
+        # 使用已加载的音频数据 (16kHz) 进行检测, 避免额外 I/O
         try:
             is_mixed, confidence, _, _ = AcousticAnalyzer(
                 sample_rate, self._hop_length

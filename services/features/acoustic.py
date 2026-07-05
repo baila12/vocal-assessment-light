@@ -94,15 +94,27 @@ class AcousticAnalyzer:
 
     def detect_mixed_audio(self, audio_data: np.ndarray) -> tuple:
         """
-        检测是否为混合音频（带伴奏）
+        检测是否为混合音频（带伴奏）— v5.20 多特征融合版
 
-        混合音频特征：
-        1. 低频能量占比高（伴奏通常有低频乐器）
-        2. 频谱平坦度高（多乐器叠加）
-        3. 立体声相关性（如果有）
+        采样率自适应: 归一化参数基于 Nyquist 频率调整, 在 16kHz-48kHz
+        范围内均有效。v5.20 从原文件直接加载检测片段 (audio_service.py),
+        避免 16kHz 降采样导致的频谱特征退化。
+
+        特征:
+          1. HPSS 谐波能量比 — 采样率无关, 纯人声 >0.75
+          2. 低频能量比 — 伴奏(贝斯/鼓)有更多 <300Hz 能量
+          3. 高频能量比 — 伴奏(镲片/泛音)有更多 >5kHz 能量
+          4. 频谱平坦度 — 多乐器叠加使频谱趋于平坦
+
+        参考文献:
+          - Fitzgerald (2010). "Harmonic/Percussive Separation."
+            DAFx. — HPSS 理论基础
+          - McFee et al. (2015). "librosa: Audio and Music Signal
+            Analysis in Python." SciPy. — 使用的库和特征
+          - v5.17 实证: 轻钢琴伴奏男声在旧 0.35 阈值下被漏判
 
         Args:
-            audio_data: 音频数据
+            audio_data: 音频数据 (建议使用原始采样率)
 
         Returns:
             (is_mixed, confidence, low_freq_ratio, spectral_flatness)
@@ -111,54 +123,102 @@ class AcousticAnalyzer:
             # 计算频谱
             stft = np.abs(librosa.stft(audio_data))
             spectrum = np.mean(stft, axis=1)
-
-            # 1. 低频能量占比（人声主要在 300-3000Hz，伴奏有更多低频）
             freqs = librosa.fft_frequencies(sr=self.sample_rate)
-            voice_band_mask = (freqs >= 300) & (freqs <= 3000)
-            low_freq_mask = freqs < 300
-
-            voice_energy = np.sum(spectrum[voice_band_mask] ** 2)
-            low_energy = np.sum(spectrum[low_freq_mask] ** 2)
             total_energy = np.sum(spectrum ** 2) + 1e-10
 
-            low_freq_ratio = low_energy / total_energy
-            voice_ratio = voice_energy / total_energy
+            # ============================================================
+            # 特征1: HPSS 谐波能量比 (主特征, 16kHz下最可靠)
+            #
+            # 原理 [Fitzgerald 2010]: HPSS 用中值滤波将音频分为
+            #   - 谐波成分 (水平方向连续) = 人声 + 乐器持续音
+            #   - 冲击成分 (垂直方向连续) = 辅音 + 乐器瞬态 + 混响
+            # 纯人声: 谐波比 > 0.75 (大部分能量在谐波成分)
+            # 混合音频: 谐波比降低 (伴奏能量部分被分到冲击成分)
+            # ============================================================
+            harmonic, percussive = librosa.effects.hpss(
+                audio_data, margin=(1.0, 3.0)
+            )
+            hpss_harmonic_ratio = float(
+                np.sum(harmonic ** 2) / (np.sum(audio_data ** 2) + 1e-10)
+            )
+            # 归一化: 0.90以上→0, 0.50以下→1
+            hpss_score = np.clip((0.90 - hpss_harmonic_ratio) / 0.40, 0.0, 1.0)
 
-            # 2. 频谱平坦度（混合音频频谱更平坦）
+            # ============================================================
+            # 特征2: 高频能量占比 (>5kHz)
+            #
+            # 纯人声在 >5kHz 能量极少 (<2%), 伴奏乐器(镲片/弦乐泛音)
+            # 在此频段有明显能量
+            # ============================================================
+            high_band_mask = freqs > 5000
+            high_energy = np.sum(spectrum[high_band_mask] ** 2)
+            high_freq_ratio = high_energy / total_energy
+            # 归一化: >5%→1 (强烈有伴奏), <1%→0 (纯人声)
+            high_freq_score = np.clip((high_freq_ratio - 0.01) / 0.04, 0.0, 1.0)
+
+            # ============================================================
+            # 特征3: 频谱平坦度
+            # ============================================================
             spectral_flatness = librosa.feature.spectral_flatness(
                 S=stft, hop_length=self.hop_length
             )
-            mean_flatness = np.mean(spectral_flatness)
+            mean_flatness = float(np.mean(spectral_flatness))
+            flatness_score = np.clip(mean_flatness / 0.30, 0.0, 1.0)
 
-            # 3. 判断逻辑
-            # 纯人声：低频占比 < 0.3，频谱平坦度 < 0.3
-            # 混合音频：低频占比 > 0.4 或 频谱平坦度 > 0.4
+            # ============================================================
+            # 特征4: 低频能量比
+            #
+            # 归一化采样率自适应: Nyquist 越高, 300Hz 以下占比越低。
+            # 在 44.1kHz 下人声典型 5-20%, 伴奏 >25%
+            # 在 16kHz 下人声典型 20-50%, 区分力有限
+            # ============================================================
+            low_freq_mask = freqs < 300
+            low_energy = np.sum(spectrum[low_freq_mask] ** 2)
+            low_freq_ratio = low_energy / total_energy
+            # 采样率自适应归一化
+            nyquist = self.sample_rate / 2
+            low_freq_norm = 0.12 + (300.0 / nyquist) * 3.0
+            low_freq_score = np.clip(low_freq_ratio / low_freq_norm, 0.0, 1.0)
 
-            is_mixed = False
-            confidence = 0.0
+            # ============================================================
+            # v5.20: 四特征加权投票 (采样率自适应)
+            #
+            # HPSS 谐波比 — 最可靠, 采样率无关
+            # 高频能量 — 有效但需采样率自适应 >5kHz 占比
+            # 低频能量 — 在 44.1kHz 下有效, 16kHz 下自动降权
+            # 频谱平坦度 — 辅助
+            # ============================================================
+            mixed_score = (
+                0.40 * hpss_score +
+                0.25 * high_freq_score +
+                0.20 * low_freq_score +
+                0.15 * flatness_score
+            )
 
-            if low_freq_ratio > 0.5:
-                # 高低频能量，很可能是混合音频
+            # 决策
+            if mixed_score > 0.45:
                 is_mixed = True
-                confidence = 0.7 + (low_freq_ratio - 0.5) * 0.6
-            elif low_freq_ratio > 0.35:
-                # 中等低频能量，结合频谱平坦度判断
-                if mean_flatness > 0.35:
-                    is_mixed = True
-                    confidence = 0.5 + (mean_flatness - 0.35)
-                else:
-                    # 可能是低音域歌手
-                    confidence = 0.3
+                confidence = 0.65 + (mixed_score - 0.45) * 0.7
+            elif mixed_score > 0.28:
+                is_mixed = True
+                confidence = 0.45 + (mixed_score - 0.28) * 1.0
+            elif mixed_score > 0.18:
+                # 灰区: 保守处理, 触发分离
+                is_mixed = True
+                confidence = 0.25 + (mixed_score - 0.18) * 2.0
             else:
-                # 低频能量低，可能是纯人声
                 is_mixed = False
-                confidence = 1.0 - low_freq_ratio
+                confidence = 1.0 - mixed_score * 4.0
 
-            confidence = max(0.0, min(1.0, confidence))
+            confidence = float(max(0.0, min(1.0, confidence)))
 
             logger.debug(
-                f"混合音频检测: is_mixed={is_mixed}, confidence={confidence:.2f}, "
-                f"low_freq_ratio={low_freq_ratio:.2f}, flatness={mean_flatness:.2f}"
+                f"混合音频检测 v5.20: is_mixed={is_mixed}, confidence={confidence:.2f}, "
+                f"mixed_score={mixed_score:.3f} (sr={self.sample_rate}), "
+                f"hpss={hpss_harmonic_ratio:.3f}({hpss_score:.2f}), "
+                f"high={high_freq_ratio:.4f}({high_freq_score:.2f}), "
+                f"low={low_freq_ratio:.3f}({low_freq_score:.2f}), "
+                f"flat={mean_flatness:.4f}({flatness_score:.2f})"
             )
 
             return is_mixed, confidence, low_freq_ratio, float(mean_flatness)

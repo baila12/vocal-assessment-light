@@ -176,7 +176,6 @@ export class ReportPage extends BaseComponent {
 
     _animateEntrance(result) {
         const scores = result.scores || {};
-        const ac = this.ac;
 
         // 1. 环形评分 (独立于 Controller, Canvas 动画)
         const ringContainer = this.el.querySelector('_scoreRingContainer');
@@ -201,8 +200,8 @@ export class ReportPage extends BaseComponent {
 
         const adviceList = this.el.querySelector('#adviceList');
 
-        if (ac) {
-            const tl = ac.createTimeline();
+        if (this.ac) {
+            const tl = this.ac.createTimeline();
 
             // 进度条依次展开 (stagger +0.15s 间隔)
             const dims = ['pitch', 'rhythm', 'breath', 'technique', 'artistry'];

@@ -1,22 +1,37 @@
-# 系统架构 v5.17
+# 系统架构 v5.20
 
-> 更新: 2026-06-05 | 匹配 v5.17 实际代码结构 | 历史 v3.1 版本见 [5-archive/ARCHITECTURE.md](../5-archive/ARCHITECTURE.md)
+> 更新: 2026-07-05 | 匹配 v5.20 实际代码结构 | 历史 v3.1 版本见 [5-archive/ARCHITECTURE.md](../5-archive/ARCHITECTURE.md)
+>
+> **规划**: v7.0 将引入 Electron 桌面壳 + Vue 3 前端重构, 详见 [PRD.md §9](../1-product/PRD.md#9--v70--electron-桌面应用--vue-3-前端重构-规划中)
+> **v5.20 架构升级**: 引入 AppContext (DI) + EventBus 为 Vue 迁移做准备, 详见本文档第五章
 
 ---
 
 ## 一、架构总览
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        前端 (Browser)                            │
-│  index.html + ES6 Modules + Chart.js + Web Audio API + Canvas   │
-└──────────────────────────┬──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         前端 (Browser)                                │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  app.js (createApp 模式入口)                                    │   │
+│  │  ├─ AppContext (DI)  ─  store / router / api / ac / events    │   │
+│  │  │   v7.0 → Vue provide/inject                                 │   │
+│  │  ├─ EventBus        ─  on / once / off / emit                 │   │
+│  │  │   v7.0 → mitt()                                             │   │
+│  │  ├─ HashRouter      ─  useContext() + Vue 生命周期对齐        │   │
+│  │  │   v7.0 → Vue Router createRouter()                          │   │
+│  │  └─ BaseComponent   ─  context 注入 + mount/beforeUnmount     │   │
+│  │      v7.0 → <script setup> + onMounted/onBeforeUnmount         │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│  index.html + ES6 Modules + Chart.js + Web Audio API + Canvas + GSAP │
+│  [v7.0 计划: Electron + Vue 3 + Pinia + Vue Router + mitt]          │
+└──────────────────────────┬───────────────────────────────────────────┘
                            │ HTTP (localhost:5000)
-┌──────────────────────────▼──────────────────────────────────────┐
-│                      API 层 (Flask)                              │
-│  api/__init__.py  →  routes (upload/audio/history/compare)      │
-│                   →  business/audio_analysis.py                  │
-└──────────────────────────┬──────────────────────────────────────┘
+┌──────────────────────────▼───────────────────────────────────────────┐
+│                        API 层 (Flask)                                 │
+│  api/__init__.py  →  routes (upload/audio/history/compare)           │
+│                   →  business/audio_analysis.py                       │
+└──────────────────────────┬───────────────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────────┐
 │                    服务层 (Services)                              │
@@ -142,19 +157,36 @@ vocal_assessment_light/
 │       ├── signals.py                # Qt Core QObject + Signal
 │       └── manager.py                # Qt QThreadPool 线程管理
 │
-├── web/                              # 前端
+├── web/                              # 前端 (v5.20 架构升级)
 │   ├── static/
-│   │   ├── app.js                    # 应用入口
-│   │   ├── js/modules/               # ES6 模块
-│   │   │   ├── state.js              # 全局状态管理
-│   │   │   ├── api.js                # API 请求封装
-│   │   │   ├── audio.js              # 音频处理
-│   │   │   ├── charts.js             # Chart.js 图表
-│   │   │   ├── recording.js          # 录音模块
-│   │   │   └── utils.js              # 工具函数
-│   │   └── plots/                    # 生成的可视化图片
-│   └── templates/
-│       └── index.html                # 单页面应用入口
+│   │   ├── app.js                    # 应用入口 (createApp 模式)
+│   │   ├── router.js                 # HashRouter (useContext 注入)
+│   │   ├── index.html                # SPA HTML 入口
+│   │   └── js/
+│   │       ├── AppContext.js       🆕 # 依赖注入容器 (v7.0 → provide/inject)
+│   │       ├── EventBus.js         🆕 # 事件总线 (v7.0 → mitt)
+│   │       ├── state/store.js        # 全局状态 (v7.0 → Pinia)
+│   │       ├── services/api.js       # API 客户端 (v7.0 → HTTP/IPC)
+│   │       ├── animation/
+│   │       │   ├── Controller.js     # GSAP 统一控制器
+│   │       │   └── presets.js        # 动画预设库
+│   │       ├── components/
+│   │       │   ├── BaseComponent.js  # 组件基类 (context 注入, Vue 生命周期)
+│   │       │   ├── Navigation.js     # TopNav + BottomNav
+│   │       │   ├── Toast.js          # Toast 通知
+│   │       │   ├── Modal.js          # 模态框
+│   │       │   └── ProgressBar.js    # 进度条
+│   │       ├── pages/                # 页面组件 (继承 BaseComponent)
+│   │       │   ├── HomePage.js       # 首页
+│   │       │   ├── SingPage.js       # 演唱录制
+│   │       │   ├── ReportPage.js     # 评分报告
+│   │       │   ├── HistoryPage.js    # 历史记录
+│   │       │   ├── ComparePage.js    # 对比分析
+│   │       │   ├── SettingsPage.js   # 系统设置
+│   │       │   └── SongLibraryPage.js # 标准曲库
+│   │       ├── modules/              # 功能模块
+│   │       │   ├── state.js, api.js, audio.js, charts.js, recording.js, utils.js
+│   │       └── plots/                # 生成的可视化图片
 │
 ├── api/sse/                           # ★ v6.0 SSE 流式推送
 │   ├── analysis_progress.py           # 上传分析进度推送 (8 events)
@@ -494,7 +526,89 @@ POST /api/record/stream (song_id?)
 
 ---
 
-## 六、参考文档
+## 六、前端架构升级 — v7.0 Vue 迁移映射 (v5.20)
+
+### 6.1 AppContext — 依赖注入容器
+
+`web/static/js/AppContext.js` — 聚合 store / router / api / ac / events 五大服务。
+
+```
+app.js (createApp 模式)
+  └─ new AppContext({ store, router, api, ac, events })
+       │
+       ├─ context.store   → 所有组件通过 BaseComponent.store 访问
+       ├─ context.router  → 路由器通过 useContext(context) 注入
+       ├─ context.api     → API 客户端
+       ├─ context.ac      → 动画控制器
+       └─ context.events  → 跨组件事件通信
+```
+
+**v7.0 迁移**: `AppContext` → Vue `app.provide('context', ...)` + `inject('context')`
+
+### 6.2 EventBus — 事件总线
+
+`web/static/js/EventBus.js` — 解耦跨组件通信, API 对齐 `mitt()`。
+
+|| 方法 | 说明 |
+||------|------|
+|| `on(event, handler)` | 监听 |
+|| `once(event, handler)` | 一次性监听 |
+|| `off(event, handler?)` | 移除 |
+|| `emit(event, ...args)` | 触发 |
+
+**命名约定**: `domain:action` (e.g. `analysis:complete`, `route:changed`, `system:online`)
+
+**v7.0 迁移**: `EventBus` → `mitt()`
+
+### 6.3 Vanilla JS → Vue 3 完整映射
+
+```
+Vanilla JS (v5.20+)             Vue 3 (v7.0)
+────────────────────────────    ───────────────────────
+AppContext                      app.provide() + inject()
+  context.store     →           Pinia createPinia() / useStore()
+  context.router    →           Vue Router createRouter() / useRouter()
+  context.api       →           HTTP client 或 Electron IPC bridge
+  context.ac        →           useGsap() composable
+  context.events    →           mitt()
+
+BaseComponent                   <script setup>
+  constructor()     →           setup()
+  render()          →           <template>
+  bindEvents()      →           @click / @input 指令
+  mount(params)     →           onBeforeMount() + onMounted()
+  animateIn()       →           <Transition name="page">
+  beforeUnmount()   →           onBeforeUnmount()
+  destroy()         →           onUnmounted() (自动 GC)
+  update(data)      →           watch() / computed()
+  show() / hide()   →           v-if / v-show + <Transition>
+  createElement()   →           直接写 HTML 模板
+  get store         →           useStore()
+  get router        →           useRouter()
+  get api           →           composable / IPC
+  get ac            →           useGsap()
+
+HashRouter                      Vue Router
+  register(pattern) →           router.addRoute()
+  onBeforeNavigate() →          router.beforeEach()
+  navigate(hash)    →           router.push()
+  start()           →           app.mount('#app')
+  useContext()      →           inject('context')
+  getCurrentRoute() →           useRoute()
+```
+
+### 6.4 迁移策略
+
+| 阶段 | 内容 |
+|------|------|
+| **当前 (v5.20)** | AppContext + EventBus 已就绪。所有组件通过 `this.context` 访问服务, `window.*` 作回退 |
+| **Phase 1 (v7.0)** | Vite + Vue 3 项目初始化。AppContext → `app.provide`。BaseComponent → `<script setup>` |
+| **Phase 2 (v7.0)** | 逐页迁移: render() → `<template>`, bindEvents() → 模板指令 |
+| **Phase 3 (v7.0)** | HashRouter → Vue Router。移除 `window.*` 全局回退。EventBus → mitt |
+
+---
+
+## 七、参考文档
 
 | 文档 | 路径 |
 |------|------|

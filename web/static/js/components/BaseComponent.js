@@ -1,75 +1,167 @@
 /**
- * BaseComponent — 组件基类
+ * BaseComponent — 组件基类 (v3.0)
  *
- * 所有页面和组件遵循统一生命周期接口
- * 集成 AnimationController: mount → enter(), beforeUnmount → leave()
+ * 所有页面和组件遵循统一生命周期接口。
  *
- * @version 2.0
+ * ## v7.0 Vue 迁移映射
+ *
+ *   Vanilla JS (当前)          Vue 3 (v7.0)
+ *   ─────────────────────      ─────────────────
+ *   constructor(container)     setup() / <script setup>
+ *   render()                   <template> 或 h() render
+ *   bindEvents()               @click, @input 等模板指令
+ *   mount(params)              onBeforeMount + onMounted
+ *   animateIn()                <Transition> 或 useGsap
+ *   beforeUnmount()            onBeforeUnmount
+ *   destroy()                  onUnmounted (自动 GC)
+ *   this.context.store         useStore() / Pinia
+ *   this.context.router        useRouter()
+ *   this.context.api           HTTP client / IPC bridge
+ *   this.context.ac            useGsap() composable
+ *   this.context.events        mitt()
+ *   createElement(tag, ...)    <template> 直接写 HTML
+ *
+ * ## 依赖注入
+ *
+ *   优先使用 context (AppContext)，回退到 window 全局。
+ *   v7.0 中 window 回退将被移除，context 由 Vue provide/inject 提供。
+ *
+ * @version 3.0
  */
+
 export class BaseComponent {
-    /** @type {Element} */
-    container;
-
-    /** @type {Object} */
-    options;
-
-    /** @type {import('../state/store.js').Store|null} */
-    store;
-
-    /** @type {import('../../router.js').HashRouter|null} */
-    router;
-
-    /** @type {import('../api/backend.js').ApiClient|null} */
-    api;
-
-    /** @type {Element|null} */
-    el;
+    // ========================================================================
+    // 静态
+    // ========================================================================
 
     /**
-     * 页面动画预设 (子类可覆写)
-     * 页面入场预设名称，例如 'page-enter', 'page-enter-down', 'page-enter-scale'
+     * 入场动画预设名称 (子类可覆写)
+     * v7.0: 替换为 <Transition name="..."> 或 useGsap preset
      */
     static animationPreset = 'page-enter';
 
+    // ========================================================================
+    // 实例属性
+    // ========================================================================
+
+    /** @type {Element} — 挂载容器 (v7.0: template ref) */
+    container;
+
+    /** @type {Object} — 构造选项 */
+    options;
+
+    /** @type {import('../AppContext.js').AppContext|null} */
+    context;
+
+    /** @type {Element|null} — 根 DOM 元素 (v7.0: template ref) */
+    el;
+
+    // ========================================================================
+    // 构造函数
+    // ========================================================================
+
+    /**
+     * @param {Element} container — 挂载目标容器
+     * @param {Object} [options]
+     * @param {import('../AppContext.js').AppContext} [options.context]
+     *    AppContext 实例。v7.0 中由 Vue provide/inject 自动注入。
+     */
     constructor(container, options = {}) {
         this.container = container;
         this.options = options;
-        this.store = options.store || null;
-        this.router = options.router || null;
-        this.api = options.api || null;
 
-        if (!this.store && typeof window !== 'undefined' && window.__store) {
-            this.store = window.__store;
-        }
-        if (!this.router && typeof window !== 'undefined' && window.__router) {
-            this.router = window.__router;
-        }
-        if (!this.api && typeof window !== 'undefined' && window.__api) {
-            this.api = window.__api;
+        // 依赖注入: 优先显式传入，回退到全局 AppContext
+        this.context = options.context || null;
+        if (!this.context && typeof window !== 'undefined') {
+            this.context = window.__appContext || null;
         }
     }
 
-    /**
-     * 获取 AnimationController 实例
-     * @returns {import('../animation/Controller.js').AnimationController|null}
-     */
+    // ========================================================================
+    // 服务 getters (v7.0 → Vue composables)
+    // ========================================================================
+
+    /** @returns {import('../state/store.js').Store|null} */
+    get store() {
+        return this.context?.store
+            || (typeof window !== 'undefined' && window.__store)
+            || null;
+    }
+
+    /** @returns {import('../../router.js').HashRouter|null} */
+    get router() {
+        return this.context?.router
+            || (typeof window !== 'undefined' && window.__router)
+            || null;
+    }
+
+    /** @returns {import('../services/api.js').ApiClient|null} */
+    get api() {
+        return this.context?.api
+            || (typeof window !== 'undefined' && window.__api)
+            || null;
+    }
+
+    /** @returns {import('../animation/Controller.js').AnimationController|null} */
     get ac() {
-        return (typeof window !== 'undefined' && window.__ac) || null;
+        return this.context?.ac
+            || (typeof window !== 'undefined' && window.__ac)
+            || null;
     }
 
+    // ========================================================================
+    // 生命周期 (对齐 Vue 3)
+    // ========================================================================
+
     /**
-     * 挂载 — 创建 DOM，绑定事件，触发入场动画
-     * @param {Object} [params]
+     * 挂载 — 对应 Vue onBeforeMount + onMounted
+     *
+     * 标准流程: render() → bindEvents() → animateIn()
+     * 子类覆写时应遵循: super.mount(params) 或自行管理完整流程
+     *
+     * @param {Object} [params] — 路由参数或初始化数据
      * @returns {Promise<void>}
      */
     async mount(params) {
+        // 1. onBeforeMount — 创建 DOM
         this.render(params);
+        if (this.el) this.el.classList.add('active');
+
+        // 2. onMounted — 绑定事件
         this.bindEvents();
+
+        // 3. 入场动画 (对应 Vue <Transition>)
         await this.animateIn();
     }
 
     /**
-     * 入场动画 — 自动使用 AnimationController
+     * 创建 DOM — 对应 Vue template 或 render()
+     * 子类必须覆写，在其中设置 this.el 并附加到 this.container
+     *
+     * @param {Object} [params]
+     */
+    render(params) {
+        // 子类覆写: this.el = this.createElement(...); this.container.appendChild(this.el);
+    }
+
+    /**
+     * 绑定事件 — 对应 Vue @click/@input 等模板指令
+     * v7.0 中事件绑定由模板声明，此方法废弃
+     */
+    bindEvents() {
+        // 子类覆写
+    }
+
+    /**
+     * 响应数据更新 — 对应 Vue watch 或 computed 的副作用
+     * @param {Object} data
+     */
+    update(data) {
+        // 子类覆写
+    }
+
+    /**
+     * 入场动画 — 对应 Vue <Transition name="page">
      * 子类可覆写以实现自定义动画序列
      * @returns {Promise<void>}
      */
@@ -87,24 +179,13 @@ export class BaseComponent {
         }
     }
 
-    render(params) {
-        // 子类覆写
-    }
-
-    bindEvents() {
-        // 子类覆写
-    }
-
-    update(data) {
-        // 子类覆写
-    }
-
     /**
-     * 卸载前的出场动画
+     * 卸载前 — 对应 Vue onBeforeUnmount
+     * 出场动画放在这里，保证在 DOM 移除前执行
      * @returns {Promise<void>}
      */
     async beforeUnmount() {
-        const preset = this.constructor.animationPreset || 'page-leave';
+        const preset = 'page-leave';
         if (this.ac && this.el) {
             await this.ac.leave(this.el, { preset });
         } else if (this.el && typeof gsap !== 'undefined') {
@@ -117,25 +198,31 @@ export class BaseComponent {
     }
 
     /**
-     * 销毁 — 清理动画、事件、DOM
+     * 销毁 — 对应 Vue onUnmounted
+     * 清理动画、事件、DOM。Vue 中 DOM 移除由框架自动处理。
      */
     destroy() {
+        // 清理 GSAP 动画
         if (this.el) {
-            if (this.ac) {
-                // 由 Controller 统一清理
-            } else if (typeof gsap !== 'undefined') {
+            if (typeof gsap !== 'undefined') {
                 gsap.killTweensOf(this.el);
                 gsap.killTweensOf(this.el.querySelectorAll('*'));
             }
         }
+        // 移除 DOM
         if (this.el && this.el.parentNode) {
             this.el.remove();
         }
         this.el = null;
     }
 
+    // ========================================================================
+    // 显示/隐藏 (非路由切换场景，如 Modal/Tab)
+    // ========================================================================
+
     /**
-     * 显示 (带 GSAP 入场动画)
+     * 显示 (带入场动画)
+     * v7.0: v-if / v-show + <Transition>
      * @returns {Promise<void>}
      */
     async show() {
@@ -157,7 +244,7 @@ export class BaseComponent {
     }
 
     /**
-     * 隐藏 (带 GSAP 出场动画)
+     * 隐藏 (带出场动画)
      * @returns {Promise<void>}
      */
     async hide() {
@@ -179,8 +266,17 @@ export class BaseComponent {
         }).then();
     }
 
+    // ========================================================================
+    // 工具方法 (v7.0 中由 <template> 替代)
+    // ========================================================================
+
     /**
-     * 创建元素 (快捷方法)
+     * 创建 HTML 元素 — v7.0 废弃，替换为 <template>
+     *
+     * @param {string} tag
+     * @param {Object} [attrs]
+     * @param {...(string|Element|Element[])} children
+     * @returns {Element}
      */
     createElement(tag, attrs = {}, ...children) {
         const el = document.createElement(tag);

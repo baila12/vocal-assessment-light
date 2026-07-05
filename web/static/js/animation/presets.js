@@ -1,11 +1,11 @@
 /**
- * animation/presets.js — GSAP 动画预设配置
+ * animation/presets.js — GSAP Animation Presets
  *
- * 所有预设集中在 Controller 层管理，页面无需直接写 GSAP 代码。
- * 设计原则:
- *   1. 只动画 transform/opacity (compositor-only, 遵循 gsap-performance)
- *   2. duration ≤ 600ms (页面入场) / ≤ 300ms (微交互)
- *   3. 每个预设应配置 enter/leave 或 animate 方向
+ * All presets managed at the Controller layer — pages don't write GSAP code directly.
+ * Design principles:
+ *   1. Only animate transform/opacity (compositor-only, per gsap-performance)
+ *   2. duration <= 600ms (page enter) / <= 300ms (micro-interactions)
+ *   3. Each preset should define clear enter/leave direction
  *
  * @version 1.0
  */
@@ -13,21 +13,20 @@
 /**
  * @typedef {Object} PresetDefinition
  * @property {string} type - 'fromTo' | 'to' | 'from'
- * @property {Object} from - 起始状态
- * @property {Object} to - 结束状态
- * @property {Object} [defaults] - 默认配置
+ * @property {Object} from - Start state
+ * @property {Object} to - End state
+ * @property {Object} [defaults] - Default config
  */
 
 /**
- * 预设库
- * key: 预设名称 (用于动画预设指定)
- * value: { enter/leave: PresetDefinition }
+ * Preset library
+ * key: preset name (used for animation preset selection)
  */
 export const PRESETS = {
 
-  // —— 页面级别 ——
+  // —— Page-level ——
 
-  /** 页面入场: 从下方淡入 (通用) */
+  /** Page enter: fade up from below (general) */
   'page-enter': {
     type: 'fromTo',
     from: { opacity: 0, y: 12 },
@@ -35,7 +34,7 @@ export const PRESETS = {
     defaults: { duration: 0.35, ease: 'power2.out' }
   },
 
-  /** 页面入场: 从上方淡入 (首页 welcome) */
+  /** Page enter: fade down from above (home welcome) */
   'page-enter-down': {
     type: 'fromTo',
     from: { opacity: 0, y: -16 },
@@ -43,7 +42,7 @@ export const PRESETS = {
     defaults: { duration: 0.4, ease: 'power2.out' }
   },
 
-  /** 页面入场: 缩放进入 (报告页) */
+  /** Page enter: scale up (report page) */
   'page-enter-scale': {
     type: 'fromTo',
     from: { opacity: 0, scale: 0.97 },
@@ -51,7 +50,7 @@ export const PRESETS = {
     defaults: { duration: 0.4, ease: 'power2.out' }
   },
 
-  /** 页面出场: 淡出 + 左移 */
+  /** Page leave: fade out + slide left */
   'page-leave': {
     type: 'to',
     from: null,
@@ -59,7 +58,7 @@ export const PRESETS = {
     defaults: { duration: 0.2, ease: 'power2.in' }
   },
 
-  /** 页面出场: 淡出 + 右移 */
+  /** Page leave: fade out + slide right */
   'page-leave-right': {
     type: 'to',
     from: null,
@@ -67,7 +66,7 @@ export const PRESETS = {
     defaults: { duration: 0.2, ease: 'power2.in' }
   },
 
-  /** 新页面从右侧滑入 (配合左退) */
+  /** New page slides in from right (pair with left leave) */
   'page-enter-right': {
     type: 'fromTo',
     from: { opacity: 0, x: 20 },
@@ -75,9 +74,9 @@ export const PRESETS = {
     defaults: { duration: 0.3, ease: 'power2.out' }
   },
 
-  // —— 元素级别 ——
+  // —— Element-level ——
 
-  /** 从下方滑入 (stagger 通用) */
+  /** Slide up from below (stagger general) */
   'slideUp': {
     type: 'fromTo',
     from: { opacity: 0, y: 24 },
@@ -85,7 +84,7 @@ export const PRESETS = {
     defaults: { duration: 0.5, ease: 'power2.out' }
   },
 
-  /** 轻微上滑 (卡片、标题) */
+  /** Subtle slide up (cards, titles) */
   'slideUp-sm': {
     type: 'fromTo',
     from: { opacity: 0, y: 8 },
@@ -93,7 +92,7 @@ export const PRESETS = {
     defaults: { duration: 0.3, ease: 'power2.out' }
   },
 
-  /** 从右侧滑入 (侧边栏) */
+  /** Slide in from right (sidebar) */
   'slideInRight': {
     type: 'fromTo',
     from: { opacity: 0, x: 30 },
@@ -101,7 +100,7 @@ export const PRESETS = {
     defaults: { duration: 0.4, ease: 'power2.out' }
   },
 
-  /** 从左侧滑入 */
+  /** Slide in from left */
   'slideInLeft': {
     type: 'fromTo',
     from: { opacity: 0, x: -30 },
@@ -109,7 +108,7 @@ export const PRESETS = {
     defaults: { duration: 0.4, ease: 'power2.out' }
   },
 
-  /** 缩放弹出 (徽标、评分标签) */
+  /** Scale pop (badges, score labels) */
   'popIn': {
     type: 'fromTo',
     from: { opacity: 0, scale: 0.5 },
@@ -117,7 +116,7 @@ export const PRESETS = {
     defaults: { duration: 0.4, ease: 'back.out(1.5)' }
   },
 
-  /** 逐条淡入 (建议列表) */
+  /** Staggered fade in (advice list) */
   'fadeIn-stagger': {
     type: 'fromTo',
     from: { opacity: 0, y: 10 },
@@ -125,7 +124,7 @@ export const PRESETS = {
     defaults: { duration: 0.4, ease: 'power2.out' }
   },
 
-  /** 脉冲动画 (录音按钮) */
+  /** Pulse animation (record button) */
   'pulse': {
     type: 'to',
     from: null,
@@ -133,7 +132,7 @@ export const PRESETS = {
     defaults: { duration: 0.8, ease: 'power1.inOut', yoyo: true, repeat: -1 }
   },
 
-  /** 按钮 hover 放大 */
+  /** Button hover scale up */
   'hover-scale': {
     type: 'to',
     from: null,
@@ -141,7 +140,7 @@ export const PRESETS = {
     defaults: { duration: 0.15, ease: 'power2.out' }
   },
 
-  /** 按钮 hover 恢复 */
+  /** Button hover scale reset */
   'hover-scale-reset': {
     type: 'to',
     from: null,
@@ -149,7 +148,7 @@ export const PRESETS = {
     defaults: { duration: 0.15, ease: 'power2.out' }
   },
 
-  /** 点击缩放 (0.97 弹回) */
+  /** Click press (0.97 scale bounce back) */
   'click-press': {
     type: 'timeline',
     steps: [
@@ -158,7 +157,7 @@ export const PRESETS = {
     ]
   },
 
-  /** Toast 入场 */
+  /** Toast enter */
   'toast-enter': {
     type: 'fromTo',
     from: { opacity: 0, y: -20 },
@@ -166,7 +165,7 @@ export const PRESETS = {
     defaults: { duration: 0.3, ease: 'back.out(1.5)' }
   },
 
-  /** Toast 出场 */
+  /** Toast exit */
   'toast-exit': {
     type: 'to',
     from: null,
@@ -174,7 +173,7 @@ export const PRESETS = {
     defaults: { duration: 0.2, ease: 'power2.in' }
   },
 
-  /** Modal 遮罩淡入 */
+  /** Modal overlay fade in */
   'modal-overlay': {
     type: 'fromTo',
     from: { opacity: 0 },
@@ -182,7 +181,7 @@ export const PRESETS = {
     defaults: { duration: 0.2, ease: 'power2.out' }
   },
 
-  /** Modal 卡片入场 */
+  /** Modal card enter */
   'modal-card': {
     type: 'fromTo',
     from: { opacity: 0, scale: 0.95, y: 20 },
@@ -190,7 +189,7 @@ export const PRESETS = {
     defaults: { duration: 0.3, ease: 'back.out(1.5)' }
   },
 
-  /** 评分脉冲 (更新时) */
+  /** Score pulse (on update) */
   'score-pulse': {
     type: 'timeline',
     steps: [
@@ -199,7 +198,7 @@ export const PRESETS = {
     ]
   },
 
-  /** 进度条更新 */
+  /** Progress bar fill */
   'fillBar': {
     type: 'to',
     from: null,
@@ -209,7 +208,7 @@ export const PRESETS = {
 };
 
 /**
- * 获取预设定义
+ * Get a preset definition by name
  * @param {string} name
  * @returns {object|null}
  */
@@ -218,7 +217,7 @@ export function getPreset(name) {
 }
 
 /**
- * 是否是一个已知的预设名称
+ * Check if a preset name exists
  * @param {string} name
  * @returns {boolean}
  */

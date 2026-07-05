@@ -4,6 +4,176 @@
 
 ---
 
+## v5.20 — 前端SPA修复 + 混响补偿 + 混合音频检测重构 + 架构升级 (2026-07-05, 已完成)
+
+### 🔴 SPA 导航死锁根因修复 (P0, 3 文件)
+
+**症状**: 点击导航按钮后 URL hash 改变, 但页面内容不更新, 需手动刷新浏览器。
+
+**根因**: 三重 Bug 叠加导致路由器 `#transition()` 死锁:
+
+1. **`AnimationController._execute()`** — `onComplete` 回调从 vars 解构后被丢弃, 未传入 GSAP `toVars`
+2. **`AnimationController._track()`** — `eventCallback('onComplete', cleanup)` 直接覆盖原有 `onComplete`, 且 getter 对刚创建的 tween 可能返回 `undefined`, 未回退到 `vars.onComplete`
+3. **`HashRouter.#handleRoute()`** — `killAll()` 在 `#navPending` 检查之前执行。单次点击触发 `hashchange` + `popstate` 双事件, 第二次调用的 `killAll()` 杀掉第一次调用的 leave 动画 → GSAP 被 kill 的 tween 不触发 `onComplete` → Promise 永不 resolve → `#navPending` 永远 `true` → 所有后续导航被 BLOCKED
+
+**修复**:
+
+| 文件 | 修复 |
+|------|------|
+| `web/static/js/animation/Controller.js` | `_execute()`: `onComplete` 传入 GSAP `toVars`; `_track()`: 链式调用(cleanup + 原有回调), 同时检查 `eventCallback` getter 和 `vars.onComplete`; `leave()`: 安全超时 resolve |
+| `web/static/js/components/BaseComponent.js` | `beforeUnmount()`: 硬编码 `'page-leave'` 预设 (之前误用页面入场预设) |
+| `web/static/router.js` | `#navPending` 检查移到 `killAll()` 之前, 防止 popstate 事件杀掉活跃动画 |
+
+### 🏗️ 前端架构升级 — v7.0 Vue 迁移衔接
+
+为减少 v7.0 (Electron + Vue 3) 迁移工作量, 提前建立与 Vue 生态对应的基础设施:
+
+#### 新增文件
+
+| 文件 | 说明 | v7.0 目标 |
+|------|------|----------|
+| `web/static/js/AppContext.js` | 应用级依赖注入容器, 聚合 store/router/api/ac/events | Vue `provide/inject` |
+| `web/static/js/EventBus.js` | 事件总线 (`on`/`once`/`off`/`emit`), 解耦跨组件通信 | `mitt()` |
+
+#### 重构文件
+
+| 文件 | 变更 | v7.0 目标 |
+|------|------|----------|
+| `web/static/js/components/BaseComponent.js` v3.0 | context 注入; 服务 getter 优先 `this.context` 回退 `window.*`; 生命周期文档标注 Vue 对应钩子 | `<script setup>` + composables |
+| `web/static/app.js` v3.0 | 引入 AppContext + EventBus; 初始化流对齐 Vue `createApp → use → mount` 模式; `context.freeze()` 启动后锁定 | `main.js` / `createApp()` |
+| `web/static/router.js` v3.0 | `useContext(context)` 注入; `#ac` private getter 替代 `window.__ac`; 各方法标注 Vue Router 对应 API | Vue Router `createRouter` |
+
+#### 迁移映射
+
+```
+Vanilla JS (v5.20+)       →  Vue 3 (v7.0)
+─────────────────────────     ────────────────────
+AppContext                 →  createApp + provide/inject
+  context.store            →  Pinia createPinia()
+  context.router           →  Vue Router createRouter()
+  context.api              →  HTTP client / IPC bridge
+  context.ac               →  useGsap() composable
+  context.events           →  mitt()
+BaseComponent              →  <script setup>
+  constructor/render       →  setup / <template>
+  mount/beforeUnmount      →  onMounted / onBeforeUnmount
+HashRouter                 →  Vue Router
+  register/onBeforeNavigate→  addRoute / beforeEach
+```
+
+### 前端 SPA Bug 修复 (P0, 基础修复)
+
+本次修复了 6 类前端问题, 涉及 12 个文件:
+
+#### API 路径修复
+
+| 问题 | 文件 | 修复 |
+|------|------|------|
+| `POST /api/audio/analyze` 端点不存在 (404) | `api.js:168` | → `POST /api/upload` (FormData) |
+| `POST /api/history/batch-delete` 路径和方法错误 | `api.js:233` | → `DELETE /api/history/batch` |
+
+**根因**: 前端 API 路径与后端 Flask 路由不匹配。`/api/audio/analyze` 不存在, 导致上传分析请求失败。正确的上传端点应为 `/api/upload` (接受 FormData)。
+
+#### CSS 页面隐藏
+
+| 问题 | 文件 | 修复 |
+|------|------|------|
+| `.page { display: none; }` 导致页面切换后内容不可见 | `components.css:55` | 移除隐藏规则 |
+
+**根因**: SPA 模式下页面由 JS 动态切换 (旧页 destroy → 新页 mount), 同一时间只有一个 `.page` 在 DOM 中, 不需要 `display:none` 切换。旧 CSS 规则导致新挂载的页面被隐藏。
+
+#### 路由错误恢复
+
+| 问题 | 文件 | 修复 |
+|------|------|------|
+| `#transition()` 无错误处理, 页面挂载失败导致 SPA 崩溃 | `router.js:148` | 添加 try-catch + 错误页面 + 调试日志 |
+
+#### 编码问题修复
+
+| 问题 | 文件 | 修复 |
+|------|------|------|
+| `HistoryPage.js` 全部中文乱码 (mojibake) | `HistoryPage.js` | 逐字替换 20+ 处乱码 |
+| `HistoryPage.js:35` `ac is not defined` (编码问题导致) | `HistoryPage.js` | 修复为 `this.ac` |
+| 全部 6 个 page 文件: `const ac = this.ac` 模式 | `*.js` | 改为直接 `this.ac` 调用 |
+
+**根因**: HistoryPage.js 文件中的 UTF-8 中文字符被错误编码, 导致浏览器显示乱码。同时编码问题导致第 35 行的 `const ac = this.ac` 无法正确执行。
+
+#### ComparePage Modal
+
+| 问题 | 文件 | 修复 |
+|------|------|------|
+| Modal 弹窗无法关闭 (点击取消/背景无反应) | `ComparePage.js:269` | 移除 `#openSongSelector` 中外层无用的 overlay div |
+
+**根因**: `StandardAudioSelector` 在 modal 模式已自带 overlay, 但 `#openSongSelector` 又创建了一个外层 overlay div (`position:fixed;inset:0`), 关闭时只移除了内层。
+
+#### ⚠️ 导航跳转 Bug (未修复)
+
+**症状**: 点击导航按钮后 URL hash 改变, 但页面内容不更新, 需手动刷新浏览器才能显示对应页面。
+
+**状态**: 代码逻辑已全面审查, 路由链路 (Navigation → hashchange → #handleRoute → #matchRoute → #transition → mount → render) 均正确。已在 router.js 添加详细 `[Router]` 调试日志定位问题。
+
+### 后端改进
+
+#### 混响补偿 (P1, 新增) 🆕
+
+| 模块 | 文件 | 依据 |
+|------|------|------|
+| `ReverbCompensator` | `services/features/reverb.py` (新建) | Fitzgerald 2010 (HPSS), Boll 1979 (谱减法), Berouti 1979 (过减+频谱地板) |
+
+- HPSS 谐波/冲击分离 + 谱减法, 减轻不同录音环境对 HNR/CPP 的影响
+- Feature Flag: 待后续版本接入评分管线
+
+#### 混合音频检测重构 (P2)
+
+| 模块 | 文件 | 依据 |
+|------|------|------|
+| `detect_mixed_audio()` 多特征融合 | `services/features/acoustic.py` | Fitzgerald 2010 (HPSS), McFee et al. 2015 (librosa) |
+
+- **旧算法**: 单阈值 `low_freq_ratio > 0.35` — 轻伴奏(如"手写的从前")被漏判
+- **新算法**: 四特征加权投票 (HPSS 谐波比 + 高频能量 + 频谱平坦度 + 低频能量比), 采样率自适应
+- **检测流程**: 使用已加载的 16kHz 音频 (避免额外 I/O)
+
+#### CPP 测试修复
+
+| 问题 | 文件 | 修复 |
+|------|------|------|
+| `test_praat_cpp_low_for_noise` 失败 | `tests/tdd/test_future_features.py` | 安装 `praat-parselmouth 0.4.7` + 添加可用性检查 |
+
+### 涉及文件 (完整)
+
+| 文件 | 变更 |
+|------|------|
+| `web/static/js/animation/Controller.js` | SPA 死锁修复: `_execute` onComplete 传递, `_track` 链式回调, `leave` 安全超时 |
+| `web/static/js/components/BaseComponent.js` | beforeUnmount 预设修复 + v3.0 重构 (context 注入, Vue 生命周期对齐) |
+| `web/static/router.js` | pending 检查前置 + v3.0 重构 (useContext, Vue Router 映射) |
+| `web/static/app.js` | v3.0 重构 (AppContext + EventBus, createApp 模式入口) |
+| `web/static/js/AppContext.js` | 🆕 依赖注入容器 (v7.0 → Vue provide/inject) |
+| `web/static/js/EventBus.js` | 🆕 事件总线 (v7.0 → mitt) |
+| `web/static/js/services/api.js` | 修复 2 个 API 路径 |
+| `web/static/js/pages/HistoryPage.js` | 修复乱码 + `ac` 变量 |
+| `web/static/js/pages/HomePage.js` | `ac` 变量修复 |
+| `web/static/js/pages/ComparePage.js` | Modal overlay + `ac` 变量 |
+| `web/static/js/pages/ReportPage.js` | `ac` 变量修复 |
+| `web/static/js/pages/SingPage.js` | `ac` 变量修复 |
+| `web/static/js/pages/SongLibraryPage.js` | `ac` 变量修复 |
+| `web/static/css/components.css` | 移除 `.page { display: none }` |
+| `services/audio_service.py` | `_preprocess_for_scoring` 使用已加载音频 |
+| `services/features/acoustic.py` | 多特征融合检测算法 |
+| `services/features/reverb.py` | 🆕 混响补偿模块 |
+| `tests/tdd/test_future_features.py` | CPP 测试修复 + 混响测试 GREEN |
+| `docs/` 5 文件 | CHANGELOG + PROJECT_STATUS + ARCHITECTURE + PRD + GOALS 更新 |
+
+### 测试
+
+```
+单元测试:  121 passed (unit/ 目录)
+全量收集:  204 tests (含 TDD xfail + 集成)
+Flask 路由: 全部 12 端点正确 (200 / 301)
+JS 验证:   全部 import 路径正确, 无残留引用
+```
+
+---
+
 ## v5.19 — 评分区分度修复 + 跨维度集成 + Feature Flag扩展 (2026-07-04, 已完成)
 
 ### 气息评分区分度修复 (P0)

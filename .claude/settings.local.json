@@ -177,7 +177,8 @@
       "Bash(sed -i \"s|r'test_music\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\手写的从前\\\\.mp3'|'tests/test_data/audio/vocal/手写的从前.mp3'|g\" tests/tools/test_dl_scoring.py)",
       "Bash(sed -i \"s|r'test_music\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\恋人\\\\.mp3'|'tests/test_data/audio/vocal/恋人.mp3'|g\" tests/tools/test_style_adaptive_scoring.py)",
       "Bash(sed -i \"s|r'test_music\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\手写的从前\\\\.mp3'|'tests/test_data/audio/vocal/手写的从前.mp3'|g\" tests/tools/test_style_adaptive_scoring.py)",
-      "Bash(sed -i 's|\"test_music/手写的从前\\\\.mp3\"|\"tests/test_data/audio/vocal/手写的从前.mp3\"|g' tests/tools/test_phrase_scoring.py)"
+      "Bash(sed -i 's|\"test_music/手写的从前\\\\.mp3\"|\"tests/test_data/audio/vocal/手写的从前.mp3\"|g' tests/tools/test_phrase_scoring.py)",
+      "Bash(C:/Users/jack/anaconda3/envs/pytorch2/python.exe -m pytest tests/unit/ tests/tdd/ -v --tb=line --no-header)"
     ],
     "additionalDirectories": [
       "c:\\Users\\jack\\.claude\\plans"

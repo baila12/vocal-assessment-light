@@ -265,13 +265,8 @@ export class ComparePage extends BaseComponent {
     }
 
     #openSongSelector(target) {
-        // 创建 Modal 选择器
-        const container = document.createElement('div');
-        container.id = 'songSelector';
-        container.style.cssText = 'position:fixed;inset:0;z-index:9999;';
-        document.body.appendChild(container);
-
-        this.#selector = new StandardAudioSelector(container, {
+        // StandardAudioSelector modal 模式自带 overlay, 直接挂载到 body
+        this.#selector = new StandardAudioSelector(document.body, {
             mode: 'modal',
             onSelect: (song) => {
                 this.#onSongSelected(target, song);
@@ -558,9 +553,8 @@ export class ComparePage extends BaseComponent {
         }
 
         // 动画
-        const ac = this.ac;
-        if (ac) {
-            ac.enter(results, { preset: 'slideUp' });
+        if (this.ac) {
+            this.ac.enter(results, { preset: 'slideUp' });
         }
     }
 

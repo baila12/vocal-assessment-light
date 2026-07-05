@@ -52,8 +52,10 @@
 
 /* ========== 主容器 ========== */
 .main { max-width: 1200px; margin: 0 auto; padding: 20px; }
-.page { display: none; }
-.page.active { display: block; }
+/* SPA 模式: 页面由 JS 动态切换 (旧 page → destroy → 新 page → mount),
+   同一时间只有一个 .page 在 DOM 中, 无需 display:none */
+.page { }
+.page.active { }
 
 /* ========== 首页布局 ========== */
 .home-layout {

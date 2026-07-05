@@ -399,11 +399,10 @@ export class SongLibraryPage extends BaseComponent {
     // ========================================================================
 
     _animateIn() {
-        const ac = this.ac;
-        if (ac && this.el) {
+        if (this.ac && this.el) {
             const cards = this.el.querySelectorAll('.song-card');
             if (cards.length > 0) {
-                ac.stagger(cards, { preset: 'slideUp-sm', stagger: 0.05 });
+                this.ac.stagger(cards, { preset: 'slideUp-sm', stagger: 0.05 });
             }
         }
     }

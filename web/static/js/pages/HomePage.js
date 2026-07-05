@@ -399,12 +399,11 @@ export class HomePage extends BaseComponent {
     // ========================================================================
 
     _animateEntrance() {
-        const ac = this.ac;
-        if (ac) {
+        if (this.ac) {
             const welcome = this.el.querySelector('.welcome-section');
             const cards = this.el.querySelectorAll('.action-card');
-            if (welcome) ac.enter(welcome, { preset: 'page-enter-down' });
-            if (cards.length) ac.stagger(cards, { preset: 'slideUp', stagger: 0.15 });
+            if (welcome) this.ac.enter(welcome, { preset: 'page-enter-down' });
+            if (cards.length) this.ac.stagger(cards, { preset: 'slideUp', stagger: 0.15 });
         } else if (typeof gsap !== 'undefined') {
             const welcome = this.el.querySelector('.welcome-section');
             const cards = this.el.querySelectorAll('.action-card');

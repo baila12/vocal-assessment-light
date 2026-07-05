@@ -32,12 +32,12 @@ export class HistoryPage extends BaseComponent {
         this.bindEvents();
         await this._loadHistory();
 
-        // 浣跨敤 AnimationController 缂栨帓瀛愬厓绱?        const ac = this.ac;
-        if (ac) {
+        // Animate entrance with AnimationController
+        if (this.ac) {
             const cards = this.el.querySelectorAll('.stats-grid > div');
             const items = this.el.querySelectorAll('.history-card');
-            if (cards.length) ac.stagger(cards, { preset: 'slideUp', stagger: 0.08, duration: 0.5 });
-            if (items.length) ac.stagger(items, { preset: 'slideUp-sm', stagger: 0.05, duration: 0.4 });
+            if (cards.length) this.ac.stagger(cards, { preset: 'slideUp', stagger: 0.08, duration: 0.5 });
+            if (items.length) this.ac.stagger(items, { preset: 'slideUp-sm', stagger: 0.05, duration: 0.4 });
         } else if (typeof gsap !== 'undefined') {
             const cards = this.el.querySelectorAll('.stats-grid > div');
             const items = this.el.querySelectorAll('.history-card');
@@ -52,51 +52,51 @@ export class HistoryPage extends BaseComponent {
 
         this.el.innerHTML = `
         <div class="history-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-            <h2 style="font-size:18px;font-weight:600;">璇勪及鍘嗗彶</h2>
+            <h2 style="font-size:18px;font-weight:600;">评估历史</h2>
             <div class="filter-group" style="display:flex;gap:6px;">
-                <button class="filter-btn active" data-filter="all">鍏ㄩ儴</button>
-                <button class="filter-btn" data-filter="today">浠婂ぉ</button>
-                <button class="filter-btn" data-filter="week">鏈懆</button>
-                <button class="filter-btn" data-filter="month">鏈湀</button>
+                <button class="filter-btn active" data-filter="all">全部</button>
+                <button class="filter-btn" data-filter="today">今天</button>
+                <button class="filter-btn" data-filter="week">本周</button>
+                <button class="filter-btn" data-filter="month">本月</button>
             </div>
         </div>
 
         <div id="batchBar" style="display:none;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg-elevated);border-radius:8px;margin-bottom:16px;border:1px solid var(--border);">
             <div style="display:flex;align-items:center;gap:10px;">
-                <button class="btn btn-secondary btn-sm" id="selectAllBtn">鍏ㄩ€?/button>
-                <span id="selectedCount" style="color:var(--text-muted);font-size:12px;">宸查€夋嫨 0 鏉?/span>
+                <button class="btn btn-secondary btn-sm" id="selectAllBtn">全选/button>
+                <span id="selectedCount" style="color:var(--text-muted);font-size:12px;">已选择 0 条/span>
             </div>
             <div style="display:flex;gap:8px;">
-                <button id="deleteSelectedBtn" class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;padding:6px 12px;font-size:12px;" disabled>鍒犻櫎閫変腑</button>
-                <button class="btn btn-secondary btn-sm" id="cancelSelectionBtn">鍙栨秷</button>
+                <button id="deleteSelectedBtn" class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;padding:6px 12px;font-size:12px;" disabled>删除选中</button>
+                <button class="btn btn-secondary btn-sm" id="cancelSelectionBtn">取消</button>
             </div>
         </div>
 
         <div style="display:flex;gap:10px;margin-bottom:16px;">
-            <button class="btn btn-secondary btn-sm" id="batchModeBtn">鈽戯笍 鎵归噺绠＄悊</button>
-            <button class="btn btn-sm" id="deleteAllBtn" style="background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;padding:8px 16px;font-size:13px;">馃棏锔?娓呯┖鍏ㄩ儴</button>
+            <button class="btn btn-secondary btn-sm" id="batchModeBtn">☑️ 批量管理</button>
+            <button class="btn btn-sm" id="deleteAllBtn" style="background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;padding:8px 16px;font-size:13px;">🗑️ 清空全部</button>
         </div>
 
         <div class="card" style="margin-bottom:20px;">
-            <div class="card-header"><span class="card-title">馃搱 鎴愰暱鏇茬嚎</span></div>
+            <div class="card-header"><span class="card-title">📱 成长曲线</span></div>
             <div class="card-body">
                 <div style="height:250px;"><canvas id="growthChart"></canvas></div>
                 <div class="stats-grid" style="margin-top:16px;">
-                    <div style="text-align:center;"><div style="font-size:11px;color:var(--text-muted);">骞冲潎鍒?/div><div id="avgScore" style="font-size:24px;font-weight:700;color:var(--primary);">--</div></div>
-                    <div style="text-align:center;"><div style="font-size:11px;color:var(--text-muted);">鏈€楂樺垎</div><div id="maxScore" style="font-size:24px;font-weight:700;color:var(--success);">--</div></div>
-                    <div style="text-align:center;"><div style="font-size:11px;color:var(--text-muted);">鏈€浣庡垎</div><div id="minScore" style="font-size:24px;font-weight:700;color:var(--danger);">--</div></div>
-                    <div style="text-align:center;"><div style="font-size:11px;color:var(--text-muted);">缁冧範娆℃暟</div><div id="totalCount" style="font-size:24px;font-weight:700;color:var(--accent-blue);">--</div></div>
+                    <div style="text-align:center;"><div style="font-size:11px;color:var(--text-muted);">平均分</div><div id="avgScore" style="font-size:24px;font-weight:700;color:var(--primary);">--</div></div>
+                    <div style="text-align:center;"><div style="font-size:11px;color:var(--text-muted);">最高分</div><div id="maxScore" style="font-size:24px;font-weight:700;color:var(--success);">--</div></div>
+                    <div style="text-align:center;"><div style="font-size:11px;color:var(--text-muted);">最低分</div><div id="minScore" style="font-size:24px;font-weight:700;color:var(--danger);">--</div></div>
+                    <div style="text-align:center;"><div style="font-size:11px;color:var(--text-muted);">练习次数</div><div id="totalCount" style="font-size:24px;font-weight:700;color:var(--accent-blue);">--</div></div>
                 </div>
             </div>
         </div>
 
         <div class="card">
-            <div class="card-header"><span class="card-title">馃搵 鍘嗗彶璁板綍</span></div>
+            <div class="card-header"><span class="card-title">📵 历史记录</span></div>
             <div class="card-body" id="historyList">
                 <div class="empty-state" style="text-align:center;padding:40px 20px;color:var(--text-muted);">
-                    <div style="font-size:36px;margin-bottom:12px;">馃摥</div>
-                    <p>鏆傛棤璇勪及璁板綍</p>
-                    <p style="font-size:13px;">寮€濮嬩綘鐨勭涓€娆″０涔愯瘎浼板惂</p>
+                    <div style="font-size:36px;margin-bottom:12px;">📥</div>
+                    <p>暂无评估记录</p>
+                    <p style="font-size:13px;">开始你的第一次声乐评估吧</p>
                 </div>
             </div>
         </div>
@@ -139,7 +139,7 @@ export class HistoryPage extends BaseComponent {
         const container = this.el.querySelector('#historyList');
         if (this._records.length === 0) {
             container.innerHTML = '<div class="empty-state" style="text-align:center;padding:40px 20px;color:var(--text-muted);">' +
-                '<div style="font-size:36px;margin-bottom:12px;">馃摥</div><p>鏆傛棤璇勪及璁板綍</p></div>';
+                '<div style="font-size:36px;margin-bottom:12px;">📥</div><p>暂无评估记录</p></div>';
             return;
         }
 
@@ -263,13 +263,13 @@ export class HistoryPage extends BaseComponent {
         const deleteBtn = this.el.querySelector('_deleteSelectedBtn');
         if (deleteBtn) {
             deleteBtn.disabled = this._selectedIds.size === 0;
-            deleteBtn.textContent = '鍒犻櫎閫変腑 (' + this._selectedIds.size + ')';
+            deleteBtn.textContent = '删除选中 (' + this._selectedIds.size + ')';
         }
     }
 
     async _deleteSelected() {
         if (this._selectedIds.size === 0) return;
-        const ok = await confirm('纭鍒犻櫎', '纭畾鍒犻櫎閫変腑鐨?' + this._selectedIds.size + ' 鏉¤褰曪紵');
+        const ok = await confirm('纭鍒犻櫎', '纭畾删除选中鐨?' + this._selectedIds.size + ' 鏉¤褰曪紵');
         if (ok) {
             await this._api.deleteHistoryBatch([...this._selectedIds]);
             showToast("Deleted","success");

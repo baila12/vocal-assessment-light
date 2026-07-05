@@ -299,9 +299,8 @@ export class SingPage extends BaseComponent {
         }
 
         // 入场动画
-        const ac = this.ac;
-        if (ac) {
-            ac.enter(recordingArea, { preset: 'slideUp' });
+        if (this.ac) {
+            this.ac.enter(recordingArea, { preset: 'slideUp' });
         }
     }
 
@@ -595,12 +594,11 @@ export class SingPage extends BaseComponent {
     // ========================================================================
 
     _animateIn() {
-        const ac = this.ac;
-        if (ac) {
+        if (this.ac) {
             const header = this.el.querySelector('.sing-header');
             const canvas = this.el.querySelector('#pitchCanvasWrap');
-            if (header) ac.enter(header, { preset: 'page-enter-down' });
-            if (canvas) ac.enter(canvas, { preset: 'page-enter-scale' });
+            if (header) this.ac.enter(header, { preset: 'page-enter-down' });
+            if (canvas) this.ac.enter(canvas, { preset: 'page-enter-scale' });
         }
     }
 

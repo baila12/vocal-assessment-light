@@ -1,12 +1,14 @@
 /**
- * animation/Controller.js 鈥?GSAP Animation Controller
+ * animation/Controller.js — GSAP Animation Controller
  *
- * 缁熶竴绠＄悊鎵€鏈?GSAP 鍔ㄧ敾鐨勬牳蹇冩帶鍒跺櫒:
- *   - 棰勮椹卞姩 (enter/leave/stagger/countUp/fillBar)
- *   - 鍏ㄥ眬寮€鍏?绂佺敤 (setEnabled)
- *   - prefers-reduced-motion 鑷姩妫€娴? *   - 鍔ㄧ敾闃熷垪闃插啿绐? *   - GSAP 鍏ㄥ眬榛樿閰嶇疆
+ * Unified animation controller for all GSAP animations:
+ *   - Preset-driven animations (enter/leave/stagger/countUp/fillBar)
+ *   - Global enable/disable (setEnabled)
+ *   - prefers-reduced-motion auto-detection
+ *   - Animation queue conflict prevention
+ *   - GSAP global defaults configuration
  *
- * 鐢ㄦ硶:
+ * Usage:
  *   const ac = new AnimationController(gsap);
  *   ac.enter(el, { preset: 'page-enter' });
  *   ac.leave(el);
@@ -46,7 +48,8 @@ export class AnimationController {
   _nextTimelineId = 0;
 
   /**
-   * @param {gsap} gsap - GSAP 搴撳紩鐢?   * @param {Object} [options]
+   * @param {gsap} gsap - GSAP library reference
+   * @param {Object} [options]
    * @param {boolean} [options.detectReducedMotion=true]
    */
   constructor(gsap, options = {}) {
@@ -60,16 +63,16 @@ export class AnimationController {
 
     this._gsap = gsap;
 
-    // 璁剧疆 GSAP 鍏ㄥ眬榛樿
+    // Set GSAP global defaults
     gsap.defaults({ ...this.defaults });
     gsap.config({ force3D: true });
 
-    // 妫€娴?prefers-reduced-motion
+    // Detect prefers-reduced-motion
     if (detectReducedMotion) {
       this.reducedMotion = this._detectReducedMotion();
       this.enabled = !this.reducedMotion;
 
-      // 鐩戝惉杩愯鏃跺彉鍖?
+      // Listen for runtime changes
       const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
       mediaQuery.addEventListener('change', (e) => {
@@ -80,16 +83,17 @@ export class AnimationController {
   }
 
   // ========================================================================
-  // 椤甸潰绾у姩鐢?  // ========================================================================
+  // Page-level animations
+  // ========================================================================
 
   /**
-   * 椤甸潰/鍏冪礌鍏ュ満鍔ㄧ敾
-   * @param {Element} el - 鐩爣鍏冪礌
+   * Page/element enter animation
+   * @param {Element} el - Target element
    * @param {Object} [options]
-   * @param {string} [options.preset='page-enter'] - 棰勮鍚嶇О
-   * @param {number} [options.duration] - 瑕嗙洊鏃堕暱
-   * @param {string} [options.ease] - 瑕嗙洊缂撳姩
-   * @param {number} [options.delay] - 寤惰繜
+   * @param {string} [options.preset='page-enter'] - Preset name
+   * @param {number} [options.duration] - Override duration
+   * @param {string} [options.ease] - Override easing
+   * @param {number} [options.delay] - Delay in seconds
    * @returns {gsap.core.Tween|gsap.core.Timeline|null}
    */
   enter(el, options = {}) {
@@ -99,7 +103,7 @@ export class AnimationController {
     const preset = getPreset(presetName);
 
     if (!preset) {
-      // 鏈煡棰勮: 瀹夊叏 fallback 鈥?鐩存帴鏄剧ず
+      // Unknown preset: safe fallback — show element directly
       this._setFinal(el);
       return null;
     }
@@ -113,11 +117,11 @@ export class AnimationController {
   }
 
   /**
-   * 椤甸潰/鍏冪礌鍑哄満鍔ㄧ敾
-   * @param {Element} el - 鐩爣鍏冪礌
+   * Page/element leave animation
+   * @param {Element} el - Target element
    * @param {Object} [options]
-   * @param {string} [options.preset='page-leave'] - 棰勮鍚嶇О
-   * @param {number} [options.duration] - 瑕嗙洊鏃堕暱
+   * @param {string} [options.preset='page-leave'] - Preset name
+   * @param {number} [options.duration] - Override duration
    * @returns {Promise<void>}
    */
   leave(el, options = {}) {
@@ -135,21 +139,30 @@ export class AnimationController {
     }
 
     return new Promise((resolve) => {
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; resolve(); } };
+
       const tween = this._execute(el, preset, {
         ...options,
-        onComplete: resolve
+        onComplete: done
       });
-      if (!tween) resolve();
+      if (!tween) done();
+
+      // Safety timeout: if the animation is killed externally
+      // (e.g. killAll), onComplete never fires. Resolve anyway
+      // so the router's #transition() doesn't deadlock.
+      const maxDuration = ((preset.defaults && preset.defaults.duration) || 0.4) * 1000 + 500;
+      setTimeout(done, maxDuration);
     });
   }
 
   /**
-   * Stagger 鍏ュ満 (澶氫釜鍏冪礌渚濇鍔ㄧ敾)
-   * @param {Element[]|NodeList} elements - 鐩爣鍏冪礌鍒楄〃
+   * Stagger enter animation (multiple elements sequentially)
+   * @param {Element[]|NodeList} elements - Target elements
    * @param {Object} [options]
-   * @param {string} [options.preset='slideUp'] - 棰勮鍚嶇О
-   * @param {number} [options.stagger=0.1] - 闂撮殧绉掓暟
-   * @param {number} [options.duration] - 瑕嗙洊鏃堕暱
+   * @param {string} [options.preset='slideUp'] - Preset name
+   * @param {number} [options.stagger=0.1] - Stagger interval in seconds
+   * @param {number} [options.duration] - Override duration
    * @returns {gsap.core.Tween|null}
    */
   stagger(elements, options = {}) {
@@ -161,7 +174,7 @@ export class AnimationController {
     if (!preset) return null;
 
     if (!this.enabled || this.reducedMotion) {
-      // 鐩存帴鏄剧ず鏈€缁堢姸鎬?
+      // Show final state directly
       for (const el of elements) {
         if (el) {
           el.style.opacity = '1';
@@ -187,13 +200,13 @@ export class AnimationController {
   }
 
   // ========================================================================
-  // 涓撶敤鍔ㄧ敾鏂规硶
+  // Special-purpose animation methods
   // ========================================================================
 
   /**
-   * 鏁板瓧婊氬姩璁℃暟鍣?(GSAP textContent snap)
-   * @param {Element} element - 鏄剧ず鏁板瓧鐨?DOM 鍏冪礌
-   * @param {number} target - 鐩爣鏁板瓧
+   * Number count-up animation (GSAP textContent snap)
+   * @param {Element} element - DOM element displaying the number
+   * @param {number} target - Target number
    * @param {Object} [options]
    * @param {number} [options.duration=1.2]
    * @param {number} [options.decimals=1]
@@ -228,8 +241,10 @@ export class AnimationController {
   }
 
   /**
-   * 杩涘害鏉″～鍏?(scaleX)
-   * @param {Element} element - 杩涘害鏉″厓绱?   * @param {number} percent - 0-100 鐧惧垎姣?   * @param {Object} [options]
+   * Progress bar fill animation (scaleX)
+   * @param {Element} element - Progress bar element
+   * @param {number} percent - 0-100 percentage
+   * @param {Object} [options]
    * @param {number} [options.duration=0.8]
    * @returns {gsap.core.Tween|null}
    */
@@ -254,10 +269,11 @@ export class AnimationController {
   }
 
   // ========================================================================
-  // 寰氦浜?  // ========================================================================
+  // Micro-interactions
+  // ========================================================================
 
   /**
-   * 鎸夐挳鐐瑰嚮缂╁皬寮瑰洖
+   * Button click press (shrink and bounce back)
    * @param {Element} el
    * @returns {gsap.core.Timeline|null}
    */
@@ -269,7 +285,7 @@ export class AnimationController {
   }
 
   /**
-   * 鎸夐挳 hover 鏀惧ぇ
+   * Button hover scale up
    * @param {Element} el
    */
   hoverIn(el) {
@@ -278,7 +294,7 @@ export class AnimationController {
   }
 
   /**
-   * 鎸夐挳 hover 鎭㈠
+   * Button hover scale reset
    * @param {Element} el
    */
   hoverOut(el) {
@@ -287,7 +303,7 @@ export class AnimationController {
   }
 
   /**
-   * 璇勫垎鑴夊啿
+   * Score pulse animation
    * @param {Element} el
    */
   scorePulse(el) {
@@ -298,11 +314,11 @@ export class AnimationController {
   }
 
   // ========================================================================
-  // 鎺у埗
+  // Control
   // ========================================================================
 
   /**
-   * 鍚敤/绂佺敤鍔ㄧ敾
+   * Enable/disable animations
    * @param {boolean} val
    */
   setEnabled(val) {
@@ -313,7 +329,8 @@ export class AnimationController {
   }
 
   /**
-   * 鏉€姝绘墍鏈夋椿璺冨姩鐢?   */
+   * Kill all active animations
+   */
   killAll() {
     if (this._currentTimeline) {
       this._currentTimeline.kill();
@@ -329,7 +346,7 @@ export class AnimationController {
   }
 
   /**
-   * 寮€濮嬩竴涓柊鐨?Timeline (鑷姩 kill 涓婁竴涓湭瀹屾垚鐨?
+   * Start a new Timeline (auto-kills previous incomplete one)
    * @returns {gsap.core.Timeline}
    */
   createTimeline() {
@@ -345,27 +362,29 @@ export class AnimationController {
   }
 
   /**
-   * 閿€姣?   */
+   * Destroy — kill all animations
+   */
   destroy() {
     this.killAll();
   }
 
   // ========================================================================
-  // 鍐呴儴鏂规硶
+  // Internal methods
   // ========================================================================
 
   /**
-   * 鎵ц棰勮鍔ㄧ敾
+   * Execute a preset animation
    * @private
    */
   _execute(el, preset, options = {}) {
     const defaults = { ...preset.defaults, ...options };
     delete defaults.preset;
 
-    // 澶勭悊 completion callback 鈥?浠?defaults 涓墺绂? 涓嶄紶缁?GSAP
+    // Extract onComplete from merged options — must be passed to GSAP toVars
+    // so the animation resolves correctly (critical for leave() Promise chain)
     let { onComplete, ...vars } = defaults;
 
-    // 澶勭悊 timeline 绫诲瀷棰勮
+    // Handle timeline-type presets
     if (preset.type === 'timeline' && preset.steps) {
       const tl = this._gsap.timeline({ onComplete });
       for (const step of preset.steps) {
@@ -380,8 +399,10 @@ export class AnimationController {
       return tl;
     }
 
-    // 鏍囧噯 tween 绫诲瀷: fromTo / to / from
+    // Standard tween types: fromTo / to / from
+    // IMPORTANT: include onComplete so leave() Promises resolve
     const toVars = { ...preset.to, ...vars };
+    if (onComplete) toVars.onComplete = onComplete;
 
     let tween;
     if (preset.type === 'fromTo') {
@@ -389,8 +410,7 @@ export class AnimationController {
     } else if (preset.type === 'from') {
       tween = this._gsap.from(el, toVars);
     } else {
-      // 'to' 鈥?combine from + to for the case where from has data
-
+      // 'to' — combine from + to for the case where from has data
       tween = this._gsap.to(el, toVars);
     }
 
@@ -399,22 +419,40 @@ export class AnimationController {
   }
 
   /**
-   * 璺熻釜娲昏穬鍔ㄧ敾
+   * Track active animation — chain cleanup after any existing onComplete
+   *
+   * IMPORTANT: For newly-created tweens, GSAP may not have registered the
+   * vars.onComplete callback internally yet (eventCallback('onComplete')
+   * can return undefined). We check both sources and prefer the internal
+   * callback, falling back to vars.onComplete.
    * @private
    */
   _track(anim) {
     if (!anim) return;
     this._activeAnimations.add(anim);
     const cleanup = () => this._activeAnimations.delete(anim);
-    if (anim.vars) anim.vars.onComplete = (() => { cleanup(); }).bind(this);
-    // 瀵逛簬 Timeline, 鐩戝惉 onComplete
+
+    // Get existing callback from either GSAP internal registry or raw vars
+    const internalCb = (anim.eventCallback && anim.eventCallback('onComplete')) || null;
+    const varsCb = (anim.vars && typeof anim.vars.onComplete === 'function' && anim.vars.onComplete) || null;
+    const existingCb = internalCb || varsCb;
+
+    const chained = () => {
+      cleanup();
+      if (existingCb) existingCb();
+    };
+
     if (anim.eventCallback) {
-      anim.eventCallback('onComplete', cleanup);
+      anim.eventCallback('onComplete', chained);
+    }
+    // Also update vars.onComplete in case GSAP reads it later
+    if (anim.vars) {
+      anim.vars.onComplete = chained;
     }
   }
 
   /**
-   * 鐩存帴璁剧疆鏈€缁堢姸鎬?(绂佺敤鏃?
+   * Set final state directly (when animations disabled)
    * @private
    */
   _setFinal(el, preset = null) {
@@ -434,7 +472,7 @@ export class AnimationController {
   }
 
   /**
-   * 妫€娴?prefers-reduced-motion
+   * Detect prefers-reduced-motion
    * @private
    */
   _detectReducedMotion() {
