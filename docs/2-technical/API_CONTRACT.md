@@ -1,0 +1,208 @@
+# API 契约文档 v5.0 → v7.0
+
+> 更新: 2026-07-06 | 为 Vue 3 + Electron 迁移准备的 API 接口规范
+
+---
+
+## 端点一览
+
+| 方法 | 路径 | 说明 | v7.0 兼容 |
+|------|------|------|----------|
+| GET | `/health` | 健康检查 + GPU 状态 | ✅ 不变 |
+| POST | `/api/upload` | 上传并分析音频 (三模式) | ✅ 不变 |
+| POST | `/api/upload?mode=quick` | Quick 模式 | ✅ |
+| POST | `/api/upload?mode=professional` | Pro 模式 (Demucs) | ✅ |
+| POST | `/api/compare` | 双音频 DTW 对比 | ✅ 不变 |
+| GET | `/api/history` | 历史记录列表 | ✅ 不变 |
+| DELETE | `/api/history/<id>` | 删除单条记录 | ✅ 不变 |
+| DELETE | `/api/history/batch-delete` | 批量删除 | ✅ 不变 |
+| GET | `/api/history/<id>/report` | 导出报告 | ✅ 不变 |
+
+---
+
+## 核心响应格式 (v5.0)
+
+### POST `/api/upload` 成功响应
+
+```json
+{
+  "success": true,
+  "is_voice": true,
+  "total_score": 74.8,
+  "level": "良好",
+  "stars": "★★",
+  "color": "#10b981",
+
+  "voice_quality": {
+    "is_voice": true,
+    "voice_ratio": 85.2,
+    "quality_score": 72.0,
+    "silence_ratio": 5.3,
+    "harmonic_ratio": 0.82
+  },
+
+  "basic_info": {
+    "filename": "song.mp3",
+    "duration": 180.5,
+    "duration_seconds": 180.5,
+    "sample_rate": 22050,
+    "file_size": "4.2 MB"
+  },
+
+  "music_style": {
+    "style": "pop",
+    "style_cn": "流行",
+    "confidence": 0.85,
+    "mood": "calm"
+  },
+
+  "dl_assessment": {
+    "mos_score": 3.5,
+    "mos_normalized": 70.0,
+    "method": "singmos",
+    "confidence": 0.4,
+    "available": false
+  },
+
+  "scores": {
+    "pitch": 79.6,
+    "rhythm": 77.1,
+    "breath": 56.4,
+    "technique": 84.0,
+    "artistry": 75.9,
+    "volume": 65.0,
+    "total": 74.8
+  },
+
+  "diagnosis": {
+    "pitch": {
+      "score": 79.6,
+      "mae_cents": 25.3,
+      "level": "良好",
+      "issues": [],
+      "suggestions": []
+    },
+    "rhythm": { "score": 77.1, "level": "良好", "issues": [], "suggestions": [] },
+    "breath": {
+      "score": 56.4,
+      "level": "合格",
+      "long_note_support": 55.0,
+      "dynamic_control": 60.0,
+      "breath_design": 65.0,
+      "breath_technique": 45.0,
+      "issues": [],
+      "suggestions": ["建议进行长音气息支撑训练"]
+    },
+    "technique": {
+      "score": 84.0,
+      "hnr": 20.5,
+      "cpp": 2.1,
+      "vibrato_quality": 80.0,
+      "level": "专业级",
+      "issues": [],
+      "suggestions": []
+    },
+    "artistry": {
+      "score": 75.9,
+      "level": "良好",
+      "positives": ["颤音技巧运用出色", "动态对比丰富"],
+      "issues": [],
+      "suggestions": []
+    },
+    "critical_issues": [],
+    "is_disqualified": false
+  },
+
+  "advice": [
+    "音准良好，继续保持",
+    "建议加强气息支撑训练"
+  ],
+
+  "visualization": { ... },
+  "timbre": null,
+  "phrases": null,
+  "waveform": null,
+  "pitch_curve": null,
+  "volume_info": { "avg_db": -18.0, "peak_db": -2.0, "dynamic_range": 22.0 },
+  "pitch_info": { ... },
+  "rhythm_info": { ... },
+  "emotion_info": { ... }
+}
+```
+
+### 六维评分说明
+
+| 维度 | 权重 | 测量方法 | 0分含义 | 100分含义 |
+|------|------|---------|---------|----------|
+| **pitch** (音准) | 28% | MIDI音分偏差MAE | 偏差>120音分 | 偏差<8音分 |
+| **rhythm** (节奏) | 20% | Onset间隔CV→偏差比 | 严重脱拍 | 完美对齐 |
+| **breath** (气息) | 20% | 四子维度(长音/动态/气口/气声) | 无气息控制 | 专业气息 |
+| **technique** (技术) | 18% | HNR(40%)+CPP(30%)+技巧检测(30%) | 无技巧/差HNR | 出色技巧+HNR |
+| **artistry** (艺术) | 14% | 颤音/动态/乐句/音高变化 | 平直单调 | 丰富表现力 |
+| **volume** (音量) | 独立 | dynamic_range | 无动态范围 | 宽广动态 |
+
+### 等级划分
+
+| 分数区间 | 等级 | 星级 | 颜色 |
+|---------|------|------|------|
+| 88-100 | 专业级 | ★★★ | #22c55e |
+| 78-88 | 优秀 | ★★☆ | #3b82f6 |
+| 62-78 | 良好 | ★★ | #10b981 |
+| 45-62 | 中等 | ★☆ | #f59e0b |
+| 25-45 | 及格 | ★ | #f97316 |
+| 0-25 | 待改进 | ☆ | #ef4444 |
+
+---
+
+## 错误响应
+
+```json
+{
+  "success": false,
+  "error": "文件格式不支持"
+}
+```
+
+---
+
+## v7.0 Vue 迁移指南
+
+### 不变更
+- 所有 API 路径和请求格式不变
+- JSON 响应格式保持 v5.0 结构
+- `AnalysisResult` DTO 作为前后端数据契约
+
+### 可移除 (前端已结构化的部分)
+- `v3_compatibility` / `v2_compatibility` 构建器 — 仅用于旧前端兼容
+- `visualization` 字段中的内联 CSS — v7.0 由 Vue 组件处理
+
+### 前端对接建议
+```typescript
+// Vue 3 TypeScript 接口定义
+interface AnalysisScores {
+  pitch: number;
+  rhythm: number;
+  breath: number;
+  technique: number;
+  artistry: number;
+  volume: number;
+  total: number;
+}
+
+interface AnalysisResponse {
+  success: boolean;
+  is_voice: boolean;
+  total_score: number;
+  level: string;
+  stars: string;
+  color: string;
+  scores: AnalysisScores;
+  diagnosis: Record<string, DiagnosisBlock>;
+  advice: string[];
+  // ... 其他字段
+}
+```
+
+### 评分逻辑独立性
+所有评分计算在 `services/` 层完成，API 层仅做格式转换。
+Vue 前端无需了解评分算法细节 — 只需消费 `scores` 和 `diagnosis` 字段。
