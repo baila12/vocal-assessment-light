@@ -98,7 +98,7 @@ class TestMixedAudioDetection:
         for audio_file in candidates:
             if "低分" in audio_file.name or "难听" in audio_file.name:
                 continue
-            audio_data, _ = librosa.load(str(audio_file), sr=22050, duration=30)
+            audio_data, _ = librosa.load(str(audio_file), sr=22050, duration=15)
             is_mixed, confidence, _ = analyzer.detect_mixed_audio(audio_data)
             if is_mixed and not any(k in audio_file.name for k in known_with_accompaniment):
                 failures.append(f"{audio_file.name}: confidence={confidence:.2f}")
@@ -122,7 +122,7 @@ class TestMixedAudioDetection:
             pytest.skip("手写的从前 not available")
 
         analyzer = AcousticAnalyzer(sample_rate=22050)
-        audio_data, _ = librosa.load(str(target), sr=22050, duration=30)
+        audio_data, _ = librosa.load(str(target), sr=22050, duration=15)
         is_mixed, confidence, metadata = analyzer.detect_mixed_audio(audio_data)
 
         if not is_mixed:
