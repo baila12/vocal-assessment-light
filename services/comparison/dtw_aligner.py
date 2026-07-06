@@ -609,7 +609,7 @@ class DTWAligner:
 
         # v5.10 预处理：检测混合音频并按需分离
         try:
-            is_mixed, confidence, _, _ = AcousticAnalyzer(
+            is_mixed, confidence, _ = AcousticAnalyzer(
                 sr, self.hop_length
             ).detect_mixed_audio(y)
 

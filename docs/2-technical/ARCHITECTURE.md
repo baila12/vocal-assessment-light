@@ -215,11 +215,12 @@ audio_analysis.analyze_and_score()
   │     └─ 非人声? → is_voice=False, total_score=0 → 直接返回
   │
   ├─[2] audio_features_service.extract_all_features()
+  │     ├─ features/reverb.py   → ReverbCompensator (v6.0, 可选, HPSS+谱减法)
   │     ├─ features/pitch.py     → PitchDeviationResult
   │     ├─ features/rhythm.py    → RhythmAlignmentResult
   │     ├─ features/breath.py    → BreathStabilityResult
   │     ├─ features/technique.py → VocalTechniqueResult
-  │     └─ features/acoustic.py  → detect_mixed_audio()
+  │     └─ features/acoustic.py  → detect_mixed_audio() [v6.0 五特征融合]
   │
   ├─[3] score_service.ScoreServiceV4.calculate()
   │     ├─ scoring/pitch_scorer.py
@@ -610,6 +611,8 @@ HashRouter                      Vue Router
 
 ## 七、参考文档
 
+### 项目文档
+
 | 文档 | 路径 |
 |------|------|
 | 产品需求文档 | [PRD.md](../1-product/PRD.md) |
@@ -617,3 +620,20 @@ HashRouter                      Vue Router
 | API 接口 | [API.md](API.md) |
 | TDD 规范 | [TDD.md](../3-quality/TDD.md) |
 | BDD 规范 | [BDD.md](../3-quality/BDD.md) |
+| 项目状态 | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) |
+| 变更日志 | [CHANGELOG.md](../4-process/CHANGELOG.md) |
+
+### 参考文献 (v6.0)
+
+> **设计原则**: 所有算法必须基于已发表文献，禁止凭空创造方法。详见 [GOALS.md §4.3](../1-product/GOALS.md#43-算法原则-critical)。
+> **存储位置**: `参考论文/` (项目根目录，按主题分目录)
+> **代码标注**: 每个算法模块注释中标注 `# Reference:` 指向对应论文章节
+
+| 论文 | 应用 | 文件 |
+|------|------|------|
+| Fitzgerald (2010). "Harmonic/Percussive Separation Using Median Filtering." DAFx | HPSS 特征, 中值滤波分离 | [PDF](../../参考论文/HPSS谐波冲击分离/Fitzgerald_2010_HPSS_Median_Filtering_DAFx.pdf) |
+| Driedger, Müller, Disch (2014). "Extending Harmonic-Percussive Separation of Audio Signals." ISMIR | HPSS 门控阈值, 三元分解 H+P+R | [PDF](../../参考论文/HPSS谐波冲击分离/Driedger_Muller_Disch_2014_Extending_HPSS_ISMIR.pdf) |
+| Lehner, Schlüter, Widmer (2018). "Online, Loudness-Invariant Vocal Detection in Mixed Music Signals." TASLP 26(8) | 子带频谱平坦度, 特征选择 | [PDF](../../参考论文/歌声检测SVD/Lehner_Schluter_Widmer_2018_TASLP.pdf) |
+| Driedger, Müller (2015). "Extracting Singing Voice from Music Recordings by Cascading Audio Decomposition Techniques." ICASSP | 级联分解策略 | [PDF](../../参考论文/歌声分离/Driedger_Muller_2015_Singing_Voice_Cascade_ICASSP.pdf) |
+| Boll (1979). "Suppression of Acoustic Noise in Speech Using Spectral Subtraction." IEEE Trans. ASSP 27(2) | 谱减法 (ReverbCompensator) | ⚠️ IEEE 付费墙, 公式在 `services/features/reverb.py` |
+| Berouti, Schwartz, Makhoul (1979). "Enhancement of Speech Corrupted by Acoustic Noise." ICASSP | 过减因子 α, 频谱地板 β | ⚠️ IEEE 付费墙, 公式在 `services/features/reverb.py` |

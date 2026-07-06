@@ -20,7 +20,7 @@ from pathlib import Path
 from playwright.sync_api import Page, expect
 
 # 项目路径配置
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent  # tests/e2e/ -> tests/ -> project root
 UPLOAD_FOLDER = PROJECT_ROOT / "uploads"
 TEST_DATA_DIR = PROJECT_ROOT / "tests" / "test_data" / "audio"
 VOCAL_DIR = TEST_DATA_DIR / "vocal"
@@ -29,7 +29,7 @@ WEB_APP_SCRIPT = PROJECT_ROOT / "web_app.py"
 
 # 确保测试目录存在
 UPLOAD_FOLDER.mkdir(exist_ok=True)
-TEST_MUSIC_FOLDER.mkdir(exist_ok=True)
+TEST_DATA_DIR.mkdir(exist_ok=True)
 
 # 后端服务配置
 BACKEND_URL = "http://localhost:5000"

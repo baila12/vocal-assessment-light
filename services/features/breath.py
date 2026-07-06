@@ -185,37 +185,27 @@ class BreathAnalyzer:
             if harmonic_stabilities:
                 result.harmonic_stability = float(np.mean(harmonic_stabilities))
 
-            # v5.19: 基线 10 (曾 40→20→10)，扩大区分度
-            score = 10
-            if result.pitch_stability_long > 80:
-                score += 20
-            elif result.pitch_stability_long > 60:
-                score += 14
-            elif result.pitch_stability_long > 40:
-                score += 8
-            if result.harmonic_stability > 80:
-                score += 15
-            elif result.harmonic_stability > 60:
-                score += 10
-            elif result.harmonic_stability > 40:
-                score += 5
+            # v6.1: 连续线性映射 (替代 v5.19 步进加分, 基于真实声学测量)
+            # pitch_stability (0-100) → linear bonus 0-40
+            # harmonic_stability (0-100) → linear bonus 0-30
+            # note duration → linear bonus 0-30
+            score = 0
+            if result.pitch_stability_long > 0:
+                score += result.pitch_stability_long * 0.40  # 连续映射: 100→40
+            if result.harmonic_stability > 0:
+                score += result.harmonic_stability * 0.30    # 连续映射: 100→30
 
             for _, _, duration_frames in long_notes:
                 duration_sec = duration_frames * frame_duration
-                if duration_sec >= 15:
-                    score += 15
-                elif duration_sec >= 8:
-                    score += 10
-                elif duration_sec >= 4:
-                    score += 4
+                # 连续时长映射: 0s→0, 15s→30
+                score += min(30, duration_sec * 2.0)
 
             if long_notes:
-                score += 3
                 result.long_note_avg_quality = (result.pitch_stability_long + result.harmonic_stability) / 2
 
             result.long_note_support_score = max(0, min(100, score))
         except Exception:
-            result.long_note_support_score = 10  # v5.19: 基线 10
+            result.long_note_support_score = 0  # v6.1: 基线 0
 
     def _evaluate_dynamic_control(
         self,
@@ -258,28 +248,21 @@ class BreathAnalyzer:
 
             result.crescendo_quality = min(100, crescendo_score)
 
-            # v5.19: 基线 10 (曾 40→20→10)，扩大区分度
-            score = 10
-            if result.soft_singing_quality > 70:
-                score += 25
-            elif result.soft_singing_quality > 50:
-                score += 15
-            elif result.soft_singing_quality > 30:
-                score += 8
-            if result.crescendo_quality > 50:
-                score += 20
-            elif result.crescendo_quality > 30:
-                score += 10
-            if result.dynamic_range > 30:
-                score += 15
-            elif result.dynamic_range > 15:
-                score += 8
-            elif result.dynamic_range > 8:
-                score += 3
+            # v6.1: 连续线性映射 (替代 v5.19 步进加分)
+            # soft_singing_quality (0-100) → 0-40
+            # crescendo_quality (0-100) → 0-30
+            # dynamic_range (dB) → 0-30
+            score = 0
+            if result.soft_singing_quality > 0:
+                score += result.soft_singing_quality * 0.40    # 连续: 100→40
+            if result.crescendo_quality > 0:
+                score += result.crescendo_quality * 0.30       # 连续: 100→30
+            if result.dynamic_range > 0:
+                score += min(30, result.dynamic_range * 1.0)   # 连续: 30dB→30
 
             result.dynamic_control_score = max(0, min(100, score))
         except Exception:
-            result.dynamic_control_score = 10  # v5.19: 基线 10
+            result.dynamic_control_score = 0  # v6.1: 基线 0
 
     def _evaluate_breath_design(
         self,
@@ -313,20 +296,18 @@ class BreathAnalyzer:
             coherence = 100 - np.mean(np.abs(rms - rms_smooth)) / (np.mean(rms) + 1e-10) * 50
             result.phrase_coherence = max(0, min(100, coherence))
 
-            # v5.19: 基线 10 (曾 40→0→10)，扩大区分度
-            score = 10
+            # v6.1: 连续线性映射 (替代 v5.19 步进加分)
+            # clean_breaths → 0-30 (每干净气口 +5, 上限 30)
+            # phrase_coherence (0-100) → 0-50
+            score = 0
             if clean_breaths > 0:
-                score += min(20, clean_breaths * 3)
-            if result.phrase_coherence > 80:
-                score += 20
-            elif result.phrase_coherence > 60:
-                score += 12
-            elif result.phrase_coherence > 40:
-                score += 5
+                score += min(30, clean_breaths * 5)
+            if result.phrase_coherence > 0:
+                score += result.phrase_coherence * 0.50   # 连续: 100→50
 
             result.breath_design_score = max(0, min(100, score))
         except Exception:
-            result.breath_design_score = 10  # v5.19: 基线 10
+            result.breath_design_score = 0  # v6.1: 基线 0
 
     def _evaluate_breath_technique(
         self,
@@ -345,31 +326,37 @@ class BreathAnalyzer:
             }
 
             thresholds = hnr_thresholds.get(singing_style, hnr_thresholds['pop'])
-            # v5.19: 基线 10 (曾 40→0→10)，扩大区分度
-            score = 10
+            # v6.1: 连续线性映射替代步进加分
+            # HNR 在 min_acceptable→max_excellent 区间线性增长 0→70
+            # HPSS harmonic_ratio 贡献额外 0→30
+            score = 0
 
             if hnr < thresholds['min_acceptable']:
                 result.uncontrolled_leak = float(100 - hnr * 10)
-                score -= min(30, (thresholds['min_acceptable'] - hnr) * 4)
+                # 漏气惩罚: 连续衰减 (hnr 越低惩罚越重)
+                score -= min(40, (thresholds['min_acceptable'] - hnr) * 8)
             elif hnr <= thresholds['max_excellent']:
                 result.controlled_breathiness = float(hnr * 5)
-                score += 20  # v5.19: 12→20
-                if thresholds['min_excellent'] <= hnr <= thresholds['max_excellent']:
-                    score += 12  # v5.19: 8→12
+                # 连续线性: hnr 从 min_acceptable 到 max_excellent → 10 到 70
+                hnr_range = thresholds['max_excellent'] - thresholds['min_acceptable']
+                hnr_progress = (hnr - thresholds['min_acceptable']) / max(hnr_range, 1)
+                score += 10 + hnr_progress * 60  # 连续映射
             else:
-                result.controlled_breathiness = 50
+                result.controlled_breathiness = 80
+                score += 70  # 优秀 HNR
 
             try:
                 harmonic, _ = librosa.effects.hpss(audio_data, margin=(1.0, 3.0))
                 harmonic_ratio = np.sum(harmonic ** 2) / (np.sum(audio_data ** 2) + 1e-10)
-                if harmonic_ratio > 0.5:
-                    score += 12  # v5.19: 8→12
+                if harmonic_ratio > 0.3:
+                    # 连续: harmonic_ratio 0.3→1.0 映射到 0→30
+                    score += min(30, (harmonic_ratio - 0.3) / 0.7 * 30)
             except Exception:
                 pass
 
             result.breath_technique_score = max(0, min(100, score))
         except Exception:
-            result.breath_technique_score = 10  # v5.19: 基线 10
+            result.breath_technique_score = 0  # v6.1: 基线 0
 
     def _calculate_professional_breath_score(
         self,
@@ -377,15 +364,15 @@ class BreathAnalyzer:
         singing_style: str
     ):
         """
-        计算专业气息综合得分 v5.19
+        计算专业气息综合得分 v6.1
 
-        v5.19 修复:
-        - 子维度基线降至 10 (曾 40)，扩大区分度
-        - 直接加权 (基线已低，无需 -20 调整)
-        - 波动惩罚更早开始，更大斜率 (0.20*70)
+        v6.1 改进:
+        - 子维度连续线性映射 (曾步进加分)
+        - 波动惩罚连续衰减
+        - 加分项适度奖励
         """
         try:
-            # v5.19: 基线 10，直接加权 (范围 10-90)
+            # v6.1: 直接加权 (子维度已为连续值 0-100)
             score = (
                 result.long_note_support_score * 0.40 +
                 result.dynamic_control_score * 0.25 +
@@ -393,21 +380,21 @@ class BreathAnalyzer:
                 result.breath_technique_score * 0.15
             )
 
-            # 非艺术波动惩罚（v5.19: 更早开始, 更大斜率 0.20*70）
+            # 非艺术波动惩罚 (连续)
             fluctuation_penalty = 0
-            if not result.is_artistic_fluctuation and result.rms_fluctuation > 0.20:
-                fluctuation_penalty = (result.rms_fluctuation - 0.20) * 70
+            if not result.is_artistic_fluctuation and result.rms_fluctuation > 0.15:
+                fluctuation_penalty = min(40, (result.rms_fluctuation - 0.15) * 80)
             score -= fluctuation_penalty
 
-            # 加分项适度扩大（v5.19: 5→8, 3→6）
-            if result.long_note_count >= 3:
-                score += min(8, result.long_note_count * 1)
-            if result.clean_breath_count >= 2:
-                score += min(6, result.clean_breath_count * 1)
+            # 加分项 (连续, 上限)
+            if result.long_note_count >= 1:
+                score += min(10, result.long_note_count * 2)
+            if result.clean_breath_count >= 1:
+                score += min(8, result.clean_breath_count * 2)
 
             result.professional_breath_score = max(0, min(100, score))
         except Exception:
-            result.professional_breath_score = 10  # v5.19: 基线 10
+            result.professional_breath_score = 0  # v6.1: 基线 0
 
     def _calculate_long_note_decay(
         self,

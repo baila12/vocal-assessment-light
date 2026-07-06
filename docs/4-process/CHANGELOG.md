@@ -4,6 +4,46 @@
 
 ---
 
+## v6.0 — 混响补偿管线接入 + 混合音频检测文献驱动重构 (2026-07-06, 已完成)
+
+### 混响补偿接入评分管线 (P2→✅)
+
+| 文件 | 变更 |
+|------|------|
+| `services/feature_flags.py` | 新增 `enable_reverb_compensation` flag |
+| `services/audio_features_service.py` | 集成 `ReverbCompensator`, HNR/CPP 计算前可选 HPSS+谱减法补偿 |
+| `services/features/reverb.py` | 已有实现 (v5.20), 无变更 |
+
+**管线**: `audio_data` → `ReverbCompensator.process()` (HPSS 中值滤波 + Boll 1979 谱减法 + Berouti 1979 过减) → HNR/CPP 计算
+**控制**: `FeatureFlags.enable_reverb_compensation` 默认关闭
+**测试**: 4 个 TDD 测试 GREEN
+
+### 混合音频检测文献驱动重构 (P2→✅)
+
+基于 **Fitzgerald (2010) DAFx**, **Driedger et al. (2014) ISMIR**, **Lehner et al. (2018) TASLP** 三篇论文完全重写 `detect_mixed_audio()`:
+
+**v5.17 → v6.0 变更**:
+- 移除低频能量 (<300Hz) — Lehner 2018 证明受录音条件影响过大
+- 新增子带频谱平坦度 (1.5-3kHz) — Lehner 2018 §4 证明最可靠
+- 新增谐波度 (Harmonicity) — 自相关法量化谐波结构
+- HPSS 门控基于 Driedger 2014 §3 校准 (0.88/0.72)
+- 五特征加权投票替代二特征逻辑
+
+**真音频验证**:
+- 纯人声误判率: 75% → **0%**
+- 已知局限: 极轻钢琴伴奏 HPSS ratio >0.88 (Driedger 2014 证实为理论上限)
+- 测试: 5 synthetic + 2 integration = 7 tests GREEN
+
+### 论文下载
+
+4 篇关键论文下载至 `参考论文/`:
+- Fitzgerald (2010) HPSS Median Filtering
+- Driedger, Müller, Disch (2014) Extending HPSS
+- Lehner, Schlüter, Widmer (2018) Loudness-Invariant Vocal Detection
+- Driedger, Müller (2015) Cascaded Decomposition for Singing Voice
+
+---
+
 ## v5.20 — 前端SPA修复 + 混响补偿 + 混合音频检测重构 + 架构升级 (2026-07-05, 已完成)
 
 ### 🔴 SPA 导航死锁根因修复 (P0, 3 文件)

@@ -161,18 +161,18 @@ class EmpiricalThresholds:
     cv_moderate: float = 0.8      # [经验估计] 中等CV阈值
     cv_irregular: float = 1.2     # [经验估计] 不规则CV阈值
 
-    # === 气息特征 ===
-    breath_baseline_score: float = 10.0            # v5.19: 基线降至10 [曾 40.0] — 扩大区分度
+    # === 气息特征 v6.1 ===
+    breath_baseline_score: float = 0.0             # v6.1: 基线 0 (曾 v5.19: 10, v5.12: 40) — 连续线性映射替代步进
     breath_soft_threshold_ratio: float = 0.6       # [经验估计] 弱唱判定阈值(RMS均值比例)
-    breath_long_note_baseline: float = 10.0        # v5.19: 基线降至10 [曾 40.0]
-    breath_dynamic_baseline: float = 10.0          # v5.19: 基线降至10 [曾 40.0]
-    breath_design_baseline: float = 10.0           # v5.19: 基线降至10 [曾 40.0]
-    breath_technique_baseline: float = 10.0        # v5.19: 基线降至10 [曾 40.0]
-    breath_long_note_max_bonus: float = 30.0       # v5.19: 15→30 — 扩大奖励范围
-    breath_clean_breath_max_bonus: float = 20.0    # v5.19: 10→20 — 扩大奖励范围
+    breath_long_note_baseline: float = 0.0         # v6.1: 基线 0
+    breath_dynamic_baseline: float = 0.0           # v6.1: 基线 0
+    breath_design_baseline: float = 0.0            # v6.1: 基线 0
+    breath_technique_baseline: float = 0.0         # v6.1: 基线 0
+    breath_long_note_max_bonus: float = 40.0       # v6.1: 30→40 — 连续映射: pitch_stability*0.4+harmonic_stability*0.3
+    breath_clean_breath_max_bonus: float = 30.0    # v6.1: 20→30 — 连续映射: clean_breaths*5
 
-    # === 技巧特征 ===
-    technique_baseline_score: float = 50.0          # [经验估计] 技巧综合基线分
+    # === 技巧特征 v6.1 ===
+    technique_baseline_score: float = 0.0           # v6.1: 基线 0 (曾 v5.x: 50) — 仅检测到的技巧加分
     vibrato_fft_window_ratio: float = 4.0           # [经验估计] 颤音FFT窗口大小/总长度的最大比例
 
     # === 艺术表现子维度上限 ===

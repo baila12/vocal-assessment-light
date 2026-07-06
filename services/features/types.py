@@ -90,6 +90,8 @@ class AudioFeaturesResult:
     mixed_audio_confidence: float = 0.0
     _vocal_segment_count: int = 0
     _voicing_detection: Optional['VoicingDetectionResult'] = None  # v5.18
+    _mixed_metadata: Optional[dict] = None  # v6.0: mixed audio detection metadata
+    _reverb_compensation: Optional[object] = None  # v5.20: ReverbCompensationResult
     error_message: Optional[str] = None
 
 
@@ -100,5 +102,5 @@ class AcousticResult:
     cpp: float = 0.0
     is_mixed_audio: bool = False
     mixed_audio_confidence: float = 0.0
-    low_freq_ratio: float = 0.0
-    spectral_flatness: float = 0.0
+    _mixed_metadata: Optional[dict] = None  # v6.0: mixed audio detection metadata
+    # v6.0: low_freq_ratio and spectral_flatness removed (replaced by multi-feature metadata)

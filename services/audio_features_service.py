@@ -40,6 +40,9 @@ from services.features.hnr import MultiScaleHNR
 from services.features.cpp import PraatCPP
 from services.features.voicing import VoicingDetector
 
+# v5.20 混响补偿 (HPSS+谱减法 → HNR/CPP修正)
+from services.features.reverb import ReverbCompensator
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,6 +67,9 @@ class AudioFeaturesService:
         self.multiscale_hnr = MultiScaleHNR(sample_rate)
         self.praat_cpp = PraatCPP()
         self.voicing_detector = VoicingDetector(sample_rate, hop_length)
+
+        # v5.20 混响补偿器 (Feature Flag 控制, 默认不启用)
+        self.reverb_compensator = ReverbCompensator(sample_rate=sample_rate)
 
     def extract_all_features(
         self,
@@ -110,9 +116,28 @@ class AudioFeaturesService:
                 vocal_audio = AcousticAnalyzer.filter_audio_to_vocal_segments(
                     audio_data, vocal_segments, self.hop_length
                 )
+
+                # v5.20: 混响补偿 — HPSS+谱减法抑制混响扩散尾 [Fitzgerald 2010, Boll 1979]
+                # 补偿后音频仅用于 HNR/CPP 计算, 不影响音准/节奏/气息等其他特征
+                acoustic_audio = vocal_audio
+                if (
+                    feature_flags is not None
+                    and feature_flags.enable_reverb_compensation
+                    and len(vocal_audio) >= 2048
+                ):
+                    compensated, reverb_result = self.reverb_compensator.process(
+                        vocal_audio, return_result=True
+                    )
+                    acoustic_audio = compensated
+                    logger.info(
+                        f"混响补偿: noise_reduction={reverb_result.noise_reduction_db:.1f}dB, "
+                        f"HPSS harmonic_ratio={reverb_result.hpss_harmonic_ratio:.2f}"
+                    )
+                    result._reverb_compensation = reverb_result
+
                 # 声学指标在纯净人声段上计算，减少器乐段干扰
-                hnr = self.acoustic_analyzer.calculate_hnr(vocal_audio)
-                cpp = self.acoustic_analyzer.calculate_cpp(vocal_audio)
+                hnr = self.acoustic_analyzer.calculate_hnr(acoustic_audio)
+                cpp = self.acoustic_analyzer.calculate_cpp(acoustic_audio)
 
                 # v5.13: 节奏分析使用原始音频(未归一化)
                 # f0路径暂不启用(需校准验证后恢复), 先修CV映射
@@ -128,8 +153,25 @@ class AudioFeaturesService:
                 )
             else:
                 # 无有效人声段，使用全音频
-                hnr = self.acoustic_analyzer.calculate_hnr(audio_data)
-                cpp = self.acoustic_analyzer.calculate_cpp(audio_data)
+
+                # v5.20: 混响补偿 (与有声段路径一致)
+                acoustic_audio = audio_data
+                if (
+                    feature_flags is not None
+                    and feature_flags.enable_reverb_compensation
+                    and len(audio_data) >= 2048
+                ):
+                    compensated, reverb_result = self.reverb_compensator.process(
+                        audio_data, return_result=True
+                    )
+                    acoustic_audio = compensated
+                    logger.info(
+                        f"混响补偿(全音频): noise_reduction={reverb_result.noise_reduction_db:.1f}dB"
+                    )
+                    result._reverb_compensation = reverb_result
+
+                hnr = self.acoustic_analyzer.calculate_hnr(acoustic_audio)
+                cpp = self.acoustic_analyzer.calculate_cpp(acoustic_audio)
                 rhythm_result = self.rhythm_analyzer.calculate_rhythm_alignment(
                     audio_data_raw, f0=None, voiced_flags=None
                 )
@@ -160,10 +202,11 @@ class AudioFeaturesService:
                 if feature_flags.enable_voicing_detection:
                     self._apply_voicing_detection(result, f0, voiced_flags)
 
-            # 混合音频检测
-            is_mixed, confidence, low_ratio, flatness = self.acoustic_analyzer.detect_mixed_audio(audio_data)
+            # 混合音频检测 (v6.0: 返回 metadata dict)
+            is_mixed, confidence, metadata = self.acoustic_analyzer.detect_mixed_audio(audio_data)
             result.is_mixed_audio = is_mixed
             result.mixed_audio_confidence = confidence
+            result._mixed_metadata = metadata
 
             return result
         except Exception as e:

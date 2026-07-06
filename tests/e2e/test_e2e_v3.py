@@ -29,7 +29,7 @@ NON_VOCAL_DIR = TEST_DATA_DIR / "non_vocal"
 WEB_APP_SCRIPT = PROJECT_ROOT / "web_app.py"
 
 UPLOAD_FOLDER.mkdir(exist_ok=True)
-TEST_MUSIC_FOLDER.mkdir(exist_ok=True)
+TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 BACKEND_URL = "http://localhost:5000"
 
@@ -915,8 +915,8 @@ class TestAllMusicFiles:
         """获取所有测试音乐文件"""
         music_files = []
         for ext in ['*.mp3', '*.wav', '*.ogg', '*.m4a']:
-            music_files.extend(VOCAL_DIR.glob(ext)
-        files.extend(NON_VOCAL_DIR.glob(ext)))
+            music_files.extend(VOCAL_DIR.glob(ext))
+            music_files.extend(NON_VOCAL_DIR.glob(ext))
         return sorted(music_files, key=lambda f: f.stat().st_size)  # 按文件大小排序，小的先测试
 
     def test_analyze_all_music_files(self, page: Page):

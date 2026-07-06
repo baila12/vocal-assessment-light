@@ -136,9 +136,9 @@ class TechniqueScorer:
             else:
                 return max(30, hnr_adjusted / 12 * 60)
         else:
-            # v5.19 流行：提升天花板避免好评歌手堆叠在满分
-            if technique_score >= 70:
-                # 高技巧得分，HNR低可能是艺术选择（气声唱法）
+            # v6.1 流行: 降低高技巧阈值 (v5.19: 70; v6.1: technique_score 0-85, 35 合理)
+            if technique_score >= 35:
+                # 检测到足够技巧，HNR低可能是艺术选择（气声唱法）
                 if hnr_adjusted >= 22:      # v5.19: 12→22
                     return 100
                 elif hnr_adjusted >= 14:    # v5.19: 8→14
@@ -182,7 +182,7 @@ class TechniqueScorer:
                 return max(30, cpp / 1.0 * 60)
         else:
             # 流行/民族：如果技巧分高，CPP低可能是艺术选择
-            if technique_score >= 70:
+            if technique_score >= 35:  # v6.1: 阈值 70→35 (technique_score 现在是 0-85)
                 if cpp >= 2.0:      # v5.19: 0.5→2.0
                     return 90
                 elif cpp >= 1.0:    # v5.19: 0.2→1.0

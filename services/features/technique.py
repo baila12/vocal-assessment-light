@@ -67,14 +67,17 @@ class TechniqueAnalyzer:
             result.slide_count = self._detect_slides(valid_f0)
             result.falsetto_segments = self._detect_falsetto(audio_data)
 
-            # 综合技巧评分
-            technique_score = 50
+            # 综合技巧评分 v6.1: 从 0 开始 (曾 50), 仅检测到的技巧加分
+            # HNR(40%)+CPP(30%) 已独立贡献声带闭合质量, technique_score 仅衡量技巧运用
+            technique_score = 0
             if result.vibrato_count > 0:
-                technique_score += min(30, result.vibrato_count * 3)
-                if result.vibrato_quality > 70:
-                    technique_score += 10
-            if 0 < result.slide_count <= 5:
-                technique_score += 5
+                technique_score += min(50, result.vibrato_count * 10)  # v6.1: 每颤音 +10, 上限 50
+                if result.vibrato_quality > 50:
+                    technique_score += min(20, int(result.vibrato_quality / 5))  # v6.1: quality 驱动的加分
+            if result.slide_count > 0:
+                technique_score += min(20, result.slide_count * 5)  # v6.1: 每滑音 +5, 上限 20
+            if result.falsetto_segments > 0:
+                technique_score += min(15, result.falsetto_segments * 5)  # v6.1: 假声转换加分
 
             result.technique_score = min(100, technique_score)
 

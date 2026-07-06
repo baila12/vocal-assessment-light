@@ -20,7 +20,7 @@ NON_VOCAL_DIR = TEST_DATA_DIR / "non_vocal"
 WEB_APP_SCRIPT = PROJECT_ROOT / "web_app.py"
 
 UPLOAD_FOLDER.mkdir(exist_ok=True)
-TEST_MUSIC_FOLDER.mkdir(exist_ok=True)
+TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 BACKEND_URL = "http://localhost:5000"
 

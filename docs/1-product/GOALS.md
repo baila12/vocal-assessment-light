@@ -114,7 +114,8 @@
 | **SVQTD 7属性歌唱分类器** | 论文 [2210.17367v2](https://arxiv.org/abs/2210.17367) | v6.1 | `enable_svqtd` |
 | **ECAPA-TDNN 音色分析** (明亮度/厚度) | [SpeechBrain](https://github.com/speechbrain/speechbrain) | v6.1 | `enable_ecapa_timbre` |
 | 六维评分 (音量独立) | — | v6.1 | — |
-| 混响补偿 (HPSS谐波分离+谱减法) | — | v6.1 | — |
+| ~~混响补偿 (HPSS谐波分离+谱减法)~~ | ✅ v6.0: `ReverbCompensator` 已接入 `AudioFeaturesService`, Feature Flag 控制 | ✅ v6.0 | `enable_reverb_compensation` |
+| 混合音频检测文献驱动重构 | ✅ v6.0: 五特征融合 (HPSS+子带平坦度+高频+谐波度+全频平坦度) | ✅ v6.0 | — |
 
 > **移植优先级**: 多尺度HNR > Praat CPP > Voicing detection > TorchCREPE。前两个直接提升 Breath/Technique 区分度；后两个是备选增强。所有移植通过 Feature Flag 默认关闭，逐个验证后开启。
 
@@ -170,18 +171,44 @@
 | **可操作反馈** | 不只给分数，还给出具体改进建议 |
 | **隐私可见** | 明确告知用户所有数据在本地，不离开电脑 |
 
-### 4.3 算法原则
+### 4.3 算法原则 (CRITICAL)
 
 | 原则 | 说明 |
 |------|------|
+| **🔬 文献驱动 (最高优先级)** | 算法设计必须有理论根据。每个特征、阈值、方法必须来自已发表论文、教科书或权威文献。**禁止凭直觉发明方法**。流程: 查论文 → 理解原理 → 移植/适配 → 验证。优先复现论文中已验证的方法而非自行创造。 |
 | **可解释评分** | 每个维度分数有理有据，不黑盒 |
 | **保守使用 DL** | 深度学习仅用于语音分离 (Demucs)，评分用经典信号处理 |
 | **校准驱动** | 阈值通过校准数据集确定，不做经验硬编码 |
 | **区分度优先** | 分数必须能区分水平差异，不搞人人 80 分的虚假安慰 |
 
+### 4.4 文献驱动开发流程
+
+```
+新功能/算法需求
+    │
+    ├─[1] 搜索论文 (Google Scholar / IEEE Xplore / ISMIR / DAFx / ICASSP)
+    │      ├─ 关键词: singing voice, vocal assessment, HPSS, spectral features, ...
+    │      └─ 输出: 论文题录 + PDF (存放至 参考论文/)
+    │
+    ├─[2] 提取方法
+    │      ├─ 公式 → 代码映射
+    │      ├─ 参数 → 配置/Feature Flag
+    │      └─ 适用范围 → 边界条件
+    │
+    ├─[3] TDD 实现
+    │      ├─ RED: 写测试 (引用论文作为预期行为依据)
+    │      ├─ GREEN: 实现 (代码注释标注论文引用行)
+    │      └─ REFACTOR: 优化 (保持与原文一致)
+    │
+    └─[4] 真音频验证
+           └─ tests/test_data/audio/vocal/ 中 5 首真实音频作为回归基线
+```
+
 ---
 
 ## 五、参考文档
+
+### 项目文档
 
 | 文档 | 路径 |
 |------|------|
@@ -191,3 +218,18 @@
 | TDD 规范 | [TDD.md](../3-quality/TDD.md) |
 | BDD 规范 | [BDD.md](../3-quality/BDD.md) |
 | 项目状态 | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) |
+
+### 参考论文
+
+> 目录: `参考论文/` (项目根目录)。论文按主题组织，每篇对应代码中的 `# Reference:` 标注。
+
+| 论文 | 主题 | 路径 |
+|------|------|------|
+| Fitzgerald (2010). "Harmonic/Percussive Separation Using Median Filtering." DAFx | HPSS 理论基础 | [HPSS谐波冲击分离/Fitzgerald_2010_HPSS_Median_Filtering_DAFx.pdf](../../参考论文/HPSS谐波冲击分离/Fitzgerald_2010_HPSS_Median_Filtering_DAFx.pdf) |
+| Driedger, Müller, Disch (2014). "Extending Harmonic-Percussive Separation of Audio Signals." ISMIR | HPSS 三元分解 H+P+R | [HPSS谐波冲击分离/Driedger_Muller_Disch_2014_Extending_HPSS_ISMIR.pdf](../../参考论文/HPSS谐波冲击分离/Driedger_Muller_Disch_2014_Extending_HPSS_ISMIR.pdf) |
+| Lehner, Schlüter, Widmer (2018). "Online, Loudness-Invariant Vocal Detection in Mixed Music Signals." TASLP 26(8) | 歌声检测特征选择 | [歌声检测SVD/Lehner_Schluter_Widmer_2018_TASLP.pdf](../../参考论文/歌声检测SVD/Lehner_Schluter_Widmer_2018_TASLP.pdf) |
+| Driedger, Müller (2015). "Extracting Singing Voice from Music Recordings by Cascading Audio Decomposition Techniques." ICASSP | 级联歌声分离 | [歌声分离/Driedger_Muller_2015_Singing_Voice_Cascade_ICASSP.pdf](../../参考论文/歌声分离/Driedger_Muller_2015_Singing_Voice_Cascade_ICASSP.pdf) |
+| Boll (1979). "Suppression of Acoustic Noise in Speech Using Spectral Subtraction." IEEE Trans. ASSP 27(2) | 谱减法 (ReverbCompensator) | ⚠️ IEEE 付费墙, 算法在 `services/features/reverb.py` |
+| Berouti, Schwartz, Makhoul (1979). "Enhancement of Speech Corrupted by Acoustic Noise." ICASSP | 过减因子 α, 频谱地板 β | ⚠️ IEEE 付费墙, 算法在 `services/features/reverb.py` |
+
+> **原则**: 每个算法模块的代码注释中必须标注 `# Reference:` 指向对应的论文和章节。新算法设计前先搜索 `参考论文/` 目录确认是否已有相关文献。
