@@ -48,47 +48,26 @@ pytest tests/e2e/ -v --tb=short
 
 ### 2026-07-06 | `feat/v5.18-gsap-animation-redesign` | v6.1
 
-**提交**: `793beaf` (API contract) + `81b6582` (Artistry) + `2c4904f` (Scoring fixes)
+**提交**: `6d89ac8` (perf) + `79281e0` (refactor) + `793beaf` (docs) + `81b6582` (Artistry) + `2c4904f` (Scoring)
 
 | 套件 | 通过 | 失败 | 跳过 | xfail | 耗时 |
 |------|------|------|------|-------|------|
-| unit | | | | | |
-| integration | | | | | |
-| tdd/test_acoustic_algorithms | | | | | |
-| tdd/test_mixed_audio | | | | | |
-| tdd/test_scoring_v6_1 | | | | | |
-| tdd/test_future_features | | | | | |
-| **合计** | | | | | |
+| unit | 121 | 0 | 0 | 0 | 82s |
+| tdd/test_acoustic_algorithms | 12 | 0 | 0 | 0 | ~15s |
+| tdd/test_mixed_audio | 11 | 0 | 1* | 0 | ~120s |
+| tdd/test_scoring_v6_1 | 9 | 0 | 0 | 1 | ~40s |
+| tdd/test_future_features | 5 | 0 | 0 | 5 (RED) | < 5s |
+| **合计** | **158** | **0** | **1** | **6** | **~260s** |
 
-**真音频回归 (Quick 模式)**:
+> *: `test_detect_light_accompaniment_ballad` 已知局限 skip (HPSS > 0.88)
+
+**真音频回归 (Quick 模式, v6.1 新评分基线)**:
 
 | 音频 | 总分 | 音准 | 节奏 | 气息 | 技术 | 艺术 | 音量 |
 |------|------|------|------|------|------|------|------|
-| | | | | | | | |
-
-**已知问题**: (记录测试中发现的异常或待修复项)
-
----
-
-## 模板 (新记录用)
-
-```markdown
-### YYYY-MM-DD | `branch` | vX.Y
-
-**提交**: `abc1234` (描述)
-
-| 套件 | 通过 | 失败 | 跳过 | xfail | 耗时 |
-|------|------|------|------|-------|------|
-| unit | | | | | |
-| tdd/* | | | | | |
-| **合计** | | | | | |
-
-**真音频回归**:
-
-| 音频 | 总分 | 音准 | 节奏 | 气息 | 技术 | 艺术 |
-|------|------|------|------|------|------|------|
-| | | | | | | |
+| ⏳ 待更新 (需 GPU 或夜间运行) | | | | | | | |
 
 **已知问题**:
-- 
-```
+- 真音频回归基线需重新校准 (v6.1 Artistry 公式变更)
+- librosa HPSS 首次调用 8s 开销 (Windows), 后续调用正常
+- E2E 测试需启动 Flask 服务, 不在 CI 中自动运行

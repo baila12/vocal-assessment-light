@@ -4,6 +4,56 @@
 
 ---
 
+## v6.1 — 评分区分度修复 + Artistry 独立评分 + 测试模块化 (2026-07-06, 已完成)
+
+### 评分区分度修复 (真实信号驱动)
+
+**核心原则: 所有分数从真实声学测量推导，连续线性映射替代离散步进加分。**
+
+| # | 维度 | 文件 | 修复前 | 修复后 |
+|---|------|------|--------|--------|
+| 1 | Technique | `services/features/technique.py` | `technique_score = 50` (地板) | `technique_score = 0`, 仅检测到的技巧加分 |
+| 2 | Breath 子维度 | `services/features/breath.py` | 步进加分 (`if > 80: +20 elif > 60: +14`) | 连续线性映射 (`pitch_stability * 0.4`) |
+| 3 | Breath 基线 | `breath.py` 四处 fallback | `= 10` | `= 0` |
+| 4 | HNR/CPP 高技巧阈值 | `services/scoring/technique_scorer.py` | `technique_score >= 70` (不可达) | `>= 35` (匹配新 0-85 范围) |
+| 5 | 配置更新 | `services/scoring_config.py` | breath_baseline=10, technique_baseline=50 | 全部 = 0 |
+
+### Artistry 评分独立化
+
+| 旧版 (v5.14) | 新版 (v6.1) |
+|-------------|------------|
+| `pitch*0.20 + rhythm*0.25 + breath*0.20 + technique*0.35 + modulation(±10)` | 4 个独立声学特征子维度 |
+| 95% 来源于其他分数 (r > 0.9) | 100% 来源于可测量声学信号 |
+
+**子维度**: 颤音品质(30%) + 动态控制(30%) + 乐句处理(25%) + 音高变化(15%)
+
+### v6.0 兼容性修复 (6 项 bug)
+
+| 严重度 | 问题 | 修复文件 |
+|--------|------|---------|
+| CRITICAL | `detect_mixed_audio()` 返回值 4→3 导致 Demucs 静默失败 | `audio_service.py`, `dtw_aligner.py` |
+| MEDIUM | E2E 测试 collection error (3 处) | `test_e2e.py`, `test_e2e_v2.py`, `test_e2e_v3.py` |
+| MEDIUM | `AcousticResult` 孤立字段 | `types.py` |
+| MEDIUM | 动态属性未声明 | `types.py` |
+| LOW | 重复 import + 文档自相矛盾 | `acoustic.py`, `PROJECT_STATUS.md` |
+
+### 测试模块化
+
+```
+tests/tdd/
+├── conftest.py                  # 会话级音频缓存 (cached_quick_result 等)
+├── test_acoustic_algorithms.py  # Feature Flags + HNR/CPP/Voicing/CREPE (< 5s)
+├── test_mixed_audio.py          # 混合音频检测 + 混响补偿 (< 120s)
+├── test_scoring_v6_1.py         # 评分区分度验证 (缓存复用, < 30s)
+└── test_future_features.py      # RED 阶段 xfail (SSE + Song DB)
+```
+
+### API 契约文档
+
+新增 `docs/2-technical/API_CONTRACT.md` — 为 v7.0 Vue 迁移准备的完整 API 规范。
+
+---
+
 ## v6.0 — 混响补偿管线接入 + 混合音频检测文献驱动重构 (2026-07-06, 已完成)
 
 ### 混响补偿接入评分管线 (P2→✅)

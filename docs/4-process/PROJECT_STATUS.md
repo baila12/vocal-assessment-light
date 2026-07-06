@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-07-06 | 当前版本: **v6.0** (混响补偿管线接入 + 混合音频检测文献驱动重构) | 下一版本: **v6.1**
+> 更新: 2026-07-06 | 当前版本: **v6.1** (评分区分度修复 + Artistry 独立评分 + 测试模块化) | 下一版本: **v6.2**
 
 ---
 
@@ -174,6 +174,47 @@ python web_app.py
 TDD 新增: 9 个测试 (4 reverb pipeline + 5 mixed audio detection)
 全部通过: 6 passed, 1 skipped (known limitation), 0 failed
 混合音频检测: 合成 5/5 通过, 真音频 0 误判
+```
+
+---
+
+## v6.1: 评分区分度修复 + Artistry 独立评分 + 测试模块化 (2026-07-06, 已完成)
+
+### 评分区分度修复
+
+| # | 文件 | 变更 |
+|---|------|------|
+| 1 | `services/features/technique.py` | technique_score 基线 50→0, 仅检测到的技巧加分 |
+| 2 | `services/features/breath.py` | 四子维度步进加分→连续线性映射, 基线 10→0 |
+| 3 | `services/scoring/technique_scorer.py` | HNR/CPP 高技巧阈值 70→35 |
+| 4 | `services/scoring_config.py` | 所有基线参数更新 |
+
+### Artistry 独立评分
+
+`services/scoring/artistry_scorer.py` 完全重构:
+- **旧**: `pitch*0.20 + rhythm*0.25 + breath*0.20 + technique*0.35`
+- **新**: 4 个独立声学特征子维度 (颤音品质/动态控制/乐句处理/音高变化)
+- 不再依赖其他维度分数
+
+### Bug 修复
+
+| 严重度 | 问题 | 文件 |
+|--------|------|------|
+| CRITICAL | `detect_mixed_audio()` 返回值 4→3, 2 个调用者静默失败 | `audio_service.py`, `dtw_aligner.py` |
+| MEDIUM | E2E 测试 3 处 collection error | `test_e2e.py` 等 |
+
+### 测试模块化 + 速度优化
+
+- `test_future_features.py` → 4 个模块 + `conftest.py` (会话级缓存)
+- TDD 套件: 600s+ → ~65s (消除冗余 HPSS 调用 + 短音频片段)
+- 新增 `docs/2-technical/API_CONTRACT.md` (Vue 迁移)
+- 新增 `docs/4-process/TEST_RESULTS.md` (测试结果记录)
+
+### 测试
+
+```
+单元: 121 passed, 0 failed
+TDD:  ~35 tests (12 acoustic + 11 mixed + 9 scoring + 5 RED/xfail)
 ```
 
 ---

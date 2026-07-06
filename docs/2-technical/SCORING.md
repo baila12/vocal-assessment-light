@@ -1,6 +1,6 @@
 # 评分算法文档
 
-> 更新日期: 2026-07-04 | v5.19 — 评分区分度修复 + 混合音频检测局限文档化
+> 更新日期: 2026-07-06 | v6.1 — Technique 基线归零 + Breath 连续映射 + Artistry 独立评分
 
 ---
 
@@ -77,6 +77,42 @@
 | 60-70 | 中等 | ★☆ |
 | 50-60 | 及格 | ★ |
 | 0-50 | 待改进 | ☆ |
+
+---
+
+## v6.1 评分公式变更 (2026-07-06)
+
+### Technique: 基线归零
+
+```
+v5.x:  technique_score = 50 + vibrato 加分 + slide 加分
+v6.1:  technique_score = 0  + vibrato 加分 + slide 加分 + falsetto 加分
+```
+
+HNR(40%) + CPP(30%) + technique_score(30%) = 技术维度总分。
+技术维度仍由声带闭合质量主导; technique_score 仅反映技巧运用程度。
+
+### Breath: 连续线性映射
+
+```
+v5.x:  if pitch_stability > 80:  score += 20  (步进加分)
+v6.1:  score += pitch_stability * 0.40        (连续映射)
+
+v5.x:  for each long_note: score += min(30, dur_s * 2.0)  (单句累加)
+v6.1:  total_dur = sum(all long notes); score += min(30, total_dur * 2.0)  (总计)
+```
+
+所有子维度 (长音支撑/动态控制/气口设计/气声技巧) 从步进改为连续。
+
+### Artistry: 独立声学信号
+
+```
+v5.14: artistry = pitch*0.20 + rhythm*0.25 + breath*0.20 + technique*0.35 + modulation(±10)
+v6.1:  artistry = vibrato_expressiveness*0.30 + dynamic_expressiveness*0.30
+                + phrase_expressiveness*0.25 + pitch_variation*0.15
+```
+
+每个子维度基于真实声学测量, 不再依赖其他维度分数。
 
 ---
 
