@@ -188,17 +188,19 @@ class BreathAnalyzer:
             # v6.1: 连续线性映射 (替代 v5.19 步进加分, 基于真实声学测量)
             # pitch_stability (0-100) → linear bonus 0-40
             # harmonic_stability (0-100) → linear bonus 0-30
-            # note duration → linear bonus 0-30
+            # total note duration → linear bonus 0-30 (total across all notes, not per-note)
             score = 0
             if result.pitch_stability_long > 0:
                 score += result.pitch_stability_long * 0.40  # 连续映射: 100→40
             if result.harmonic_stability > 0:
                 score += result.harmonic_stability * 0.30    # 连续映射: 100→30
 
-            for _, _, duration_frames in long_notes:
-                duration_sec = duration_frames * frame_duration
-                # 连续时长映射: 0s→0, 15s→30
-                score += min(30, duration_sec * 2.0)
+            # 总长音时长累积 (非单句累加, 避免上限压缩)
+            total_long_duration = sum(
+                duration_frames * frame_duration
+                for _, _, duration_frames in long_notes
+            )
+            score += min(30, total_long_duration * 2.0)  # 0s→0, 15s→30
 
             if long_notes:
                 result.long_note_avg_quality = (result.pitch_stability_long + result.harmonic_stability) / 2

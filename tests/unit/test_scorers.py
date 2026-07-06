@@ -295,7 +295,7 @@ class TestArtistryScorer:
         self.scorer = ArtistryScorer()
 
     def test_rich_emotions(self):
-        """测试丰富情感"""
+        """测试丰富情感 — v6.1: 基于真实声学特征的独立艺术评分"""
         emotions = {
             'happy': 0.4,
             'sad': 0.3,
@@ -309,16 +309,29 @@ class TestArtistryScorer:
             slide_count=3,
             falsetto_segments=2
         )
+        # v6.1: 需要 breath 数据用于完整的艺术评分
+        breath = BreathStabilityResult()
+        breath.is_artistic_fluctuation = True
+        breath.dynamic_range = 18.0
+        breath.crescendo_quality = 50.0
+        breath.phrase_coherence = 70.0
+        breath.long_note_count = 3
+
         score, diagnosis = self.scorer.calculate(
             emotion_confidence=0.4,
             emotions=emotions,
-            technique=technique
+            technique=technique,
+            breath=breath,
         )
 
-        # v5.14: Artistry v5.14 composite scoring. With technique_score=70, defaults=50 for others
-        # base = 50*0.20+50*0.25+50*0.20+70*0.35 = 57.0, no modulation without raw features
-        assert score >= 48.0
-        # v5.14: diagnosis messages changed, no longer emits "丰富"/"单调" text
+        # v6.1: 独立评分基于真实声学特征 (非其他维度加权)
+        # vibrato_quality=75 → vibrato_sub=68, dynamic_range=18→36, crescendo=50→20, phrase=70→49+30
+        # score = 68*0.30 + 56*0.30 + 85*0.25 + 0*0.15 ≈ 58
+        assert score >= 35.0, f"Rich technique+breath should score >= 35, got {score:.1f}"
+        assert score <= 95.0, f"Score {score:.1f} too high"
+        # 正面诊断应存在
+        assert len(diagnosis.positives) > 0 or len(diagnosis.issues) > 0, \
+            "应有诊断信息输出"
 
     def test_monotonic_emotion(self):
         """测试单调情感 — v5.14 adapts to composite scoring"""

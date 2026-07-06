@@ -139,6 +139,7 @@ class TechniqueScorer:
             # v6.1 流行: 降低高技巧阈值 (v5.19: 70; v6.1: technique_score 0-85, 35 合理)
             if technique_score >= 35:
                 # 检测到足够技巧，HNR低可能是艺术选择（气声唱法）
+                logger.debug(f"HNR artistic path: technique={technique_score:.0f}, hnr={hnr:.1f}")
                 if hnr_adjusted >= 22:      # v5.19: 12→22
                     return 100
                 elif hnr_adjusted >= 14:    # v5.19: 8→14

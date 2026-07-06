@@ -67,6 +67,7 @@ class ArtistryDiagnosis:
     dynamics_score: float = 0.0
     level: str = ""
     issues: List[str] = field(default_factory=list)
+    positives: List[str] = field(default_factory=list)
     suggestions: List[str] = field(default_factory=list)
 
 
