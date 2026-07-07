@@ -347,11 +347,16 @@ class BreathAnalyzer:
                 result.controlled_breathiness = 80
                 score += 70  # 优秀 HNR
 
+            # v6.2 perf: 使用预计算的 harmonic_ratio (从 HPSS 缓存), 避免重复 HPSS
             try:
-                harmonic, _ = librosa.effects.hpss(audio_data, margin=(1.0, 3.0))
-                harmonic_ratio = np.sum(harmonic ** 2) / (np.sum(audio_data ** 2) + 1e-10)
+                # 尝试从 result 获取缓存的 harmonic_ratio
+                cached_ratio = getattr(result, '_hpss_harmonic_ratio', None)
+                if cached_ratio is not None and cached_ratio > 0:
+                    harmonic_ratio = cached_ratio
+                else:
+                    harmonic, _ = librosa.effects.hpss(audio_data, margin=(1.0, 3.0))
+                    harmonic_ratio = np.sum(harmonic ** 2) / (np.sum(audio_data ** 2) + 1e-10)
                 if harmonic_ratio > 0.3:
-                    # 连续: harmonic_ratio 0.3→1.0 映射到 0→30
                     score += min(30, (harmonic_ratio - 0.3) / 0.7 * 30)
             except Exception:
                 pass

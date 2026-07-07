@@ -24,7 +24,11 @@ class AcousticAnalyzer:
         self.sample_rate = sample_rate
         self.hop_length = hop_length
 
-    def calculate_hnr(self, audio_data: np.ndarray) -> float:
+    def calculate_hnr(
+        self, audio_data: np.ndarray,
+        hpss_harmonic: np.ndarray = None,
+        hpss_percussive: np.ndarray = None
+    ) -> float:
         """
         计算谐波噪声比 (Harmonics-to-Noise Ratio)
 
@@ -32,12 +36,17 @@ class AcousticAnalyzer:
 
         Args:
             audio_data: 音频数据
+            hpss_harmonic: 预计算的 HPSS 谐波分量 (v6.2 缓存优化)
+            hpss_percussive: 预计算的 HPSS 冲击分量
 
         Returns:
             float: HNR值 (dB)
         """
         try:
-            harmonic, percussive = librosa.effects.hpss(audio_data, margin=(1.0, 3.0))
+            if hpss_harmonic is not None:
+                harmonic = hpss_harmonic
+            else:
+                harmonic, _ = librosa.effects.hpss(audio_data, margin=(1.0, 3.0))
             harmonic_energy = np.sum(harmonic ** 2)
             residual_energy = np.sum((audio_data - harmonic) ** 2) + 1e-10
 
@@ -93,7 +102,11 @@ class AcousticAnalyzer:
             logger.warning(f"CPP 计算失败: {e}")
             return 0.0
 
-    def detect_mixed_audio(self, audio_data: np.ndarray) -> tuple:
+    def detect_mixed_audio(
+        self, audio_data: np.ndarray,
+        hpss_harmonic: np.ndarray = None,
+        hpss_percussive: np.ndarray = None,
+    ) -> tuple:
         """
         检测是否为混合音频（带伴奏）— v6.0 文献驱动重构
 
@@ -137,9 +150,13 @@ class AcousticAnalyzer:
             # Driedger et al. (2014) §3: 纯人声颤音使部分能量进入残差,
             # 正常范围 0.72-0.85。低于 0.72 暗示显著非谐波内容(伴奏)。
             # ============================================================
-            harmonic, percussive = librosa.effects.hpss(
-                audio_data, margin=(1.0, 3.0)
-            )
+            # v6.2 perf: 使用预计算 HPSS (避免重复调用 ~6s)
+            if hpss_harmonic is not None:
+                harmonic = hpss_harmonic
+            else:
+                harmonic, _ = librosa.effects.hpss(
+                    audio_data, margin=(1.0, 3.0)
+                )
             hpss_harmonic_ratio = float(
                 np.sum(harmonic ** 2) / (np.sum(audio_data ** 2) + 1e-10)
             )

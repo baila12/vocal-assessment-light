@@ -100,7 +100,7 @@ class AudioFeaturesService:
             audio_data = AcousticAnalyzer.normalize_loudness(audio_data)
 
             # v6.2: 预计算 HPSS 分离 (避免 acoustic/breath 三处重复调用)
-            # librosa.effects.hpss 是 O(N log N), 缓存可节省 ~1.5s/次
+            # librosa.effects.hpss 是 O(N log N), 单次 ~6s on 3min audio
             try:
                 hpss_harmonic, hpss_percussive = librosa.effects.hpss(
                     audio_data, margin=(1.0, 3.0)
@@ -109,6 +109,13 @@ class AudioFeaturesService:
                 hpss_harmonic, hpss_percussive = None, None
             result._hpss_harmonic = hpss_harmonic
             result._hpss_percussive = hpss_percussive
+            # 预计算 harmonic_ratio 标量 (breath technique 需要, 避免二次 HPSS)
+            if hpss_harmonic is not None:
+                result._hpss_harmonic_ratio = float(
+                    np.sum(hpss_harmonic ** 2) / (np.sum(audio_data ** 2) + 1e-10)
+                )
+            else:
+                result._hpss_harmonic_ratio = 0.0
 
             # 提取基频（如果未提供）
             if f0 is None:
@@ -147,7 +154,11 @@ class AudioFeaturesService:
                     result._reverb_compensation = reverb_result
 
                 # 声学指标在纯净人声段上计算，减少器乐段干扰
-                hnr = self.acoustic_analyzer.calculate_hnr(acoustic_audio)
+                hnr = self.acoustic_analyzer.calculate_hnr(
+                    acoustic_audio,
+                    hpss_harmonic=result._hpss_harmonic,
+                    hpss_percussive=result._hpss_percussive
+                )
                 cpp = self.acoustic_analyzer.calculate_cpp(acoustic_audio)
 
                 # v5.13: 节奏分析使用原始音频(未归一化)
@@ -181,7 +192,11 @@ class AudioFeaturesService:
                     )
                     result._reverb_compensation = reverb_result
 
-                hnr = self.acoustic_analyzer.calculate_hnr(acoustic_audio)
+                hnr = self.acoustic_analyzer.calculate_hnr(
+                    acoustic_audio,
+                    hpss_harmonic=result._hpss_harmonic,
+                    hpss_percussive=result._hpss_percussive
+                )
                 cpp = self.acoustic_analyzer.calculate_cpp(acoustic_audio)
                 rhythm_result = self.rhythm_analyzer.calculate_rhythm_alignment(
                     audio_data_raw, f0=None, voiced_flags=None
@@ -194,6 +209,8 @@ class AudioFeaturesService:
             result.pitch_deviation = self.pitch_analyzer.calculate_pitch_deviation_cents(f0, voiced_flags)
             result.rhythm_alignment = rhythm_result
             result.breath_stability = breath_result
+            # v6.2 perf: 传递缓存的 HPSS harmonic_ratio 给 breath technique
+            breath_result._hpss_harmonic_ratio = result._hpss_harmonic_ratio
             result.vocal_technique = self.technique_analyzer.detect_vocal_techniques(f0, audio_data)
 
             # 声学指标
@@ -214,7 +231,11 @@ class AudioFeaturesService:
                     self._apply_voicing_detection(result, f0, voiced_flags)
 
             # 混合音频检测 (v6.0: 返回 metadata dict)
-            is_mixed, confidence, metadata = self.acoustic_analyzer.detect_mixed_audio(audio_data)
+            is_mixed, confidence, metadata = self.acoustic_analyzer.detect_mixed_audio(
+                audio_data,
+                hpss_harmonic=result._hpss_harmonic,
+                hpss_percussive=result._hpss_percussive
+            )
             result.is_mixed_audio = is_mixed
             result.mixed_audio_confidence = confidence
             result._mixed_metadata = metadata

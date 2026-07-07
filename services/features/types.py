@@ -62,6 +62,7 @@ class BreathStabilityResult:
     uncontrolled_leak: float = 0.0
     is_artistic_fluctuation: bool = False
     professional_breath_score: float = 0.0
+    _hpss_harmonic_ratio: float = 0.0  # v6.2 perf: cached HPSS ratio
 
 
 @dataclass
@@ -96,6 +97,7 @@ class AudioFeaturesResult:
     _reverb_compensation: Optional[object] = None  # v5.20: ReverbCompensationResult
     _hpss_harmonic: Optional[object] = None  # v6.2: cached HPSS harmonic component
     _hpss_percussive: Optional[object] = None  # v6.2: cached HPSS percussive component
+    _hpss_harmonic_ratio: float = 0.0  # v6.2: cached harmonic_ratio for breath technique
     spectral_tilt: float = -10.0  # v6.2: LTAS slope dB/oct [Sundberg 1987]
     _praat_voice_quality: Optional[object] = None  # v6.2: PraatVoiceQualityResult
     error_message: Optional[str] = None

@@ -87,6 +87,9 @@ class PraatVoiceQualityAnalyzer:
     def __init__(self, sample_rate: int = 22050):
         self.sample_rate = sample_rate
 
+    # v6.2: Quick 模式最大分析时长 (秒) — 60s 足够获得可靠统计
+    QUICK_MAX_DURATION = 60.0
+
     def analyze(
         self,
         audio_data: np.ndarray,
@@ -101,7 +104,7 @@ class PraatVoiceQualityAnalyzer:
             audio_data: 音频数据 (float64, [-1, 1])
             f0: 基频序列 (可选, 用于验证)
             voiced_flags: 有声段标记 (可选)
-            quick_mode: True 时降采样加速 (~2s vs ~5s)
+            quick_mode: True 时降采样 + 截断加速 (~1s vs ~5s)
 
         Returns:
             PraatVoiceQualityResult: 声质特征
@@ -113,6 +116,16 @@ class PraatVoiceQualityAnalyzer:
             return PraatVoiceQualityResult()
 
         try:
+            # v6.2 perf: Quick 模式截断到前 60 秒 (足够可靠统计, 大幅加速)
+            if quick_mode:
+                max_samples = int(self.QUICK_MAX_DURATION * self.sample_rate)
+                if len(audio_data) > max_samples:
+                    audio_data = audio_data[:max_samples]
+                    logger.debug(
+                        f"Praat VQ quick: truncated {len(audio_data)/self.sample_rate:.0f}s "
+                        f"→ {self.QUICK_MAX_DURATION}s"
+                    )
+
             # 转换为 parselmouth Sound 对象
             sound = parselmouth.Sound(
                 audio_data.astype(np.float64), sampling_frequency=self.sample_rate
