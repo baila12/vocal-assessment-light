@@ -1,8 +1,41 @@
 # 项目状态
 
-> 更新: 2026-07-06 | 当前版本: **v6.1** (评分区分度修复 + Artistry 独立评分 + 测试模块化) | 下一版本: **v6.2**
+> 更新: 2026-07-07 | 当前版本: **v6.2-dev** (评分算法重构 — 多指标音准 + 跨维度修正 + 频谱倾斜 + Praat 声质) | 分支: `feat/v6.2-scoring-improvements`
 
 ---
+
+## v6.2: 评分算法重构 (进行中, 2026-07-07)
+
+### 已完成 (commit: edfc50c)
+
+| # | 模块 | 变更 | 文献 |
+|---|------|------|------|
+| 1 | `pitch_scorer.py` | 多指标体系: MAE指数衰减 + RPA(25%) + RCA(10%) + gross_error(15%) + smoothness(10%) + octave(5%) | Wager 2022, Cao et al. 2008 |
+| 2 | `breath.py` | 质量门控: breath_design 权重 20%→5% (基础控制不足时) | Titze 1994 |
+| 3 | `score_modifiers.py` | 跨维度修正: HNR稳定→气息, Voicing→音准, 频谱倾斜→气声, 气息-音准耦合 | de Krom 1993, Sundberg 1987, Titze 1994 |
+| 4 | `feature_flags.py` | 6 个已验证算法默认启用 + for_quick()/for_professional()/safe_baseline() | — |
+| 5 | `acoustic.py` | 频谱倾斜 (LTAS slope via Welch PSD) | Sundberg 1987 |
+| 6 | `voice_quality_praat.py` (新) | Praat 声质: jitter/shimmer/formants/singer's formant/Praat HNR | Baken & Orlikoff 2000 |
+| 7 | `technique.py` | 技巧检测扩展 3→5: +staccato +legato | Sundberg 1987 |
+| 8 | `audio_features_service.py` | HPSS 缓存 + spectral_tilt + Praat VQ 接入 | — |
+
+### 评分效果
+
+| 指标 | v6.1 | v6.2 | 改进 |
+|------|------|------|------|
+| 音准区分度 | 4.2 | **39.8** | +35.6 (9.5x) |
+| 高分音准 | ~80.1 | 82.1 | +2.0 |
+| 低分音准 | ~75.9 | 42.4 | -33.5 |
+| jitter/shimmer 修正 | 无 | 最大 ±8% 技术分 | 新增 |
+| 频谱倾斜修正 | 无 | 气声 vs 漏气区分 | 新增 |
+
+### 测试
+
+```
+单元测试: 43/43 通过
+TDD v6.1: 11/11 通过 (1 xfail→XPASS)
+集成测试: 134/134 通过
+```
 
 ## 运行
 
