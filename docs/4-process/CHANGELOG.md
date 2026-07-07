@@ -4,6 +4,73 @@
 
 ---
 
+## v6.2 — 评分算法重构 + 性能优化 (2026-07-07)
+
+### 音准评分: 多指标体系
+
+**问题**: v6.1 仅用 MAE 线性分段映射, 高低分差距 4.2 分.
+
+**方案**: 六指标加权融合, 指数衰减替代线性分段.
+
+| 指标 | 权重 | 公式 | 文献 |
+|------|------|------|------|
+| MAE 指数衰减 | 40% | `100 × exp(-mae/40)` | Wager 2022 |
+| RPA (Raw Pitch Accuracy) | 25% | `rpa × 100` | Cao et al. 2008 |
+| RCA (Raw Chroma Accuracy) | 10% | `rca × 100` | Cao et al. 2008 |
+| Gross Error 惩罚 | 15% | `100 − min(100, (rate−0.05)×200)` | Sundberg 1987 |
+| Smoothness | 5% | `max(0, 100−(cv−1.0)×50)` | Canazza et al. 2014 |
+| Octave Error 惩罚 | 5% | `max(0, 100−rate×200)` | pitch-benchmark |
+
+**PYIN 校准**: YIN @ 16kHz 产生 3.5x 虚假帧间跳变 (785 vs PYIN 226). 权重调整依据:
+- 帧间指标 (smoothness 10%→5%): 受 YIN 噪声污染
+- 聚合指标 (MAE 35%→40%): 对 f0 伪影鲁棒
+- 断层惩罚: 率阈值 + ÷3.5 校正因子 [de Cheveigne & Kawahara 2002]
+
+### 跨维度修正
+
+新增 `score_modifiers.py`:
+
+| 修正 | 因果链 | 幅度 | 文献 |
+|------|--------|------|------|
+| HNR多频带CV → 气息 | 声带闭合不一致 → 气息不稳 | ≤15% | de Krom 1993 |
+| Voicing置信度 → 音准 | 低置信度 → 音准不可靠 | 标记 | de Cheveigne 2002 |
+| 频谱倾斜 → 气声 | HNR低+倾斜平坦=艺术气声; HNR低+倾斜陡峭=漏气 | ≤15% | Sundberg 1987 |
+| 气息-音准耦合 | pitch_wobble高+HNR不稳定 → 气息不足 | ≤15分 | Titze 1994 |
+
+### 特征扩展
+
+| 特征 | 来源 | 用途 |
+|------|------|------|
+| 频谱倾斜 (LTAS slope dB/oct) | `acoustic.py` — Welch PSD + 线性回归 | 气声 vs 漏气区分 |
+| Jitter (local, rap, ppq5) | `voice_quality_praat.py` — parselmouth | 声质→技术分修正 |
+| Shimmer (local, apq3) | 同上 | 同上 |
+| Formants (F1-F4) | 同上 — Burg method | 共鸣质量 |
+| Singer's formant (2.5-3.5kHz) | 同上 — LTAS能量比 | 专业技巧 |
+| Staccato 检测 | `technique.py` — RMS脉冲 | 技巧多样性 |
+| Legato 检测 | `technique.py` — 沉默段+音高平滑度 | 技巧多样性 |
+
+### 性能优化
+
+| 优化 | 方法 | 效果 |
+|------|------|------|
+| harmonicity 计算 | np.correlate O(N²) → FFT自相关 O(N log N) | 566.9s → <0.1s |
+| HPSS 缓存 | 预计算一次, 调用点复用 | 3次→1次 (~12s节省) |
+| 动态范围 | max/min → p95/p5 百分位 | 修复 101.9dB 异常值 |
+| pitch_breaks | 仅连续有声帧 + 排除八度跳变 | 减少虚假断层计数 |
+| Praat VQ Quick | 截断到 60s | ~5s → ~0.8s |
+| 完整管道 | 综合以上 | ~700s → ~54s (13x) |
+
+### 测试
+
+```
+单元: 43/43 通过
+TDD:  11/11 通过 (1 xfail→XPASS)
+集成: 134/134 通过
+真实音频: 5文件基线已建立 (见 PROJECT_STATUS.md)
+```
+
+---
+
 ## v6.1 — 评分区分度修复 + Artistry 独立评分 + 测试模块化 (2026-07-06, 已完成)
 
 ### 评分区分度修复 (真实信号驱动)

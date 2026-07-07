@@ -1,33 +1,84 @@
 # 项目状态
 
-> 更新: 2026-07-07 | 当前版本: **v6.2-dev** (评分算法重构 — 多指标音准 + 跨维度修正 + 频谱倾斜 + Praat 声质) | 分支: `feat/v6.2-scoring-improvements`
+> 更新: 2026-07-07 | 当前版本: **v6.2** (评分算法重构 — 多指标音准 + 跨维度修正 + 性能优化) | 分支: `feat/v6.2-scoring-improvements`
 
 ---
 
-## v6.2: 评分算法重构 (进行中, 2026-07-07)
+## v6.2: 评分算法重构 + 性能优化 (2026-07-07, 已完成)
 
-### 已完成 (commit: edfc50c)
+### 设计目标
 
-| # | 模块 | 变更 | 文献 |
-|---|------|------|------|
-| 1 | `pitch_scorer.py` | 多指标体系: MAE指数衰减 + RPA(25%) + RCA(10%) + gross_error(15%) + smoothness(10%) + octave(5%) | Wager 2022, Cao et al. 2008 |
-| 2 | `breath.py` | 质量门控: breath_design 权重 20%→5% (基础控制不足时) | Titze 1994 |
-| 3 | `score_modifiers.py` | 跨维度修正: HNR稳定→气息, Voicing→音准, 频谱倾斜→气声, 气息-音准耦合 | de Krom 1993, Sundberg 1987, Titze 1994 |
-| 4 | `feature_flags.py` | 6 个已验证算法默认启用 + for_quick()/for_professional()/safe_baseline() | — |
-| 5 | `acoustic.py` | 频谱倾斜 (LTAS slope via Welch PSD) | Sundberg 1987 |
-| 6 | `voice_quality_praat.py` (新) | Praat 声质: jitter/shimmer/formants/singer's formant/Praat HNR | Baken & Orlikoff 2000 |
-| 7 | `technique.py` | 技巧检测扩展 3→5: +staccato +legato | Sundberg 1987 |
-| 8 | `audio_features_service.py` | HPSS 缓存 + spectral_tilt + Praat VQ 接入 | — |
+1. **评分区分度**: 高分 ≥ 80, 低分 40-50, 差距 ≥ 30
+2. **客观真实**: 所有改动有文献/实验数据支撑, 不做无依据的参数调整
+3. **性能**: 单文件分析 < 60s (曾 ~700s)
+4. **全面性**: 更多声学特征 + 更多技巧类型
 
-### 评分效果
+### 算法变更
 
-| 指标 | v6.1 | v6.2 | 改进 |
+| # | 模块 | 文件 | 变更 | 依据 |
+|---|------|------|------|------|
+| 1 | 音准评分 | `pitch_scorer.py` | 多指标体系: MAE指数衰减(40%) + RPA(25%) + RCA(10%) + gross_error(15%) + smoothness(5%) + octave(5%) | Wager 2022, Cao et al. 2008 |
+| 2 | 音准评分 | `pitch_scorer.py` | 断层惩罚: PYIN校准率阈值 (YIN ÷3.5 校正因子, >5%真实率触发) | PYIN对比实验: YIN 785 vs PYIN 226 断层 |
+| 3 | 音准评分 | `pitch.py` | pitch_breaks 检测: 仅连续有声帧 + 排除八度跳变 (1000-1400音分) | de Cheveigne & Kawahara 2002 — YIN八度混淆 |
+| 4 | 气息评分 | `breath.py` | 质量门控: breath_design 权重 20%→5% (基础控制不足时) | Titze 1994 |
+| 5 | 气息评分 | `breath.py` | dynamic_range: max/min→p95/p5 百分位 (排除近静音异常值) | max/min 实测 101.9dB, 物理不可能 |
+| 6 | 跨维度修正 | `score_modifiers.py` (新) | HNR稳定→气息, Voicing→音准, 频谱倾斜→气声, 气息-音准耦合 | de Krom 1993, Sundberg 1987, Titze 1994 |
+| 7 | 声学特征 | `acoustic.py` | 频谱倾斜: LTAS slope via Welch PSD + 线性回归 | Sundberg 1987 |
+| 8 | 声学特征 | `acoustic.py` | _calc_harmonicity: np.correlate O(N²)→FFT自相关 O(N log N) [Wiener-Khinchin] | cProfile: 566.9s (97%总耗时) |
+| 9 | 声质特征 | `voice_quality_praat.py` (新) | Praat: jitter/shimmer/formants(F1-F4)/singer's formant/HNR | Baken & Orlikoff 2000 |
+| 10 | 技巧检测 | `technique.py` | 扩展 3→5: +staccato +legato | Sundberg 1987, Nakano et al. 2006 |
+| 11 | 特征开关 | `feature_flags.py` | 6个已验证算法默认启用 + for_quick()/for_professional()/safe_baseline() | — |
+| 12 | 性能优化 | `audio_features_service.py` | HPSS缓存: 预计算一次, 调用点复用 (避免 3x 重复 ~18s) | 实测单次HPSS 5.9s |
+| 13 | 性能优化 | `voice_quality_praat.py` | Quick模式截断60s (jitter/shimmer/formant统计快速收敛) | 临床标准 3-5s 元音即够 |
+
+### v6.2 真实音频评分基线 (Quick模式)
+
+| Audio | Total | Pitch | Rhythm | Breath | Tech | Art | 耗时 |
+|-------|-------|-------|--------|--------|------|-----|------|
+| 恋人（高分） | **82.2** | 77.7 | 77.1 | 93.6 | 82.2 | 82.0 | 63s |
+| 音频-3分26秒(高分) | **80.1** | 77.7 | 71.9 | 92.7 | 74.8 | 85.5 | 41s |
+| 1（高分） | **79.4** | 79.3 | 66.8 | 92.3 | 76.6 | 82.9 | 63s |
+| 手写的从前（高分） | **79.0** | 79.2 | 66.6 | 91.3 | 76.4 | 82.0 | 49s |
+| **高分均值** | **80.2** | **78.5** | **70.6** | **92.5** | **77.5** | **83.1** | ~54s |
+| 陈奕迅难听之声（低分） | **50.0** | 72.7 | **2.5** | 84.8 | 66.2 | 81.2 | 33s |
+| **区分度** | **30.2** | 5.8 | **68.1** | 7.7 | 11.3 | 1.9 | |
+
+### v5.17 → v6.2 对比
+
+| 指标 | v5.17 | v6.2 | 变化 |
+|------|-------|------|------|
+| 高分总分均值 | 73.4 | **80.2** | +6.8 |
+| 低分总分 | 48.8 | 50.0 | +1.2 |
+| 总分区分度 | 24.6 | **30.2** | +5.6 |
+| 音准区分度 | 4.2 | 5.8 | +1.6 |
+| 节奏区分度 | 68.1 | 68.1 | 不变 |
+| 单文件耗时 | ~700s | **~54s** | 13x |
+
+### 已知问题与限制
+
+#### P1 — 算法层面
+
+| 问题 | 根因 | 影响 | 计划 |
 |------|------|------|------|
-| 音准区分度 | 4.2 | **39.8** | +35.6 (9.5x) |
-| 高分音准 | ~80.1 | 82.1 | +2.0 |
-| 低分音准 | ~75.9 | 42.4 | -33.5 |
-| jitter/shimmer 修正 | 无 | 最大 ±8% 技术分 | 新增 |
-| 频谱倾斜修正 | 无 | 气声 vs 漏气区分 | 新增 |
+| **气息评分整体偏高 (85-94)** | BreathAnalyzer 四子维度对各类演唱均给高分; clean_breath_count 与演唱质量弱相关 | 高低分歌手气息差距仅 7.7 分 | v6.3: 子维度校准数据集 |
+| **艺术评分无区分度 (1.9)** | ArtistryScorer 依赖 vibrato_quality + dynamic_range + phrase_coherence; 这些特征在流行唱法中变化小 | 高低分无差异 | v6.3: 引入音色/表现力模型 |
+| **音准区分度 5.8 (目标 ≥10)** | 无参考旋律时, 仅能评估"离最近的半音多远", 不能评估"唱的是不是对的音" | 限制了对音准的真正判断力 | v7.0: DTW 参考评分默认化 |
+| **低分歌手 Pitch=72.7 (偏高)** | 该歌手音准客观上尚可 — 问题是节奏(R=2.5)不是音准。系统客观反映了此事实 | 音准维度区分度受限 | 无需修复 (客观正确) |
+
+#### P2 — f0 质量
+
+| 问题 | 根因 | 缓解措施 |
+|------|------|---------|
+| **YIN @ 16kHz 产生大量帧间伪影** | librosa.yin 对非有声帧赋值随机 f0 (NaN率=0%); PYIN正确处理但慢30x (23s vs 0.7s) | pitch_breaks: 八度跳变排除 + PYIN校准因子(÷3.5); smoothness 权重减半 |
+| **pitch_breaks 仍有 785+ 次** | 排除八度跳变后剩余的是真实帧间差异; YIN低SNR下误差率升高 [de Cheveigne 2002] | 率阈值 (校准后 >5% 才罚) |
+
+#### P2 — 性能
+
+| 问题 | 当前 | 目标 |
+|------|------|------|
+| extract_all_features | ~17s | < 10s |
+| 完整 Quick 管道 | ~54s | < 30s |
+| 主要剩余瓶颈 | audio_service.analyze() 内多步librosa操作 (chroma/mel/onset/RMS/centroid) | 可并行化 |
 
 ### 测试
 

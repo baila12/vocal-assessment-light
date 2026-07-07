@@ -1,6 +1,6 @@
 # 评分算法文档
 
-> 更新日期: 2026-07-06 | v6.1 — Technique 基线归零 + Breath 连续映射 + Artistry 独立评分
+> 更新日期: 2026-07-07 | v6.2 — 多指标音准 + 跨维度修正 + PYIN校准 + 性能优化
 
 ---
 
@@ -118,24 +118,34 @@ v6.1:  artistry = vibrato_expressiveness*0.30 + dynamic_expressiveness*0.30
 
 ## 各维度算法详解
 
-### 1. 音准评分
+### 1. 音准评分 ★v6.2
 
 **特征提取** (`services/features/pitch.py`):
-- F0 → MIDI (12 * log2(f0/440) + 69)
-- 计算到最近标准半音的音分偏差: `cents = (midi - round(midi)) * 100`
-- 统计指标: MAE (平均绝对音分偏差)、max、连续跑调、音高断层 (>200音分跳变)、长音波动
+- F0 → MIDI (12 × log2(f0/440) + 69)
+- 多指标体系 (v5.14引入, v6.2启用): MAE, RPA, RCA, gross_error_rate, octave_error_rate, relative_smoothness
+- pitch_breaks: v6.2 修复 — 仅计数连续有声帧间跳变 + 排除八度跳变 (1000-1400音分, YIN八度混淆 [de Cheveigne 2002])
 
-**评分** (`services/scoring/pitch_scorer.py`):
-- 基础分: 分段线性插值 (excellent≤12 → 100, good≤35 → 90-100, pass≤60 → 70-90)
-- 惩罚项: 检测率<50% 扣分、音高断层>3处 扣分、长音波动>30音分 扣分
+**评分** (`services/scoring/pitch_scorer.py`) — v6.2 多指标加权融合:
 
-**阈值** (`services/scoring_config.py`):
+| 指标 | 权重 | 公式 | 文献 |
+|------|------|------|------|
+| MAE 指数衰减 | 40% | `100 × exp(−mae/40)` | Wager 2022 |
+| RPA (Raw Pitch Accuracy) | 25% | `rpa × 100` — \|cents\|<50 帧比例 | Cao et al. 2008 |
+| RCA (Raw Chroma Accuracy) | 10% | `rca × 100` — 八度折叠准确率 | Cao et al. 2008 |
+| Gross Error 惩罚 | 15% | `100 − min(100, (rate−0.05)×200)` — \|cents\|>200 帧比例 | Sundberg 1987 |
+| Smoothness | 5% | `max(0, 100−(cv−1.0)×50)` — f0相邻帧变化CV | Canazza et al. 2014 |
+| Octave Error 惩罚 | 5% | `max(0, 100−rate×200)` | pitch-benchmark |
 
-| 级别 | MAE 音分 | 说明 |
-|------|---------|------|
-| 专业级 | ≤12 | 人耳几乎不可辨 |
-| 良好 | ≤35 | 轻微偏差 |
-| 合格 | ≤60 | 可接受范围 |
+**v6.2 PYIN 校准依据**:
+- YIN @ 16kHz 对非有声帧赋值随机 f0 (NaN率=0%), 产生 3.5x 虚假帧间跳变 (785 vs PYIN 226)
+- 权重调整: 帧间指标 (smoothness 10%→5%) 受污染; 聚合指标 (MAE 35%→40%) 鲁棒
+- 断层惩罚: 率阈值 ÷3.5 校正因子, 仅 >5% 真实率触发 (PYIN参考: 正常演唱 2-5%)
+- 文献: de Cheveigne & Kawahara (2002) — YIN低SNR下误差率升高
+
+**惩罚项**:
+- 检测率 < 50%: 扣分 = (0.5 − rate) × 30
+- 音高断层: 率阈值 `break_rate = breaks / est_pairs / 3.5`, 仅 >5% 时罚 ≤15 分
+- 长音波动 > 30音分: 扣分 ≤10
 
 ### 2. 节奏评分
 
@@ -208,13 +218,29 @@ v6.1:  artistry = vibrato_expressiveness*0.30 + dynamic_expressiveness*0.30
 - 混合音频检测: 识别伴奏 → HNR应用1.5x修正系数
 - 高技巧分 + 低HNR → 可能是艺术化气声选择，不惩罚
 
-### 5. 艺术表现评分 (v5.14 重构)
+### 5. 艺术表现评分 ★v6.1
 
-**评分** (`services/scoring/artistry_scorer.py`):
-- v5.14 复合评分: 从音准/节奏/气息/技术四维度加权合成 (Pitch×0.20 + Rhythm×0.25 + Breath×0.20 + Tech×0.35)
-- 声学调制: 动态对比度(log range) + 音高多样性(unique notes ratio)
-- 情绪置信度 `emotion_confidence` 来自启发式声学分析 (v5.12 已移除 Wav2Vec2 情绪模型)
-- 效果: Artistry 区分度 0.3→28.4 (v5.14)
+**评分** (`services/scoring/artistry_scorer.py`) — v6.1 独立声学信号:
+- v6.1 重构: 不再从其他维度合成 (旧: Pitch×0.20+Rhythm×0.25+Breath×0.20+Tech×0.35)
+- 四子维度独立评估: 颤音品质(30%) + 动态控制(30%) + 乐句处理(25%) + 音高变化(15%)
+- 声学调制: 动态对比度 + 音高多样性 (来自原始 f0/音频)
+- 情绪置信度来自启发式声学分析 (v5.12 已移除 Wav2Vec2 情绪模型)
+- v6.2 已知限制: 区分度 1.9 (流行唱法下子维度变化小), 待 v6.3 引入音色模型
+
+### 6. 跨维度评分修正 ★v6.2
+
+**实现** (`services/scoring/score_modifiers.py` — 新文件)
+
+设计原则: 仅施加有物理因果关系的修正 (非统计相关), 单项 ≤15%, 总修正 ≤25%.
+
+| 修正 | 因果链 | 触发条件 | 幅度 | 文献 |
+|------|--------|---------|------|------|
+| HNR多频带CV → 气息 | 声带闭合不一致 → 气息支撑不足 | HNR CV > 0.15 | ≤15% | de Krom 1993 |
+| Voicing置信度 → 音准 | 低置信度 → f0 不可靠 | confidence < 0.6 | 标记(不改分) | de Cheveigne 2002 |
+| 频谱倾斜 → 气声技巧 | HNR低+倾斜平坦=艺术气声; HNR低+倾斜陡峭=漏气 | tilt > −10 (艺术) / tilt < −14 (漏气) | ≤15% | Sundberg 1987 |
+| 气息-音准耦合 | pitch_wobble高 + HNR不稳定 → 气息不足 | wobble>40 + CV>0.20 | ≤15分 | Titze 1994 |
+
+**接入点**: `ScoreServiceV4.calculate()` → 五维评分后, 加权总分前. 通过 `FeatureFlags.enable_cross_dimension_modifiers` 控制.
 
 ---
 
@@ -287,6 +313,18 @@ Self-consistency █ 0.5s
 ────────────────────────────────
 Total           ████████████████████████████ 15-20s
 ```
+
+### v6.2 性能优化 (2026-07-07)
+
+| 优化 | 方法 | v6.1 | v6.2 | 依据 |
+|------|------|------|------|------|
+| harmonicity 计算 | np.correlate O(N²) → FFT自相关 O(N log N) [Wiener-Khinchin] | 566.9s | <0.1s | cProfile: 97%总耗时 |
+| HPSS 调用 | 预计算一次, 调用点复用 (3→1) | ~18s | ~6s | 实测单次HPSS 5.9s |
+| 动态范围 | max/min → p95/p5 百分位 | 异常值 101.9dB | 正常 20-25dB | 物理上限 ~40dB |
+| Praat VQ Quick | 截断到 60s (统计收敛足够) | ~5s | ~0.8s | 临床标准 3-5s |
+| pitch_breaks | 仅连续帧+排八度+率阈值 | 无效(1000+) | 有效 | YIN vs PYIN 校准 |
+
+**完整管道**: ~700s → ~54s (13x). 剩余瓶颈: audio_service.analyze() 内多步 librosa 操作.
 
 ### Pro 模式耗时火焰图 (CPU)
 
