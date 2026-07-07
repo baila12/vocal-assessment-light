@@ -54,13 +54,13 @@ class FeatureFlags:
     def for_quick(cls) -> 'FeatureFlags':
         """Quick 模式: 快速特征优先, 关闭耗时但低收益的算法"""
         return cls(
-            enable_multiscale_hnr=False,  # 多频带 HNR 开销 ~8s, Quick 跳过
+            enable_multiscale_hnr=False,  # 多频带 HNR 开销大, Quick 跳过
             enable_praat_cpp=True,
             enable_voicing_detection=True,
             enable_torchcrepe_fallback=True,
             enable_cross_dimension_modifiers=True,
             enable_reverb_compensation=False,  # 混响补偿开销大, Quick 跳过
-            enable_praat_voice_quality=True,
+            enable_praat_voice_quality=True,  # v6.2: 已截断到 60s, 可接受
         )
 
     @classmethod

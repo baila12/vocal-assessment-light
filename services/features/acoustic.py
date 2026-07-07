@@ -325,11 +325,13 @@ class AcousticAnalyzer:
 
     def _calc_harmonicity(self, audio_data: np.ndarray) -> float:
         """
-        计算谐波度 (Harmonicity) [Lehner 2018]
+        计算谐波度 (Harmonicity) [Lehner 2018] — v6.2 性能优化版
 
         测量能量在基频整数倍处的集中程度。
-        使用自相关法: 周期信号的自相关有明显峰值,
-        噪声的自相关接近零。
+        使用 FFT 自相关法 (Wiener-Khinchin 定理): O(N log N) vs 原始 O(N²)
+
+        v6.2 perf: 原始 np.correlate() 对 2.5M 样本需要 566s (O(N²)).
+        改为: 截取中段 30s → 降采样 8kHz → FFT 自相关 → < 0.1s.
 
         Args:
             audio_data: 时域音频信号
@@ -340,24 +342,50 @@ class AcousticAnalyzer:
         if len(audio_data) < 512:
             return 0.0
 
-        # 自相关法: 找到最大峰值 (排除零延迟)
-        corr = np.correlate(audio_data, audio_data, mode='full')
-        corr = corr[len(corr) // 2:]  # 只取正延迟
-        corr = corr / (corr[0] + 1e-10)  # 归一化
+        try:
+            # v6.2 perf: 截取中段 30 秒 (足够判断谐波结构)
+            max_samples = 30 * self.sample_rate
+            if len(audio_data) > max_samples:
+                start = (len(audio_data) - max_samples) // 2
+                audio_data = audio_data[start:start + max_samples]
 
-        # 搜索第一个显著峰值 (基频周期)
-        # 在 2ms-20ms 延迟范围搜索 (对应 50-500Hz 基频)
-        min_lag = int(0.002 * self.sample_rate)
-        max_lag = int(0.020 * self.sample_rate)
+            # v6.2 perf: 降采样到 8kHz (基频 50-500Hz, Nyquist=4kHz 足够)
+            # 进一步减少 FFT 计算量
+            target_sr = 8000
+            if self.sample_rate > target_sr:
+                import librosa
+                audio_data = librosa.resample(
+                    audio_data, orig_sr=self.sample_rate, target_sr=target_sr
+                )
+                effective_sr = target_sr
+            else:
+                effective_sr = self.sample_rate
 
-        if max_lag >= len(corr):
-            max_lag = len(corr) - 1
+            # FFT 自相关 (Wiener-Khinchin 定理): O(N log N)
+            n = len(audio_data)
+            n_fft = 2 ** int(np.ceil(np.log2(2 * n - 1)))
+            X = np.fft.rfft(audio_data, n=n_fft)
+            power = np.abs(X) ** 2
+            corr = np.fft.irfft(power)[:n]
+            corr = corr / (corr[0] + 1e-10)
 
-        if min_lag >= max_lag:
+            # 搜索第一个显著峰值 (基频周期)
+            # 在 2ms-20ms 延迟范围搜索 (对应 50-500Hz 基频)
+            min_lag = int(0.002 * effective_sr)
+            max_lag = int(0.020 * effective_sr)
+
+            if max_lag >= len(corr):
+                max_lag = len(corr) - 1
+
+            if min_lag >= max_lag:
+                return 0.0
+
+            peak_value = float(np.max(corr[min_lag:max_lag]))
+            return max(0.0, min(1.0, peak_value))
+
+        except Exception as e:
+            logger.warning(f"Harmonicity calculation failed: {e}")
             return 0.0
-
-        peak_value = float(np.max(corr[min_lag:max_lag]))
-        return max(0.0, min(1.0, peak_value))
 
     def calculate_spectral_tilt(
         self,

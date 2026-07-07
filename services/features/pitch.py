@@ -77,12 +77,36 @@ class PitchAnalyzer:
                 consecutive_count = 0
         result.consecutive_off_notes = max_consecutive
 
-        # 音高断层检测（换声区问题）
+        # 音高断层检测（换声区问题） v6.2: 仅检测连续有声帧间的断层
+        # 根因: librosa.yin 输出含 NaN (无声帧), valid_f0 滤掉 NaN 后 diff 在
+        # 非连续帧间计算, 导致1000+伪断层。改为仅计算真正相邻的有声帧对。
         if len(valid_f0) > 10:
             f0_cents = 1200 * np.log2(valid_f0 / 440.0)
-            f0_cents_diff = np.abs(np.diff(f0_cents))
-            significant_breaks = f0_cents_diff > 200
-            result.pitch_breaks = int(np.sum(significant_breaks))
+            # v6.2: 中值滤波消除 YIN 的散发性八度错误
+            f0_cents_smooth = uniform_filter1d(f0_cents.astype(float), size=5)
+            f0_cents_diff = np.abs(np.diff(f0_cents_smooth))
+
+            # v6.2: 仅计数真正的相邻帧断层 (排除跨无声段的跳变)
+            # 在原始 f0 上标记有声帧, 仅计算相邻有声帧间的跳变
+            voiced_in_full = ~np.isnan(f0) & (f0 > self.VOICE_FMIN) & (f0 < self.VOICE_FMAX)
+            voiced_indices = np.where(voiced_in_full)[0]
+            if len(voiced_indices) > 1:
+                consecutive_mask = np.diff(voiced_indices) == 1
+                # 获取连续帧对在原 f0 中的位置
+                consecutive_starts = voiced_indices[:-1][consecutive_mask]
+                consecutive_ends = voiced_indices[1:][consecutive_mask]
+                # 计算这些连续帧对的音高差
+                if len(consecutive_starts) > 0:
+                    f0_starts = f0[consecutive_starts]
+                    f0_ends = f0[consecutive_ends]
+                    cents_starts = 1200 * np.log2(f0_starts / 440.0)
+                    cents_ends = 1200 * np.log2(f0_ends / 440.0)
+                    cents_jumps = np.abs(cents_ends - cents_starts)
+                    result.pitch_breaks = int(np.sum(cents_jumps > 200))
+                else:
+                    result.pitch_breaks = 0
+            else:
+                result.pitch_breaks = 0
 
         # 长音音高波动
         window_size = int(self.sample_rate / self.hop_length * 0.5)

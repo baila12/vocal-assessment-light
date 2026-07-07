@@ -65,10 +65,17 @@ class BreathAnalyzer:
             if rms_mean > 0:
                 result.rms_fluctuation = float(rms_std / rms_mean)
 
-            if np.min(valid_rms) > 0:
-                result.dynamic_range = float(
-                    20 * np.log10(np.max(valid_rms) / np.min(valid_rms))
-                )
+            # v6.2: 百分位动态范围 (max/min 对近静音段过于敏感, 曾得 102dB)
+            # p95/p5 排除极端值, 典型流行唱法 10-25dB, 古典 25-40dB
+            if len(valid_rms) > 20:
+                p95 = np.percentile(valid_rms, 95)
+                p5 = np.percentile(valid_rms, 5)
+                if p5 > 1e-10:
+                    result.dynamic_range = float(20 * np.log10(p95 / p5))
+                else:
+                    result.dynamic_range = 0.0
+            else:
+                result.dynamic_range = 0.0
 
             # 提取基频（如果未提供）
             voiced_flags = ~np.isnan(f0) if f0 is not None else np.array([])
