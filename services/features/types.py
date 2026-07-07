@@ -73,6 +73,8 @@ class VocalTechniqueResult:
     vibrato_quality: float = 0.0
     slide_count: int = 0
     falsetto_segments: int = 0
+    staccato_count: int = 0       # v6.2: 断音检测数
+    legato_quality: float = 0.0   # v6.2: 连音质量 0-100
     technique_score: float = 0.0
 
 
