@@ -43,7 +43,8 @@ class AcousticAnalyzer:
             float: HNR值 (dB)
         """
         try:
-            if hpss_harmonic is not None:
+            # v6.2 perf: 仅当长度匹配时使用缓存 HPSS (避免 shape mismatch)
+            if hpss_harmonic is not None and len(hpss_harmonic) == len(audio_data):
                 harmonic = hpss_harmonic
             else:
                 harmonic, _ = librosa.effects.hpss(audio_data, margin=(1.0, 3.0))
@@ -150,8 +151,8 @@ class AcousticAnalyzer:
             # Driedger et al. (2014) §3: 纯人声颤音使部分能量进入残差,
             # 正常范围 0.72-0.85。低于 0.72 暗示显著非谐波内容(伴奏)。
             # ============================================================
-            # v6.2 perf: 使用预计算 HPSS (避免重复调用 ~6s)
-            if hpss_harmonic is not None:
+            # v6.2 perf: 使用预计算 HPSS (仅长度匹配时, 避免 shape mismatch)
+            if hpss_harmonic is not None and len(hpss_harmonic) == len(audio_data):
                 harmonic = hpss_harmonic
             else:
                 harmonic, _ = librosa.effects.hpss(
