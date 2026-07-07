@@ -217,3 +217,69 @@ class CrossDimensionModifiers:
         )
 
         return penalty, diagnosis
+
+    def apply_jitter_shimmer_to_technique(
+        self,
+        technique_score: float,
+        jitter_local: Optional[float] = None,
+        shimmer_local: Optional[float] = None,
+    ) -> Tuple[float, Optional[str]]:
+        """
+        Jitter/Shimmer → 发声技术评分修正 v6.2
+
+        物理因果: Jitter 和 shimmer 是声带振动的微观不稳定性指标,
+        直接反映发声技术的精细控制能力。
+        - Jitter > 1.04%: 声带振动不规律 [Baken & Orlikoff 2000]
+        - Shimmer > 3.81%: 声带闭合不完全 [Baken & Orlikoff 2000]
+        - 用于区分"技术性气声"(可控)和"病理性漏气"(不可控)
+
+        修正幅度: 最多 ±8% (conservative, 因为 Praat 对歌唱声的 jitter/shimmer
+        可能有边界效应, 不像语音那样标准化)
+
+        Args:
+            technique_score: 当前技术评分 (0-100)
+            jitter_local: Praat jitter local (%)
+            shimmer_local: Praat shimmer local (%)
+
+        Returns:
+            (修正后技术评分, 诊断信息)
+        """
+        if jitter_local is None and shimmer_local is None:
+            return technique_score, None
+
+        total_penalty = 0.0
+        diagnoses = []
+
+        # Jitter 惩罚: > 1.04% 开始扣分 [Baken & Orlikoff 2000, Table 6-5]
+        if jitter_local is not None and jitter_local > 0:
+            if jitter_local > 2.0:
+                # 严重不规则 — 2% 以上非常罕见
+                penalty = min(8, (jitter_local - 1.04) * 4)
+                total_penalty += penalty
+                diagnoses.append(f"jitter偏高({jitter_local:.2f}%)")
+            elif jitter_local > 1.04:
+                # 超出正常范围
+                penalty = min(5, (jitter_local - 1.04) * 3)
+                total_penalty += penalty
+                diagnoses.append(f"jitter略高({jitter_local:.2f}%)")
+
+        # Shimmer 惩罚: > 3.81% 开始扣分 [Baken & Orlikoff 2000, Table 7-3]
+        if shimmer_local is not None and shimmer_local > 0:
+            if shimmer_local > 8.0:
+                penalty = min(8, (shimmer_local - 3.81) * 1.0)
+                total_penalty += penalty
+                diagnoses.append(f"shimmer偏高({shimmer_local:.2f}%)")
+            elif shimmer_local > 3.81:
+                penalty = min(5, (shimmer_local - 3.81) * 0.8)
+                total_penalty += penalty
+                diagnoses.append(f"shimmer略高({shimmer_local:.2f}%)")
+
+        if total_penalty > 0:
+            new_score = max(0, technique_score - total_penalty)
+            diagnosis = (
+                f"声带振动稳定性不足: {', '.join(diagnoses)} "
+                f"→ 技术扣{total_penalty:.0f}分"
+            )
+            return new_score, diagnosis
+
+        return technique_score, None

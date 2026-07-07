@@ -94,6 +94,8 @@ class AudioFeaturesResult:
     _reverb_compensation: Optional[object] = None  # v5.20: ReverbCompensationResult
     _hpss_harmonic: Optional[object] = None  # v6.2: cached HPSS harmonic component
     _hpss_percussive: Optional[object] = None  # v6.2: cached HPSS percussive component
+    spectral_tilt: float = -10.0  # v6.2: LTAS slope dB/oct [Sundberg 1987]
+    _praat_voice_quality: Optional[object] = None  # v6.2: PraatVoiceQualityResult
     error_message: Optional[str] = None
 
 

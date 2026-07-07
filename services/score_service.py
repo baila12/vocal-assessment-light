@@ -327,7 +327,19 @@ class ScoreServiceV4:
                 breath_score = max(0, min(100, breath_score + breath_tech_delta * 0.15))
                 result.breath_score = breath_score
 
-            # 4. 气息-音准耦合惩罚 (Titze 1994)
+            # 4. Jitter/Shimmer → 技术评分修正 [Baken & Orlikoff 2000]
+            praat_vq = getattr(features, '_praat_voice_quality', None)
+            if praat_vq is not None and getattr(praat_vq, 'success', False):
+                technique_score, jitter_diag = modifiers.apply_jitter_shimmer_to_technique(
+                    technique_score,
+                    getattr(praat_vq, 'jitter_local', None),
+                    getattr(praat_vq, 'shimmer_local', None),
+                )
+                if jitter_diag:
+                    result.technique_diagnosis.issues.append(jitter_diag)
+                    result.technique_score = technique_score
+
+            # 5. 气息-音准耦合惩罚 (Titze 1994)
             coupling_penalty, coupling_diag = modifiers.apply_breath_pitch_coupling(
                 features.pitch_deviation.pitch_wobble, hnr_stability
             )

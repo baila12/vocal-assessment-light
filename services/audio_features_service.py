@@ -219,6 +219,23 @@ class AudioFeaturesService:
             result.mixed_audio_confidence = confidence
             result._mixed_metadata = metadata
 
+            # v6.2: Praat 声质特征 (jitter/shimmer/formants/HNR)
+            # [Baken & Orlikoff 2000, Sundberg 1987]
+            if (
+                feature_flags is not None
+                and feature_flags.enable_praat_voice_quality
+            ):
+                self._extract_praat_voice_quality(
+                    result, vocal_audio if vocal_segments else audio_data
+                )
+
+            # v6.2: 频谱倾斜 — LTAS 斜率 dB/oct [Sundberg 1987]
+            # 区分气声(> -8 dB/oct) vs 压嗓(< -12 dB/oct) vs 正常(-12~-6)
+            acoustic_for_tilt = vocal_audio if vocal_segments else audio_data
+            result.spectral_tilt = self.acoustic_analyzer.calculate_spectral_tilt(
+                acoustic_for_tilt
+            )
+
             return result
         except Exception as e:
             logger.exception("特征提取失败")
@@ -263,6 +280,41 @@ class AudioFeaturesService:
             f"VoicingDetector: confidence={vd_result.detection_confidence:.2f} "
             f"voicing_ratio={vd_result.voicing_ratio:.2f}"
         )
+
+    def _extract_praat_voice_quality(
+        self, result: AudioFeaturesResult, audio: np.ndarray
+    ) -> None:
+        """
+        v6.2: Praat 声质特征提取
+
+        [Baken & Orlikoff 2000, Sundberg 1987]
+        提取 jitter, shimmer, formants (F1-F4), singer's formant, Praat HNR.
+        结果存储在 result._praat_voice_quality 中,
+        可用于 technique_scorer 的评分增强.
+        """
+        try:
+            from services.features.voice_quality_praat import (
+                PraatVoiceQualityAnalyzer, PARSELMOUTH_AVAILABLE
+            )
+            if not PARSELMOUTH_AVAILABLE:
+                logger.debug("Praat VQ skipped: parselmouth not available")
+                return
+
+            analyzer = PraatVoiceQualityAnalyzer(sample_rate=self.sample_rate)
+            vq_result = analyzer.analyze(audio, quick_mode=True)
+            result._praat_voice_quality = vq_result
+
+            if vq_result.success:
+                logger.info(
+                    f"Praat VQ: jitter={vq_result.jitter_local:.3f}%, "
+                    f"shimmer={vq_result.shimmer_local:.3f}%, "
+                    f"F1={vq_result.f1_mean:.0f}Hz, "
+                    f"F2={vq_result.f2_mean:.0f}Hz, "
+                    f"SF={vq_result.singers_formant_energy:.3f}, "
+                    f"HNR={vq_result.praat_hnr:.1f}dB"
+                )
+        except Exception as e:
+            logger.warning(f"Praat voice quality extraction failed: {e}")
 
     # ── f0 提取 ──
 

@@ -1,14 +1,16 @@
 """
-声学指标计算模块
+声学指标计算模块 v6.2
 
 包含：
 1. HNR (谐波噪声比) - 反映声带闭合程度
 2. CPP (倒谱峰值显著性) - 反映声带闭合质量
 3. 混合音频检测 - 检测是否带有伴奏，调整HNR评估策略
+4. Spectral Tilt (频谱倾斜) - 区分气声 vs 压嗓 [Sundberg 1987]
 """
 from dataclasses import dataclass
 import numpy as np
 import librosa
+from scipy import stats
 import logging
 from .types import AcousticResult
 
@@ -338,6 +340,98 @@ class AcousticAnalyzer:
 
         peak_value = float(np.max(corr[min_lag:max_lag]))
         return max(0.0, min(1.0, peak_value))
+
+    def calculate_spectral_tilt(
+        self,
+        audio_data: np.ndarray,
+        freq_range: tuple = (100, 4000)
+    ) -> float:
+        """
+        v6.2: 计算频谱倾斜 (Spectral Tilt) — LTAS 在 0-4kHz 的线性拟合斜率
+
+        文献: Sundberg (1987). "The Science of the Singing Voice." Ch.2
+              — 频谱倾斜是声门闭合程度的直接声学表现
+              - 正常闭合: -12 至 -6 dB/octave
+              - 气声 (breathy): > -8 dB/octave (频谱平坦, 高次谐波丰富)
+              - 压嗓 (pressed): < -12 dB/octave (频谱陡峭, 基频占主导)
+
+        算法:
+        1. 计算长时平均频谱 (LTAS) via Welch 方法
+        2. 转换为 dB 尺度和八度 (octave) 尺度
+        3. 在指定频率范围内线性回归: log_magnitude ~ log_frequency
+        4. 返回斜率 (dB/octave)
+
+        Args:
+            audio_data: 音频数据 (1D numpy array)
+            freq_range: 回归频率范围 (Hz), 默认 100-4000Hz
+
+        Returns:
+            spectral_tilt: 频谱倾斜 (dB/octave), 越负表示越陡峭
+        """
+        try:
+            if len(audio_data) < 2048:
+                return -10.0  # 中性默认值
+
+            # 1. Welch 方法计算功率谱密度
+            freqs, psd = self._welch_psd(audio_data)
+
+            # 2. 选取频率范围
+            f_low, f_high = freq_range
+            mask = (freqs >= f_low) & (freqs <= f_high)
+            freqs_range = freqs[mask]
+            psd_range = psd[mask]
+
+            if len(freqs_range) < 10:
+                return -10.0
+
+            # 3. 转换为 dB 和对数频率 (octave)
+            psd_db = 10 * np.log10(psd_range + 1e-12)
+            freqs_octave = np.log2(freqs_range + 1e-10)
+
+            # 4. 线性回归: psd_db = slope * freqs_octave + intercept
+            slope, intercept, r_value, p_value, std_err = stats.linregress(
+                freqs_octave, psd_db
+            )
+
+            # 斜率单位: dB / octave
+            # Sundberg (1987): 正常 -12 到 -6 dB/oct
+            logger.debug(
+                f"Spectral tilt: {slope:.1f} dB/oct (R²={r_value**2:.3f}, "
+                f"range={f_low}-{f_high}Hz)"
+            )
+
+            return float(slope)
+
+        except Exception as e:
+            logger.warning(f"Spectral tilt calculation failed: {e}")
+            return -10.0  # 中性默认值
+
+    def _welch_psd(self, audio_data: np.ndarray) -> tuple:
+        """
+        Welch 方法功率谱密度估计
+
+        使用短时傅里叶变换平均化, 减少噪声方差。
+
+        Args:
+            audio_data: 音频数据
+
+        Returns:
+            (frequencies, psd): 频率数组和功率谱密度
+        """
+        n_fft = min(4096, len(audio_data))
+        hop_length = n_fft // 2
+
+        # 计算 STFT
+        D = librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length)
+        magnitude = np.abs(D)
+
+        # 平均功率谱 (over frames)
+        psd = np.mean(magnitude ** 2, axis=1)
+
+        # 频率轴
+        freqs = librosa.fft_frequencies(sr=self.sample_rate, n_fft=n_fft)
+
+        return freqs, psd
 
     @staticmethod
     def normalize_loudness(audio_data: np.ndarray, target_rms: float = 0.05) -> np.ndarray:
