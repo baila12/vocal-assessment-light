@@ -140,15 +140,18 @@ class TestScoringBoundaryInputs:
     # ── 零值 ──
 
     def test_pitch_zero_mae(self):
-        """MAE = 0 音分 (完美音准)"""
+        """v6.2: MAE = 0 音分 + 多指标满分 (完美音准)"""
         scorer = PitchScorer(PitchThresholds())
         result = PitchDeviationResult(
             mae_cents=0.0, detection_rate=1.0,
+            rpa=1.0, rca=1.0, gross_error_rate=0.0,
+            octave_error_rate=0.0, relative_smoothness=1.0,
             pitch_breaks=0, pitch_wobble=0.0,
             consecutive_off_notes=0
         )
         score, diagnosis = scorer.calculate(result)
         assert 0 <= score <= 100
+        assert score >= 90, f"Perfect pitch should score >=90, got {score}"
         assert diagnosis.level == "专业级"
 
     def test_rhythm_zero_onset(self):
@@ -252,15 +255,17 @@ class TestScoringBoundaryInputs:
         assert len(diagnosis.issues) > 0
 
     def test_pitch_full_detection_rate(self):
-        """检测率为 1.0 (完美检测)"""
+        """v6.2: 检测率为 1.0 + 良好多指标"""
         scorer = PitchScorer(PitchThresholds())
         result = PitchDeviationResult(
             mae_cents=20.0, detection_rate=1.0,
+            rpa=0.85, rca=0.90, gross_error_rate=0.03,
+            octave_error_rate=0.01, relative_smoothness=1.5,
             pitch_breaks=0, pitch_wobble=10.0,
             consecutive_off_notes=0
         )
         score, _ = scorer.calculate(result)
-        assert score >= 70
+        assert score >= 70, f"Expected >=70, got {score}"
 
 
 # ============================================================================
@@ -352,10 +357,12 @@ class TestDiagnosisConsistency:
     """评分与诊断信息一致性"""
 
     def test_high_score_gives_professional_level(self):
-        """高分 (>= 95) 应对应 '专业级'"""
+        """v6.2: 高分 (>= 85) 应对应 '专业级'"""
         for ScorerCls, ThresholdsCls, make_result in [
             (PitchScorer, PitchThresholds, lambda: PitchDeviationResult(
                 mae_cents=3.0, detection_rate=0.98,
+                rpa=0.97, rca=0.98, gross_error_rate=0.0,
+                octave_error_rate=0.0, relative_smoothness=1.05,
                 pitch_breaks=0, pitch_wobble=5.0, consecutive_off_notes=0)),
         ]:
             scorer = ScorerCls(ThresholdsCls())

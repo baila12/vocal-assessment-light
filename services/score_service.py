@@ -1,5 +1,5 @@
 """
-评分计算服务 v5.2 - 模块化重构版
+评分计算服务 v6.2 - 跨维度修正版
 
 核心原则：
 1. 风格自适应：根据音乐风格自动调整评分权重和标准
@@ -9,9 +9,9 @@
 5. 精确量化：音分偏差、拍长归一化、专业气息评估、HNR、CPP
 6. 正向加分为主、负向扣分为辅
 
-v5.2 改进：
-- 模块化重构：各维度评分器独立为单独模块
-- 单一职责：ScoreServiceV4 作为协调器，委托具体评分给各评分器
+v6.2 改进:
+- 跨维度修正: HNR稳定性→气息, Voicing→音准, 频谱倾斜→气声
+- 文献: de Krom (1993), Sundberg (1987), Titze (1994)
 """
 from typing import Dict, Optional
 import numpy as np
@@ -22,8 +22,8 @@ from services.style_aware_scorer import StyleProfile
 from services.scoring_config import ScoringConfig, default_scoring_config
 from services.scoring.types import ScoreResultV4
 from services.scoring import PitchScorer, RhythmScorer, BreathScorer, TechniqueScorer, ArtistryScorer, CriticalRulesHandler
-# v5.18: FeatureFlags 预留 — v5.19 跨维度集成时接入
-# from services.feature_flags import FeatureFlags
+from services.feature_flags import FeatureFlags
+from services.scoring.score_modifiers import CrossDimensionModifiers
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +172,8 @@ class ScoreServiceV4:
         audio_data: np.ndarray = None,
         f0: np.ndarray = None,
         sample_rate: int = 22050,
+        # v6.2: Feature Flags (跨维度修正)
+        feature_flags: FeatureFlags = None,
     ) -> ScoreResultV4:
         """
         计算五维评分 v5.10 - DTW参考评分增强
@@ -289,6 +291,50 @@ class ScoreServiceV4:
         result.artistry_score = artistry_score
         result.artistry_diagnosis = artistry_diagnosis
 
+        # ── v6.2: 跨维度修正 ──
+        # 基于声学特征的物理因果关系, 施加有文献支撑的跨维度修正
+        cross_dim_penalty_total = 0.0
+        if feature_flags is not None and feature_flags.enable_cross_dimension_modifiers:
+            modifiers = CrossDimensionModifiers()
+
+            # 1. HNR 稳定性 → 气息修正 (de Krom 1993)
+            hnr_stability = getattr(features, 'hnr_stability', None)
+            breath_score, hnr_diag = modifiers.apply_hnr_stability_to_breath(
+                breath_score, hnr_stability
+            )
+            if hnr_diag:
+                result.breath_diagnosis.issues.append(hnr_diag)
+                result.breath_score = breath_score
+
+            # 2. Voicing 置信度 → 音准可信度标记 (de Cheveigne & Kawahara 2002)
+            voicing_conf = getattr(features, 'voicing_confidence', None)
+            _, voicing_diag = modifiers.apply_voicing_to_pitch_weight(
+                pitch_score, voicing_conf, features.pitch_deviation.detection_rate
+            )
+            if voicing_diag:
+                result.pitch_diagnosis.issues.append(voicing_diag)
+
+            # 3. 频谱倾斜 → 气声技巧修正 (Sundberg 1987)
+            spectral_tilt = getattr(features, 'spectral_tilt', None)
+            breath_tech = features.breath_stability.breath_technique_score
+            new_breath_tech, tilt_diag = modifiers.apply_spectral_tilt_to_breath(
+                breath_tech, spectral_tilt, features.hnr
+            )
+            if tilt_diag:
+                result.breath_diagnosis.issues.append(tilt_diag)
+                # 更新气息技术子分对总分的影响 (通过差分修正)
+                breath_tech_delta = new_breath_tech - breath_tech
+                breath_score = max(0, min(100, breath_score + breath_tech_delta * 0.15))
+                result.breath_score = breath_score
+
+            # 4. 气息-音准耦合惩罚 (Titze 1994)
+            coupling_penalty, coupling_diag = modifiers.apply_breath_pitch_coupling(
+                features.pitch_deviation.pitch_wobble, hnr_stability
+            )
+            if coupling_diag:
+                result.critical_issues.append(coupling_diag)
+                cross_dim_penalty_total += coupling_penalty
+
         # 5b. v5.10 DTW参考对比评分（可选）
         if reference_path and user_filepath:
             self._apply_dtw_reference(
@@ -311,6 +357,11 @@ class ScoreServiceV4:
         total = self._apply_dl_fusion(
             total, dl_mos_normalized, dl_confidence
         )
+
+        # 7.5 v6.2: 跨维度耦合惩罚 (气息-音准联动)
+        if cross_dim_penalty_total > 0:
+            total = max(0, total - cross_dim_penalty_total)
+            logger.info(f"Cross-dim coupling penalty: -{cross_dim_penalty_total:.0f} → total={total:.0f}")
 
         # 8. 人声质量惩罚 v5.10 — 三层分级惩罚
         if voice_quality_score < 30:

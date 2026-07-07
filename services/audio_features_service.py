@@ -99,6 +99,17 @@ class AudioFeaturesService:
             audio_data_raw = audio_data.copy()
             audio_data = AcousticAnalyzer.normalize_loudness(audio_data)
 
+            # v6.2: 预计算 HPSS 分离 (避免 acoustic/breath 三处重复调用)
+            # librosa.effects.hpss 是 O(N log N), 缓存可节省 ~1.5s/次
+            try:
+                hpss_harmonic, hpss_percussive = librosa.effects.hpss(
+                    audio_data, margin=(1.0, 3.0)
+                )
+            except Exception:
+                hpss_harmonic, hpss_percussive = None, None
+            result._hpss_harmonic = hpss_harmonic
+            result._hpss_percussive = hpss_percussive
+
             # 提取基频（如果未提供）
             if f0 is None:
                 f0, voiced_flags = self._extract_f0(audio_data, feature_flags)

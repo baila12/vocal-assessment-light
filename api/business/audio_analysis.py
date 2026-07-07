@@ -111,7 +111,8 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         audio_data=audio_result._audio_data,
         f0=audio_result._f0,
         sample_rate=audio_result.sample_rate,
-        reference_path=reference_path
+        reference_path=reference_path,
+        feature_flags=feature_flags,  # v6.2: 跨维度修正
     )
 
     # 5. 生成建议

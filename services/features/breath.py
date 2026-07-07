@@ -366,20 +366,49 @@ class BreathAnalyzer:
         singing_style: str
     ):
         """
-        计算专业气息综合得分 v6.1
+        计算专业气息综合得分 v6.2
 
         v6.1 改进:
         - 子维度连续线性映射 (曾步进加分)
         - 波动惩罚连续衰减
         - 加分项适度奖励
+
+        v6.2 改进 (文献驱动):
+        - 质量门控: breath_design 仅在基础气息控制达标时计全权重
+          根因: clean_breath_count + phrase_coherence 与演唱质量弱相关
+          (简单歌曲的规律换气也能得高分, 而专业歌手的气口设计在复杂歌曲中评分反低)
+        - 当 long_note_support ≤ 40 且 dynamic_control ≤ 40 时:
+          breath_design 权重 20%→5%, 差值重分配给诊断力更强的子维度
+        - 文献: Titze (1994) — 长音支撑是气息控制的基石;
+          Sundberg (1987) — 动态控制是衡量气息能力的主要指标
         """
         try:
-            # v6.1: 直接加权 (子维度已为连续值 0-100)
+            # v6.2: 质量门控 — 基础气息控制未达标时, 降低 breath_design 权重
+            has_basic_breath = (
+                result.long_note_support_score > 40 or
+                result.dynamic_control_score > 40
+            )
+
+            if has_basic_breath:
+                # 标准权重
+                weights = (0.40, 0.25, 0.20, 0.15)
+            else:
+                # 降低 breath_design 权重, 重分配给诊断力更强的子维度
+                # breath_design: 20%→5% (其与演唱质量弱相关)
+                # long_note: 40%→47%, dynamic: 25%→28%
+                weights = (0.47, 0.28, 0.05, 0.15)
+                logger.debug(
+                    f"Breath quality gate: low basic control "
+                    f"(long_note={result.long_note_support_score:.0f}, "
+                    f"dynamic={result.dynamic_control_score:.0f}), "
+                    f"breath_design weight reduced 20%→5%"
+                )
+
             score = (
-                result.long_note_support_score * 0.40 +
-                result.dynamic_control_score * 0.25 +
-                result.breath_design_score * 0.20 +
-                result.breath_technique_score * 0.15
+                result.long_note_support_score * weights[0] +
+                result.dynamic_control_score * weights[1] +
+                result.breath_design_score * weights[2] +
+                result.breath_technique_score * weights[3]
             )
 
             # 非艺术波动惩罚 (连续)

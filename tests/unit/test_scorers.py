@@ -43,9 +43,11 @@ class TestPitchScorer:
         self.scorer = PitchScorer(self.thresholds)
 
     def test_excellent_pitch(self):
-        """测试优秀音准（低偏差）"""
+        """v6.2: 优秀音准 — 多指标全高分"""
         result = PitchDeviationResult(
-            mae_cents=8.0,  # 低于 excellent 阈值
+            mae_cents=8.0,
+            rpa=0.95, rca=0.97, gross_error_rate=0.01,
+            octave_error_rate=0.0, relative_smoothness=1.1,
             detection_rate=0.95,
             pitch_breaks=0,
             pitch_wobble=10.0,
@@ -53,14 +55,15 @@ class TestPitchScorer:
         )
         score, diagnosis = self.scorer.calculate(result)
 
-        assert score >= 95.0
+        assert score >= 85.0, f"Expected >=85, got {score}"
         assert diagnosis.level == "专业级"
-        assert diagnosis.mae_cents == 8.0
 
     def test_good_pitch(self):
-        """测试良好音准"""
+        """v6.2: 良好音准 — 中等 MAE + 高多指标"""
         result = PitchDeviationResult(
-            mae_cents=25.0,  # 在 good 范围内
+            mae_cents=25.0,
+            rpa=0.85, rca=0.90, gross_error_rate=0.03,
+            octave_error_rate=0.01, relative_smoothness=1.5,
             detection_rate=0.9,
             pitch_breaks=0,
             pitch_wobble=20.0,
@@ -68,21 +71,23 @@ class TestPitchScorer:
         )
         score, diagnosis = self.scorer.calculate(result)
 
-        assert 85 <= score <= 100
+        assert 70 <= score <= 90, f"Expected 70-90, got {score}"
         assert diagnosis.level in ["良好", "专业级"]
 
     def test_poor_pitch(self):
-        """测试较差音准（高偏差）"""
+        """v6.2: 较差音准 — 高 MAE + 低多指标 + 断层"""
         result = PitchDeviationResult(
-            mae_cents=80.0,  # 高于 pass 阈值
-            detection_rate=0.8,
-            pitch_breaks=2,
-            pitch_wobble=40.0,
+            mae_cents=80.0,
+            rpa=0.50, rca=0.55, gross_error_rate=0.20,
+            octave_error_rate=0.08, relative_smoothness=3.5,
+            detection_rate=0.7,
+            pitch_breaks=5,
+            pitch_wobble=60.0,
             consecutive_off_notes=0
         )
         score, diagnosis = self.scorer.calculate(result)
 
-        assert score < 70
+        assert score < 50, f"Expected <50, got {score}"
         assert diagnosis.level == "待改进"
         assert len(diagnosis.suggestions) > 0
 

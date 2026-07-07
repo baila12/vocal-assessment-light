@@ -92,6 +92,8 @@ class AudioFeaturesResult:
     _voicing_detection: Optional['VoicingDetectionResult'] = None  # v5.18
     _mixed_metadata: Optional[dict] = None  # v6.0: mixed audio detection metadata
     _reverb_compensation: Optional[object] = None  # v5.20: ReverbCompensationResult
+    _hpss_harmonic: Optional[object] = None  # v6.2: cached HPSS harmonic component
+    _hpss_percussive: Optional[object] = None  # v6.2: cached HPSS percussive component
     error_message: Optional[str] = None
 
 
