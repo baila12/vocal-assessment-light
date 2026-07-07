@@ -107,16 +107,18 @@ class TestPitchScorer:
         assert any("检测率低" in issue for issue in diagnosis.issues)
 
     def test_pitch_breaks_penalty(self):
-        """测试音高断层惩罚"""
+        """v6.2: 音高断层惩罚 — 基于 PYIN 校准的率阈值"""
         result = PitchDeviationResult(
             mae_cents=15.0,
             detection_rate=0.9,
-            pitch_breaks=5,  # 多处断层
+            pitch_breaks=50,  # v6.2: 需要足够的断层数达到 5%/3.5 真实率阈值
             pitch_wobble=15.0,
+            valid_frame_count=200,  # 50/(200*0.9)/3.5 = 7.9% > 5% → penalty
             consecutive_off_notes=0
         )
         score, diagnosis = self.scorer.calculate(result)
 
+        # 断层率 > 5%/3.5 校准后应触发惩罚
         assert len(diagnosis.issues) > 0
         assert any("断层" in issue for issue in diagnosis.issues)
 

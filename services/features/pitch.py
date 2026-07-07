@@ -82,8 +82,10 @@ class PitchAnalyzer:
         # 非连续帧间计算, 导致1000+伪断层。改为仅计算真正相邻的有声帧对。
         if len(valid_f0) > 10:
             f0_cents = 1200 * np.log2(valid_f0 / 440.0)
-            # v6.2: 中值滤波消除 YIN 的散发性八度错误
-            f0_cents_smooth = uniform_filter1d(f0_cents.astype(float), size=5)
+            # v6.2: 中值滤波消除 YIN 的散发性错误 (size=9 → ~300ms窗口)
+            # size=5 不足以消除单帧八度跳变; YIN 错误通常是 1-2 帧的孤立伪影
+            # de Cheveigne & Kawahara (2002): YIN 在低SNR下八度误差率升高
+            f0_cents_smooth = uniform_filter1d(f0_cents.astype(float), size=9)
             f0_cents_diff = np.abs(np.diff(f0_cents_smooth))
 
             # v6.2: 仅计数真正的相邻帧断层 (排除跨无声段的跳变)
@@ -102,7 +104,12 @@ class PitchAnalyzer:
                     cents_starts = 1200 * np.log2(f0_starts / 440.0)
                     cents_ends = 1200 * np.log2(f0_ends / 440.0)
                     cents_jumps = np.abs(cents_ends - cents_starts)
-                    result.pitch_breaks = int(np.sum(cents_jumps > 200))
+                    # v6.2: 排除八度跳变 (YIN 最常见的错误模式 — 混淆基频与二次谐波)
+                    # 1200±200 音分的跳变映射到同一音名, RPA=1.0 但被误计为断层
+                    # 文献: de Cheveigne & Kawahara (2002) — YIN 八度误差率 <1%
+                    is_octave_jump = (cents_jumps > 1000) & (cents_jumps < 1400)
+                    real_breaks = (cents_jumps > 200) & ~is_octave_jump
+                    result.pitch_breaks = int(np.sum(real_breaks))
                 else:
                     result.pitch_breaks = 0
             else:

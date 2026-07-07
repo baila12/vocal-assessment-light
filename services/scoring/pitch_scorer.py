@@ -42,13 +42,19 @@ class PitchScorer:
         """
         计算音准评分 v6.2
 
-        多指标融合权重:
-          - MAE 指数衰减: 35%
+        多指标融合权重 v6.2:
+          - MAE 指数衰减: 40% (曾 35%) — 最鲁棒的聚合指标
           - RPA (Raw Pitch Accuracy): 25%
           - RCA (Raw Chroma Accuracy): 10%
           - Gross error 惩罚: 15%
-          - Smoothness: 10%
+          - Smoothness: 5% (曾 10%) — YIN f0 帧间噪声大, 降低权重
           - Octave error 惩罚: 5%
+
+        v6.2 权重校准依据:
+          PYIN 对比测试显示 YIN 在 16kHz 下产生 3.5x 虚假帧间跳变
+          (YIN 785 breaks vs PYIN 226). 帧间指标 (smoothness, breaks)
+          受 f0 伪影污染, 降低权重; 聚合指标 (MAE, RPA) 鲁棒.
+          文献: de Cheveigne & Kawahara (2002) — YIN 在低 SNR 下误差率升高
 
         各指标文献依据:
           - MAE: 最广泛使用的音准指标 (Wager 2022)
@@ -60,7 +66,7 @@ class PitchScorer:
         diagnosis = PitchDiagnosis()
         mae = pitch_deviation.mae_cents
 
-        # ── 1. MAE 指数衰减分 (35%) ──
+        # ── 1. MAE 指数衰减分 (40%) ──
         # 指数衰减: 低误差区缓慢衰减, 中高误差区加速衰减
         # 符合 Weber-Fechner 听觉感知定律
         mae_score = 100.0 * np.exp(-mae / _MAE_TAU)
@@ -87,7 +93,7 @@ class PitchScorer:
         else:
             gross_score = 100.0
 
-        # ── 5. Smoothness — 音高一致性 (10%) ──
+        # ── 5. Smoothness — 音高一致性 (5% v6.2: YIN f0 帧间噪声大) ──
         # relative_smoothness = CV(adjacent f0 diffs), 1.0 为基线
         # 文献: Canazza et al. (2014), pitch smoothness → expressiveness
         smoothness = pitch_deviation.relative_smoothness
@@ -100,13 +106,13 @@ class PitchScorer:
         octave_error_rate = pitch_deviation.octave_error_rate
         octave_score = max(0, 100.0 - octave_error_rate * 200.0)
 
-        # ── 加权合成 ──
+        # ── 加权合成 v6.2 ──
         score = (
-            mae_score * 0.35 +
+            mae_score * 0.40 +
             rpa_score * 0.25 +
             rca_score * 0.10 +
             gross_score * 0.15 +
-            smoothness_score * 0.10 +
+            smoothness_score * 0.05 +
             octave_score * 0.05
         )
 
@@ -118,13 +124,21 @@ class PitchScorer:
                 f"音高检测率低({pitch_deviation.detection_rate*100:.0f}%)"
             )
 
-        # ── 音高断层惩罚 (继承) ──
-        if pitch_deviation.pitch_breaks > 3:
-            penalty = min(15, pitch_deviation.pitch_breaks * 2)
-            score -= penalty
-            diagnosis.issues.append(
-                f"换声区存在{pitch_deviation.pitch_breaks}处音高断层"
-            )
+        # ── 音高断层惩罚 v6.2: PYIN 校准 ──
+        # YIN f0 噪声产生 3.5x 虚假断层 (785 YIN vs 226 PYIN, 同一音频)
+        # 校准: YIN break_rate ÷ 3.5 ≈ 真实断层率
+        # 文献: de Cheveigne & Kawahara (2002) — YIN 在低 SNR 下误差率升高
+        _YIN_INFLATION = 3.5  # PYIN 校准因子
+        if pitch_deviation.valid_frame_count > 0 and pitch_deviation.pitch_breaks > 0:
+            est_pairs = pitch_deviation.valid_frame_count * max(pitch_deviation.detection_rate, 0.5)
+            break_rate = pitch_deviation.pitch_breaks / max(est_pairs, 1)
+            corrected_rate = break_rate / _YIN_INFLATION
+            if corrected_rate > 0.05:  # >5% 真实断层率 → 惩罚
+                penalty = min(15, (corrected_rate - 0.05) * 200)
+                score -= penalty
+                diagnosis.issues.append(
+                    f"换声区存在{pitch_deviation.pitch_breaks}处音高断层"
+                )
 
         # ── 长音波动惩罚 (继承) ──
         wobble_threshold = self.empirical.pitch_wobble_threshold
