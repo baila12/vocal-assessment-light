@@ -280,6 +280,7 @@ def _build_success_result(
     result = build_response(result_dto, version='5.0')
     result['scores']['volume'] = float(score_result.volume)
     result['scores']['emotion'] = float(score_result.artistry_score)
+    result['mode'] = mode  # Quick / Professional
 
     return result
 
@@ -402,7 +403,7 @@ def analyze_emotion(audio_data, sample_rate: int, quick_mode: bool = False) -> d
     if not quick_mode:
         # 尝试使用模型
         try:
-            from model_manager import get_model_manager
+            from services.dl_services.emotion_manager import get_model_manager
             manager = get_model_manager()
             result = manager.analyze_emotion(audio_data, sample_rate)
             return {

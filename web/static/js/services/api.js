@@ -235,6 +235,10 @@ export class ApiClient {
         });
     }
 
+    async deleteHistoryAll() {
+        return this.request('DELETE', '/api/history/all');
+    }
+
     // ========================================================================
     // 瀵规瘮鍒嗘瀽
     // ========================================================================
@@ -304,12 +308,14 @@ export class ApiClient {
      * @param {File} file
      */
     async separateVocals(file) {
-        const formData = new FormData();
-        formData.append('audio', file);
+        // 先上传获取 filepath，再调用分离 API
+        const uploadResult = await this.uploadAudio(file);
+        const filepath = uploadResult.filepath;
+        if (!filepath) throw new Error('上传失败，未获取到文件路径');
 
         return this.request('POST', '/api/separate', {
-            body: formData,
-            isFormData: true,
+            body: { filepath: filepath },
+            isFormData: false,
             timeout: 180000
         });
     }

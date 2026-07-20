@@ -26,14 +26,14 @@ class DLModelManager:
     # 模型配置
     MODEL_CONFIG = {
         'voice_quality': {
-            'path': 'models/voice_quality/model.onnx',
+            'path': 'models/voice_quality/silero_vad.onnx',  # 使用实际文件名
             'size_mb': 2,
             'download_url': 'https://huggingface.co/your-repo/voice-quality-detector/resolve/main/model.onnx'
         },
         'style_classifier': {
-            'path': 'models/style_classifier/model.onnx',
-            'size_mb': 10,
-            'download_url': 'https://huggingface.co/your-repo/singing-style-classifier/resolve/main/model.onnx'
+            'path': 'models/style_classifier/model_quantized.onnx',  # INT8 量化版 (86MB vs 329MB)
+            'size_mb': 86,
+            'download_url': 'https://huggingface.co/your-repo/singing-style-classifier/resolve/main/model_quantized.onnx'
         }
     }
 

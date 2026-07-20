@@ -1,8 +1,9 @@
 # 测试驱动开发 (TDD) 规范
 
-> 更新: 2026-07-04 | 适用于所有核心算法和评分模块开发
+> 更新: 2026-07-20 | v7.0 迁移策略: BDD+TDD+DDD | 适用于所有核心算法和评分模块开发
 > 
-> **测试准则**: 优先使用 `tests/test_data/audio/vocal/` 中的 5 首真实人声音频 (4高分+1低分) 获取真实反馈。该目录是项目的黄金测试集，文件名即标签。
+> **测试准则**: 优先使用 `tests/test_data/audio/vocal/` 中的 5 首真实人声音频 (4高分+1低分) 获取真实反馈。
+> **v7.0 迁移**: FastAPI + Vue 3 + Electron 分阶段迁移，每阶段 TDD 门禁必过。绝不允许迁移破坏评分精度。
 
 ---
 
@@ -481,7 +482,81 @@ pytest tests/ -v -m "performance"
 
 ---
 
-## 10. 参考文档
+## 10. v7.0 迁移 TDD 策略
+
+> v7.0 全栈迁移: FastAPI + Vue 3 + Element Plus + Electron
+> 核心原则: **每迁移一部分, 测试一部分, 验证一部分, 绝不累积 Bug**
+
+### 10.1 Scoring Domain (零改动迁移)
+
+评分域 (PitchScorer/RhythmScorer/BreathScorer/TechniqueScorer/ArtistryScorer/CriticalRules) 是纯数学函数 — 迁移时**一行代码不改**。
+
+```python
+# 直接 import 复用, 无需改动
+from services.scoring.pitch_scorer import PitchScorer
+from services.scoring.rhythm_scorer import RhythmScorer
+# ... etc
+
+# TDD 验证: 迁移后所有 scorer 测试必须 100% 保持通过
+pytest tests/unit/test_scorers.py -v          # 26 tests
+pytest tests/unit/test_scoring_robustness.py -v  # 22 tests
+```
+
+### 10.2 FastAPI 端点 TDD 模板
+
+```python
+# tests/tdd/test_v7_fastapi_endpoints.py
+import pytest
+from httpx import AsyncClient, ASGITransport
+from backend.main import app
+
+@pytest.mark.asyncio
+async def test_health_endpoint_returns_healthy():
+    """FastAPI /health 替代 Flask /health"""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+
+@pytest.mark.asyncio
+async def test_upload_quick_returns_pydantic_model():
+    """UploadFile → Pydantic UploadResponse, 分数不变"""
+    # ... Arrange: 上传黄金测试集音频
+    # ... Act: POST /api/v2/upload?mode=quick
+    # ... Assert: total_score 与 Flask 基线差 < 1 分
+    pass
+```
+
+### 10.3 黄金测试集保护 (CRITICAL)
+
+5 首真实音频的回归基线是迁移的**最高门禁**:
+
+```bash
+# 每次迁移后必须运行, 分数波动必须 < ±1 分
+pytest tests/integration/test_real_audio_regression.py -v
+```
+
+### 10.4 Phase 门禁清单
+
+| Phase | TDD Tests | 门禁命令 |
+|-------|-----------|---------|
+| 1 FastAPI 共存 | 7 (history CRUD) | `pytest tests/unit/test_repositories.py tests/tdd/ -v` |
+| 2 评分异步化 | 5 (upload/compare/extract-pitch/separate/report) | `pytest tests/integration/test_real_audio_regression.py -v` ⚠️ 分数波动 < ±1 分 |
+| 3 WebSocket | 3 (connect/frames/score) | `pytest tests/tdd/ -v -k ws` |
+| 4 Vue + Element Plus | 6 (每页面 1 组件测试) | `npx vitest run` |
+| 5 Electron | 2 (smoke/packaging) | 手动验证 |
+
+### 10.5 禁止事项
+
+- ❌ 迁移期间修改任何 scorer 算法 (改变评分精度的唯一原因)
+- ❌ 跳过黄金测试集验证就进入下一 Phase
+- ❌ 在 Phase N 中修改 Phase N-1 的代码 (单向依赖)
+- ❌ 使用 `console.log` 或 `print()` 调试 (用 proper logging)
+
+---
+
+## 11. 参考文档
 
 | 文档 | 路径 |
 |------|------|

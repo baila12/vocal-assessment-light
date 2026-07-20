@@ -485,16 +485,19 @@ export class ComparePage extends BaseComponent {
         btn.innerHTML = '⏳ 分析中...';
 
         try {
-            // 模拟对比分析
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // 模拟结果
-            const result = {
-                total_score: 78.5,
-                level: '中等',
-                scores: { pitch: 75, rhythm: 82, breath: 70, technique: 76, artistry: 80 },
-                advice: ['注意高音区的音准稳定性', '副歌部分节奏略快，建议跟节拍器练习', '气息支撑需要加强，特别是长音部分']
-            };
+            let result;
+            if (this.#standardSong?.filepath && this.#userAudio) {
+                // Fetch standard audio as blob then compare
+                const stdRes = await fetch('/api/audio?path=' + encodeURIComponent(this.#standardSong.filepath));
+                const stdBlob = await stdRes.blob();
+                const stdFile = new File([stdBlob], this.#standardSong.title || 'standard.mp3');
+                result = await this.#api.compareAnalysis(stdFile, this.#userAudio);
+            } else if (this.#userAudio) {
+                // No standard — just analyze user audio
+                result = await this.#api.uploadAudio(this.#userAudio, 'quick');
+            } else {
+                throw new Error('请选择标准音频和用户音频');
+            }
 
             this.#result = result;
             this.#showResults(result);

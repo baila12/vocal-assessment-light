@@ -11,7 +11,6 @@
 import { BaseComponent } from '../components/BaseComponent.js';
 import { showToast } from '../components/Toast.js';
 import { ProgressBar } from '../components/ProgressBar.js';
-import { AnalysisSSE } from '../services/sse.js';
 import { ApiClient, ApiError } from '../services/api.js';
 import { handleFileSelect as loadFileInfo } from '../modules/upload.js';
 

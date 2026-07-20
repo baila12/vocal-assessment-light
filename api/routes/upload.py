@@ -13,6 +13,7 @@ from services import SeparationService, ReportService
 from repositories import JsonHistoryRepository
 from api.errors import ValidationError, NotFoundError, ForbiddenError
 from api.business import analyze_and_score
+from services.feature_flags import FeatureFlags
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,8 @@ def upload_file():
             logger.info(f"上传参考音频: {reference_path}")
 
     try:
-        result = analyze_and_score(str(filepath), mode=mode, reference_path=reference_path)
+        result = analyze_and_score(str(filepath), mode=mode, reference_path=reference_path,
+                             feature_flags=FeatureFlags())  # v6.2: 激活全部高级算法
     except Exception as e:
         logger.exception(f"Analysis failed: {e}")
         return jsonify({'success': False, 'error': f'分析失败: {str(e)}'}), 500
@@ -358,8 +360,8 @@ def compare_audio():
             return jsonify({'success': False, 'error': dtw_result.get('error', 'DTW对比分析失败')}), 500
 
         # 保留标准/用户音频的基础分析结果，供前端可视化使用（波形、音高曲线等）
-        standard_result = analyze_and_score(str(filepath_obj_std))
-        user_result = analyze_and_score(str(filepath_obj_user))
+        standard_result = analyze_and_score(str(filepath_obj_std), feature_flags=FeatureFlags())
+        user_result = analyze_and_score(str(filepath_obj_user), feature_flags=FeatureFlags())
 
     except Exception as e:
         logger.exception(f"Compare analysis failed: {e}")
@@ -408,6 +410,7 @@ def _save_history(result: dict, filepath: str):
         'total_score': result['total_score'],
         'scores': result['scores'],
         'level': result['level'],
-        'advice': result['advice']
+        'advice': result['advice'],
+        'mode': result.get('mode', 'quick'),  # 持久化评估模式
     }
     history_repo.save(history_record)

@@ -1,6 +1,6 @@
 # 产品目标与设计原则
 
-> 更新: 2026-06-05 | 本文档定义产品愿景、设计原则和功能全景。功能详情见 [PRD.md](PRD.md)，评分算法见 [SCORING.md](../2-technical/SCORING.md)。
+> 更新: 2026-07-20 | v6.2.1 → vNext | 本文档定义产品愿景、设计原则和功能全景。功能详情见 [PRD.md](PRD.md)，评分算法见 [SCORING.md](../2-technical/SCORING.md)。
 
 ---
 
@@ -13,7 +13,7 @@
 | 维度 | 说明 |
 |------|------|
 | **隐私保护** | 全离线运行，所有数据本地存储，不上传云端 |
-| **专业评估** | 五维评分 + Demucs 人声分离 + DTW 参考对比 |
+| **专业评估** | 六维评分 (音准/节奏/气息/发声技术/肌肉力量/艺术) + 音色加减分(clamp[0,100]) + Demucs 人声分离 + DTW 参考对比 |
 | **即开即用** | 一键启动 Flask 服务，浏览器自动打开 |
 | **三模式评估** | Quick (~15-20s) / Pro (~130-170s) / Compare (DTW) |
 
@@ -44,16 +44,16 @@
 │   ├── 多格式支持 (WAV/MP3/FLAC/OGG/M4A/AAC)
 │   └── 音频播放控制 (倍速/循环/进度)
 ├── 模块3: 评分分析 ★核心 [Quick<30s, Pro<180s/60s(GPU)]
-│   ├── 五维评分 (音准/节奏/气息/技术/艺术)  [评分计算<3s]
+│   ├── 六维评分 (音准/节奏/气息/发声技术/肌肉力量/艺术 + 音色加减分)  [评分计算<3s]
 │   ├── 三评估模式 (Quick/Pro/Compare)
 │   ├── 人声分离 (Demucs htdemucs_ft)  [CPU<140s, GPU<30s]
 │   ├── 逐句评分 (Pro 模式)  [<5s]
 │   ├── 风格自适应 (流行/美声/民族/说唱)  [配置加载<50ms]
 │   ├── DTW 对比分析 (三级对齐引擎)  [<40s]
 │   ├── 自参照一致性 (替代 DL 模型)  [<1s]
-│   ├── Feature Flag 机制 (⏳ v5.18)  [判断开销<1ms]
-│   ├── 算法校准: 多尺度HNR + Praat CPP (⏳ v5.18-v6.0)  [增量<5s]
-│   └── ★ 标准歌曲数据库 + 自动匹配 (⏳ v6.0, 增强层)  [匹配<5s]
+│   ├── Feature Flag 机制 (✅ v5.18, 激活 v6.2.1)  [判断开销<1ms]
+│   ├── 算法校准: 多尺度HNR + Praat CPP (✅ v5.18, 激活 v6.2.1)  [增量<5s]
+│   └── ★ 标准歌曲数据库 + 自动匹配 (⏳ v6.3, 增强层)  [匹配<5s]
 ├── 模块4: 可视化 [图表生成<10s, Canvas≥30fps]
 │   ├── 频谱图 + 基音轨迹 + 能量曲线
 │   ├── 五维雷达图 (Chart.js)
@@ -84,6 +84,7 @@
 |------|------|------|
 | 多格式音频上传 + 拖拽 | v3.0 | `web/static/js/modules/` |
 | 五维评分 (音准/节奏/气息/技术/艺术) | v4.0 | `services/scoring/` |
+| ★ 六维评分重构 (音准/节奏降权 + 咬字+气声比 + 肌肉力量 + 音色加减分) | 📋 vNext | 设计阶段 |
 | Quick 模式 (~15-20s) | v5.2 | `services/audio_service.py` |
 | Professional 模式 (Demucs分离) | v5.11 | `services/separation_service.py` |
 | Compare 模式 (DTW三级对齐) | v5.8 | `services/comparison/` |
@@ -105,15 +106,15 @@
 
 | 功能 | 来源 | 目标版本 | Feature Flag |
 |------|------|---------|-------------|
-| Feature Flag 机制 | — | v5.18 | — |
-| **多尺度 HNR** (短/中/长窗 + HNR稳定性) | [VoiceLab](https://github.com/VoiceLab) / de Krom 1993 | v5.18 | `enable_multiscale_hnr` |
-| **Praat CPP** (parselmouth 替换手动FFT倒谱) | [Praat](https://github.com/praat/praat) / [parselmouth](https://github.com/YannickJadoul/Parselmouth) | v5.18 | `enable_praat_cpp` |
-| Voicing detection 评估 (recall/FA) | [pitch-benchmark](https://github.com/) | v5.18 | `enable_voicing_detection` |
-| TorchCREPE 备选 (PYIN 降级时启用) | [CREPE](https://github.com/marl/crepe) (~5MB) | v5.18 | `enable_torchcrepe_fallback` |
+| Feature Flag 机制 | — | ✅ v5.18 (激活 v6.2.1) | — |
+| **多尺度 HNR** (短/中/长窗 + HNR稳定性) | [VoiceLab](https://github.com/VoiceLab) / de Krom 1993 | ✅ v5.18 (激活 v6.2.1) | `enable_multiscale_hnr` |
+| **Praat CPP** (parselmouth 替换手动FFT倒谱) | [Praat](https://github.com/praat/praat) / [parselmouth](https://github.com/YannickJadoul/Parselmouth) | ✅ v5.18 (激活 v6.2.1) | `enable_praat_cpp` |
+| Voicing detection 评估 (recall/FA) | [pitch-benchmark](https://github.com/) | ✅ v5.18 (激活 v6.2.1) | `enable_voicing_detection` |
+| TorchCREPE 备选 (PYIN 降级时启用) | [CREPE](https://github.com/marl/crepe) (~5MB) | ✅ v5.18 (激活 v6.2.1) | `enable_torchcrepe_fallback` |
 | 校准数据集 (3×3) + 校准工具脚本 | — | v6.0 | — |
-| **SVQTD 7属性歌唱分类器** | 论文 [2210.17367v2](https://arxiv.org/abs/2210.17367) | v6.1 | `enable_svqtd` |
-| **ECAPA-TDNN 音色分析** (明亮度/厚度) | [SpeechBrain](https://github.com/speechbrain/speechbrain) | v6.1 | `enable_ecapa_timbre` |
-| 六维评分 (音量独立) | — | v6.1 | — |
+| **SVQTD 7属性歌唱分类器** | 论文 [2210.17367v2](https://arxiv.org/abs/2210.17367) | ⏳ v6.3+ | `enable_svqtd` (deferred) |
+| **ECAPA-TDNN 音色分析** (明亮度/厚度) | [SpeechBrain](https://github.com/speechbrain/speechbrain) | ⏳ v6.3+ | `enable_ecapa_timbre` (deferred) |
+| 音量维度独立 | — | ✅ v5.19 | — |
 | ~~混响补偿 (HPSS谐波分离+谱减法)~~ | ✅ v6.0: `ReverbCompensator` 已接入 `AudioFeaturesService`, Feature Flag 控制 | ✅ v6.0 | `enable_reverb_compensation` |
 | 混合音频检测文献驱动重构 | ✅ v6.0: 五特征融合 (HPSS+子带平坦度+高频+谐波度+全频平坦度) | ✅ v6.0 | — |
 
@@ -130,10 +131,15 @@
 
 **轨道C — 桌面应用 + 前端现代化** (v7.0):
 
+> **v6.3**: PyQt5 旧桌面代码已删除 (`core/`, `widgets/`, `windows/`, `styles/`, `utils/`)。
+> **v7.0 方向**: Vue 3 + Element Plus + Electron。
+
 | 功能 | 目标版本 |
 |------|---------|
+| ★ Element Plus 组件库 (替代 emoji + 内联样式) | v7.0 |
+| ★ Element Plus Icons (替代 120+ 表情符号) | v7.0 |
+| ★ Vue 3 Composition API 前端重构 | v7.0 |
 | ★ Electron 桌面应用打包 | v7.0 |
-| ★ Vue 3 前端重构 (替代 Vanilla JS SPA) | v7.0 |
 | ★ 原生窗口 + 系统托盘 + 自动更新 | v7.0 |
 | ★ 内嵌 Python 环境 (PyInstaller) | v7.0 |
 | ★ electron-builder 跨平台打包 | v7.0 |

@@ -7,7 +7,7 @@ import json
 import numpy as np
 import torch
 
-MODEL_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'models', 'model_config.json')
+MODEL_CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'models', 'model_config.json')
 
 
 class ModelManager:

@@ -63,8 +63,8 @@ export class HistoryPage extends BaseComponent {
 
         <div id="batchBar" style="display:none;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg-elevated);border-radius:8px;margin-bottom:16px;border:1px solid var(--border);">
             <div style="display:flex;align-items:center;gap:10px;">
-                <button class="btn btn-secondary btn-sm" id="selectAllBtn">全选/button>
-                <span id="selectedCount" style="color:var(--text-muted);font-size:12px;">已选择 0 条/span>
+                <button class="btn btn-secondary btn-sm" id="selectAllBtn">全选</button>
+                <span id="selectedCount" style="color:var(--text-muted);font-size:12px;">已选择 0 条</span>
             </div>
             <div style="display:flex;gap:8px;">
                 <button id="deleteSelectedBtn" class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;padding:6px 12px;font-size:12px;" disabled>删除选中</button>
@@ -110,15 +110,15 @@ export class HistoryPage extends BaseComponent {
         });
         this.el.querySelector('#batchModeBtn')?.addEventListener('click', () => this._toggleSelectionMode());
         this.el.querySelector('#cancelSelectionBtn')?.addEventListener('click', () => this._toggleSelectionMode());
-        this.el.querySelector('_selectAllBtn')?.addEventListener('click', () => this._selectAll());
-        this.el.querySelector('_deleteSelectedBtn')?.addEventListener('click', () => this._deleteSelected());
-        this.el.querySelector('_deleteAllBtn')?.addEventListener('click', () => this._deleteAll());
+        this.el.querySelector('#selectAllBtn')?.addEventListener('click', () => this._selectAll());
+        this.el.querySelector('#deleteSelectedBtn')?.addEventListener('click', () => this._deleteSelected());
+        this.el.querySelector('#deleteAllBtn')?.addEventListener('click', () => this._deleteAll());
     }
 
     async _loadHistory() {
         try {
             const res = await this._api.getHistory();
-            this._records = (res?.records || []).filter(r => {
+            this._records = (res?.history || []).filter(r => {
                 if (this._filter === 'all') return true;
                 const now = new Date();
                 const d = new Date(r.timestamp);
@@ -192,7 +192,7 @@ export class HistoryPage extends BaseComponent {
     _drawGrowthChart() {
         if (typeof Chart === 'undefined') return;
         if (this._records.length === 0) return;
-        const canvas = this.el.querySelector('_growthChart');
+        const canvas = this.el.querySelector('#growthChart');
         if (!canvas) return;
         if (this._growthChart) this._growthChart.destroy();
 
@@ -259,8 +259,7 @@ export class HistoryPage extends BaseComponent {
     }
 
     _updateSelectionUI() {
-        el.textContent="Deleted";
-        const deleteBtn = this.el.querySelector('_deleteSelectedBtn');
+        const deleteBtn = this.el.querySelector('#deleteSelectedBtn');
         if (deleteBtn) {
             deleteBtn.disabled = this._selectedIds.size === 0;
             deleteBtn.textContent = '删除选中 (' + this._selectedIds.size + ')';
@@ -280,11 +279,10 @@ export class HistoryPage extends BaseComponent {
     }
 
     async _deleteAll() {
-        ok=true;
+        const ok = await confirm('确认清空', '确定要清空全部历史记录吗？此操作不可恢复。');
         if (ok) {
-            // deleteAllHistory not implemented yet - using batch approach
- // ToodO: implement properly
-            showToast("Done","success");
+            await this._api.deleteHistoryAll();
+            showToast("已清空全部记录", "success");
             await this._loadHistory();
         }
     }

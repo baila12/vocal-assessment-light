@@ -1,8 +1,155 @@
 # 项目状态
 
-> 更新: 2026-07-07 | 当前版本: **v6.2** (评分算法重构 — 多指标音准 + 跨维度修正 + 性能优化) | 分支: `feat/v6.2-scoring-improvements`
+> 更新: 2026-07-20 | 当前版本: **v6.3** (项目重构 + 六维评分设计 + v7.0 FastAPI/Vue/Electron 规划) | 分支: `feat/v6.2-scoring-improvements`
 
 ---
+
+## v7.0 规划: FastAPI + Vue 3 + Element Plus + Electron (设计阶段)
+
+### 绞杀者模式五阶段迁移
+1. **Phase 1**: FastAPI 共存 — `app.mount("/old", flask_app)` 挂载旧应用
+2. **Phase 2**: 核心评分异步化 — `asyncio.to_thread` + Pydantic v2 Schemas
+3. **Phase 3**: WebSocket `/ws/score` — AudioWorklet 重采样 + 帧流评分
+4. **Phase 4**: Vue 3 + Element Plus — ElUpload/ElProgress/ElEmpty/ElTooltip 替换 emoji + 内联样式
+5. **Phase 5**: Electron + PyInstaller — backend.exe + electron-builder 跨平台打包
+
+### 关键技术决策
+- Element Plus Icons 替代 120+ Unicode Emoji
+- `asyncio.to_thread()` 包装 21 阶段音频分析管线 (目前 Flask threaded=True 阻塞)
+- WebSocket 流式传输: 前端 AudioWorklet 48kHz→16kHz 重采样, 2048 samples/frame
+- PyInstaller --onedir 模式 (避免 SSL DLL 冲突)
+- 排除 691MB 未用模型 (wav2vec2.ckpt + model.onnx)
+
+### 详细计划
+[v7.0全栈迁移计划](../../../.claude/plans/staged-splashing-swing.md)
+
+---
+
+## v6.3: 项目重构 + 评分体系设计 (2026-07-20)
+
+### 评分体系: 六维重构设计 ★vNext
+- 音准 30%→**10%**、节奏 20%→**10%** 降权
+- 发声技术拆分为: 咬字清晰度 + 气声比 (25%)
+- **新增**肌肉力量: 身体肌肉 + 面部肌肉 (25%)
+- **新增**音色额外加减分 +3~-5 (clamp [0,100])
+- 开发原则: 维度独立可测、低耦合、Feature Flag 独立开关
+
+### 项目结构清理
+- 🗑️ PyQt5 旧代码删除: `core/`, `widgets/`, `windows/`, `styles/`, `utils/`
+- 🗑️ 根目录清理: `prototype.html`, `desktop_app.py`, `main.py`, `vocal_assessment.spec`, `installer.iss`
+- 🗑️ 旧页面删除: `web/static/analysis.html`, `compare.html`, `settings.html`
+- 🗑️ 废弃 JS: `js/effects/` (4 stub), `js/services/sse.js`
+- 📦 `model_manager.py` → `services/dl_services/emotion_manager.py`
+
+### v7.0 前端方向
+- Element Plus + Element Plus Icons (替代 emoji)
+- Vue 3 Composition API + Vite + Pinia + Electron
+
+---
+
+## v6.2.1: FeatureFlags 激活 + SPA 修复 + 桌面打包 (2026-07-08)
+
+### FeatureFlags 激活 (P0 修复)
+
+**v6.2 的核心算法此前从未在线上环境执行。** `upload.py` 调用 `analyze_and_score()` 时缺少 `feature_flags=FeatureFlags()`，所有 gated 算法静默失效。
+
+修复后激活的 7 个算法：Cross-Dimension Modifiers、Praat Voice Quality (jitter/shimmer/formants)、Multi-scale HNR (de Krom 1993)、Praat CPP、Voicing Detection、Reverb Compensation、TorchCREPE Fallback。
+
+### SPA 前端修复 (9 项)
+
+| 修复 | 文件 | 说明 |
+|------|------|------|
+| querySelector 选择器 | ReportPage/HistoryPage/SingPage | 11 处 `_xxx` → `#xxx` |
+| 运行时崩溃 | HistoryPage.js | `el.textContent` 未定义变量、HTML标签损坏 |
+| 音频播放器 | ReportPage.js | 导入 AudioPlayer，play/pause/progress/time |
+| PitchCurve | ReportPage.js | 实例化 Canvas 音高曲线 |
+| API 字段名 | HistoryPage.js | `res.records` → `res.history` |
+| 模拟数据替换 | ComparePage.js / SingPage.js | 真实 API 调用 |
+| separateVocals | api.js | FormData → JSON |
+| mode 持久化 | upload.py / audio_analysis.py | 历史记录 + 报告页 |
+| 确认对话框 | HistoryPage.js | 清空全部添加确认 + deleteHistoryAll |
+
+### 桌面应用打包
+
+- **pywebview**: `desktop_app.py` — Flask 后台线程 + Edge WebView2 原生窗口
+- **PyInstaller**: `vocal_assessment.spec` — 干净 conda 环境 + CPU PyTorch + INT8 量化模型，0.91 GB
+- **Inno Setup**: `installer.iss` — Windows 安装器
+- **一键启动**: `start.bat` — 自动激活环境 + 等待就绪 + 打开浏览器
+
+### 已知问题 (更新)
+
+### 算法路径全景 (v6.2.1)
+
+> 详细分析见 [SCORING.md](../2-technical/SCORING.md)
+
+| 模式 | 评分算法 | DL 模型 | Demucs分离 | 可视化/音色/逐句 | DTW参考 | 特征增强* |
+|------|---------|---------|-----------|-----------------|---------|----------|
+| **Quick (上传)** | 5维标准 | ❌ 全部跳过 | ❌ | ❌ | 可选 | ✅ 全部 7 项 |
+| **Quick (演唱)** | 5维标准 | ❌ 全部跳过 | ❌ | ❌ | ❌ | ✅ 全部 7 项 |
+| **Pro (上传)** | 5维 + 唱法权重 | ✅ (SingMOS失败) | ✅ | ✅ | 可选 | ✅ 全部 7 项 |
+| **Compare** | 5维 ×2 + DTW | ✅ (双方) | ✅ | ❌ | ✅ (核心) | ✅ 全部 7 项 |
+
+> \* 特征增强 = 跨维度修正 + Praat声质 + 多频带HNR + PraatCPP + Voicing + 混响补偿 + TorchCREPE
+
+**Quick 模式特征全部启用**：`upload.py` 传入 `FeatureFlags()`（全部 `True`）是正确的设计。Quick 的"快"来自跳过 DL 模型和辅助分析，而非缩减特征提取。`FeatureFlags.for_quick()` 工厂方法已过时，应移除或更新为全开。
+
+**DL 模型启用状态**:
+
+| 模型 | 模式 | 状态 |
+|------|------|------|
+| Silero VAD (ONNX) | 仅 Pro/Compare | ✅ |
+| Style Classifier (ONNX, INT8) | 仅 Pro/Compare | ✅ |
+| Self-Referenced DTW | 仅 Pro/Compare | ✅ (计算但不影响评分) |
+| SingMOS (PyTorch Hub) | 仅 Pro/Compare | ❌ 缺少 s3prl → 静默返回0 |
+| Wav2Vec2 Emotion | 全部 | ❌ v5.12 移除 → 启发式替代 |
+
+### 已知问题与限制 (v6.2.1)
+
+#### P0 — 桌面打包
+
+| # | 问题 | 根因 | 文件 | 计划 |
+|---|------|------|------|------|
+| 1 | EXE 无法启动 (SSL DLL) | `vocal_assessment.spec:18-24` 硬编码了 conda `Library/bin/libssl-3-x64.dll` 的绝对路径，仅在构建机存在。运行时 PyInstaller 提取的 DLL 与 `_ssl.pyd` 版本不匹配。另：`console=True`(debug遗留)、硬编码清理路径 `c:/Users/jack/Desktop/VocalApp` | `vocal_assessment.spec:18-24,168,193` | conda 环境中的 DLL 正确嵌入；`console=False`；移除硬编码路径 |
+| 2 | 无 WebView2 检测 | `desktop_app.py:235` `create_window` 依赖 Edge WebView2，目标机未安装时窗口白屏无提示 | `desktop_app.py` | 添加 WebView2 运行时检测 + 提示 |
+
+#### P1 — 前端功能缺失/缺陷
+
+| # | 问题 | 根因 | 文件 | 计划 |
+|---|------|------|------|------|
+| 3 | **播放器不能拖动进度** | `_setupAudioControls()` 只做了 play/pause，progress bar 无 click-to-seek | `ReportPage.js:326-363` | 给 `#audioProgress` 添加 click 事件，调用 `audioElement.currentTime` |
+| 4 | **播放器无跳动效果** | 无频谱可视化、无波形动画。旧 `analysis.js` 有 `drawWaveform`/`drawFrequency` | `modules/audio.js` 已实现但未接入 | 在 ReportPage 中集成 `drawWaveform` Canvas |
+| 5 | **导出 PDF/图片无实际导出** | 后端 `/api/report` 生成文件到 `reports/xxx_report.pdf`，返回服务器本地路径如 `C:\Users\...\reports\report.png`。前端 `ReportPage.js:316` 用 `<a href="C:\Users\...">` 下载 — 浏览器无法访问服务器本地路径（无 HTTP 路由 serve `reports/` 目录，不同于 `plots/` 目录有 Flask 路由）。另：PDF 需要 `reportlab` 包未在 `requirements.txt` 中声明 | `ReportPage.js:316-318`, `report_service.py:73,334`, `api/__init__.py` (reports 路由缺失) | 添加 `/reports/<filename>` 路由；或改用 blob 响应直接返回文件内容 |
+| 6 | **标准音乐库无法导入** | 后端缺失 `GET/POST /api/songs` 路由。`SongLibraryPage` 调用后 fallback 到 `window.__mockSongs` | `SongLibraryPage.js:134,365`, `services/api.js:287` | 新增 6 个后端路由 |
+| 7 | **分析后无曲库比对弹窗** | 分析流程中没有与曲库对比的步骤。DTW 仅在 `/api/compare` 路由中调用，需要手动对比 | `api/routes/upload.py:101` | 分析完成后自动搜索曲库并 DTW 比对，弹窗显示相似度 |
+| 8 | **对比页缺少直接上传标准音频** | ComparePage 左侧仅支持曲库选择 (`StandardAudioSelector`)，右侧仅支持上传。无法两侧都上传文件 | `ComparePage.js:77-95` | 左侧添加"上传标准音频"选项 |
+
+#### P1 — SingPage 演唱页
+
+| # | 问题 | 根因 | 文件 | 计划 |
+|---|------|------|------|------|
+| 9 | **必须先选曲库才能演唱** | SingPage 默认显示曲库选择器，跳过按钮 `#skipSongBtn` 存在但样式弱(`font-size:12px; color:var(--text-muted)`)。用户感知为"必须选歌" | `SingPage.js:149-151, 318-326` | 改为默认显示"快速演唱"模式，曲库选歌作为可选增强 |
+
+#### P2 — 编码与数据
+
+| # | 问题 | 根因 | 文件 | 计划 |
+|---|------|------|------|------|
+| 10 | **HistoryPage 乱码** | 文件以错误编码保存（GBK 字节被当作 UTF-8 读取），导致中文注释和 UI 文本显示为 mojibake | `HistoryPage.js` 全文 | 整体重写为 UTF-8 |
+| 11 | **6 个后端路由缺失** | `GET/POST /api/songs`、`GET /api/songs/:id`、`GET /api/analysis/:id`、`GET /api/analysis/:id/status`、SSE `/api/analysis/progress` | `api/routes/` | v6.3 新增 |
+| 12 | **前后端数据格式不匹配** | (a) `/api/compare` FormData: 前端 `api.js:253` 发送字段名 `standard`/`user`，后端 `upload.py:297` 检查 `file`/`standard_file` → 永远不匹配，落入 JSON 解析路径 → 400 错误; (b) `/api/compare` 响应: 后端返回 `{ data: { score, level } }`, `ComparePage.js:521` 读 `result.total_score` → `undefined`; (c) `separateVocals()` — ✅ v6.2.1 已修复; (d) history `records`→`history` — ✅ v6.2.1 已修复; (e) mode 持久化 — ✅ v6.2.1 已修复 | `api.js:253`, `upload.py:297`, `ComparePage.js:521` | v6.3 统一字段名 |
+
+### 前端缺失功能 (SPA 迁移遗留)
+
+| 功能 | 旧页面 | SPA | 状态 |
+|------|--------|-----|------|
+| 音频播放器 | analysis.html | ReportPage | ✅ v6.2.1 已回归 (无 seek/频谱) |
+| 音高曲线 | analysis.html | ReportPage | ✅ v6.2.1 已回归 |
+| 波形可视化 | analysis.html | — | ❌ 缺失 |
+| 频谱图/能量曲线 | analysis.html | — | ❌ 缺失 |
+| 人声分离面板 | analysis.html | — | ❌ 缺失 |
+| 音色分析面板 | analysis.html | — | ❌ 缺失 |
+| 逐句评分 | analysis.html | — | ❌ vizCard 隐藏 |
+| KTV 对比面板 | compare.html | — | ❌ 缺失 |
+| 曲库比对弹窗 | — | — | ❌ 从未实现 |
 
 ## v6.2: 评分算法重构 + 性能优化 (2026-07-07, 已完成)
 
@@ -394,6 +541,8 @@ class FeatureFlags:
 | f0 提取 | librosa.yin | PYIN + TorchCREPE 降级 (detection_rate < 0.5 时), 已集成到生产管线 |
 | voicing | 无 | 自一致性评估 (范围/八度跳跃/切换一致性/能量一致性), 矢量优化 |
 
+> ⚠️ **v6.2.1 重要修复**: 以上 Feature Flag 算法在 v6.2 发布后因 `upload.py` 未实例化 `FeatureFlags()` 而从未在线上执行。v6.2.1 已修复，所有算法正式激活。
+
 ### 真音频效果 (tests/test_data/audio/vocal)
 
 > **测试准则**: 优先使用 `tests/test_data/audio/vocal/` 中的 5 首真实人声音频获取反馈。
@@ -569,6 +718,15 @@ class FeatureFlags:
 ✅ Praat CPP — parselmouth PowerCepstrum (VoiceLab 移植)
 ✅ Voicing detection 评估 (pitch-benchmark 模式)
 ✅ TorchCREPE 备选接入 (PYIN 降级)
+✅ FeatureFlags 线上激活 — 7 算法从静默失效→正式启用 (v6.2.1)
+✅ SPA querySelector 选择器修复 — 11 处 (v6.2.1)
+✅ ReportPage 音频播放器回归 (v6.2.1)
+✅ ReportPage PitchCurve 实例化 (v6.2.1)
+✅ ComparePage/SingPage 模拟数据→真实API (v6.2.1)
+✅ 桌面打包 pywebview + PyInstaller + Inno Setup (v6.2.1)
+✅ 一键启动脚本 start.bat (v6.2.1)
+⏳ SPA 缺失功能补全 — 波形/频谱/人声分离/音色分析/逐句评分 (v6.3)
+⏳ HistoryPage 编码修复 — 文件级 GBK/UTF-8 混乱 (v6.3)
 ⏳ 跨维度集成 (HNR稳定性→Breath, Voicing→Pitch) (v5.19)
 ⏳ 气息区分度 ≥ 20 (需校准数据集)
 ⏳ 音准区分度 ≥ 10 (DTW + 校准)

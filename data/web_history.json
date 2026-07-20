@@ -24,28 +24,6 @@
   {
     "filename": "恋人.mp3",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\恋人.mp3",
-    "total_score": 86.3,
-    "scores": {
-      "pitch": 82.8,
-      "rhythm": 90.3,
-      "breath": 90.0,
-      "technique": 84.4,
-      "artistry": 85.0,
-      "total": 86.3,
-      "volume": 90.0,
-      "emotion": 85.0
-    },
-    "level": "优秀",
-    "advice": [
-      "整体良好，节奏表现突出，接近专业水平。",
-      "节奏感出色，律动感强！"
-    ],
-    "id": 2,
-    "timestamp": "2026-05-26T19:52:42.152409"
-  },
-  {
-    "filename": "恋人.mp3",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\恋人.mp3",
     "total_score": 82.3,
     "scores": {
       "pitch": 79.83962326759257,
@@ -243,5 +221,332 @@
     ],
     "id": 11,
     "timestamp": "2026-07-05T00:20:42.179842"
+  },
+  {
+    "filename": "1（高分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
+    "total_score": 76.4,
+    "scores": {
+      "pitch": 79.31761729318441,
+      "rhythm": 66.77835078642416,
+      "breath": 92.3439153503984,
+      "technique": 59.88240140049638,
+      "artistry": 82.9349397669305,
+      "total": 76.4,
+      "volume": 60.58392373523185,
+      "emotion": 82.9349397669305
+    },
+    "level": "良好",
+    "advice": [
+      "水平中等，有进步空间。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "id": 12,
+    "timestamp": "2026-07-08T22:04:26.049144"
+  },
+  {
+    "filename": "1（高分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
+    "total_score": 76.4,
+    "scores": {
+      "pitch": 79.31761729318441,
+      "rhythm": 66.77835078642416,
+      "breath": 92.3439153503984,
+      "technique": 59.88240140049638,
+      "artistry": 82.9349397669305,
+      "total": 76.4,
+      "volume": 60.58392373523185,
+      "emotion": 82.9349397669305
+    },
+    "level": "良好",
+    "advice": [
+      "水平中等，有进步空间。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "id": 13,
+    "timestamp": "2026-07-08T22:05:39.370894"
+  },
+  {
+    "filename": "1（高分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
+    "total_score": 76.4,
+    "scores": {
+      "pitch": 79.31761729318441,
+      "rhythm": 66.77835078642416,
+      "breath": 92.3439153503984,
+      "technique": 59.88240140049638,
+      "artistry": 82.9349397669305,
+      "total": 76.4,
+      "volume": 60.58392373523185,
+      "emotion": 82.9349397669305
+    },
+    "level": "良好",
+    "advice": [
+      "水平中等，有进步空间。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "id": 14,
+    "timestamp": "2026-07-08T22:11:23.322872"
+  },
+  {
+    "filename": "陈奕迅难听之声（低分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\陈奕迅难听之声（低分）.mp3",
+    "total_score": 50.0,
+    "scores": {
+      "pitch": 72.70680161153703,
+      "rhythm": 2.4637387520325547,
+      "breath": 84.78983340941778,
+      "technique": 49.53649597509994,
+      "artistry": 81.15016419245043,
+      "total": 50.0,
+      "volume": 60.41613302259716,
+      "emotion": 81.15016419245043
+    },
+    "level": "中等",
+    "advice": [
+      "需要加强练习，重点关注气息。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
+    ],
+    "id": 15,
+    "timestamp": "2026-07-08T22:13:54.053891"
+  },
+  {
+    "filename": "陈奕迅难听之声（低分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\陈奕迅难听之声（低分）.mp3",
+    "total_score": 50.0,
+    "scores": {
+      "pitch": 73.14678887782958,
+      "rhythm": 42.97690459534948,
+      "breath": 75.84058719564632,
+      "technique": 47.4566845799675,
+      "artistry": 90.23709263298564,
+      "total": 50.0,
+      "volume": 93.58496376224204,
+      "emotion": 90.23709263298564
+    },
+    "level": "中等",
+    "advice": [
+      "需要加强练习，重点关注音量。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。",
+      "音量控制精准，动态表现丰富！"
+    ],
+    "id": 16,
+    "timestamp": "2026-07-08T22:19:43.056894"
+  },
+  {
+    "filename": "陈奕迅难听之声（低分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\陈奕迅难听之声（低分）.mp3",
+    "total_score": 50.0,
+    "scores": {
+      "pitch": 72.70680161153703,
+      "rhythm": 2.4637387520325547,
+      "breath": 84.78983306884766,
+      "technique": 49.53649600759148,
+      "artistry": 81.15016559426503,
+      "total": 50.0,
+      "volume": 60.4161376953125,
+      "emotion": 81.15016559426503
+    },
+    "level": "中等",
+    "advice": [
+      "需要加强练习，重点关注气息。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
+    ],
+    "id": 17,
+    "timestamp": "2026-07-08T22:23:30.132294"
+  },
+  {
+    "filename": "陈奕迅难听之声（低分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\陈奕迅难听之声（低分）.mp3",
+    "total_score": 50.0,
+    "scores": {
+      "pitch": 72.95897813885293,
+      "rhythm": 50.42929832682837,
+      "breath": 76.04855346679688,
+      "technique": 47.48955866187811,
+      "artistry": 93.24872707479972,
+      "total": 50.0,
+      "volume": 92.87697982788086,
+      "emotion": 93.24872707479972
+    },
+    "level": "中等",
+    "advice": [
+      "需要加强练习，重点关注情绪。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。",
+      "情感表达丰富，感染力强！"
+    ],
+    "id": 18,
+    "timestamp": "2026-07-08T22:29:21.790569"
+  },
+  {
+    "filename": "音频-3分26秒(高分).mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\音频-3分26秒(高分).mp3",
+    "total_score": 84.3,
+    "scores": {
+      "pitch": 77.69961915152997,
+      "rhythm": 71.89690267043432,
+      "breath": 99.11435020879871,
+      "technique": 91.0,
+      "artistry": 85.471202516298,
+      "total": 84.3,
+      "volume": 64.53586805599105,
+      "emotion": 85.471202516298
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，气息表现较好。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "mode": "quick",
+    "id": 19,
+    "timestamp": "2026-07-08T23:15:33.485085"
+  },
+  {
+    "filename": "音频-3分26秒(高分).mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\音频-3分26秒(高分).mp3",
+    "total_score": 84.4,
+    "scores": {
+      "pitch": 77.92262296001468,
+      "rhythm": 71.89690267043432,
+      "breath": 99.11435020879871,
+      "technique": 92.0,
+      "artistry": 87.471202516298,
+      "total": 84.4,
+      "volume": 64.53586805599105,
+      "emotion": 87.471202516298
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，气息表现较好。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "mode": "professional",
+    "id": 20,
+    "timestamp": "2026-07-08T23:34:24.869255"
+  },
+  {
+    "filename": "陈奕迅难听之声（低分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\陈奕迅难听之声（低分）.mp3",
+    "total_score": 65.1,
+    "scores": {
+      "pitch": 72.70680161153703,
+      "rhythm": 2.4637387520325547,
+      "breath": 96.53346502522962,
+      "technique": 91.0,
+      "artistry": 81.15016419245043,
+      "total": 65.1,
+      "volume": 60.41613302259716,
+      "emotion": 81.15016419245043
+    },
+    "level": "良好",
+    "advice": [
+      "基础尚可，建议重点提升气息。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "mode": "quick",
+    "id": 21,
+    "timestamp": "2026-07-09T10:56:17.485673"
+  },
+  {
+    "filename": "1（高分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
+    "total_score": 83.4,
+    "scores": {
+      "pitch": 79.31761729318441,
+      "rhythm": 66.77835078642416,
+      "breath": 100.0,
+      "technique": 90.7,
+      "artistry": 82.9349397669305,
+      "total": 83.4,
+      "volume": 60.58392373523185,
+      "emotion": 82.9349397669305
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，气息表现较好。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "mode": "quick",
+    "id": 22,
+    "timestamp": "2026-07-09T13:02:48.846757"
+  },
+  {
+    "filename": "陈奕迅难听之声（低分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\陈奕迅难听之声（低分）.mp3",
+    "total_score": 65.1,
+    "scores": {
+      "pitch": 72.70680161153703,
+      "rhythm": 2.4637387520325547,
+      "breath": 96.53346502522962,
+      "technique": 91.0,
+      "artistry": 81.15016419245043,
+      "total": 65.1,
+      "volume": 60.41613302259716,
+      "emotion": 81.15016419245043
+    },
+    "level": "良好",
+    "advice": [
+      "基础尚可，建议重点提升气息。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "mode": "quick",
+    "id": 23,
+    "timestamp": "2026-07-09T13:13:56.127841"
+  },
+  {
+    "filename": "1（高分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
+    "total_score": 82.5,
+    "scores": {
+      "pitch": 79.52444112025256,
+      "rhythm": 66.77835078642416,
+      "breath": 93.10393452162964,
+      "technique": 91.7,
+      "artistry": 87.9349397669305,
+      "total": 82.5,
+      "volume": 60.58392373523185,
+      "emotion": 87.9349397669305
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，气息表现较好。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "mode": "professional",
+    "id": 24,
+    "timestamp": "2026-07-09T13:38:31.260318"
+  },
+  {
+    "filename": "手写的从前（高分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前（高分）.mp3",
+    "total_score": 83.2,
+    "scores": {
+      "pitch": 79.23875634708921,
+      "rhythm": 66.55664761278535,
+      "breath": 99.28690078058005,
+      "technique": 90.7,
+      "artistry": 81.95784722431875,
+      "total": 83.2,
+      "volume": 62.32359818584301,
+      "emotion": 81.95784722431875
+    },
+    "level": "优秀",
+    "advice": [
+      "整体表现良好，气息表现较好。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "气息控制稳定，颤音运用得当！"
+    ],
+    "mode": "quick",
+    "id": 25,
+    "timestamp": "2026-07-17T20:12:36.482364"
   }
 ]

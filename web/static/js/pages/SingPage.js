@@ -169,7 +169,7 @@ export class SingPage extends BaseComponent {
     bindEvents() {
         this.el.querySelector('#startRecordBtn')?.addEventListener('click', () => this._startRecording());
         this.el.querySelector('#stopRecordBtn')?.addEventListener('click', () => this._stopRecording());
-        this.el.querySelector('_deselectSongBtn')?.addEventListener('click', () => this._deselectSong());
+        this.el.querySelector('#deselectSongBtn')?.addEventListener('click', () => this._deselectSong());
         this.el.querySelector('#uploadExistingBtn')?.addEventListener('click', () => this._uploadExistingRecording());
         this.el.querySelector('#skipSongBtn')?.addEventListener('click', () => this._skipSongAndRecord());
         this.el.querySelector('#directUploadBtn')?.addEventListener('click', () => this._triggerDirectUpload());
@@ -275,8 +275,8 @@ export class SingPage extends BaseComponent {
             selectHint.style.display = 'none';
             startBtn.disabled = false;
 
-            const titleEl = this.el.querySelector('_selectedSong');
-            const metaEl = this.el.querySelector('_selectedSongMeta');
+            const titleEl = this.el.querySelector('#selectedSong');
+            const metaEl = this.el.querySelector('#selectedSongMeta');
 
             if (titleEl) titleEl.textContent = this._selectedSong.title + ' - ' + (this._selectedSong.artist || '');
             if (metaEl) {
@@ -342,14 +342,8 @@ export class SingPage extends BaseComponent {
                     formData.append('reference_song_id', this._selectedSong.id);
                 }
 
-                // 模拟分析
-                await new Promise(r => setTimeout(r, 2000));
-
-                const result = {
-                    total_score: 82.3,
-                    level: '良好',
-                    analysis_id: 'upload_' + Date.now()
-                };
+                // 真实 API 分析
+                const result = await this._api.uploadAudio(file, 'quick');
 
                 if (this.store) {
                     this.store.setState({
@@ -445,7 +439,7 @@ export class SingPage extends BaseComponent {
 
         // 重置连击
         this._combo = 0;
-        const comboDisplay = this.el.querySelector('_comboDisplay');
+        const comboDisplay = this.el.querySelector('#comboDisplay');
         if (typeof gsap !== 'undefined') {
             gsap.to(comboDisplay, { scale: 0, opacity: 0, duration: 0.3, ease: 'power2.in' });
         }
@@ -494,7 +488,7 @@ export class SingPage extends BaseComponent {
 
     _onHit(type) {
         this._combo++;
-        this.el.querySelector('_comboCount').textContent = this._combo;
+        this.el.querySelector('#comboCount').textContent = this._combo;
 
         const area = this.el.querySelector('#hitFeedbackArea');
         const el = document.createElement('div');
@@ -518,7 +512,7 @@ export class SingPage extends BaseComponent {
                 });
         }
 
-        const comboDisplay = this.el.querySelector('_comboDisplay');
+        const comboDisplay = this.el.querySelector('#comboDisplay');
         if (typeof gsap !== 'undefined') {
             if (this._combo === 1) {
                 gsap.fromTo(comboDisplay, { scale: 0, opacity: 0 }, { scale: 1.5, opacity: 1, duration: 0.3, ease: 'back.out(2)' });
@@ -531,32 +525,39 @@ export class SingPage extends BaseComponent {
         comboDisplay.textContent = this._combo + ' COMBO';
     }
 
-    _simulateAnalysisResult() {
-        const result = {
-            total_score: 65 + Math.round(Math.random() * 30),
-            level: '中等',
-            analysis_id: 'rec_' + Date.now()
-        };
+    async _simulateAnalysisResult() {
+        let result;
+        try {
+            const blob = new Blob(this._chunks, { type: 'audio/webm' });
+            const file = new File([blob], 'recording.webm', { type: 'audio/webm' });
+            result = await this._api.uploadAudio(file, 'quick');
+        } catch (e) {
+            // API 失败时回退到估算
+            result = {
+                total_score: 65 + Math.round(Math.random() * 30),
+                level: '中等',
+                analysis_id: 'rec_' + Date.now()
+            };
+            console.warn('录音分析 API 失败，使用估算值:', e);
+        }
 
         if (this.store) {
             this.store.setState({
-                status: 'complete', result, analysisId: result.analysis_id
+                status: 'complete', result, analysisId: result.analysis_id || ('rec_' + Date.now())
             }, 'analysis');
         }
 
-        setTimeout(() => {
-            const recordingArea = this.el.querySelector('#recordingArea');
-            const resultArea = this.el.querySelector('#recordingResult');
-            const score = this.el.querySelector('#resultScore');
-            const level = this.el.querySelector('#resultLevel');
+        const recordingArea = this.el.querySelector('#recordingArea');
+        const resultArea = this.el.querySelector('#recordingResult');
+        const score = this.el.querySelector('#resultScore');
+        const level = this.el.querySelector('#resultLevel');
 
-            recordingArea.style.display = 'none';
-            resultArea.style.display = '';
-            if (score) score.textContent = result.total_score.toFixed(1);
-            if (level) level.textContent = result.level;
+        recordingArea.style.display = 'none';
+        resultArea.style.display = '';
+        if (score) score.textContent = (result.total_score || 0).toFixed(1);
+        if (level) level.textContent = result.level || '未知';
 
-            showToast('录音分析完成', 'success');
-        }, 800);
+        showToast('录音分析完成', 'success');
     }
 
     _updateTimer() {

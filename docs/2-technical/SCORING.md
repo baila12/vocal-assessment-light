@@ -1,20 +1,288 @@
 # 评分算法文档
 
-> 更新日期: 2026-07-07 | v6.2 — 多指标音准 + 跨维度修正 + PYIN校准 + 性能优化
+> 更新日期: 2026-07-20 | v6.2.1 → vNext — 六维评分体系重构计划 (音准/节奏降权 + 发声技术拆分 + 肌肉力量新增 + 音色加减分)
 
 ---
 
-## 五维评分体系
+## 评估模式全景图
+
+系统支持 3 种评估模式 + 1 种演唱模式，算法路径如下：
+
+### 模式定义
+
+| 模式 | 触发方式 | 用途 |
+|------|---------|------|
+| **Quick** | `POST /api/upload?mode=quick` (默认) | 快速练习反馈 (~30-60s) |
+| **Professional** | `POST /api/upload?mode=professional` | 详细诊断 (~2-5min) |
+| **Compare** | `POST /api/compare` (双文件上传) | 参考音频对比 |
+| **Sing** | SingPage 录音后调用 `uploadAudio(file, 'quick')` | 演唱评分 (始终 Quick) |
+
+---
+
+## 各模式算法对照表
+
+### 1. 特征提取层
+
+| 特征 | Quick | Professional | Compare (双方) | SingPage | FeatureFlags 要求 |
+|------|-------|-------------|---------------|----------|-------------------|
+| 音量分析 (RMS) | ✅ | ✅ | ✅ | ✅ | 无 |
+| 音高检测 (PYIN) | ✅ | ✅ | ✅ | ✅ | 无 |
+| Chroma 调性 | ✅ | ✅ | ✅ | ✅ | 无 |
+| 节奏分析 (onset) | ✅ | ✅ | ✅ | ✅ | 无 |
+| 人声清晰度 | ✅ | ✅ | ✅ | ✅ | 无 |
+| 颤音检测 | ✅ | ✅ | ✅ | ✅ | 无 |
+| 波形数据 | ✅ | ✅ | ✅ | ✅ | 无 |
+| 音高曲线 | ✅ | ✅ | ✅ | ✅ | 无 |
+| Log-Mel 频谱 | ✅ | ✅ | ✅ | ✅ | 无 |
+| RMS 短时能量 | ✅ | ✅ | ✅ | ✅ | 无 |
+| **混合音频检测 + Demucs 分离** | ❌ 跳过 | ✅ | ✅ | ❌ | 无 (quick_mode 跳过) |
+| **TorchCREPE f0 备选** | ✅ (flag) | ✅ (flag) | ✅ (flag) | ✅ (flag) | `enable_torchcrepe_fallback` |
+| **多频带 HNR (de Krom 1993)** | ❌ | ✅ | ✅ | ❌ | `enable_multiscale_hnr` |
+| **Praat CPP** | ✅ | ✅ | ✅ | ✅ | `enable_praat_cpp` |
+| **Voicing 检测** | ✅ | ✅ | ✅ | ✅ | `enable_voicing_detection` |
+| **混响补偿** | ❌ | ✅ | ✅ | ❌ | `enable_reverb_compensation` |
+| **Praat 声质 (jitter/shimmer/formants)** | ✅ | ✅ | ✅ | ✅ | `enable_praat_voice_quality` |
+
+> **注意**: Quick 模式下 `FeatureFlags.for_quick()` 关闭 `enable_multiscale_hnr` 和 `enable_reverb_compensation`，但当前代码传入的是 `FeatureFlags()`(全开)，实际效果等于 Professional。需要按设计意图使用 `FeatureFlags.for_quick()`。
+
+### 2. 深度学习层 (仅 Pro / Compare)
+
+| 模型 | 框架 | 文件 | Quick | Pro/Compare | 状态 |
+|------|------|------|-------|------------|------|
+| 人声质量检测 | ONNX (Silero VAD) | `models/voice_quality/silero_vad.onnx` | ❌ | ✅ | 正常 |
+| 唱法分类 | ONNX (INT8 量化) | `models/style_classifier/model_quantized.onnx` | ❌ | ✅ | 正常 |
+| 自参照 DTW | librosa DTW | `services/dl_services/self_referenced_dtw.py` | ❌ | ✅ | 计算但未入评分 |
+| 音乐风格分析 | Heuristic + DL | `services/dl_services/singing_style_classifier.py` | ❌ | ✅ | 部分 |
+| **SingMOS (DL 质量评估)** | PyTorch Hub | `torch.hub.load("South-Twilight/SingMOS")` | ❌ | ✅ (静默失败) | ⚠️ 缺少 s3prl → 返回 0 |
+
+> **SingMOS 问题**: `dl_quality_assessor.py:118` 调用 `torch.hub.load("South-Twilight/SingMOS:v1.1.2")`，需要 `s3prl` 包未安装。失败时 `predict()` 返回零分，DL fusion (`_apply_dl_fusion`) 成为永久 no-op。
+
+### 3. 评分计算层 (所有模式相同)
+
+| 评分器 | 权重 | 输入特征 | 算法 |
+|--------|------|---------|------|
+| **PitchScorer** | 10% | `pitch_deviation` | MAE指数衰减(40%) + RPA(25%) + RCA(10%) + Gross Error(15%) + Smoothness(5%) + Octave(5%) |
+| **RhythmScorer** | 10% | `rhythm_alignment` | Onset间隔CV + 中位数聚合 |
+| **BreathScorer** | 20% | `breath_stability` | 四子维度: 长音支撑(40%)+动态控制(25%)+气口设计(20%)+气声技巧(15%) |
+| **TechniqueScorer** | 25% | `articulation, breath_voice_ratio` | 两子维度: 咬字清晰度(50%) + 气声比(50%) |
+| **MuscleStrengthScorer** | 25% | `body_muscle, facial_muscle` | 两子维度: 身体肌肉力量(50%) + 面部肌肉力量(50%) |
+| **ArtistryScorer** | 10% | `vocal_technique, breath, emotion` | 颤音品质(30%)+动态控制(30%)+乐句表现力(25%)+音高变化(15%) |
+
+> **额外加减分**: **TimbreAdjustment** — 音色评估 (±0)。在六维百分制总分计算后独立应用: 最多 +3 / 最多 -5，最终总分 clamp 到 [0, 100]。
+
+| 修正机制 | 触发条件 | Quick | Pro | 说明 |
+|---------|---------|-------|-----|------|
+| **Cross-Dimension Modifiers** | `feature_flags.enable_cross_dimension_modifiers` | ✅ | ✅ | HNR→气息, Voicing→音准, 频谱倾斜→气声, Jitter→技术, 气息-音准耦合 |
+| **DTW 参考评分** | `reference_path != None` | ✅ | ✅ | 仅 Compare 模式和 upload 带 reference 时触发 |
+| **DL Fusion** | `dl_mos_normalized > 0` | ❌ (dl=0) | ❌ (SingMOS 失败) | 从未实际生效 |
+| **Critical Rules** | 无条件 | ✅ | ✅ | 连续跑调(>5音符), 脱拍(>40%), 严重漏气(HNR<3dB) |
+| **多维度联合惩罚** | 无条件 | ✅ | ✅ | 4维<40→上限40, 3维<40→上限55 |
+| **人声质量惩罚** | 无条件 | ✅ | ✅ | VQ<30→上限40, VQ<65→扣分 |
+| **唱法自适应权重** | `style_profile != None` | ❌ (Quick 无 DL) | ✅ (Pro 有) | 根据识别出的唱法调整五维权重 |
+
+### 4. 辅助分析层
+
+| 分析 | Quick | Pro | Compare |
+|------|-------|-----|---------|
+| **情绪分析** | 启发式 (RMS+频谱质心) | 启发式 (v5.12 移除 Wav2Vec2) | 启发式 |
+| **可视化生成** | ❌ 跳过 | ✅ 特征图 (pitch/energy/spectrogram) | ❌ |
+| **音色分析** | ❌ 跳过 | ✅ 音色特征 (明亮度/温暖度等) | ❌ |
+| **逐句评分** | ❌ 跳过 | ✅ 分段音高+节奏+情绪 | ❌ |
+
+---
+
+## Quick 模式 vs Professional 模式 — 完整差异
+
+### Quick 模式 (`mode='quick'`)
+
+**设计原则**: Quick 模式应启用所有声学特征增强算法，仅跳过耗时的深度学习模型和辅助分析。
+
+**FeatureFlags**: 当前传入 `FeatureFlags()`（全部 `True`），所有 7 个高级算法激活：
+- ✅ 跨维度修正 (Cross-Dimension Modifiers)
+- ✅ Praat 声质特征 (Jitter/Shimmer/Formants/Singer's Formant)
+- ✅ 多频带 HNR (de Krom 1993, 4频带)
+- ✅ Praat CPP (parselmouth PowerCepstrum)
+- ✅ Voicing 检测 (PYIN 自一致性评估)
+- ✅ 混响补偿 (HPSS + 谱减法)
+- ✅ TorchCREPE f0 备选 (PYIN 检测率<50%时)
+
+```
+audio_service.analyze(quick_mode=True)
+  ├── librosa.load → 降采样到 16kHz
+  ├── ✅ 音量分析 (RMS)
+  ├── ✅ PYIN 音高检测 (+ TorchCREPE fallback)
+  ├── ✅ Chroma 调性分析
+  ├── ✅ Onset 节奏分析
+  ├── ✅ 人声清晰度评估
+  ├── ✅ 颤音检测
+  ├── ✅ 波形数据 / 音高曲线 / Log-Mel频谱 / RMS短时能量
+  ├── ⛔ Demucs 人声分离 (跳过 — 耗时但仅对混合音频有益)
+  ├── ✅ 高级特征提取 (FeatureFlags 全开)
+  │     ├── ✅ HPSS 谐波/冲击分离
+  │     ├── ✅ 人声段检测 (Vocal Segment Detection)
+  │     ├── ✅ 混响补偿 (HPSS + Boll 1979 谱减法)
+  │     ├── ✅ HNR / CPP 计算 (在补偿后人声段上)
+  │     ├── ✅ 节奏对齐分析
+  │     ├── ✅ 气息稳定性分析 (四子维度)
+  │     ├── ✅ 音准偏差分析 (六指标多维度)
+  │     ├── ✅ 发声技巧检测 (颤音/滑音/假声/断奏/连奏)
+  │     ├── ✅ 多频带 HNR + 稳定性 (de Krom 1993)
+  │     ├── ✅ Praat CPP (VoiceLab)
+  │     ├── ✅ Voicing 检测
+  │     ├── ✅ 混合音频检测 (五特征融合)
+  │     ├── ✅ Praat 声质 (Jitter/Shimmer/Formants F1-F4/Singer's Formant)
+  │     └── ✅ 频谱倾斜 (LTAS slope)
+  └── ⛔ DL 深度学习分析 (全部跳过)
+        ├── ⛔ 人声质量检测 (Silero VAD ONNX)
+        ├── ⛔ 唱法分类 (Style Classifier ONNX)
+        ├── ⛔ 自参照 DTW
+        └── ⛔ 音乐风格分析
+
+analyze_and_score()
+  ├── ✅ 人声质量检测 (VoiceQualityService)
+  ├── ✅ 情绪分析 → 启发式 (RMS + 频谱质心；v5.12 移除 Wav2Vec2)
+  ├── ✅ 评分计算
+  │     ├── ✅ 五维评分器 (Pitch/Rhythm/Breath/Technique/Artistry)
+  │     ├── ✅ 跨维度修正 (5 项)
+  │     ├── ✅ DTW 参考对比 (如提供 reference_path)
+  │     ├── ✅ 底线规则 (CriticalRules)
+  │     └── ✅ 多维度联合惩罚 + 人声质量惩罚
+  ├── ✅ 建议生成
+  ├── ⛔ DL 评估 → mos_score=0 (跳过)
+  ├── ⛔ 可视化生成 (跳过)
+  ├── ⛔ 音色分析 (跳过)
+  └── ⛔ 逐句评分 (跳过)
+```
+
+### Professional 模式 (`mode='professional'`)
+
+在 Quick 模式基础上**额外启用**:
+
+```
+audio_service.analyze(quick_mode=False)
+  ├── (同上 Quick 全部特征)
+  ├── ✅ Demucs 人声分离 (混合音频时)
+  │     └── 重新提取 f0 + 更新音量 (基于纯净人声)
+  ├── ✅ 高级特征提取 (同上全开)
+  └── ✅ DL 深度学习分析
+        ├── ✅ 人声质量检测 (Silero VAD ONNX → voice_quality)
+        ├── ✅ 唱法分类 (Style Classifier ONNX → style_profile)
+        │     └── 用识别出的 style 重新提取高级特征
+        ├── ✅ 自参照 DTW → pitch_stability_dl
+        └── ✅ 音乐风格分析 → music_style + style_profile
+
+analyze_and_score()
+  ├── (同上 Quick 全部步骤)
+  ├── ✅ DL 评估 → SingMOS (torch.hub) → ⚠️ 静默失败返回 0
+  ├── ✅ 可视化生成 (pitch/energy/spectrogram 图表)
+  ├── ✅ 音色分析 (明亮度/温暖度/鼻音感等)
+  └── ✅ 逐句评分 (分段音高+节奏+情绪)
+```
+
+### Quick vs Pro 差异总结
+
+| 层级 | Quick 模式 | Professional 模式 |
+|------|-----------|-------------------|
+| **基础特征** (音量/音高/节奏/颤音) | ✅ 全部 | ✅ 全部 |
+| **高级特征** (7 项 FeatureFlags) | ✅ 全部 | ✅ 全部 |
+| **Demucs 人声分离** | ❌ 跳过 | ✅ 混合音频时启用 |
+| **DL 模型** (VAD/分类/DTW/风格) | ❌ 全部跳过 | ✅ 全部启用 |
+| **SingMOS** | ❌ | ⚠️ 启用但静默失败 (缺 s3prl) |
+| **五维评分器** | ✅ 相同算法 | ✅ 相同算法 |
+| **跨维度修正** | ✅ 相同 | ✅ 相同 |
+| **唱法自适应权重** | ❌ (无 style_profile) | ✅ (来自 DL 唱法分类) |
+| **可视化** | ❌ | ✅ |
+| **音色分析** | ❌ | ✅ |
+| **逐句评分** | ❌ | ✅ |
+| **DTW 参考对比** | ✅ (如有 reference_path) | ✅ (如有 reference_path) |
+| **耗时** | ~30-60s | ~2-5min |
+
+### 分数差异来源
+
+Quick 和 Pro 使用**完全相同的评分算法**。分数差异仅来自:
+1. **特征质量**: Pro 通过 Demucs 获得更纯净的人声 → f0/HNR/CPP 更准确
+2. **唱法权重**: Pro 通过 DL 唱法分类 → `StyleAwareScorer` 调整五维权重
+3. **多频带 HNR**: Pro 通过 de Krom 1993 四频带 HNR 获得更精细的声带闭合评估
+4. **混响补偿**: Pro 对 HNR/CPP 做房间声学归一化
+
+---
+
+## Compare 模式 — DTW 参考对比
+
+### 完整流程
+
+```
+POST /api/compare
+  ├── 接收 standard 音频 + user 音频
+  ├── analyze_and_score(standard) → standard_result (Quick/Pro logic)
+  ├── analyze_and_score(user) → user_result (Quick/Pro logic)
+  ├── DTW 对齐: self_referenced_dtw.compare(standard, user)
+  │     ├── 音高序列对齐 (DTW 路径)
+  │     ├── 节奏对齐评分
+  │     └── 逐音符偏差计算
+  └── 返回 { standard, user, comparison }
+```
+
+### Compare 的 DTW 评分与 report 的 DTW 评分的区别
+
+| | `/api/compare` | `score_service._apply_dtw_reference()` |
+|---|---|---|
+| 触发 | 前端 ComparePage | `upload` 时传 `reference_path` |
+| 算法 | `self_referenced_dtw.compare()` | `dtw_aligner` + 融合 |
+| 输出 | 独立对比分数 + 对齐曲线 | 融合到主评分 (调整音准/节奏) |
+| 当前状态 | ⚠️ 前端字段名不匹配 | ✅ 可用 (需 reference_path) |
+
+---
+
+## SingPage 演唱模式
+
+```
+_recordAudio() → MediaRecorder → Blob
+  └── _api.uploadAudio(blob, 'quick')  ← 始终 Quick!
+        └── analyze_and_score(filepath, mode='quick')
+              └── 等同于 Quick 模式 (无 DL, 无参考)
+```
+
+SingPage **始终使用 Quick 模式**。无论是否选择了曲库歌曲、是否上传了参考音频，`_uploadExistingRecording()` 和 `_simulateAnalysisResult()` 都硬编码 `mode='quick'`。
+
+如果选择了曲库歌曲 (`_selectedSong != null`)：
+- `_selectedSong` 的 `id` 会添加到 FormData (`reference_song_id`)
+- **但后端上传路由没有处理 `reference_song_id` 参数** → 实际无效
+
+---
+
+## 深度学习模型启用状态
+
+| 模型 | 框架 | 何时启用 | 当前状态 |
+|------|------|---------|---------|
+| **Silero VAD** | ONNX Runtime | Pro/Compare 模式 | ✅ 正常 (`_run_voice_quality_detection`) |
+| **Style Classifier** | ONNX Runtime (INT8) | Pro/Compare 模式 | ✅ 正常 (`_run_singing_style_detection`) |
+| **Self-Referenced DTW** | librosa DTW | Pro/Compare 模式 | ✅ 计算但不影响评分 |
+| **Music Style** | Heuristic + DL | Pro/Compare 模式 | ⚠️ 部分工作 |
+| **SingMOS** | PyTorch Hub | Pro/Compare 模式 | ❌ 静默失败 (缺 s3prl) |
+| **Wav2Vec2 Emotion** | SpeechBrain/HF | v5.12 已移除 | ❌ 已替换为启发式 |
+| **TorchCREPE** | PyTorch | PYIN detection_rate<50% | ✅ (需 FeatureFlags) |
+
+---
+
+## 六维评分体系 ★vNext (重构计划)
+
+> **重大变更 (vNext)**: 五维 → 六维 + 音色加减分。音准/节奏降权至各10%，发声技术提权(20%→25%)并拆分为咬字清晰度+气声比两个子维度，新增肌肉力量维度(25%，身体+面部两子维度)，音色作为额外加减分项(最多+3/-5，clamp到[0,100])。
 
 ### 权重分配
 
-| 维度 | 默认权重 | 说明 |
-|------|---------|------|
-| 音准 (Pitch) | 30% | 核心维度 — 音分偏差 MAE |
-| 节奏 (Rhythm) | 20% | 核心维度 — 节拍对齐偏差 |
-| 气息 (Breath) | 20% | 辅助维度 — 四子维度专业评估 |
-| 发声技术 (Technique) | 20% | 核心维度 — HNR/CPP/技巧检测 |
-| 艺术表现 (Artistry) | 10% | 高级维度 — 情绪+技巧多样性 |
+| 维度 | 权重 | 子维度 |
+|------|------|--------|
+| 音准 (Pitch) | 10% | — (从30%降权) |
+| 节奏 (Rhythm) | 10% | — (从20%降权) |
+| 气息 (Breath) | 20% | 长音支撑 + 动态控制 + 气口设计 + 气声技巧 |
+| 发声技术 (Technique) | 25% | 咬字清晰度(50%) + 气声比(50%) |
+| 肌肉力量 (Muscle Strength) | 25% | 身体肌肉力量(50%) + 面部肌肉力量(50%) |
+| 艺术表现 (Artistry) | 10% | 颤音品质 + 动态控制 + 乐句表现力 + 音高变化 |
+
+**权重合计**: 10+10+20+25+25+10 = **100%** ✓
+
+> **额外加减分**: 音色 (Timbre) — 在六维总分计算后独立应用，最多 **+3** / 最多 **-5**，最终总分 **clamp 到 [0, 100]**。音色不参与维度权重分配。
 
 > 相关文档: [PRD](../1-product/PRD.md) | [架构](ARCHITECTURE.md) | [TDD](../3-quality/TDD.md) | [BDD](../3-quality/BDD.md)
 
@@ -33,38 +301,39 @@
 
 #### 风格预设权重表
 
-| 风格 | Pitch | Rhythm | Breath | Tech | Art | 联动阈值调整 |
-|------|-------|--------|--------|------|-----|------------|
-| 流行 (默认) | 30% | 20% | 20% | 20% | 10% | 标准阈值, 与 config/default.py 一致 |
-| 美声 | 30% | 15% | 25% | 20% | 10% | Pitch MAE≤10, Breath≥5s, Rhythm≤15% |
-| 民族 | 28% | 18% | 18% | 18% | 18% | 滑音不计入跑调 |
-| 说唱 | 10% | 35% | 10% | 15% | 30% | Pitch MAE放宽至≤25, 节奏权重加倍 |
+| 风格 | Pitch | Rhythm | Breath | Tech | Muscle | Art | 联动阈值调整 |
+|------|-------|--------|--------|------|--------|-----|------------|
+| 流行 (默认) | 10% | 10% | 20% | 25% | 25% | 10% | 标准阈值, 与 config/default.py 一致 |
+| 美声 | 12% | 8% | 25% | 25% | 20% | 10% | Pitch MAE≤10, Breath≥5s, Rhythm≤15% |
+| 民族 | 12% | 10% | 18% | 22% | 20% | 18% | 滑音不计入跑调 |
+| 说唱 | 5% | 25% | 10% | 25% | 15% | 20% | Pitch MAE放宽至≤25, 节奏权重加倍 |
 
 #### 系统推荐算法
 
-系统分析标准音频的 5 个维度的声学特征，按规则给出权重调整建议：
+系统分析标准音频的 6 个维度的声学特征，按规则给出权重调整建议：
 
 | 分析维度 | 检测方法 | 推荐规则 |
 |---------|---------|---------|
-| 音域 | 基频 min/max (半音) | 跨度 > 24 → Pitch +5% |
-| 节奏 | BPM变异系数 + onset密度 | CV > 0.3 → Rhythm +5% |
+| 音域 | 基频 min/max (半音) | 跨度 > 24 → Pitch +3% |
+| 节奏 | BPM变异系数 + onset密度 | CV > 0.3 → Rhythm +3% |
 | 长音 | ≥2s 连续高能量段占比 | > 30% → Breath +3% |
-| 技巧 | 颤音+滑音+假声检测密度 | > 5处/分钟 → Technique +3% |
-| 动态 | RMS标准差 (dB) | > 20dB → Artistry +5% |
+| 咬字 | 辅音清晰度 + 共振峰稳定性 | 清晰 → Technique +3% |
+| 力量 | RMS峰值 + 泛音丰富度 | 充沛 → Muscle +3% |
+| 动态 | RMS标准差 (dB) | > 20dB → Artistry +3% |
 
 > 推荐结果含每项调整的文字理由。用户可一键应用或微调后保存为自定义预设。详见 BDD: [scoring-config.feature](../../tests/bdd/features/scoring-config.feature)。
 
 #### 有参考时的双轨评分
 
 ```
-五维绝对评分 (always)          DTW 对比指标 (有参考时)
-├─ total_score (五维加权)       ├─ dtw_score (0-100)
+六维绝对评分 (always)          DTW 对比指标 (有参考时)
+├─ total_score (六维加权)       ├─ dtw_score (0-100)
 ├─ scores.pitch/rhythm/...      ├─ pitch_match_rate (%)
 ├─ level + stars                ├─ rhythm_match_rate (%)
-├─ advice (基于五维弱项)        ├─ problem_segments
+├─ advice (基于各维度弱项)      ├─ problem_segments
 └─ voice_quality                └─ alignment_confidence
 
-两者互补, DTW 不替代五维。DTW 置信度低时以五维为准。
+两者互补, DTW 不替代六维。DTW 置信度低时以六维为准。
 ```
 
 ### 等级划分
@@ -203,22 +472,103 @@ v6.1:  artistry = vibrato_expressiveness*0.30 + dynamic_expressiveness*0.30
 | 民族 | 15-25 dB | 10 dB |
 | 说唱 | 5-12 dB | 3 dB |
 
-### 4. 发声技术评分
+### 4. 发声技术评分 ★vNext (重构: 咬字清晰度 + 气声比)
 
-**特征提取** (`services/features/technique.py`):
-- 颤音检测: FFT频谱分析 detrended f0 → 检测 4.5-8Hz 周期性调制
-- 滑音检测: 连续对数 f0 变化 >0.02
-- 假声检测: 频谱质心 >3500Hz
-- HNR (谐波噪声比): 反映声带闭合质量
-- CPP (倒谱峰值突出): 声门闭合周期峰值
+> **vNext 变更**: 原 HNR/CPP/技巧完成度 体系替换为 咬字清晰度 + 气声比。原 HNR/CPP 信号部分归入气声比子维度，技巧完成度(颤音/滑音/假声)移至艺术表现维度。
 
-**评分** (`services/scoring/technique_scorer.py`):
-- 三因素加权: HNR(40%) + CPP(30%) + 技巧完成度(30%)
-- 风格感知阈值: 美声HNR>20dB满分, 流行实声>12dB满分, 气声>8dB正常
+**子维度 4a: 咬字清晰度 (Articulation Clarity) — 50%**
+
+**特征提取** (新文件 `services/features/articulation.py`):
+- 辅音清晰度: 高频瞬态能量检测 → 爆破音/摩擦音/鼻音的清晰程度
+- 共振峰稳定性 (F1-F3): 元音段 formant 轨迹稳定性 → 咬字规范性
+- 音节边界检测: onset strength 突变点 → 咬字节奏感
+- 频谱质心变化率: 辅音-元音过渡段的频谱质心变化速率
+
+**评分** (新文件 `services/scoring/technique_scorer.py`):
+- 辅音清晰度(40%) + 共振峰稳定性(30%) + 音节边界清晰度(20%) + 过渡段质量(10%)
+- 风格感知: 流行/R&B 咬字可松弛, 美声/民族 咬字需字正腔圆
+
+**子维度 4b: 气声比 (Breath-to-Voice Ratio) — 50%**
+
+**特征提取** (复用 + 增强):
+- HNR (谐波噪声比): 反映声带闭合质量 — 低HNR=高气声比例
+- CPP (倒谱峰值突出): 声门闭合周期峰值 — 验证HNR判断
+- 高频噪声能量比 (>5kHz): 气声会产生额外高频噪声
+- 频谱倾斜 (Spectral Tilt): 气声导致高频衰减斜率变化
+
+**评分** (新文件 `services/scoring/technique_scorer.py`):
+- HNR(35%) + CPP(25%) + 高频噪声比(20%) + 频谱倾斜(20%)
+- 风格感知阈值: 美声HNR>20dB满分, 流行实声>12dB满分, 气声唱法>8dB正常
+- 气声控制力: 可控气声(风格选择) vs 不可控漏气(技术缺陷) — 通过HNR稳定性区分
 - 混合音频检测: 识别伴奏 → HNR应用1.5x修正系数
-- 高技巧分 + 低HNR → 可能是艺术化气声选择，不惩罚
 
-### 5. 艺术表现评分 ★v6.1
+### 5. 肌肉力量评分 ★vNext (新增)
+
+> **vNext 新增**: 反映演唱中的身体参与度。歌唱不仅是声带运动，更是全身协调 — 呼吸肌群(横膈膜/肋间肌)、核心肌群、面部肌肉共同作用。
+
+**子维度 5a: 身体肌肉力量 (Body Muscle Strength) — 50%**
+
+**特征提取** (新文件 `services/features/muscle_strength.py`):
+- 气息支撑力: 长音 RMS 衰减率 — 横膈膜持续支撑能力
+  - 衰减率 < 0.5 dB/s: 优秀 (强大核心支撑)
+  - 衰减率 0.5-1.5 dB/s: 良好
+  - 衰减率 > 1.5 dB/s: 需加强
+- 动态爆发力: RMS 峰值上升速率 (dB/ms) — 核心肌群瞬间发力
+- 音量维持能力: 高音量段 (> -6dBFS) 持续时间占比
+- 气息-音量耦合度: 气息压力与输出音量的线性相关度
+
+**评分** (新文件 `services/scoring/muscle_scorer.py`):
+- 气息支撑力(40%) + 动态爆发力(25%) + 音量维持(20%) + 气息-音量耦合(15%)
+- 身体力量充沛 → 长音稳、高音亮、弱唱不虚
+
+**子维度 5b: 面部肌肉力量 (Facial Muscle Strength) — 50%**
+
+**特征提取** (新文件 `services/features/muscle_strength.py`):
+- 共振峰能量集中度: F1-F3 能量/总能量比 — 面部共鸣腔体调节
+- 歌手共振峰 (Singer's Formant): 2.8-3.5kHz 能量簇 — 面罩共鸣强度
+- 泛音丰富度: 谐波能量衰减斜率 — 面部肌肉微调共鸣
+- 高频延伸: >8kHz 谐波存在性 — 面部共鸣的高频泛音
+
+**评分** (新文件 `services/scoring/muscle_scorer.py`):
+- 歌手共振峰(35%) + 共振峰集中度(25%) + 泛音丰富度(25%) + 高频延伸(15%)
+- 面部肌肉参与度高 → 声音穿透力强、音色明亮、泛音丰富
+
+**肌肉力量与气息的区分**:
+- 气息(Breath): 评估"气息使用策略" — 长音设计、动态控制、气口安排、气声风格
+- 肌肉力量(Muscle): 评估"身体机能基础" — 核心支撑、面部共鸣、发声耐力
+- 两者互补: 好的气息策略 + 弱的肌肉力量 → 长音设计合理但支撑不足
+- 两者互补: 差的气息策略 + 强的肌肉力量 → 本能发声但技巧欠缺
+
+### 6. 音色调整 (Timbre Adjustment) ★vNext (新增 — 独立加减分)
+
+> **vNext 新增**: 音色不参与百分制评分 (音色好坏有主观性)，但作为独立加减分项影响最终得分。优质音色可加分(最多+3)，明显音色缺陷可扣分(最多-5)。
+
+**特征提取** (新文件 `services/features/timbre.py`):
+- 音色明亮度: 频谱质心 + 高频能量比
+- 音色温暖度: 低频谐波丰富度 (200-800Hz)
+- 音色厚度: 谐波-噪声比 + 泛音密度
+- 音色纯净度: 非谐波成分比例 + 杂音检测
+- 音色独特性: 与通用音色模型的偏离度 (Statistical Timbre Model)
+- 鼻音/喉音检测: 反共振峰检测 + 频谱窄带峰值
+
+**加减分规则**:
+| 条件 | 调整 | 说明 |
+|------|------|------|
+| 音色纯净 + 泛音丰富 + 明亮温暖 | **+3分** | 优质音色 |
+| 音色纯净 + 泛音较丰富 | **+1~2分** | 良好音色 |
+| 音色一般 (无特别优劣) | **0分** | 中性 |
+| 轻度鼻音/喉音 + 泛音较少 | **-1~2分** | 轻微音色问题 |
+| 明显杂音 + 鼻音/喉音重 | **-3~4分** | 音色缺陷 |
+| 严重音色问题 (沙哑/闷/尖锐刺耳) | **-5分** | 严重影响听感 |
+
+**设计原则**:
+- 音色加减分在六维总分计算完成后独立应用
+- 音色不参与维度权重分配 (独立于百分制)
+- 加减分有上限 (+3/-5), 不对称设计: 扣分空间>加分空间
+- 最终总分 **clamp 到 [0, 100]**，不会因音色加分超过100或扣分低于0
+- 音色判断需标注置信度, 低置信时自动归零 (不加不减)
+
+### 7. 艺术表现评分 ★v6.1
 
 **评分** (`services/scoring/artistry_scorer.py`) — v6.1 独立声学信号:
 - v6.1 重构: 不再从其他维度合成 (旧: Pitch×0.20+Rhythm×0.25+Breath×0.20+Tech×0.35)
@@ -227,7 +577,7 @@ v6.1:  artistry = vibrato_expressiveness*0.30 + dynamic_expressiveness*0.30
 - 情绪置信度来自启发式声学分析 (v5.12 已移除 Wav2Vec2 情绪模型)
 - v6.2 已知限制: 区分度 1.9 (流行唱法下子维度变化小), 待 v6.3 引入音色模型
 
-### 6. 跨维度评分修正 ★v6.2
+### 8. 跨维度评分修正 ★v6.2
 
 **实现** (`services/scoring/score_modifiers.py` — 新文件)
 
@@ -294,7 +644,7 @@ v6.1:  artistry = vibrato_expressiveness*0.30 + dynamic_expressiveness*0.30
 | **Demucs htdemucs_ft** | PyTorch | O(n × model_params) | 跳过 | ~120s CPU / ~25s GPU | ~800MB |
 | **DTW** (全局) | scipy/numpy | O(m × n) | 跳过 | 跳过 (仅对比) | ~130MB |
 | **自参照一致性** | numpy | O(n) 向量化 | < 1s | < 1s | ~5MB |
-| **评分计算** (五维) | numpy | O(1) 聚合 | < 0.5s | < 1s | ~2MB |
+| **评分计算** (六维) | numpy | O(1) 聚合 | < 0.5s | < 1s | ~2MB |
 | **可视化渲染** | matplotlib | O(n) 采样 | 跳过 | ~8s | ~50MB |
 
 ### Quick 模式耗时火焰图
@@ -425,7 +775,78 @@ Total           █████████████████████�
 
 ---
 
+## 开发与测试原则 ★vNext
+
+### 单一职责: 维度独立可测
+
+**每个评分维度必须能独立测试，不依赖其他维度**:
+
+| 原则 | 说明 |
+|------|------|
+| **独立输入** | 每个维度评分器仅接收该维度所需的特征数据，不依赖其他维度的评分结果 |
+| **独立测试** | 测试音准只需提供 `pitch_deviation`，不需要完整音频管线；每个维度可单独跑、单独调试 |
+| **独立配置** | 每个维度通过 `FeatureFlags` 独立开关，关闭某维度不影响其他维度计算 |
+| **独立文件** | 一个维度 = 一个 scorer 文件 + 一个 feature 文件，不跨文件耦合 |
+
+### 低耦合: 七维解耦 ★v7.0
+
+| 维度 | 原则 | 本项目中体现 |
+|------|------|------------|
+| **代码耦合** | 每个 scorer 文件只负责一个维度的评分算法 | `pitch_scorer.py` 不 import `rhythm_scorer.py` |
+| **数据耦合** | scorer 输入固定类型的 dataclass, 不依赖 dict 内部结构 | `PitchDeviationResult` (frozen dataclass) |
+| **环境耦合** | scorer 不依赖文件系统/网络/全局配置 | 所有阈值从构造函数注入 `PitchThresholds` |
+| **控制耦合** | scorer 之间不互相调用, 仅 ScoreServiceV4 调度 | `ScoreServiceV4.calculate()` 是唯一调度点 |
+| **外部耦合** | 特征提取与评分分离, 通过 AudioFeaturesResult 通信 | `services/features/` → dataclass → `services/scoring/` |
+| **时序耦合** | 评分维度计算顺序无关, 不存在"必须先算 Pitch 再算 Breath" | 任一维度可单独计算, 互不阻塞 |
+| **UI 耦合** | 评分服务不感知前端框架 | 同一套 scorer 在 Flask/Vue/FastAPI 下完全相同 |
+
+```
+❌ 反模式:
+  ArtistryScorer 内部调用 PitchScorer.get_score() → 改 Pitch 算法破坏 Artistry 测试
+  scorer 依赖全局 config.SCORE_WEIGHTS → 测试无法隔离
+
+✅ 正确模式:
+  ScoreServiceV4 分别调用各 scorer, scorer 之间零引用
+  每个 scorer 的阈值/权重通过构造函数注入, 测试时传 mock 即可
+```
+
+### 零硬编码 ★v7.0
+
+```
+❌ 禁止:  scorer 内部写死阈值数字 (如 if score > 85)
+❌ 禁止:  特征提取器硬编码文件路径
+❌ 禁止:  WebSocket 连接地址写死 localhost:5000
+
+✅ 要求:  所有阈值从 ScoringConfig 读取 (单例注入)
+✅ 要求:  所有路径从 Config 对象读取 (构造函数注入)
+✅ 要求:  前端通过 window.BACKEND_URL 动态获取后端地址
+```
+
+### 测试效率
+
+- **单维度测试**: 测试 Pitch 评分调整时只需跑 `pitch_scorer` 相关测试，不必跑完整的 6 维度管线
+- **Mock 友好**: 每个 scorer 接收明确的输入类型，测试时构造输入即可，不需启动 Flask 或加载 DL 模型
+- **并行开发**: 六个维度的算法可并行开发，互不阻塞
+
+### Feature Flag 粒度
+
+每个 Feature Flag 仅控制一个维度或一个子维度:
+
+| Flag | 控制范围 | 关闭时行为 |
+|------|---------|-----------|
+| `enable_pitch` | PitchScorer | 该维度返回中性分 50 |
+| `enable_rhythm` | RhythmScorer | 该维度返回中性分 50 |
+| `enable_breath` | BreathScorer | 该维度返回中性分 50 |
+| `enable_technique` | TechniqueScorer (咬字+气声比) | 该维度返回中性分 50 |
+| `enable_muscle` | MuscleStrengthScorer (身体+面部) | 该维度返回中性分 50 |
+| `enable_artistry` | ArtistryScorer | 该维度返回中性分 50 |
+| `enable_timbre` | TimbreAdjustment | 音色加减分 = 0 |
+
+> **设计意图**: 关一个维度不影响其余。权重自动重新归一化到 100%。
+
 ---
+
+
 
 ## DTW 角色: 特征提供者, 非评分引擎 ★v6.0
 

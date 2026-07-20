@@ -568,7 +568,93 @@ def check_memory_under(limit_mb):
 
 ---
 
-## 8. 参考文档
+## 8. v7.0 迁移 BDD 策略
+
+> 每 Phase 迁移完成标准 = 所有关联 BDD scenarios 通过
+> 绝不由"代码写完了"来判断完成
+
+### 8.1 新 BDD Scenarios (v7.0 迁移新增)
+
+#### `fastapi-migration.feature` (Phase 1-2)
+
+```gherkin
+Feature: FastAPI 后端迁移验收
+
+  Scenario: FastAPI 与 Flask 共存
+    Given FastAPI 服务已启动在 localhost:5000
+    When 访问 /old/api/upload 端点
+    Then 旧 Flask 端点仍正常响应
+
+  Scenario: Pydantic schema 验证
+    Given 一个有效的人声 WAV 文件
+    When 通过 FastAPI POST /api/v2/upload 上传
+    Then 响应格式符合 UploadResponse schema
+    And total_score 与 Flask 基线一致 (差异 < 1 分)
+
+  Scenario: 黄金测试集分数不变
+    Given 5 首真实人声音频
+    When 通过 FastAPI 对所有音频运行 Quick 评分
+    Then 每个音频的 total_score 与 v6.3 Flask 基线差异 < 1 分
+```
+
+#### `websocket-realtime.feature` (Phase 3)
+
+```gherkin
+Feature: WebSocket 实时评分
+
+  Scenario: 音频流实时反馈
+    Given WebSocket 已连接到 /ws/score
+    When 发送 50 帧音频数据 (2048 samples/frame)
+    Then 至少收到 1 条 pitch_update 事件
+    And 至少收到 1 条 partial_score 事件
+
+  Scenario: 录完秒出总分
+    Given WebSocket 连接中
+    When 发送 recording_start → 100 帧音频 → recording_stop
+    Then 应在 3 秒内收到 final_score 事件
+    And final_score 包含五个维度评分
+```
+
+#### `vue-element-plus.feature` (Phase 4)
+
+```gherkin
+Feature: Vue 3 + Element Plus 前端验收
+
+  Scenario: 首页无 emoji
+    Given 用户打开应用首页
+    Then 页面上不应出现任何 Unicode 表情符号
+    And 所有图标应使用 Element Plus Icons
+
+  Scenario: Tooltip 悬停揭示
+    Given 用户在报告页
+    When 鼠标悬停在 "音准" 维度旁的信息小点上超过 500ms
+    Then 应显示该维度评分算法的 Tooltip 说明
+
+  Scenario: 旧页面共存
+    Given Vue Router 未匹配当前路径
+    When 访问 /old/index.html
+    Then 旧版 SPA 首页正常显示
+```
+
+### 8.2 Phase 验收门禁
+
+| Phase | Feature Files | 通过标准 |
+|-------|-------------|---------|
+| 1 | `fastapi-migration.feature` + `history.feature` | 8 scenarios 全部 pass |
+| 2 | `fastapi-migration.feature` + `upload.feature` + `compare.feature` + `differentiation.feature` | 16 scenarios pass |
+| 3 | `websocket-realtime.feature` + `realtime-analysis.feature` + `nonblocking-analysis.feature` | 19 scenarios pass |
+| 4 | `vue-element-plus.feature` + `navigation.feature` + `animations.feature` + `responsive.feature` | 15 scenarios pass |
+| 5 | 全量 21 feature files | **75 scenarios pass** |
+
+### 8.3 禁止事项
+
+- ❌ "先上线再补 BDD" — 必须先写 feature, 后实现
+- ❌ 手动跳过场景 — 所有 scenarios 必须执行
+- ❌ 修改场景以适应代码 — 修改代码以适应场景
+
+---
+
+## 9. 参考文档
 
 | 文档 | 路径 |
 |------|------|

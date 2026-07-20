@@ -13,6 +13,7 @@
 
 import { BaseComponent } from '../components/BaseComponent.js';
 import { ScoreRing } from '../components/ScoreRing.js';
+import { AudioPlayer } from '../modules/audio.js';
 import { ScoreCounter } from '../components/ScoreCounter.js';
 import { RadarChart } from '../components/RadarChart.js';
 import { PitchCurve } from '../components/PitchCurve.js';
@@ -24,6 +25,7 @@ export class ReportPage extends BaseComponent {
     _scoreRing;
     _radarChart;
     _pitchCurve;
+    _audioPlayer;
     _result = null;
 
     async mount(params) {
@@ -53,6 +55,19 @@ export class ReportPage extends BaseComponent {
             <div class="score-header" id="scoreHeader" style="text-align:center; margin-bottom:32px;">
                 <div id="scoreRingContainer"></div>
                 <div class="score-level" id="scoreLevel" style="margin-top:8px;font-size:18px;font-weight:600;color:var(--text-secondary);">--</div>
+                <div id="modeBadge" style="margin-top:6px;font-size:11px;color:var(--text-muted);"></div>
+            </div>
+
+            <!-- 音频播放器 -->
+            <div class="card" id="audioPlayerCard" style="margin-bottom:24px; display:none;">
+                <div class="card-header"><span class="card-title">🎧 音频回放</span></div>
+                <div class="card-body" style="display:flex;align-items:center;gap:12px;">
+                    <button id="audioPlayBtn" class="btn btn-primary" style="padding:8px 16px;">▶ 播放</button>
+                    <div id="audioProgress" style="flex:1;height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden;">
+                        <div id="audioProgressFill" style="height:100%;width:0%;background:var(--primary);transition:width 0.1s linear;"></div>
+                    </div>
+                    <span id="audioTime" style="font-size:12px;color:var(--text-muted);min-width:80px;text-align:right;">00:00 / 00:00</span>
+                </div>
             </div>
 
             <!-- 五维评分 -->
@@ -126,6 +141,13 @@ export class ReportPage extends BaseComponent {
     _populateData(result) {
         const scores = result.scores || {};
 
+        // 模式标识
+        const modeEl = this.el.querySelector('#modeBadge');
+        if (modeEl && result.mode) {
+            const label = result.mode === 'professional' ? '🔬 专业评估' : '⚡ 快速评估';
+            modeEl.textContent = label;
+        }
+
         // 五维进度条
         const barsContainer = this.el.querySelector('#dimensionBars');
         if (barsContainer && scores) {
@@ -177,20 +199,45 @@ export class ReportPage extends BaseComponent {
     _animateEntrance(result) {
         const scores = result.scores || {};
 
+        // 0. 音频播放器
+        if (result.filepath) {
+            const playerCard = this.el.querySelector('#audioPlayerCard');
+            if (playerCard) playerCard.style.display = '';
+            this._audioPlayer = new AudioPlayer();
+            this._audioPlayer.load(result.filepath).then(() => {
+                this._setupAudioControls();
+            }).catch(() => {
+                // 文件不可用时隐藏播放器
+                if (playerCard) playerCard.style.display = 'none';
+            });
+        }
+
         // 1. 环形评分 (独立于 Controller, Canvas 动画)
-        const ringContainer = this.el.querySelector('_scoreRingContainer');
+        const ringContainer = this.el.querySelector('#scoreRingContainer');
         this._scoreRing = new ScoreRing(ringContainer, { size: 140 });
         this._scoreRing.render();
         this._scoreRing.animate(result.total_score || 0);
 
         // 2. 雷达图
-        const radarContainer = this.el.querySelector('_radarChartContainer');
+        const radarContainer = this.el.querySelector('#radarChartContainer');
         this._radarChart = new RadarChart(radarContainer);
         this._radarChart.render();
         this._radarChart.setData(scores);
         this._radarChart.animate();
 
-        // 3. AnimationController 驱动的序列
+        // 3. 音高曲线
+        const pitchContainer = this.el.querySelector('#pitchCurveContainer');
+        if (pitchContainer && result.pitch_curve) {
+            this._pitchCurve = new PitchCurve(pitchContainer);
+            this._pitchCurve.render();
+            this._pitchCurve.setUserData({
+                frequencies: result.pitch_curve.frequencies || [],
+                times: result.pitch_curve.times || [],
+                duration: (result.basic_info?.duration_seconds) || 0
+            });
+        }
+
+        // 4. AnimationController 驱动的序列
         const dimBars = {};
         const dimValues = {};
         ['Pitch', 'Rhythm', 'Breath', 'Technique', 'Artistry'].forEach(name => {
@@ -244,17 +291,9 @@ export class ReportPage extends BaseComponent {
                     );
                 }
             }
-        } else if (typeof gsap !== 'undefined') {
-            // 回退: 使用直接 GSAP
-            import('../effects/scores.js').then(({ animateReportEntrance }) => {
-                animateReportEntrance(result, {
-                    totalScore: null,
-                    scoreLevel: this.el.querySelector('#scoreLevel'),
-                    dimBars, dimValues,
-                    adviceList,
-                    drawRadar: () => this._radarChart?.animate()
-                });
-            });
+        } else {
+            // 无动画回退: 直接设置最终状态
+            if (dimBars) dimBars.forEach(bar => { bar.style.width = (bar.dataset.value || 0) + '%'; });
         }
     }
 
@@ -276,7 +315,48 @@ export class ReportPage extends BaseComponent {
         }
     }
 
+    _setupAudioControls() {
+        const playBtn = this.el.querySelector('#audioPlayBtn');
+        const progressFill = this.el.querySelector('#audioProgressFill');
+        const timeDisplay = this.el.querySelector('#audioTime');
+        if (!playBtn || !this._audioPlayer) return;
+
+        let updateInterval;
+        const formatTime = (s) => {
+            const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+            return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+        };
+
+        playBtn.addEventListener('click', () => {
+            if (this._audioPlayer.isPlaying) {
+                this._audioPlayer.pause();
+                playBtn.textContent = '▶ 播放';
+            } else {
+                this._audioPlayer.play();
+                playBtn.textContent = '⏸ 暂停';
+            }
+        });
+
+        this._audioPlayer.audioElement?.addEventListener('play', () => {
+            playBtn.textContent = '⏸ 暂停';
+        });
+        this._audioPlayer.audioElement?.addEventListener('pause', () => {
+            playBtn.textContent = '▶ 播放';
+        });
+        this._audioPlayer.audioElement?.addEventListener('ended', () => {
+            playBtn.textContent = '▶ 播放';
+        });
+        this._audioPlayer.audioElement?.addEventListener('timeupdate', () => {
+            const el = this._audioPlayer.audioElement;
+            const pct = el.duration ? (el.currentTime / el.duration * 100) : 0;
+            if (progressFill) progressFill.style.width = pct + '%';
+            if (timeDisplay) timeDisplay.textContent = formatTime(el.currentTime) + ' / ' + formatTime(el.duration);
+        });
+    }
+
     destroy() {
+        this._audioPlayer?.stop();
+        this._audioPlayer?.cleanup();
         this._scoreRing?.destroy();
         this._radarChart?.destroy();
         this._pitchCurve?.destroy();

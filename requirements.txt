@@ -45,3 +45,6 @@ praat-parselmouth>=0.4.0
 # PySide6>=6.4.0
 # pyqtgraph>=0.13.0
 # sounddevice>=0.4.0
+
+# ---- 桌面应用 (desktop_app.py) ----
+pywebview>=5.0
