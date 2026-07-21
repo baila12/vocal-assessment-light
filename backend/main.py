@@ -1,8 +1,9 @@
 """
-FastAPI 应用入口 — v7.0
+FastAPI 应用入口 — v7.0 Phase 2
 
 ADR-1: freeze_support() 防止嵌入式 Python 子进程递归崩溃
 ADR-3: --export-openapi 导出 shared/openapi.json
+ADR-4: 绞杀者模式 — 旧 Flask 挂载到 /old, 新 FastAPI 路由到 /api/v1
 """
 
 from __future__ import annotations
@@ -60,7 +61,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # shutdown: 清理资源
-    # Phase 2+ 添加: DB dispose, 模型缓存清理
 
 
 def create_app() -> FastAPI:
@@ -73,7 +73,7 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS: Electron 生产模式不限源 (localhost 随机端口)
+    # CORS: Electron 生产模式不限源
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -82,27 +82,23 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Phase 2: 注册新路由
-    # app.include_router(assessment.router, prefix="/api/v1", tags=["assessment"])
-    # app.include_router(history.router, prefix="/api/v1", tags=["history"])
-    # app.include_router(comparison.router, prefix="/api/v1", tags=["comparison"])
-    # app.include_router(songs.router, prefix="/api/v1", tags=["songs"])
+    # ===== Phase 2: 注册 FastAPI 路由 =====
+    from backend.interfaces.api.routes.health import router as health_router
+    from backend.interfaces.api.routes.assessment import router as assessment_router
+    from backend.interfaces.api.routes.history import router as history_router
+    from backend.interfaces.api.routes.audio import router as audio_router
+    from backend.interfaces.api.routes.songs import router as songs_router
 
-    # Phase 2: 挂载旧 Flask (绞杀者模式)
-    # from backend.legacy.flask_app import flask_app
-    # app.mount("/old", WSGIMiddleware(flask_app))
+    app.include_router(health_router, tags=["health"])
+    app.include_router(assessment_router, prefix="/api/v1", tags=["assessment"])
+    app.include_router(history_router, prefix="/api/v1", tags=["history"])
+    app.include_router(audio_router, prefix="/api/v1", tags=["audio"])
+    app.include_router(songs_router, prefix="/api/v1", tags=["songs"])
 
-    @app.get("/health")
-    async def health():
-        """健康检查 — Phase 0 验收关键端点"""
-        import time
-        gpu_info = _detect_gpu()
-        return {
-            "status": "healthy",
-            "version": "7.0.0",
-            "timestamp": time.time(),
-            "gpu": gpu_info,
-        }
+    # ===== 绞杀者模式: 挂载旧 Flask =====
+    from backend.legacy.flask_app import get_flask_app
+    flask_app = get_flask_app()
+    app.mount("/old", WSGIMiddleware(flask_app))
 
     return app
 
@@ -113,7 +109,6 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    # --port=0: 让 OS 分配随机端口, stdout 打印 PORT=xxxxx (Electron 捕获)
     port = int(os.environ.get("PORT", 0))
     if "--port=0" in sys.argv:
         port = 0
@@ -125,18 +120,17 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if port == 0:
-        # 获取随机端口后通知 Electron
         import socket
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
             port = s.getsockname()[1]
 
-    print(f"PORT={port}", flush=True)  # Electron 捕获此行
+    print(f"PORT={port}", flush=True)
 
     uvicorn.run(
         app,
         host="127.0.0.1",
         port=port,
-        workers=1,  # ⚠️ 硬锁定: 嵌入式 Python + multiprocessing 兼容性
+        workers=1,
         log_level="info",
     )

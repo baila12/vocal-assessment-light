@@ -1,49 +1,5 @@
 [
   {
-    "filename": "test.mp3",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\test.mp3",
-    "total_score": 86.3,
-    "scores": {
-      "pitch": 82.8,
-      "rhythm": 90.3,
-      "breath": 90.0,
-      "technique": 84.4,
-      "artistry": 85.0,
-      "total": 86.3,
-      "volume": 90.0,
-      "emotion": 85.0
-    },
-    "level": "优秀",
-    "advice": [
-      "整体良好，节奏表现突出，接近专业水平。",
-      "节奏感出色，律动感强！"
-    ],
-    "id": 1,
-    "timestamp": "2026-05-10T17:08:30.717463"
-  },
-  {
-    "filename": "恋人.mp3",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\恋人.mp3",
-    "total_score": 82.3,
-    "scores": {
-      "pitch": 79.83962326759257,
-      "rhythm": 90.58713056309816,
-      "breath": 100.0,
-      "technique": 85.03708119690418,
-      "artistry": 86.22957548769726,
-      "total": 82.3,
-      "volume": 100.0,
-      "emotion": 86.22957548769726
-    },
-    "level": "优秀",
-    "advice": [
-      "整体表现良好，音量表现较好。",
-      "音量控制精准，动态表现丰富！"
-    ],
-    "id": 3,
-    "timestamp": "2026-05-26T19:58:20.833475"
-  },
-  {
     "filename": "test_e2e_audio.wav",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\test_e2e_audio.wav",
     "total_score": 0,
