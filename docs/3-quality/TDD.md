@@ -484,7 +484,7 @@ pytest tests/ -v -m "performance"
 
 ## 10. v7.0 迁移 TDD 策略
 
-> v7.0 全栈迁移: FastAPI + Vue 3 + Element Plus + Electron
+> v7.0 全栈迁移: FastAPI + Vue 3 + Element Plus + Electron + 嵌入式 Python — 详见 [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md)
 > 核心原则: **每迁移一部分, 测试一部分, 验证一部分, 绝不累积 Bug**
 
 ### 10.1 Scoring Domain (零改动迁移)

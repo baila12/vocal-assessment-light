@@ -1,0 +1,19 @@
+/* Element Plus 组件样式覆盖 */
+@use './variables.css';
+
+/* 暗色主题 */
+html.dark {
+  --el-bg-color: #0f172a;
+  --el-bg-color-overlay: #1e293b;
+  --el-text-color-primary: #f1f5f9;
+  --el-text-color-regular: #cbd5e1;
+  --el-border-color: #334155;
+  --el-fill-color: #1e293b;
+  --el-fill-color-blank: #0f172a;
+}
+
+/* 过渡动画 */
+.el-fade-in-linear-enter-active,
+.el-fade-in-linear-leave-active {
+  transition: opacity 0.2s ease;
+}

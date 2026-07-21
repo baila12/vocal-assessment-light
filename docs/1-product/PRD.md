@@ -481,7 +481,7 @@
 | **v6.3**  | 计划中 | 🔥 | A+B+C | 播放器增强 + 演唱/对比体验 + 6后端路由 + API统一 + 编码修复 |
 | **v6.3**  | 2026-07-20 | 🔥 | — | **项目重构**: PyQt5旧代码删除, 根目录清理, model_manager迁移, 废弃文件移除, 文档更新 |
 | **vNext** | 设计阶段 | 📋 | B | **六维评分重构**: 音准/节奏降权(各10%), 发声技术拆分(咬字+气声比两子维度), 肌肉力量新增(身体+面部两子维度), 音色额外加减分(+3~-5, clamp[0,100]) |
-| **v7.0**  | 规划中 | 🔮 | C | **Vue 3 + Element Plus + Electron**: 表情→Element Plus Icons, 内联样式→组件化, Element Plus UI 组件库全量替换, Electron 正式打包 |
+| **v7.0**  | 规划中 | 🔮 | C | **Vue 3 + Element Plus + Electron + 嵌入式 Python**: 全栈重构, 六维评分, 详见 [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) |
 
 ---
 
@@ -511,8 +511,8 @@
 | **图表** | Chart.js | Chart.js + vue-chartjs | 保留 Chart.js, 添加 Vue 封装 |
 | **图标** | Unicode Emoji (120+) | Element Plus Icons | 替换全部表情符号, 跨平台渲染一致 |
 | **后端** | Python Flask | Python Flask (不变) | 后端评分管线不变, 仅部署方式改变 |
-| **进程模型** | 单进程 Flask | Electron 主进程 + Flask 子进程 | 主进程管理窗口, Flask 在后台运行 |
-| **打包** | 手动 `python web_app.py` | electron-builder + PyInstaller | 一键安装包 (.exe/.dmg/.AppImage) |
+| **进程模型** | 单进程 Flask | Electron 主进程 + FastAPI 子进程 | 主进程管理窗口, FastAPI 在后台运行 |
+| **打包** | 手动 `python web_app.py` | electron-builder (嵌入式 Python 运行时) | 一键安装包 (.exe) |
 
 ### 9.3 架构设计
 
@@ -583,7 +583,7 @@ App.vue
 | GSAP 保留 | 是, 通过 `useGSAP` 组合函数 | GSAP 无可替代, Vue 封装即可 |
 | 自动更新 | electron-updater | 成熟方案, GitHub Releases 托管 |
 | 打包格式 | NSIS (Win) / DMG (Mac) / AppImage (Linux) | 标准桌面应用分发 |
-| Python 环境 | 内嵌 Python (PyInstaller) | 用户无需安装 conda |
+| Python 环境 | 嵌入式 Python 运行时 | 用户无需安装 conda, 启动 <2s |
 
 ---
 

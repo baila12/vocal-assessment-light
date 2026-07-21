@@ -21,12 +21,13 @@
 - 🗑️ 删除废弃 JS: `js/effects/` 目录 (4个stub), `js/services/sse.js`
 - 📦 `model_manager.py` → `services/dl_services/emotion_manager.py` (修复路径和引用)
 
-### v7.0 全栈架构规划 (设计阶段)
+### v7.0 全栈架构规划 (设计阶段, 2026-07-21)
 - **FastAPI** 替代 Flask: Pydantic v2 + APIRouter + `asyncio.to_thread()` + WebSocket
 - **Vue 3** + **Element Plus** 替代 Vanilla JS: 组件库替代 162 内联样式 + 120+ emoji
-- **Electron** 桌面打包: PyInstaller backend.exe + electron-builder
-- 绞杀者模式五阶段渐进迁移: [详细计划](../../../.claude/plans/staged-splashing-swing.md)
-- 21 端点迁移映射 + 6 硬编码路径迁移 + WebSocket `/ws/score` 实时评分
+- **Electron** 桌面打包: **嵌入式 Python 运行时** + electron-builder (替代 PyInstaller + Inno Setup)
+- 绞杀者模式六阶段渐进迁移 (Phase 0-5), 26.5 天
+- 8 项架构决策记录 (ADR): 嵌入式 Python / 启发式代理指标 / 文件驱动 openapi.json / Alembic legacy 表隔离 / structlog / EventBus / WebSocket 粘包协议 / PyArmor
+- 详细计划: [V7_MIGRATION_PLAN.md](V7_MIGRATION_PLAN.md)
 
 ### 文档更新
 - SCORING.md: 六维体系 + 独立测试原则 + 发声技术/肌肉力量/音色详细算法

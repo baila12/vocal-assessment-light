@@ -1,8 +1,8 @@
 # 系统架构 v6.3 → v7.0
 
-> 更新: 2026-07-20 | v6.3 当前架构 (Flask + Vanilla JS SPA) → v7.0 规划 (FastAPI + Vue 3 + Electron)
+> 更新: 2026-07-21 | v6.3 当前架构 (Flask + Vanilla JS SPA) → v7.0 规划 (FastAPI + Vue 3 + Electron)
 >
-> **v7.0 迁移计划**: [v7.0全栈架构迁移计划](../../../.claude/plans/staged-splashing-swing.md) — 绞杀者模式五阶段渐进替换
+> **v7.0 迁移计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — 绞杀者模式六阶段渐进替换, 8 项 ADR, 26.5 天
 > **v6.3 变更**: PyQt5 旧代码已删除, 项目结构已清理, 详见 [CHANGELOG.md](../4-process/CHANGELOG.md)
 > **v5.20 架构升级**: 引入 AppContext (DI) + EventBus 为 Vue 迁移做准备
 
@@ -85,15 +85,15 @@
 
 ### 七维低耦合
 
-| 维度 | 原则 | 禁止 | 要求 |
-|------|------|------|------|
-| **代码耦合** | 单一职责: 每个文件只做一件事 | HTTP 解析 + 音频分析 + DB 写入混在同一类 | Route → Service → Repository 分层 |
-| **数据耦合** | 跨模块传 Pydantic model, 不传裸 dict | `func(raw_dict)` 依赖内部 key 名 | `func(UploadResponse)` 编译时类型检查 |
-| **环境耦合** | 路径/端口/密钥全部从配置注入 | `Path(__file__).parent.parent / "uploads"` | `config.UPLOAD_FOLDER` (构造函数注入) |
-| **控制耦合** | 模块间通过返回值/事件通信 | `service._internal_state = x` 直接改内部状态 | EventBus emit / Pinia action |
-| **外部耦合** | 文件系统/DB/OS 通过接口抽象 | `open("/hardcoded/history.json")` 散落各处 | `HistoryRepo` 接口, 路径注入 |
-| **时序耦合** | 异步操作显式声明依赖, 不假设顺序 | "先 A 再 B" 隐式依赖 (忘记 await) | `result = await A(); await B(result)` |
-| **UI 耦合** | UI 组件不直读业务状态, 通过 Pinia store | `<el-button @click="window.__score = 95">` | `<el-button @click="store.submitScore()">` |
+| 维度               | 原则                                    | 禁止                                           | 要求                                         |
+| ------------------ | --------------------------------------- | ---------------------------------------------- | -------------------------------------------- |
+| **代码耦合** | 单一职责: 每个文件只做一件事            | HTTP 解析 + 音频分析 + DB 写入混在同一类       | Route → Service → Repository 分层          |
+| **数据耦合** | 跨模块传 Pydantic model, 不传裸 dict    | `func(raw_dict)` 依赖内部 key 名             | `func(UploadResponse)` 编译时类型检查      |
+| **环境耦合** | 路径/端口/密钥全部从配置注入            | `Path(__file__).parent.parent / "uploads"`   | `config.UPLOAD_FOLDER` (构造函数注入)      |
+| **控制耦合** | 模块间通过返回值/事件通信               | `service._internal_state = x` 直接改内部状态 | EventBus emit / Pinia action                 |
+| **外部耦合** | 文件系统/DB/OS 通过接口抽象             | `open("/hardcoded/history.json")` 散落各处   | `HistoryRepo` 接口, 路径注入               |
+| **时序耦合** | 异步操作显式声明依赖, 不假设顺序        | "先 A 再 B" 隐式依赖 (忘记 await)              | `result = await A(); await B(result)`      |
+| **UI 耦合**  | UI 组件不直读业务状态, 通过 Pinia store | `<el-button @click="window.__score = 95">`   | `<el-button @click="store.submitScore()">` |
 
 ### 零硬编码铁律
 
@@ -130,6 +130,7 @@ Vue 前端 (任何需要调后端的地方):
 > 桌面应用的血泪教训, v7.0 必须从 Day 1 就做对
 
 ### 1. 进程守护: spawn 监听 + 自动重启 3 次
+
 ```
 Electron spawn → 监听 close → 异常则自动重启 (最多3次)
 Vue overlay: "引擎加载中..." + 不确定进度条
@@ -137,37 +138,73 @@ Vue overlay: "引擎加载中..." + 不确定进度条
 ```
 
 ### 2. 日志聚合: loguru + electron-log → userData/logs/
+
 ```
 前后端日志同目录, 微秒时间戳, 按日切割
 排查音频卡顿: 比对时间线 → 定位算法慢 vs 网络慢
 ```
 
 ### 3. 音频资源: onBeforeUnmount 手动 close()
+
 ```
 context.close() + stream.getTracks().forEach(t => t.stop())
 window.__audioCleanup 兜底 — 不依赖 GC, 否则 2h 内存爆满
 ```
 
 ### 4. 环境变量: electron-is-dev
+
 ```
 开发: Vite proxy → localhost:5000 | 生产: IPC 注入 127.0.0.1:动态端口
 ```
 
 ### 5. 超时降级: asyncio.timeout + GSAP 进度条
+
 ```
 Quick 30s / Pro 180s → 超时返回部分结果 + "设备性能受限" warning
 ```
 
 ### 6. 持久化: Pinia persist → electron-store
+
 ```
 store.$persist() 在 onBeforeUnmount 强制调用 → 不丢数据
 ```
 
 ### 7. API 版本号: /api/v1/ 前缀
+
 ```
 v6.3 同步: POST /api/upload → 阻塞 15s-5min → 返回结果
 v7.0 异步: POST /api/v1/upload → {task_id} (立即) → 轮询 GET /tasks/{id}/status
 v7.0 实时: WebSocket /ws/v1/score → 音频帧流 → 实时评分事件
+```
+
+### 8. 三端联调热更新
+
+```
+npm run dev → concurrently:
+  vite (Vue HMR) + uvicorn --reload (FastAPI) + nodemon (Electron)
+一键启动三进程, 改 Python/Vue/Electron 代码均自动刷新
+```
+
+### 9. 音频二进制传输: Float32Array → WebSocket bytes
+
+```
+❌ JSON + Base64: 体积 +33%, 延迟 200ms+
+✅ Float32Array.buffer → ws.send() → numpy.frombuffer 零拷贝: 延迟 <50ms
+```
+
+### 10. DB 连接池预热: @app.on_event("startup") SELECT 1
+
+### 11. 乐观更新: 预估分先上屏 (GSAP 滚动) → WebSocket 静默推送真实分替换
+
+### 12. 嵌入式 Python 运行时: Electron 携带绿色版 Python, 启动 <2s, 增量更新 KB 级 (详见 V7_MIGRATION_PLAN.md ADR-1)
+
+### 13. 崩溃自愈: sys.excepthook → userData/crash/.zip → Vue 隐藏入口导出诊断包
+
+### 音频采集策略
+
+```
+实时: AudioWorklet → PCM Float32Array → WebSocket 二进制帧 (16kHz, 2048 samples)
+上传: MediaRecorder → MP3/WebM → HTTP Upload → FFmpeg → PCM
 ```
 
 ---
@@ -626,8 +663,8 @@ POST /api/record/stream (song_id?)
 ### 6.1 AppContext — 依赖注入容器
 
 `web/static/js/AppContext.js` — 聚合 store / router / api / ac / events 五大服务。
-
 ```
+
 app.js (createApp 模式)
   └─ new AppContext({ store, router, api, ac, events })
        │
@@ -636,6 +673,7 @@ app.js (createApp 模式)
        ├─ context.api     → API 客户端
        ├─ context.ac      → 动画控制器
        └─ context.events  → 跨组件事件通信
+
 ```
 
 **v7.0 迁移**: `AppContext` → Vue `app.provide('context', ...)` + `inject('context')`
@@ -656,8 +694,8 @@ app.js (createApp 模式)
 **v7.0 迁移**: `EventBus` → `mitt()`
 
 ### 6.3 Vanilla JS → Vue 3 完整映射
-
 ```
+
 Vanilla JS (v5.20+)             Vue 3 (v7.0)
 ────────────────────────────    ───────────────────────
 AppContext                      app.provide() + inject()
@@ -667,16 +705,16 @@ AppContext                      app.provide() + inject()
   context.ac        →           useGsap() composable
   context.events    →           mitt()
 
-BaseComponent                   <script setup>
+BaseComponent                   
   constructor()     →           setup()
-  render()          →           <template>
+  render()          →           <template></template>
   bindEvents()      →           @click / @input 指令
   mount(params)     →           onBeforeMount() + onMounted()
-  animateIn()       →           <Transition name="page">
+  animateIn()       →           <Transition name="page"></transition>
   beforeUnmount()   →           onBeforeUnmount()
   destroy()         →           onUnmounted() (自动 GC)
   update(data)      →           watch() / computed()
-  show() / hide()   →           v-if / v-show + <Transition>
+  show() / hide()   →           v-if / v-show + <Transition></transition>
   createElement()   →           直接写 HTML 模板
   get store         →           useStore()
   get router        →           useRouter()
@@ -690,6 +728,7 @@ HashRouter                      Vue Router
   start()           →           app.mount('#app')
   useContext()      →           inject('context')
   getCurrentRoute() →           useRoute()
+
 ```
 
 ### 6.4 迁移策略
@@ -735,19 +774,9 @@ HashRouter                      Vue Router
 
 ## 第六章: v7.0 架构迁移 (FastAPI + Vue 3 + Electron)
 
-> 详细计划: [v7.0全栈迁移计划](../../../.claude/plans/staged-splashing-swing.md)
-
-### 迁移策略: 绞杀者模式
-
-绝不一次性全量重构。五个阶段逐步替换:
-
-```
-Phase 1: FastAPI 共存 → app.mount("/old", flask_app) 挂载旧应用
-Phase 2: 核心评分异步化 → asyncio.to_thread 包装 CPU 密集管线
-Phase 3: WebSocket 实时流 → /ws/score 音频帧流式评分
-Phase 4: Vue 3 + Element Plus → 逐页面替换, 旧页面放 public/old/
-Phase 5: Electron 打包 → PyInstaller + electron-builder
-```
+> **完整计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — 绞杀者模式六阶段渐进替换, 8 项 ADR, 26.5 天
+>
+> 本文档仅保留架构设计准则 (一-A, 一-B) 和数据流示例。迁移策略、端点映射、Phase 划分、文件清单等详见专用计划文档。
 
 ### 技术栈变更
 
@@ -756,40 +785,29 @@ Phase 5: Electron 打包 → PyInstaller + electron-builder
 | 后端框架 | Flask 3.0 | FastAPI (uvicorn) |
 | 数据校验 | `request.get_json()` + dict | Pydantic v2 BaseModel |
 | 路由 | Blueprint | APIRouter |
-| 实时通信 | — | WebSocket `/ws/score` |
+| 实时通信 | — | WebSocket `/ws/v1/score` |
 | 异步 | Flask threaded=True | asyncio + `asyncio.to_thread()` |
 | 前端框架 | Vanilla JS ES6 | Vue 3 Composition API |
 | UI 组件 | 原生 HTML + 162 内联样式 | Element Plus |
 | 图标 | 120+ Unicode Emoji | Element Plus Icons |
 | 桌面 | 浏览器访问 | Electron 28+ |
 | 数据存储 | localStorage + JSON 文件 | `app.getPath('userData')` |
-| Python 分发 | 手动安装 conda | PyInstaller → backend.exe |
-
-### 全部 21 端点迁移映射
-
-| 类别 | Flask | FastAPI |
-|------|-------|---------|
-| 历史 CRUD (5) | `history_bp.route` | `@router.get/post/delete` + Pydantic |
-| 上传/分析 (7) | `request.files['file']` | `UploadFile` + `asyncio.to_thread()` |
-| 实时评分 (新) | — | `@app.websocket("/ws/score")` |
-| SPA/静态 (5) | `send_file`, `send_from_directory` | `FileResponse` |
-| 健康检查 (1) | `jsonify(dict)` | `return dict` |
+| Python 分发 | conda 环境 | 嵌入式 Python 运行时 |
 
 ### 数据流 (v7.0)
 
 ```
-[Vue ElUpload] → POST /api/v2/upload (HTTP)
+[Vue ElUpload] → POST /api/v1/upload (HTTP)
                    → UploadFile → temp file → asyncio.to_thread(analyze_and_score)
                    → Pydantic UploadResponse → {total_score, scores, advice...}
 
-[Vue SingView] → WebSocket /ws/score
+[Vue SingView] → WebSocket /ws/v1/score
                    → AudioWorklet 重采样 48kHz→16kHz
-                   → 每 2048 samples/frame 发送
+                   → 每 2048 samples/frame 发送 (4 字节长度前缀)
                    → asyncio.to_thread 增量评分
                    → 实时推送 pitch_update + partial_score + final_score
 
-[Electron spawn] → backend.exe --port=0
-                   → stdout: "Uvicorn on http://127.0.0.1:{port}"
-                   → window.BACKEND_URL = `http://127.0.0.1:${port}`
+[Electron spawn] → python.exe backend/main.py --port=0
+                   → stdout: "PORT=12345"
+                   → preload: window.BACKEND_URL = `http://127.0.0.1:${port}`
 ```
-| Berouti, Schwartz, Makhoul (1979). "Enhancement of Speech Corrupted by Acoustic Noise." ICASSP | 过减因子 α, 频谱地板 β | ⚠️ IEEE 付费墙, 公式在 `services/features/reverb.py` |

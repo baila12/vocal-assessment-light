@@ -19,13 +19,14 @@
 
 ### 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 后端框架 | Flask 3.0 + librosa + scipy + numpy + matplotlib |
-| 深度学习 | PyTorch + Demucs (htdemucs_ft) |
-| 前端 | HTML5 + ES6 Modules + Chart.js + Web Audio API + Canvas |
-| 存储 | IndexedDB (前端) + JSON 文件 (后端) |
-| 测试 | pytest + Playwright + pytest-bdd |
+| 层级 | 当前 (v6.3) | 目标 (v7.0) |
+|------|------------|------------|
+| 后端框架 | Flask 3.0 + librosa + scipy + numpy + matplotlib | FastAPI + uvicorn + Pydantic v2 |
+| 深度学习 | PyTorch + Demucs (htdemucs_ft) | 不变 |
+| 前端 | HTML5 + ES6 Modules + Chart.js + Web Audio API + Canvas | Vue 3 + Element Plus + Vite + Pinia + Vue Router |
+| 桌面 | — (浏览器访问) | Electron + 嵌入式 Python 运行时 |
+| 存储 | IndexedDB (前端) + JSON 文件 (后端) | electron-store + SQLite (Alembic 迁移) |
+| 测试 | pytest + Playwright + pytest-bdd | 不变 + Vitest + FastAPI TestClient |
 
 ---
 
@@ -141,7 +142,7 @@
 | ★ Vue 3 Composition API 前端重构 | v7.0 |
 | ★ Electron 桌面应用打包 | v7.0 |
 | ★ 原生窗口 + 系统托盘 + 自动更新 | v7.0 |
-| ★ 内嵌 Python 环境 (PyInstaller) | v7.0 |
+| ★ 嵌入式 Python 运行时 (绿色版 Python + electron-builder) | v7.0 |
 | ★ electron-builder 跨平台打包 | v7.0 |
 
 ---

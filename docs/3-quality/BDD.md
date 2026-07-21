@@ -568,7 +568,7 @@ def check_memory_under(limit_mb):
 
 ---
 
-## 8. v7.0 迁移 BDD 策略
+## 8. v7.0 迁移 BDD 策略 (详见 [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md))
 
 > 每 Phase 迁移完成标准 = 所有关联 BDD scenarios 通过
 > 绝不由"代码写完了"来判断完成

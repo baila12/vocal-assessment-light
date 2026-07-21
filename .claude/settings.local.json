@@ -178,10 +178,22 @@
       "Bash(sed -i \"s|r'test_music\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\恋人\\\\.mp3'|'tests/test_data/audio/vocal/恋人.mp3'|g\" tests/tools/test_style_adaptive_scoring.py)",
       "Bash(sed -i \"s|r'test_music\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\手写的从前\\\\.mp3'|'tests/test_data/audio/vocal/手写的从前.mp3'|g\" tests/tools/test_style_adaptive_scoring.py)",
       "Bash(sed -i 's|\"test_music/手写的从前\\\\.mp3\"|\"tests/test_data/audio/vocal/手写的从前.mp3\"|g' tests/tools/test_phrase_scoring.py)",
-      "Bash(C:/Users/jack/anaconda3/envs/pytorch2/python.exe -m pytest tests/unit/ tests/tdd/ -v --tb=line --no-header)"
+      "Bash(C:/Users/jack/anaconda3/envs/pytorch2/python.exe -m pytest tests/unit/ tests/tdd/ -v --tb=line --no-header)",
+      "Bash(ls \"C:\\\\\\\\Users\\\\\\\\jack\\\\\\\\.claude\\\\\\\\projects\\\\\\\\\" 2>/dev/null || echo \"No projects dir\")",
+      "Read(//c/Users/jack/.claude/projects/**)",
+      "Bash(ls \"C:\\\\\\\\Users\\\\\\\\jack\\\\\\\\.claude\\\\\\\\plans\\\\\\\\\" 2>/dev/null || echo \"No plans dir\")",
+      "Read(//c/Users/jack/.claude/plans/**)",
+      "Bash(ls -la \"C:\\\\\\\\Users\\\\\\\\jack\\\\\\\\Desktop\\\\\\\\临时文件\\\\\\\\声乐\\\\\\\\vocal_assessment_light\\\\\\\\.claude\\\\\\\\\")",
+      "Bash(find \"c:\\\\\\\\Users\\\\\\\\jack\\\\\\\\Desktop\\\\\\\\临时文件\\\\\\\\声乐\\\\\\\\vocal_assessment_light\\\\\\\\tests\" -name \"*.py\" -not -name \"__pycache__\" -not -path \"*__pycache__*\" -not -path \"*/bdd/*\")",
+      "Bash(ls -la \"C:\\\\\\\\Users\\\\\\\\jack\\\\\\\\.claude\\\\\\\\projects\\\\\\\\C--Users-jack-Desktop---------vocal-assessment-light\\\\\\\\memory\\\\\\\\\" 2>/dev/null || echo \"Dir does not exist\")",
+      "Read(//c/Users/jack/.claude/projects/C--Users-jack-Desktop---------vocal-assessment-light/memory/**)",
+      "Bash(ls \"c:\\\\\\\\Users\\\\\\\\jack\\\\\\\\Desktop\\\\\\\\临时文件\\\\\\\\声乐\\\\\\\\vocal_assessment_light\\\\\\\\vocal_assessment.spec\")",
+      "Bash(find \"c:\\\\\\\\Users\\\\\\\\jack\\\\\\\\Desktop\\\\\\\\临时文件\\\\\\\\声乐\\\\\\\\vocal_assessment_light\\\\\\\\services\" -name \"*.py\")",
+      "Bash(cp \"C:\\\\Users\\\\jack\\\\.claude\\\\plans\\\\ancient-dazzling-ember.md\" \"c:\\\\Users\\\\jack\\\\Desktop\\\\临时文件\\\\声乐\\\\vocal_assessment_light\\\\docs\\\\4-process\\\\V7_MIGRATION_PLAN.md\")"
     ],
     "additionalDirectories": [
-      "c:\\Users\\jack\\.claude\\plans"
+      "c:\\Users\\jack\\.claude\\plans",
+      "c:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\docs\\4-process"
     ]
   }
 }
