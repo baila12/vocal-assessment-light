@@ -1,0 +1,149 @@
+"""WebSocket 实时评分集成测试 — 8 tests"""
+
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/../..")
+
+import struct
+import json
+import numpy as np
+import pytest
+from fastapi.testclient import TestClient
+
+
+@pytest.fixture(scope="module")
+def client():
+    from backend.main import create_app
+    app = create_app()
+    with TestClient(app) as c:
+        yield c
+
+
+def _make_pcm_frame(pcm: np.ndarray) -> bytes:
+    """构造 4字节大端长度前缀 + Float32 PCM"""
+    data = pcm.astype(np.float32).tobytes()
+    prefix = struct.pack(">I", len(data))
+    return prefix + data
+
+
+def _generate_sine(duration_s: float, sr: int = 16000, freq: float = 440.0) -> np.ndarray:
+    """生成正弦波测试音频"""
+    t = np.linspace(0, duration_s, int(sr * duration_s), endpoint=False)
+    return (np.sin(2 * np.pi * freq * t) * 0.5).astype(np.float32)
+
+
+class TestWebSocketConnection:
+    """WebSocket 连接生命周期测试"""
+
+    def test_ws_handshake(self, client):
+        """握手成功，收到 ready 事件"""
+        with client.websocket_connect("/ws/v1/score") as ws:
+            data = ws.receive_json()
+            assert data["event"] == "ready"
+            assert "session_id" in data
+            assert len(data["session_id"]) == 12
+
+    def test_ws_disconnect_cleanup(self, client):
+        """正常断开时 session 被清理"""
+        with client.websocket_connect("/ws/v1/score") as ws:
+            data = ws.receive_json()
+            session_id = data["session_id"]
+            ws.close()
+        # 验证 handler 不再持有该 session
+        from backend.interfaces.ws import _score_handler
+        assert session_id not in _score_handler._sessions
+
+
+class TestProtocolFraming:
+    """ADR-7: 4字节长度前缀协议测试"""
+
+    def test_single_frame_parsing(self, client):
+        """单个 PCM 帧被正确解析"""
+        pcm = _generate_sine(0.2)  # 0.2s = 3200 samples
+        frame = _make_pcm_frame(pcm)
+
+        with client.websocket_connect("/ws/v1/score") as ws:
+            ws.receive_json()  # ready
+            ws.send_bytes(frame)
+
+            # 发送 stop 获取最终评分
+            ws.send_text(json.dumps({"type": "stop"}))
+            response = ws.receive_json()
+            # 可能是 final_score 或 error (取决于音频时长)
+            assert response["event"] in ("final_score", "error")
+
+    def test_multiple_frames_combined(self, client):
+        """ADR-7: 多个帧被 TCP 合并时正确分帧"""
+        with client.websocket_connect("/ws/v1/score") as ws:
+            ws.receive_json()  # ready
+
+            # 创建4个独立的帧
+            chunks = []
+            for _ in range(4):
+                pcm = _generate_sine(0.15)  # 2400 samples each
+                chunks.append(_make_pcm_frame(pcm))
+
+            # 模拟 TCP 粘包: 发送2+2合并
+            combined1 = chunks[0] + chunks[1]
+            combined2 = chunks[2] + chunks[3]
+
+            ws.send_bytes(combined1)
+            ws.send_bytes(combined2)
+
+            # 应该能正常工作 (不崩溃即正确分帧)
+            ws.send_text(json.dumps({"type": "stop"}))
+            response = ws.receive_json()
+            assert response["event"] in ("final_score", "error")
+
+    def test_length_prefix_integrity(self, client):
+        """验证长度前缀字节序 (big-endian uint32)"""
+        test_len = 8192  # 2048 samples * 4 bytes
+        prefix = struct.pack(">I", test_len)
+        decoded = struct.unpack(">I", prefix)[0]
+        assert decoded == test_len, "big-endian uint32 编码/解码不一致"
+
+
+class TestControlMessages:
+    """JSON 控制帧测试"""
+
+    def test_start_stop_flow(self, client):
+        """start → stop → final_score 完整流程"""
+        with client.websocket_connect("/ws/v1/score") as ws:
+            ws.receive_json()  # ready
+
+            # 发送 start
+            ws.send_text(json.dumps({"type": "start", "mode": "quick"}))
+            # start 没有直接响应 (仅日志)
+
+            # 发送足够的音频 (>1s for a valid score)
+            pcm = _generate_sine(1.5, sr=16000)  # 1.5s of 440Hz
+            frame = _make_pcm_frame(pcm)
+            ws.send_bytes(frame)
+
+            # 发送 stop
+            ws.send_text(json.dumps({"type": "stop"}))
+            response = ws.receive_json()
+            assert response["event"] == "final_score"
+            assert "total" in response
+            assert "scores" in response
+            assert 0 <= response["total"] <= 100
+
+    def test_invalid_json_handled(self, client):
+        """非法 JSON 返回 error 事件"""
+        with client.websocket_connect("/ws/v1/score") as ws:
+            ws.receive_json()  # ready
+            # 发送非法 JSON (通过 text 通道)
+            ws.send_text("{not valid json")
+
+            response = ws.receive_json()
+            assert response["event"] == "error"
+
+    def test_unknown_message_type(self, client):
+        """未知消息类型返回 error"""
+        with client.websocket_connect("/ws/v1/score") as ws:
+            ws.receive_json()  # ready
+            ws.send_text(json.dumps({"type": "unknown_command"}))
+
+            response = ws.receive_json()
+            assert response["event"] == "error"

@@ -82,7 +82,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # ===== Phase 2: 注册 FastAPI 路由 =====
+    # ===== Phase 2: 注册 FastAPI REST 路由 =====
     from backend.interfaces.api.routes.health import router as health_router
     from backend.interfaces.api.routes.assessment import router as assessment_router
     from backend.interfaces.api.routes.history import router as history_router
@@ -94,6 +94,10 @@ def create_app() -> FastAPI:
     app.include_router(history_router, prefix="/api/v1", tags=["history"])
     app.include_router(audio_router, prefix="/api/v1", tags=["audio"])
     app.include_router(songs_router, prefix="/api/v1", tags=["songs"])
+
+    # ===== Phase 3: 注册 WebSocket 路由 =====
+    from backend.interfaces.ws import router as ws_router
+    app.include_router(ws_router)
 
     # ===== 绞杀者模式: 挂载旧 Flask =====
     from backend.legacy.flask_app import get_flask_app
