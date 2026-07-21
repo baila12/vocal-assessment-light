@@ -4,6 +4,57 @@
 
 ---
 
+## v7.0-alpha — Full-Stack Refactor Phase 0-3 (2026-07-21)
+
+### Phase 0: Foundation
+- ✅ `backend/`: DDD 四层架构 (domain/application/infrastructure/interfaces) 45+ 文件
+- ✅ `backend/main.py`: FastAPI 入口 + lifespan + freeze_support + GPU 检测
+- ✅ `backend/shared/`: EventBus (观察者) + Result[T,E] monad + ScoreLevel
+- ✅ `backend/infrastructure/config.py`: Pydantic Settings (VAS_* env)
+- ✅ `backend/legacy/`: Flask WSGI 包装 + history_v6 表隔离 (绞杀者)
+- ✅ `backend/migrations/`: Alembic + SQLite 配置
+- ✅ `frontend/`: Vue 3 + Vite + Element Plus 脚手架 (22 文件)
+- ✅ `shared/openapi.json`: 前后端类型同步占位
+- ✅ `scripts/build-python-runtime.bat`: 嵌入式 Python 构建
+- ✅ `web_app.py`: 提取 get_wsgi_app() 工厂
+- ✅ `start.bat`: 4 种启动模式 (FastAPI/Flask/V7-full/V6-legacy)
+
+### Phase 1: Domain Model (六维评分 TDD)
+- ✅ 7 个 frozen 值对象: PitchScore(10%), RhythmScore(10%), BreathScore(20%), TechniqueScore(25%), MuscleStrengthScore(25%), ArtistryScore(10%), TimbreAdjustment
+- ✅ 7 个纯函数评分器 (零框架依赖):
+  - PitchScorer: 移植 v6.2 六指标融合 (MAE指数衰减+RPA+RCA+Gross Error+Smoothness+Octave)
+  - RhythmScorer: 移植 onset CV + 分级 irregularity 惩罚
+  - BreathScorer: 移植 四子维度连续线性映射
+  - **TechniqueScorer: 重构 — 咬字清晰度(50%) + 气声比(50%)** (替代旧 HNR/CPP)
+  - **MuscleStrengthScorer: NEW 启发式 — 身体肌肉(50%) + 面部肌肉(50%)**
+  - ArtistryScorer: 移植 v6.1 独立声学特征
+  - **TimbreAdjuster: NEW 启发式 — 不对称 -5/+3 调整**
+- ✅ ScoringDomainService: 六维加权总分 + EventBus ScoreCalculated 事件
+- ✅ 88 TDD 单元测试全部 GREEN
+- ✅ 所有新增维度 `is_heuristic=True` 标记 + 源码注释
+
+### Phase 2: FastAPI 后端迁移
+- ✅ Pydantic v2 schemas: assessment, history, common
+- ✅ DI 容器 (deps.py): Settings/EventBus/ScoringService/HistoryRepo/SeparationService/ReportService
+- ✅ 5 路由模块: health, assessment (12 端点), history (7 端点), audio, songs
+- ✅ 绞杀者模式: 旧 Flask 挂载到 `/old/` (WSGIMiddleware)
+- ✅ `shared/openapi.json` 导出 (16 paths + Pydantic schemas)
+- ✅ 20 API 集成测试全部 GREEN (TestClient)
+
+### Phase 3: WebSocket 实时评分
+- ✅ ADR-7: 4 字节大端 uint32 长度前缀防粘包协议
+- ✅ `ScoreWebSocketHandler`: ws.receive() text/bytes 分发 + 轻量 librosa 评分
+- ✅ `StreamingSession`: 音频缓冲累积 + 增量评分调度 + 资源清理
+- ✅ `AudioWorklet`: 48kHz→16kHz 降采样处理器
+- ✅ 前端 composables: useWebSocket (连接+重连+二进制帧), useAudioContext (录音生命周期)
+- ✅ 8 WebSocket 集成测试: 握手/断开/单帧/多帧粘包/长度前缀/start-stop/错误处理
+
+### v7.0 测试总览
+- **237 tests passed**: 121 (v6.3保留) + 88 (Phase 1) + 20 (Phase 2) + 8 (Phase 3)
+- **0 failures**, **0 regressions** vs v6.3 基线
+
+---
+
 ## v6.3 — 项目重构 + 评分体系设计 + 文档更新 (2026-07-20)
 
 ### 评分体系: 六维重构设计

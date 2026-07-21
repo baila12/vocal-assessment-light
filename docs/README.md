@@ -1,7 +1,8 @@
 # 声乐评估系统文档索引
 
-> **v6.3 | 2026-07-21** | v7.0 全栈重构规划中, 详见 [V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md)
-> 性能是全部功能的一等需求。每个文档均涵盖对应模块的性能目标、预算和监控方式。
+> **v7.0-alpha | 2026-07-21** | Phase 0-3 完成, 237 tests passed | 分支: `feat/v7-fastapi-vue-refactor`
+> v7.0 全栈重构执行中 — FastAPI + Vue 3 + Element Plus + Electron
+> 详见 [V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md)
 
 本目录按产品、技术、质量、过程和归档五类组织。新增文档应放入对应目录，不在项目根目录散放。
 
@@ -9,50 +10,44 @@
 
 | 文档 | 说明 |
 |------|------|
-| [1-product/PRD.md](1-product/PRD.md) | 产品需求、用户场景、v6.2.1 路线 |
+| [1-product/PRD.md](1-product/PRD.md) | 产品需求、用户场景、六维评分体系 |
 | [1-product/GOALS.md](1-product/GOALS.md) | 产品定位、功能全景、设计原则 |
 
 ## 2. 技术文档
 
 | 文档 | 说明 |
 |------|------|
-| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | 系统架构与后端计划 |
-| [2-technical/API.md](2-technical/API.md) | 当前稳定 API |
-| [2-technical/SCORING.md](2-technical/SCORING.md) | 评分算法、权重、阈值和 DTW 降级策略 |
-| [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 |
-| [2-technical/frontend/ROUTES.md](2-technical/frontend/ROUTES.md) | SPA 路由契约与预留页面 |
-| [2-technical/frontend/BACKEND_ALIGNMENT.md](2-technical/frontend/BACKEND_ALIGNMENT.md) | 前端与后端 v5.19/v6.0 计划对齐 |
-| [2-technical/frontend/VISUAL_AUDIT.md](2-technical/frontend/VISUAL_AUDIT.md) | 基于浏览器真实页面的前端视觉审计 |
+| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.0 DDD 四层架构 + FastAPI + 绞杀者模式 |
+| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | v7.0 API 契约 (16 paths + WebSocket) |
+| [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分算法、权重、Feature Flags |
+| [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 (Vue 3 + Element Plus) |
 
 ## 3. 质量文档
 
 | 文档 | 说明 |
 |------|------|
-| [3-quality/TDD.md](3-quality/TDD.md) | 单元/集成/E2E 测试规范 (v5.19: 157+ 测试全部通过) |
-| [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景、目录和验收流程 (21 Feature 文件, 9 已实现 Step Defs) |
+| [3-quality/TDD.md](3-quality/TDD.md) | TDD 规范 (v7.0: 237 tests passed) |
+| [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景 (21 Feature files) |
 
-### 测试体系状态 (v5.19 评分修复后)
+### 测试体系状态 (v7.0-alpha)
 
-| 层级 | 文件数 | 测试数 | 通过率 |
-|------|--------|--------|--------|
-| Unit | 13 | 150+ | 150+ passed ✅ |
-| Integration | 4 | 25 | 25/25 (100%) |
-| Real Audio Regression | 1 | 27 | v5.19 基线已更新 |
-| E2E (SPA) | 10+ | ~45 | 按需运行 |
-| TDD (v5.19 GREEN) | 2 | 29 | 15 GREEN + 6 xfail (引导 v6.0) |
-| BDD | 21 features | ~75 scenarios | 4 features 已实现 Step Defs |
+| 层级 | 测试数 | 通过率 |
+|------|--------|--------|
+| v6.3 保留 (Unit) | 121 | ✅ 100% |
+| Phase 1 领域 TDD | 88 | ✅ 100% |
+| Phase 2 API 集成 | 20 | ✅ 100% |
+| Phase 3 WebSocket 集成 | 8 | ✅ 100% |
+| **总计** | **237** | ✅ **全部通过, 零回归** |
 
-> 详见 [PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) 验收状态和 [CHANGELOG.md](4-process/CHANGELOG.md) 审查修复详情。
+> 详见 [PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) 和 [CHANGELOG.md](4-process/CHANGELOG.md)。
 
 ## 4. 过程文档
 
 | 文档 | 说明 |
 |------|------|
-| [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态和已知问题 |
-| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 |
-| [4-process/V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md) | **v7.0 全栈重构计划** (FastAPI + Vue 3 + Electron + 六维评分) |
-| [4-process/audits/README.md](4-process/audits/README.md) | 审计与规划文档入口 |
-| [4-process/audits/PROJECT_AUDIT_AND_OPTIMIZATION_PLAN.md](4-process/audits/PROJECT_AUDIT_AND_OPTIMIZATION_PLAN.md) | 项目审计与优化计划 |
+| [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.0 进度、已知问题 |
+| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (含 v7.0-alpha Phase 0-3) |
+| [4-process/V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md) | **v7.0 全栈重构计划** (六阶段, 8 ADR, 26.5 天) |
 
 ## 5. 归档文档
 

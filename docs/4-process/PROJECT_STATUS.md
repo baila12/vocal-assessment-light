@@ -1,34 +1,63 @@
 # 项目状态
 
-> 更新: 2026-07-21 | 当前版本: **v6.3** | v7.0 规划阶段 (26.5 天) | 分支: `main`
+> 更新: 2026-07-21 | 当前版本: **v7.0-alpha** (Phase 0-3 完成) | 分支: `feat/v7-fastapi-vue-refactor`
 
 ---
 
-## v7.0 规划: FastAPI + Vue 3 + Element Plus + Electron (设计阶段)
+## v7.0 重构进度: FastAPI + Vue 3 + Element Plus + Electron (执行中)
 
 > **完整计划**: [V7_MIGRATION_PLAN.md](V7_MIGRATION_PLAN.md) — 绞杀者模式六阶段渐进迁移, 8 项 ADR, 26.5 天
 
-### 六阶段概览
+### 六阶段进度
 
-| Phase | 内容         | 天数 | 核心交付                                                              |
-| ----- | ------------ | ---- | --------------------------------------------------------------------- |
-| 0     | Foundation   | 3.5  | DDD 目录 + FastAPI + Vue 3 + Alembic + structlog + 嵌入式 Python 原型 |
-| 1     | Domain Model | 5    | 六维评分 TDD (88 tests) + EventBus + 启发式标记                       |
-| 2     | FastAPI 迁移 | 4    | 21 端点 + Pydantic v2 + openapi.json + Flask`/old/` 共存            |
-| 3     | WebSocket    | 3    | `/ws/v1/score` + 4 字节长度前缀 + 增量评分                          |
-| 4     | Vue 3 前端   | 8    | 5 页面 Element Plus + SingView 内存泄露防护                           |
-| 5     | Electron     | 3    | 嵌入式 Python + PyArmor + 进程守护 + 增量更新                         |
+| Phase | 内容         | 天数 | 状态 | 核心交付                                                              |
+| ----- | ------------ | ---- | ---- | --------------------------------------------------------------------- |
+| 0     | Foundation   | 3.5  | ✅   | DDD 目录 + FastAPI + Vue 3 脚手架 + Alembic + 嵌入式 Python 脚本 |
+| 1     | Domain Model | 5    | ✅   | 六维评分 TDD (88 tests) + EventBus + 启发式标记 + ScoringDomainService |
+| 2     | FastAPI 迁移 | 4    | ✅   | 21 端点 + Pydantic v2 + openapi.json (16 paths) + Flask `/old/` 共存 |
+| 3     | WebSocket    | 3    | ✅   | `/ws/v1/score` + 4 字节长度前缀协议 + 轻量评分 + AudioWorklet |
+| 4     | Vue 3 前端   | 8    | ⏳   | 5 页面 Element Plus + SingView 内存泄露防护                           |
+| 5     | Electron     | 3    | ⏳   | 嵌入式 Python + PyArmor + 进程守护 + 增量更新                         |
 
-### 关键技术决策 (8 项 ADR)
+### 测试状态 (v7.0-alpha)
 
-1. **嵌入式 Python 运行时** 替代 PyInstaller — 启动 <2s, 增量更新 KB 级
-2. **肌肉力量 & 音色 → 启发式代理指标** — `is_heuristic=True` 标记, 前端显示"估算值"
-3. **前后端类型同步 → 文件驱动 openapi.json** — 无需后端运行即可生成 TS 类型
-4. **Alembic + legacy 表隔离** — 旧 Flask 与新迁移互不冲突
-5. **structlog + electron-log** — JSON 格式日志, session_id 全链路追踪
-6. **EventBus 最小原型** — Phase 1 即实现, 避免接口层污染
-7. **WebSocket 4 字节长度前缀** — 防止 TCP 粘包导致音高数据错乱
-8. **PyArmor 编译领域层** — 核心算法保护, 应用层可热更新
+| 层级 | 测试数 | 状态 |
+|------|--------|------|
+| v6.3 单元测试 (保留) | 121 | ✅ 零回归 |
+| Phase 1 领域 TDD | 88 | ✅ 全部 GREEN |
+| Phase 2 API 集成 | 20 | ✅ 全部 GREEN |
+| Phase 3 WebSocket 集成 | 8 | ✅ 全部 GREEN |
+| **总计** | **237** | ✅ **全部通过** |
+
+### 已落地的 8 项 ADR
+
+| # | ADR | 状态 |
+|---|-----|------|
+| 1 | **嵌入式 Python 运行时** 替代 PyInstaller | 📋 Phase 5 执行 |
+| 2 | **肌肉力量 & 音色 → 启发式代理指标** | ✅ 已实现 (is_heuristic=True) |
+| 3 | **前后端类型同步 → 文件驱动 openapi.json** | ✅ 已导出 (16 paths) |
+| 4 | **Alembic + legacy 表隔离** | ✅ history_v6 表已定义 |
+| 5 | **structlog + electron-log** | 📋 Phase 5 执行 |
+| 6 | **EventBus 最小原型** | ✅ 已实现 + 事件触发测试 |
+| 7 | **WebSocket 4 字节长度前缀** | ✅ 已实现 + 粘包测试 |
+| 8 | **PyArmor 编译领域层** | 📋 Phase 5 执行 |
+
+### v7.0 新增端点
+
+| 方法 | 路径 | 标签 |
+|------|------|------|
+| GET | `/health` | FastAPI 健康检查 |
+| POST | `/api/v1/upload` | 上传分析 |
+| POST | `/api/v1/analyze` | 分析已存在文件 |
+| POST | `/api/v1/extract-pitch` | 音高曲线提取 |
+| POST | `/api/v1/separate` | Demucs 人声分离 |
+| GET/POST | `/api/v1/separate/models` | 分离模型列表 |
+| POST | `/api/v1/report` | 报告导出 |
+| POST | `/api/v1/compare` | DTW 对比 |
+| GET/DELETE | `/api/v1/history` + CRUD | 历史记录 |
+| GET | `/api/v1/audio` | 音频流 |
+| GET | `/api/v1/songs` | 歌曲库 (stub) |
+| WS | `/ws/v1/score` | WebSocket 实时评分 |
 
 ---
 

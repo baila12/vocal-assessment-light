@@ -1,53 +1,52 @@
-# 系统架构 v6.3 → v7.0
+# 系统架构 v7.0-alpha (Phase 0-3 完成)
 
-> 更新: 2026-07-21 | v6.3 当前架构 (Flask + Vanilla JS SPA) → v7.0 规划 (FastAPI + Vue 3 + Electron)
+> 更新: 2026-07-21 | 当前架构: Flask (v6.3 legacy) + FastAPI (v7.0) 绞杀者共存 | 分支: `feat/v7-fastapi-vue-refactor`
 >
-> **v7.0 迁移计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — 绞杀者模式六阶段渐进替换, 8 项 ADR, 26.5 天
-> **v6.3 变更**: PyQt5 旧代码已删除, 项目结构已清理, 详见 [CHANGELOG.md](../4-process/CHANGELOG.md)
-> **v5.20 架构升级**: 引入 AppContext (DI) + EventBus 为 Vue 迁移做准备
+> **v7.0 迁移计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — Phase 0-3 ✅, Phase 4-5 ⏳
+> **当前状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) — 237 tests passed
 
 ---
 
-## 一、架构总览
+## 一、架构总览 (v7.0-alpha 绞杀者模式)
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         前端 (Browser)                                │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  app.js (createApp 模式入口)                                    │   │
-│  │  ├─ AppContext (DI)  ─  store / router / api / ac / events    │   │
-│  │  │   v7.0 → Vue provide/inject                                 │   │
-│  │  ├─ EventBus        ─  on / once / off / emit                 │   │
-│  │  │   v7.0 → mitt()                                             │   │
-│  │  ├─ HashRouter      ─  useContext() + Vue 生命周期对齐        │   │
-│  │  │   v7.0 → Vue Router createRouter()                          │   │
-│  │  └─ BaseComponent   ─  context 注入 + mount/beforeUnmount     │   │
-│  │      v7.0 → <script setup> + onMounted/onBeforeUnmount         │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│  index.html + ES6 Modules + Chart.js + Web Audio API + Canvas + GSAP │
-│  [v7.0 计划: Electron + Vue 3 + Pinia + Vue Router + mitt]          │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │ HTTP (localhost:5000)
-┌──────────────────────────▼───────────────────────────────────────────┐
-│                        API 层 (Flask)                                 │
-│  api/__init__.py  →  routes (upload/audio/history/compare)           │
-│                   →  business/audio_analysis.py                       │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                    服务层 (Services)                              │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ audio_      │  │ score_       │  │ separation_          │   │
-│  │ service.py  │  │ service.py   │  │ service.py (Demucs)  │   │
-│  └──────┬──────┘  └──────┬───────┘  └──────────┬───────────┘   │
-│         │                │                      │               │
-│  ┌──────▼───────────────▼──────────────────────▼───────────┐   │
-│  │              features/ 特征提取层                         │   │
-│  │  pitch.py │ breath.py │ rhythm.py │ technique.py │ acoustic.py │
-│  └──────────────────────┬───────────────────────────────────┘   │
-│                         │                                       │
-│  ┌──────────────────────▼───────────────────────────────────┐   │
-│  │              scoring/ 评分计算层                           │   │
+                             ┌─────────────────────┐
+                             │    Electron (P5)     │
+                             │  main.ts + preload   │
+                             │  嵌入式 Python 运行时  │
+                             └──────────┬──────────┘
+                                        │
+          ┌─────────────────────────────┼─────────────────────────────┐
+          │                             │                             │
+    ┌─────▼──────┐              ┌──────▼──────┐              ┌───────▼──────┐
+    │  Vue 3 SPA │              │  FastAPI    │              │  Flask v6.3  │
+    │  (P4: ⏳)   │◄────HTTP────►│  v7.0 :8000 │◄────WSGI────►│  /old mount  │
+    │  Vite:5173  │              │  + WebSocket│              │  legacy SPA  │
+    └────────────┘              └──────┬──────┘              └──────────────┘
+                                      │
+    ┌─────────────────────────────────┼─────────────────────────────────┐
+    │                    backend/ (DDD 四层)                             │
+    │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │
+    │  │ interfaces/ │  │application/ │  │       domain/           │   │
+    │  │ api/routes/ │──►│ assessment/ │──►│  assessment/           │   │
+    │  │ ws/         │  │ history/    │  │  ├─ pitch_scorer (10%)  │   │
+    │  │ schemas/    │  │ comparison/ │  │  ├─ rhythm_scorer(10%)  │   │
+    │  └─────────────┘  └─────────────┘  │  ├─ breath_scorer(20%)  │   │
+    │                                    │  ├─ technique_  (25%)   │   │
+    │  ┌─────────────┐  ┌─────────────┐  │  ├─ muscle_     (25%)   │   │
+    │  │infrastructure│  │   shared/   │  │  ├─ artistry_   (10%)  │   │
+    │  │ config.py   │  │ event_bus   │  │  └─ timbre_adjuster     │   │
+    │  │ persistence │  │ result[T,E] │  └─────────────────────────┘   │
+    │  │ audio/      │  │ domain_types│                                │
+    │  └─────────────┘  └─────────────┘                                │
+    └──────────────────────────────────────────────────────────────────┘
+                                      │
+    ┌─────────────────────────────────┼─────────────────────────────────┐
+    │                    旧服务层 (v6.3, 委托复用)                       │
+    │  services/ (scoring, features, separation, DL)                    │
+    │  api/business/ (analyze_and_score, compare_with_dtw)              │
+    │  repositories/ (JsonHistoryRepository)                            │
+    └──────────────────────────────────────────────────────────────────┘
 │  │  pitch_scorer │ breath_scorer │ rhythm_scorer             │   │
 │  │  technique_scorer │ artistry_scorer │ critical_rules      │   │
 │  └──────────────────────────────────────────────────────────┘   │

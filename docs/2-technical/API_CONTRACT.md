@@ -1,28 +1,34 @@
-# API 契约文档 v5.0 → v7.0
+# API 契约文档 v7.0
 
-> 更新: 2026-07-06 | 为 Vue 3 + Electron 迁移准备的 API 接口规范
-
----
-
-## 端点一览
-
-| 方法 | 路径 | 说明 | v7.0 兼容 |
-|------|------|------|----------|
-| GET | `/health` | 健康检查 + GPU 状态 | ✅ 不变 |
-| POST | `/api/upload` | 上传并分析音频 (三模式) | ✅ 不变 |
-| POST | `/api/upload?mode=quick` | Quick 模式 | ✅ |
-| POST | `/api/upload?mode=professional` | Pro 模式 (Demucs) | ✅ |
-| POST | `/api/compare` | 双音频 DTW 对比 | ✅ 不变 |
-| GET | `/api/history` | 历史记录列表 | ✅ 不变 |
-| DELETE | `/api/history/<id>` | 删除单条记录 | ✅ 不变 |
-| DELETE | `/api/history/batch-delete` | 批量删除 | ✅ 不变 |
-| GET | `/api/history/<id>/report` | 导出报告 | ✅ 不变 |
+> 更新: 2026-07-21 | 16 paths in openapi.json | 绞杀者模式: Flask `/old/` + FastAPI `/api/v1/` 共存
 
 ---
 
-## 核心响应格式 (v5.0)
+## v7.0 端点一览 (FastAPI + WebSocket)
 
-### POST `/api/upload` 成功响应
+| 方法 | 路径 | 标签 | 说明 | v6.3 兼容 |
+|------|------|------|------|----------|
+| GET | `/health` | health | GPU info + version 7.0.0 | ✅ |
+| POST | `/api/v1/upload` | assessment | 上传分析 (FormData) | ✅ /api/upload |
+| POST | `/api/v1/analyze` | assessment | 分析已有文件 | ✅ /api/analyze |
+| POST | `/api/v1/extract-pitch` | assessment | 音高曲线提取 | ✅ /api/extract-pitch |
+| POST | `/api/v1/separate` | assessment | Demucs 人声分离 | ✅ /api/separate |
+| GET | `/api/v1/separate/models` | assessment | 分离模型列表 | ✅ |
+| POST | `/api/v1/report` | assessment | PDF/图片导出 | ✅ /api/report |
+| POST | `/api/v1/compare` | assessment | DTW 双文件对比 | ✅ /api/compare |
+| GET | `/api/v1/history` | history | 分页列表 + 日期筛选 | ✅ |
+| GET | `/api/v1/history/{id}` | history | 单条详情 | ✅ |
+| DELETE | `/api/v1/history/{id}` | history | 删除单条 | ✅ |
+| DELETE | `/api/v1/history/batch` | history | 批量删除 (JSON body) | ✅ |
+| DELETE | `/api/v1/history/all` | history | 清空全部 | ✅ |
+| GET | `/api/v1/test-files` | history | 测试音频列表 | ✅ |
+| GET | `/api/v1/audio?file=...` | audio | 音频流 + 路径安全 | ✅ |
+| GET | `/api/v1/songs` | songs | 歌曲库 (Phase 4 stub) | NEW |
+| WS | `/ws/v1/score` | ws | 实时评分 (Phase 3) | NEW |
+
+### v7.0 核心响应格式 (Pydantic v2)
+
+### POST `/api/v1/upload` 成功响应
 
 ```json
 {
