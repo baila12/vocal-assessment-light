@@ -1,18 +1,52 @@
 # 前端技术文档
 
-本目录是当前 SPA 前端重构的权威文档区。前端设计、路由、动效、组件和后端对齐计划都应放在这里，而不是散落在项目根目录或归档文档中。
+> **v7.0-alpha Phase 4 完成 (2026-07-22)**: Vue 3 + Element Plus 实现完成。
+> 6 shared components + 3 layout components + 5 page views + 3 Pinia stores + 5 composables.
+> 33 Vitest tests, zero TypeScript errors, Vite build 9.55s.
+> 详见 [V7_MIGRATION_PLAN.md](../../4-process/V7_MIGRATION_PLAN.md) Phase 4。
 
-> **v7.0 规划**: 前端将迁移至 Vue 3 + Element Plus，详见 [V7_MIGRATION_PLAN.md](../../4-process/V7_MIGRATION_PLAN.md) Phase 4。本文档描述当前 v6.3 Vanilla JS SPA 架构。
+## v7.0 架构总览
+
+| 层 | 文件 | 框架 |
+|----|------|------|
+| 状态管理 | `stores/` (3 stores) | Pinia setup stores |
+| 组合函数 | `composables/` (5 composables) | Vue Composition API |
+| 布局 | `components/layout/` (3 components) | Element Plus |
+| 共享组件 | `components/` (6 components) | Element Plus + Chart.js + Canvas |
+| 页面 | `views/` (5 pages) | Vue 3 + Element Plus + GSAP |
+| 类型 | `types/` (2 files) | TypeScript |
+| API 层 | `api/` (1 client) | Fetch + openapi-typescript |
+
+## v7.0 页面映射
+
+| 路由 | 页面 | 关键组件 |
+|------|------|---------|
+| `#/` | HomeView | ElUpload + ElRadioGroup + ElDrawer(设置/曲库) |
+| `#/report/:id?` | ReportView | ScoreRadar + ScoreCard + AudioPlayer + PitchCurveCanvas |
+| `#/history` | HistoryView | ElTable + ElPagination + ElPopconfirm |
+| `#/compare` | CompareView | FileUploader x2 + DTW 结果卡片 |
+| `#/sing` | SingView | Canvas + AudioWorklet + WebSocket + 6步清理 |
 
 ## 当前定位
 
-前端应从“功能展示页”重构为“声乐练习与评估工作台”。它需要服务三个阶段：
+前端已从 v6.3 “功能展示页” 重构为 v7.0 “声乐练习与评估工作台”。服务三个阶段：
 
-| 阶段 | 用户目标 | 前端重点 |
+| 阶段 | 用户目标 | v7.0 实现 |
 |------|----------|----------|
-| 开始前 | 选择上传、录音、选歌或对比 | 简洁入口、清晰路径、少解释 |
-| 分析中 | 理解进度，不被阻塞 | 非模态进度、可播放、可切页 |
-| 结果后 | 知道问题在哪里，下一次怎么练 | 结果层级、偏差定位、建议可执行 |
+| 开始前 | 选择上传、录音、选歌或对比 | HomeView: 简洁入口 + ElUpload + 模式选择 + ElDrawer(设置/曲库) |
+| 分析中 | 理解进度，不被阻塞 | ProgressOverlay (fixed top) + 评估 store 进度追踪 |
+| 结果后 | 知道问题在哪里，下一次怎么练 | ReportView: 六维雷达图 + 启发式标签 + 改进建议 + 音频回放 |
+
+## v7.0 构建基准
+
+```bash
+Vitest:     33/33 tests passed (3 suites)
+TypeScript: Zero errors (vue-tsc --noEmit)
+Vite build: 9.55s
+  - Main chunk:   346 KB gzip (Element Plus + Vue + Chart.js)
+  - ReportView:    65 KB gzip (含 Chart.js radar)
+  - Other pages: 2-4 KB gzip each (lazy loaded)
+```
 
 ## 文档
 

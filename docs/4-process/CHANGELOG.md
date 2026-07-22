@@ -4,6 +4,37 @@
 
 ---
 
+## v7.0-alpha — Phase 4: Vue 3 Frontend (2026-07-22)
+
+### Architecture
+- ✅ 3 Pinia stores: assessment (上传/分析/结果), history (分页/筛选/批量), preferences (主题/模式/持久化)
+- ✅ 5 Composables: useApi, useGsap (gsap.context + reduced-motion), useMediaRecorder, useWebSocket, useAudioContext
+- ✅ 3 Layout components: AppLayout (ElContainer), TopNav (ElMenu + Element Plus Icons), BottomNav (mobile)
+- ✅ 6 Shared components: ScoreCard (评分卡片+启发式标签), ScoreRadar (Chart.js 六维雷达图), PitchCurveCanvas (对数频率刻度+播放游标), AudioPlayer (click-to-seek 修复 v6.3 P1 bug), ProgressOverlay, FileUploader
+- ✅ 5 Page views: HomeView (上传+ElDrawer设置/曲库), ReportView (雷达图+启发式+建议), HistoryView (ElTable+UTF-8重写), CompareView (双ElUpload修复v6.3 P1 bug), SingView (Canvas+WS+6步清理法)
+
+### Key Fixes (v6.3 Known Issues)
+- ✅ HistoryView: UTF-8 重写, 修复 v6.3 GBK 乱码 (P1 #10)
+- ✅ AudioPlayer: click-to-seek 实现, 修复 v6.3 播放器不能拖动进度 (P1 #3)
+- ✅ CompareView: 双 ElUpload, 修复 v6.3 无法两侧上传文件 (P1 #8)
+- ✅ HomeView: ElDrawer 合并设置+曲库, 修复 v6.3 独立页面过多的问题 (P1 #5)
+- ✅ SingView: 6步清理法防内存泄露, 修复 v6.3 Canvas/WebSocket 泄露风险
+
+### Design Decisions
+- ✅ ADR-2: 启发式维度前端显示 "估算值" 标签 + 橙色边框 + 可点击展开说明
+- ✅ ADR-3: 零硬编码 URL, `window.BACKEND_URL` + apiClient 动态后端地址
+- ✅ ADR-7: WebSocket 4字节长度前缀协议前端实现 (useWebSocket sendPcm)
+- ✅ Element Plus Icons 替代 v6.3 120+ Unicode emoji
+- ✅ GSAP prefers-reduced-motion 检测, 尊重用户无障碍偏好
+- ✅ Pinia 替代 AppContext DI + Store + AnimationController
+
+### Test & Build
+- ✅ 33 Vitest unit tests: 3 suites, 100% pass rate
+- ✅ vue-tsc type check: Zero TypeScript errors
+- ✅ Vite build: 9.55s, ReportView chunk 64KB gzip, main chunk 346KB gzip
+
+---
+
 ## v7.0-alpha — Full-Stack Refactor Phase 0-3 (2026-07-21)
 
 ### Phase 0: Foundation

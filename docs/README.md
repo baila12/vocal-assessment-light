@@ -1,6 +1,6 @@
 # 声乐评估系统文档索引
 
-> **v7.0-alpha | 2026-07-21** | Phase 0-3 完成, 237 tests passed | 分支: `feat/v7-fastapi-vue-refactor`
+> **v7.0-alpha | 2026-07-22** | Phase 0-4 完成, 270 tests passed | 分支: `feat/v7-fastapi-vue-refactor`
 > v7.0 全栈重构执行中 — FastAPI + Vue 3 + Element Plus + Electron
 > 详见 [V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md)
 
@@ -20,7 +20,7 @@
 | [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.0 DDD 四层架构 + FastAPI + 绞杀者模式 |
 | [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | v7.0 API 契约 (16 paths + WebSocket) |
 | [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分算法、权重、Feature Flags |
-| [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 (Vue 3 + Element Plus) |
+| [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 (Vue 3 + Element Plus, Phase 4 完成) |
 
 ## 3. 质量文档
 
@@ -37,7 +37,8 @@
 | Phase 1 领域 TDD | 88 | ✅ 100% |
 | Phase 2 API 集成 | 20 | ✅ 100% |
 | Phase 3 WebSocket 集成 | 8 | ✅ 100% |
-| **总计** | **237** | ✅ **全部通过, 零回归** |
+| Phase 4 Vue 3 前端 | 33 | ✅ 100% (Vitest) |
+| **总计** | **270** | ✅ **全部通过, 零回归** |
 
 > 详见 [PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) 和 [CHANGELOG.md](4-process/CHANGELOG.md)。
 

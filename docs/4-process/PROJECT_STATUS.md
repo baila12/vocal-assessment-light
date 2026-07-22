@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-07-21 | 当前版本: **v7.0-alpha** (Phase 0-3 完成) | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-22 | 当前版本: **v7.0-alpha** (Phase 0-4 完成) | 分支: `feat/v7-fastapi-vue-refactor`
 
 ---
 
@@ -16,7 +16,7 @@
 | 1     | Domain Model | 5    | ✅   | 六维评分 TDD (88 tests) + EventBus + 启发式标记 + ScoringDomainService |
 | 2     | FastAPI 迁移 | 4    | ✅   | 21 端点 + Pydantic v2 + openapi.json (16 paths) + Flask `/old/` 共存 |
 | 3     | WebSocket    | 3    | ✅   | `/ws/v1/score` + 4 字节长度前缀协议 + 轻量评分 + AudioWorklet |
-| 4     | Vue 3 前端   | 8    | ⏳   | 5 页面 Element Plus + SingView 内存泄露防护                           |
+| 4     | Vue 3 前端   | 8    | ✅   | 5 页面 + 3 Pinia stores + 6 shared components + 33 Vitest tests    |
 | 5     | Electron     | 3    | ⏳   | 嵌入式 Python + PyArmor + 进程守护 + 增量更新                         |
 
 ### 测试状态 (v7.0-alpha)
@@ -27,20 +27,57 @@
 | Phase 1 领域 TDD | 88 | ✅ 全部 GREEN |
 | Phase 2 API 集成 | 20 | ✅ 全部 GREEN |
 | Phase 3 WebSocket 集成 | 8 | ✅ 全部 GREEN |
-| **总计** | **237** | ✅ **全部通过** |
+| Phase 4 Vue 3 前端 | 33 | ✅ 全部 GREEN (Vitest) |
+| **总计** | **270** | ✅ **全部通过** |
 
 ### 已落地的 8 项 ADR
 
 | # | ADR | 状态 |
 |---|-----|------|
 | 1 | **嵌入式 Python 运行时** 替代 PyInstaller | 📋 Phase 5 执行 |
-| 2 | **肌肉力量 & 音色 → 启发式代理指标** | ✅ 已实现 (is_heuristic=True) |
-| 3 | **前后端类型同步 → 文件驱动 openapi.json** | ✅ 已导出 (16 paths) |
+| 2 | **肌肉力量 & 音色 → 启发式代理指标** | ✅ 已实现 (is_heuristic=True + 前端估算值标签) |
+| 3 | **前后端类型同步 → 文件驱动 openapi.json** | ✅ 已导出 (16 paths) + 前端 types/api.ts |
 | 4 | **Alembic + legacy 表隔离** | ✅ history_v6 表已定义 |
 | 5 | **structlog + electron-log** | 📋 Phase 5 执行 |
 | 6 | **EventBus 最小原型** | ✅ 已实现 + 事件触发测试 |
-| 7 | **WebSocket 4 字节长度前缀** | ✅ 已实现 + 粘包测试 |
+| 7 | **WebSocket 4 字节长度前缀** | ✅ 已实现 + 粘包测试 + 前端 useWebSocket composable |
 | 8 | **PyArmor 编译领域层** | 📋 Phase 5 执行 |
+
+### Phase 4: Vue 3 前端交付 (2026-07-22)
+
+**架构**: Vue 3 Composition API + Pinia + Element Plus + Chart.js + GSAP + Vite
+
+| 层 | 文件 | 说明 |
+|----|------|------|
+| **Stores** (3) | `assessment.store.ts`, `history.store.ts`, `preferences.store.ts` | Pinia setup stores |
+| **Composables** (5) | `useApi.ts`, `useGsap.ts`, `useMediaRecorder.ts`, `useWebSocket.ts`, `useAudioContext.ts` | Composable pattern |
+| **Layout** (3) | `AppLayout.vue`, `TopNav.vue`, `BottomNav.vue` | ElContainer + ElMenu |
+| **Shared** (6) | `ScoreCard.vue`, `ScoreRadar.vue`, `PitchCurveCanvas.vue`, `AudioPlayer.vue`, `ProgressOverlay.vue`, `FileUploader.vue` | 可复用组件 |
+| **Views** (5) | `HomeView.vue`, `ReportView.vue`, `HistoryView.vue`, `CompareView.vue`, `SingView.vue` | 页面组件 |
+
+**关键设计决策**:
+- ✅ **零硬编码 URL**: `window.BACKEND_URL` + `apiClient` (Electron 动态端口)
+- ✅ **Element Plus Icons**: 替代 v6.3 的 120+ Unicode emoji
+- ✅ **ElDrawer 合并页面**: 设置和曲库作为抽屉 (HomeView) 替代独立页面
+- ✅ **SingView 6步清理法**: `cancelAnimationFrame → audioContext.close → close WebSocket → clearRect → cleanup`
+- ✅ **HistoryView UTF-8 重写**: 修复 v6.3 GBK 乱码 (P1 bug)
+- ✅ **AudioPlayer click-to-seek**: 修复 v6.3 播放器不能拖动进度 (P1 bug)
+- ✅ **CompareView 双 ElUpload**: 修复 v6.3 无法两侧上传 (P1 bug)
+- ✅ **启发式标签**: 肌肉力量和音色维度显示 "估算值" Tag + 橙色边框
+- ✅ **Pinia persist**: 用户偏好 (主题/模式/自动播放) 持久化到 localStorage
+- ✅ **GSAP reduced-motion**: 尊重 `prefers-reduced-motion: reduce`
+
+**构建验证**:
+```bash
+# Vitest (33 tests, 0 failures)
+npm run test:unit    # ✅ 33/33 passed
+
+# TypeScript 类型检查
+npx vue-tsc --noEmit  # ✅ Zero errors
+
+# 生产构建
+npm run build         # ✅ 9.55s (所有 chunk < 350KB gzip)
+```
 
 ### v7.0 新增端点
 

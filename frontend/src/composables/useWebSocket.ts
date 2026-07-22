@@ -56,7 +56,7 @@ export function useWebSocket() {
           }
         }
 
-        ws.onerror = (e) => {
+        ws.onerror = () => {
           error.value = 'WebSocket 连接失败'
           reject(new Error('WebSocket connection failed'))
         }
