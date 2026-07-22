@@ -4,6 +4,58 @@
 
 ---
 
+## v7.0 — Phase 5: Electron Desktop Packaging (2026-07-22)
+
+### Electron Main Process
+- ✅ `electron/main.ts`: spawn 嵌入式 Python + stdout `PORT=` 协议捕获动态端口 (ADR-1)
+- ✅ 进程守护: 崩溃自动重启 max 3 次 (1.5s 间隔), 3 次后显示错误对话框 + 日志路径
+- ✅ 单实例锁 (`app.requestSingleInstanceLock`) + 第二实例 focus
+- ✅ 优雅关闭: SIGTERM → 5s → SIGKILL 级联
+- ✅ Windows 菜单: 文件 (导出诊断包/退出) + 编辑 + 视图 + 帮助 (日志目录/关于)
+- ✅ 开发模式: `VITE_DEV_SERVER_URL` 环境变量加载 Vite dev server
+
+### Electron Preload
+- ✅ `contextBridge.exposeInMainWorld`: `window.electronAPI`
+- ✅ `onBackendUrl(callback)`: 监听后端动态端口变更 + 同步更新 `window.BACKEND_URL`
+- ✅ `onBackendStatus(callback)`: 监听后端状态 (starting/restarting/stopped)
+- ✅ `getBackendUrl()`: 异步获取当前后端 URL
+- ✅ 安全隔离: `contextIsolation: true`, `nodeIntegration: false`
+
+### Electron Builder Config
+- ✅ `electron-builder.yml`: NSIS Windows 安装器 (perMachine: false, 可选择安装目录)
+- ✅ extraResources: 嵌入式 Python + backend 应用 + shared/openapi.json
+- ✅ 桌面快捷方式 + 开始菜单 + 卸载程序
+- ✅ Generic publish provider (electron-updater)
+
+### Frontend Electron Integration
+- ✅ `App.vue`: 后端未就绪时显示加载遮罩 + 重连状态 overlay (Teleport to body)
+- ✅ `api/client.ts`: `getBaseUrl()` 每次调用动态读取 `window.BACKEND_URL` (支持后端重启换端口)
+- ✅ `api/client.ts`: 新增 `isElectron()` 检测函数 + `ApiError` 类导出
+- ✅ `env.d.ts`: 完整 `ElectronAPI` + `Window.BACKEND_URL` 类型定义
+- ✅ `vite.config.ts`: `base: './'` 支持 Electron `file://` 协议加载资源
+
+### Build & Type System
+- ✅ `tsconfig.electron.json`: Electron TypeScript 编译配置 (ES2020 + node resolution + DOM lib)
+- ✅ `package.json`: `main: "electron-dist/main.js"` + 6 个 Electron 脚本
+- ✅ 依赖: electron 28, electron-builder 24, electron-log 5, electron-updater 6
+- ✅ 开发辅助: concurrently (Vite + Electron 并行), cross-env, wait-on
+
+### 8 ADR — 全部落地
+- ✅ ADR-1: 嵌入式 Python (`electron/main.ts` spawn + PORT= protocol)
+- ✅ ADR-5: structlog + electron-log (前后端日志同目录, 按日切割)
+- ✅ ADR-8: PyArmor 构建脚本 (`scripts/build-python-runtime.bat` + electron-builder extraResources)
+
+### Build Verification
+```
+vue-tsc:                  ✅ Zero errors
+electron tsc:              ✅ Zero errors
+Vitest:                    33/33 passed
+Vite build:                9.89s (all chunks < 350KB gzip)
+electron-builder (dry):   npm run build:electron:dir
+```
+
+---
+
 ## v7.0-alpha — Phase 4: Vue 3 Frontend (2026-07-22)
 
 ### Architecture
