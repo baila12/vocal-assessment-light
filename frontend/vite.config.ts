@@ -34,9 +34,20 @@ export default defineConfig({
       },
     },
   },
+  // Electron uses file:// protocol — relative paths are required
+  base: process.env.ELECTRON === 'true' ? './' : '/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    // Prevent minifier from mangling window.BACKEND_URL access
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          element: ['element-plus'],
+          chart: ['chart.js', 'vue-chartjs'],
+        },
+      },
+    },
   },
   test: {
     environment: 'happy-dom',

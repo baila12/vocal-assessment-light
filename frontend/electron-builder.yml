@@ -1,0 +1,65 @@
+# VAS v7.0 — Electron Builder Configuration
+# ADR-1: 嵌入式 Python 运行时 (替代 PyInstaller)
+# ADR-8: PyArmor 保护领域层
+#
+# Run: npm run electron:build
+
+appId: com.vocal-assessment.light
+productName: VAS
+copyright: "Copyright © 2026 Vocal Assessment"
+
+directories:
+  output: dist-electron
+  buildResources: build
+
+files:
+  - dist/**/*
+  - electron-dist/**/*.js
+  - package.json
+
+extraResources:
+  # Embedded Python runtime (ADR-1)
+  # Built by: scripts/build-python-runtime.bat
+  - from: ../build/python
+    to: python
+    filter:
+      - "**/*"
+  # Backend application (PyArmor-protected domain layer)
+  - from: ../backend
+    to: backend
+    filter:
+      - "**/*.py"
+      - "**/*.pyd"
+      - "**/*.pyc"
+      - "!__pycache__/**"
+      - "!.pytest_cache/**"
+      - "!migrations/versions/**"
+  # Shared resources
+  - from: ../shared
+    to: shared
+    filter:
+      - "openapi.json"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: "${productName}-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "VAS 声乐评估"
+  license: ../LICENSE
+
+publish:
+  provider: generic
+  url: https://updates.vocal-assessment.com

@@ -3,40 +3,49 @@
   "private": true,
   "version": "7.0.0",
   "type": "module",
+  "main": "electron-dist/main.js",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "concurrently \"vite\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "build": "vue-tsc && vite build",
+    "build:electron": "npm run build && tsc -p tsconfig.electron.json && electron-builder --config electron-builder.yml",
+    "build:electron:dir": "npm run build && tsc -p tsconfig.electron.json && electron-builder --config electron-builder.yml --dir",
     "preview": "vite preview",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "gen:api": "openapi-typescript ../shared/openapi.json --output src/api/schema.d.ts"
+    "gen:api": "openapi-typescript ../shared/openapi.json --output src/api/schema.d.ts",
+    "electron:dev": "cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron ."
   },
   "dependencies": {
-    "vue": "^3.4.0",
-    "vue-router": "^4.3.0",
-    "pinia": "^2.1.0",
-    "element-plus": "^2.5.0",
-    "@element-plus/icons-vue": "^2.3.0",
-    "gsap": "^3.12.0",
-    "chart.js": "^4.4.0",
-    "vue-chartjs": "^5.3.0",
-    "mitt": "^3.0.0"
+    "@element-plus/icons-vue": "^2.3.2",
+    "chart.js": "^4.5.1",
+    "element-plus": "^2.14.3",
+    "gsap": "^3.15.0",
+    "mitt": "^3.0.1",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.40",
+    "vue-chartjs": "^5.3.4",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.0",
-    "vite": "^5.0.0",
-    "vue-tsc": "^2.0.0",
-    "typescript": "^5.3.0",
-    "vitest": "^1.2.0",
-    "@vue/test-utils": "^2.4.0",
-    "happy-dom": "^13.0.0",
-    "sass": "^1.70.0",
-    "unplugin-vue-components": "^0.26.0",
-    "unplugin-auto-import": "^0.17.0",
+    "@types/node": "^20.11.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/test-utils": "^2.4.11",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "electron-log": "^5.4.4",
+    "electron-updater": "^6.0.0",
+    "happy-dom": "^13.10.1",
     "openapi-typescript": "^6.7.0",
-    "@types/node": "^20.11.0"
+    "sass": "^1.101.3",
+    "typescript": "^5.9.3",
+    "unplugin-auto-import": "^0.17.8",
+    "unplugin-vue-components": "^0.26.0",
+    "vite": "^5.4.21",
+    "vitest": "^1.6.1",
+    "vue-tsc": "^2.2.12"
   },
   "comments": {
-    "phase5_deps": "electron electron-builder electron-log electron-updater — 将在 Phase 5 添加"
+    "phase5": "Electron desktop packaging complete. electron-builder.yml for NSIS config."
   }
 }
