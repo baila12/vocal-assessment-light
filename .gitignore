@@ -93,6 +93,11 @@ web/static/reports/
 *.ckpt
 models/
 
+# Frontend (Node.js)
+node_modules/
+frontend/dist/
+frontend/electron-dist/
+
 # Audio files (user data)
 uploads/*.mp3
 uploads/*.wav
