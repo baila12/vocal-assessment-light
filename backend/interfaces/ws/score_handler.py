@@ -29,6 +29,7 @@ class ScoreWebSocketHandler:
     """WebSocket 实时评分 — 管理连接生命周期和二进制流解析"""
 
     MAX_SESSIONS = 10  # 最大并发连接数
+    MAX_FRAME_BYTES = 1_048_576  # 1 MB (~16s float32 @ 16kHz, 防内存耗尽)
 
     def __init__(self) -> None:
         self._sessions: dict[str, StreamingSession] = {}
@@ -103,6 +104,15 @@ class ScoreWebSocketHandler:
         """
         while len(buffer) >= 4:
             frame_len = struct.unpack(">I", buffer[:4])[0]  # big-endian uint32
+
+            # 每帧大小上限 — 防止恶意客户端声明超大帧导致内存耗尽
+            if frame_len > self.MAX_FRAME_BYTES:
+                logger.warning(
+                    f"WS session {session.id}: oversized frame {frame_len} > {self.MAX_FRAME_BYTES}"
+                )
+                await ws.close(code=1009, reason="Frame too large")
+                return
+
             if len(buffer) < 4 + frame_len:
                 break  # 帧不完整，等待更多数据
 
@@ -150,7 +160,7 @@ class ScoreWebSocketHandler:
             ).model_dump())
 
     async def _compute_final(self, ws: WebSocket, session: StreamingSession) -> None:
-        """停止录音 → 计算最终六维评分"""
+        """停止录音 → 计算最终六维评分 (offload CPU work to thread)"""
         buffer = session.audio_buffer
         if buffer is None or len(buffer) < session._sample_rate:  # < 1s
             await ws.send_json(WsServerError(
@@ -159,7 +169,9 @@ class ScoreWebSocketHandler:
             return
 
         try:
-            result = await self._score_lightweight(buffer, session)
+            # 使用 asyncio.to_thread() 避免同步 librosa 调用阻塞事件循环
+            import asyncio
+            result = await asyncio.to_thread(self._score_lightweight, buffer, session)
             await ws.send_json(WsServerFinalScore(
                 event="final_score",
                 total=result.get("total_score", 0),
@@ -177,12 +189,16 @@ class ScoreWebSocketHandler:
                 event="error", message=f"评分失败: {e}"
             ).model_dump())
 
-    async def _score_lightweight(self, buffer: np.ndarray, session: StreamingSession) -> dict:
-        """轻量级评分: 仅 NumPy/librosa, 不加载 DL 模型 (<1s 延迟)"""
+    def _score_lightweight(self, buffer: np.ndarray, session: StreamingSession) -> dict:
+        """轻量级评分: 仅 NumPy/librosa, 不加载 DL 模型 (<1s 延迟). 同步方法, 调用方负责线程调度。"""
         import librosa
 
         sr = session._sample_rate
         duration = len(buffer) / sr
+
+        # 初始化变量 (防 except 后未绑定)
+        valid = np.array([])
+        rms_energy = np.array([0.0])
 
         # 1. 音高检测 (librosa PYIN)
         try:
@@ -213,10 +229,36 @@ class ScoreWebSocketHandler:
         except Exception:
             rhythm_score = 50.0
 
-        # 4. 其他维度 (中性分)
-        technique_score = 50.0
-        muscle_score = 50.0
-        artistry_score = 50.0
+        # 4. 发声技术代理 (spectral flatness + formant dispersion)
+        try:
+            spectral_flatness = librosa.feature.spectral_flatness(
+                y=buffer.astype(np.float64), n_fft=2048, hop_length=512
+            )[0]
+            flatness_mean = float(np.mean(spectral_flatness))
+            # 较低平坦度=较清晰的共振峰结构=较好的发声技术
+            technique_score = min(100, max(0, 95 - flatness_mean * 120))
+        except Exception:
+            technique_score = 50.0
+
+        # 5. 肌肉力量代理 (能量稳定性 + RMS 变异)
+        try:
+            rms_energy = librosa.feature.rms(y=buffer.astype(np.float64), frame_length=2048, hop_length=512)[0]
+            rms_range = float(np.max(rms_energy) / (np.mean(rms_energy) + 1e-10))
+            rms_stability = 1.0 - min(1.0, float(np.std(np.diff(rms_energy)) / (np.mean(rms_energy) + 1e-10)))
+            muscle_score = min(100, max(0, rms_range * 30 + rms_stability * 40 + 20))
+        except Exception:
+            muscle_score = 50.0
+
+        # 6. 艺术表现代理 (pitch variation + dynamics)
+        try:
+            if len(valid) > 10:
+                pitch_variation = float(np.std(valid) / max(np.mean(valid), 1e-10))
+                dynamic_range = float(np.max(rms_energy) - np.min(rms_energy))
+                artistry_score = min(100, max(0, pitch_variation * 240 + dynamic_range * 300 + 25))
+            else:
+                artistry_score = 30.0
+        except Exception:
+            artistry_score = 50.0
 
         # 六维加权
         total = (
@@ -228,19 +270,10 @@ class ScoreWebSocketHandler:
             + artistry_score * 0.10
         )
 
-        # 等级判定
-        if total >= 88:
-            level, grade = "专业级", "S"
-        elif total >= 78:
-            level, grade = "优秀", "A"
-        elif total >= 62:
-            level, grade = "良好", "B"
-        elif total >= 45:
-            level, grade = "中等", "C"
-        elif total >= 25:
-            level, grade = "及格", "D"
-        else:
-            level, grade = "待改进", "E"
+        # 等级判定 — 委托到共享内核 ScoreLevel (单一权威来源)
+        from backend.shared.domain_types import ScoreLevel
+        level_obj = ScoreLevel.from_score(total)
+        level, grade = level_obj.label, level_obj.grade
 
         return {
             "total_score": round(float(total), 1),
@@ -262,3 +295,5 @@ class ScoreWebSocketHandler:
     def _is_json(data: bytes) -> bool:
         """检测消息是否为 JSON (以 '{' 开头)"""
         return len(data) > 0 and data[0] == 0x7B  # '{'
+
+    # Note: _is_json() reserved for future mixed-protocol WebSocket handling.

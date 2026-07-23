@@ -12,7 +12,13 @@ import multiprocessing
 import os
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
+
+# 确保项目根目录在 Python 路径中 (支持直接运行 backend/main.py)
+_project_root = Path(__file__).parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 # ⚠️ 必须在任何 spawn 操作前调用
 multiprocessing.freeze_support()
@@ -24,6 +30,8 @@ from fastapi.middleware.wsgi import WSGIMiddleware
 
 def _detect_gpu() -> dict:
     """检测 GPU 加速可用性"""
+    import logging
+    logger = logging.getLogger(__name__)
     info: dict = {
         "available": False,
         "device": None,
@@ -43,9 +51,9 @@ def _detect_gpu() -> dict:
             info["name"] = "Apple Silicon GPU"
             info["demucs_accelerated"] = True
     except ImportError:
-        pass
+        logger.debug("PyTorch not available — GPU acceleration disabled")
     except Exception:
-        pass
+        logger.warning("GPU detection failed", exc_info=True)
     return info
 
 
@@ -55,8 +63,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # startup
     gpu_info = _detect_gpu()
     app.state.gpu = gpu_info
-    app.state.started_at = __import__("time").time()
-    print(f"[VAS v7.0] GPU: {gpu_info}")
+    import time as _time
+    app.state.started_at = _time.time()
+    import logging
+    logging.getLogger(__name__).info("GPU: %s", gpu_info)
 
     yield
 
@@ -73,11 +83,13 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS: Electron 生产模式不限源
+    # CORS: Electron/开发模式不限源，生产 Web 部署需配置具体 origin
+    # 注意: allow_credentials=True 与 allow_origins=["*"] 不兼容，
+    # 当前应用不使用 Cookie/JWT 认证，故设置为 False
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )

@@ -23,7 +23,7 @@ const emit = defineEmits<{
 const scoreColor = computed(() => {
   if (props.score >= 88) return 'var(--el-color-success)'
   if (props.score >= 78) return '#3b82f6'
-  if (props.score >= 62) return 'var(--el-color-success)'
+  if (props.score >= 62) return 'var(--el-color-primary)'
   if (props.score >= 45) return 'var(--el-color-warning)'
   if (props.score >= 25) return '#f97316'
   return 'var(--el-color-danger)'

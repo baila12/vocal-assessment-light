@@ -29,7 +29,7 @@ def get_wsgi_app():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
-    print("=" * 50)
-    print("Vocal Assessment Web v6.3 - http://localhost:" + str(port))
-    print("=" * 50)
-    app.run(host="0.0.0.0", port=port, debug=debug, threaded=True, use_reloader=False)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Vocal Assessment Web v6.3 - http://127.0.0.1:%d", port)
+    app.run(host="127.0.0.1", port=port, debug=debug, threaded=True, use_reloader=False)

@@ -7,18 +7,21 @@
  */
 
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { WarningFilled, CircleCheck, Plus, Document } from '@element-plus/icons-vue'
 import { useAssessmentStore } from '@/stores/assessment.store'
 import { usePreferencesStore } from '@/stores/preferences.store'
 import { useApi } from '@/composables/useApi'
+import { apiClient, ApiError } from '@/api/client'
 import ScoreCard from '@/components/ScoreCard.vue'
 import ScoreRadar from '@/components/ScoreRadar.vue'
 import AudioPlayer from '@/components/AudioPlayer.vue'
 import type { SixDimensionScores } from '@/types/score'
+import type { AssessmentResult } from '@/types/api'
 
 const router = useRouter()
+const route = useRoute()
 const assessment = useAssessmentStore()
 const preferences = usePreferencesStore()
 const { getAudioUrl } = useApi()
@@ -71,9 +74,36 @@ const totalScoreColor = computed(() => {
   return 'var(--el-color-danger)'
 })
 
+// ---- 从历史记录加载 ----
+const loadingFromHistory = ref(false)
+
+async function loadFromHistory(id: string): Promise<void> {
+  loadingFromHistory.value = true
+  try {
+    const resp = await apiClient.get<{ success: boolean; record: AssessmentResult }>(
+      `/api/v1/history/${id}`,
+    )
+    if (resp.success && resp.record) {
+      assessment.setResult(resp.record)
+      if (resp.record.filepath) {
+        audioUrl.value = getAudioUrl(resp.record.filepath)
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof ApiError ? e.message : '加载历史记录失败'
+    ElMessage.error(msg)
+  } finally {
+    loadingFromHistory.value = false
+  }
+}
+
 // ---- 初始化 ----
 onMounted(() => {
-  if (!hasResult.value) {
+  const id = route.params.id as string | undefined
+  if (id && !hasResult.value) {
+    // 从历史记录恢复 (例如 /report/25)
+    loadFromHistory(id)
+  } else if (!hasResult.value) {
     ElMessage.warning('暂无分析结果，请先上传音频进行评估')
   }
   // 构建音频 URL

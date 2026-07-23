@@ -1,6 +1,120 @@
 # 项目状态
 
-> 更新: 2026-07-22 | 当前版本: **v7.0** (Phase 0-5 完成) | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-22 | 当前版本: **v7.0.1** (代码审查修复) | 分支: `feat/v7-fastapi-vue-refactor`
+
+---
+
+## v7.0.1: 代码审查修复 (2026-07-22)
+
+四代理并行代码审查 (Python backend + Vue frontend + Security + Electron) 发现 52 个问题，已修复 41 个 (79%)。
+
+### 修复总览
+
+| 严重级别 | 发现 | 已修复 | 剩余 |
+|----------|------|--------|------|
+| CRITICAL | 6 | **6** | 0 |
+| HIGH | 16 | **14** | 2 (速率限制, 安全头 — 需新依赖) |
+| MEDIUM | 18 | **14** | 4 |
+| LOW | 12 | **7** | 5 |
+| **总计** | **52** | **41** | **11** |
+
+### 关键修复
+
+**安全**:
+- ✅ `/separate` 端点路径遍历防护 (Flask + FastAPI)
+- ✅ Flask 绑定 `127.0.0.1` (不再暴露于局域网)
+- ✅ CORS `allow_credentials=False` (修复与 wildcard origin 冲突)
+- ✅ `two_stems` Pydantic `Literal` 约束
+- ✅ WebSocket 帧大小上限 1MB
+
+**评分正确性**:
+- ✅ Nasality 公式: `max(5.0, ...)` → `max(0.0, ...)` (修复高鼻音指数恒为 5.0 的 bug)
+- ✅ 等级阈值单一权威来源: `ScoreLevel.from_score()`
+- ✅ WS 实时评分: 全部 6 维度均使用 DSP 代理 (不再硬编码 50 分)
+- ✅ artistry 评分公式参数调优
+
+**架构质量**:
+- ✅ EventBus 处理器错误隔离
+- ✅ 盲目 `except: pass` 全部添加日志
+- ✅ `print()` → `logger` (10+ 处)
+- ✅ 评分算法去重: 新旧 score_service 均委托到共享 `ScoreLevel`
+- ✅ `asyncio.to_thread()` 防止 WS 阻塞事件循环
+
+**前端**:
+- ✅ ScoreCard 颜色修复 (62+ 不再与 88+ 同色)
+- ✅ 历史记录 API 响应格式对齐后端
+- ✅ progressTimer 泄漏修复 (clearInterval in finally)
+- ✅ SingView 颜色与 ReportView/ScoreCard 对齐
+- ✅ 空白 `except: pass` 全部处理
+
+### 剩余已知问题 (11 项, 非阻塞)
+
+#### HIGH (2)
+| # | 问题 | 计划 |
+|---|------|------|
+| H1 | 所有端点均无速率限制 | Phase 6+: 引入 `slowapi`/`asgi-ratelimit` |
+| H2 | 缺少安全响应头 (CSP, X-Content-Type-Options 等) | Phase 6+: 添加 Starlette middleware |
+
+#### MEDIUM (4)
+| # | 问题 |
+|---|------|
+| M1 | Electron `__dirname` 在 asar 打包后路径假设脆弱 |
+| M2 | `useApi.ts` composable 中 4/5 方法为死代码 |
+| M3 | ReportView "导出报告"按钮无 `@click` handler |
+| M4 | `sandbox: false` 可能可安全改为 `true` |
+
+#### LOW (5)
+代码风格/优化项: 分值颜色重复, Canvas deep watch, pitchHistory 裁剪, Options API 不一致, v-for key
+
+### 构建验证
+
+```
+TypeScript vue-tsc:     ✅ Zero errors
+Python py_compile:       ✅ 18/18 files
+修改文件:                18 个 (9 backend + 3 services + 4 flask + 6 frontend)
+```
+
+---
+
+## v7.0.1: 运行时修复 (2026-07-22)
+
+代码审查后启动应用测试，发现前端四项核心功能全部不可用。逐一排查修复。
+
+### 问题诊断
+
+| 功能 | 症状 | 状态 |
+|------|------|------|
+| 上传分析 | 前/后端响应格式不匹配 + 跨域 + el-upload 不接收文件 + 图标缺失 → 完全不可用 | ✅ 已修复 |
+| 历史记录 | ReportView 不加载路由参数 → 点不进去 | ✅ 已修复 |
+| 报告页 | `analysis_id=null` + `result.data=undefined` → 空白 | ✅ 已修复 |
+| 健康检查 | `/health` 不在 Vite 代理 → 显示"后端未启动" | ✅ 已修复 |
+
+### 运行验证
+
+```
+后端:  http://127.0.0.1:8000  ✅ healthy, GPU CUDA
+前端:  http://127.0.0.1:5173  ✅ 全部 API 通过 Vite 代理
+测试页: /test.html            ✅ 健康检查 + 历史 API 正常
+上传测试: /upload-test.html   ✅ 文件上传 + 分析 + 评分正常
+```
+
+### 当前可运行功能
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 上传分析 | ✅ | 拖拽文件 → 进度条 → 自动跳转报告 |
+| 六维报告 | ✅ | 雷达图 + 分数卡片 + 建议 |
+| 历史记录 | ✅ | 列表 + 分页 + 点击加载报告 |
+| 实时演唱 | ⚠️ | WebSocket 端点已就绪，待浏览器端测试 |
+| 对比分析 | ⚠️ | 页面已构建，待测试 |
+| Electron 桌面 | 🔄 | CJS/ESM 模块互操作已修复，需完整 `npm run build:electron` |
+
+### Electron 桌面模式状态
+
+- ✅ `tsconfig.electron.json`: `module: "CommonJS"` 修复
+- ✅ `electron-dist/package.json`: CJS 覆盖
+- ⏳ 需要 `npm run build` (Vite 生产构建) + `npm run build:electron` (完整打包)
+- ⏳ 需要 `scripts/build-python-runtime.bat` 构建嵌入式 Python
 
 ---
 

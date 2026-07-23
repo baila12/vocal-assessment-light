@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>上传测试</title></head>
+<body>
+<h1>文件上传测试</h1>
+<p>选择一个音频文件，点击上传</p>
+<input type="file" id="fileInput" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac">
+<button onclick="doUpload()">上传分析</button>
+<div id="status" style="margin-top:15px;font:14px monospace"></div>
+<div id="result" style="margin-top:10px;white-space:pre-wrap;font:12px monospace"></div>
+
+<script>
+async function doUpload() {
+  const file = document.getElementById('fileInput').files[0];
+  const status = document.getElementById('status');
+  const result = document.getElementById('result');
+
+  if (!file) { status.textContent = '请先选择文件'; return; }
+
+  status.textContent = '上传中...';
+  result.textContent = '';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('mode', 'quick');
+
+  try {
+    const start = Date.now();
+    const resp = await fetch('/api/v1/upload', { method: 'POST', body: formData });
+    const data = await resp.json();
+    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+
+    if (data.success) {
+      status.innerHTML = '<span style="color:green">✅ 上传成功! 耗时 ' + elapsed + 's</span>';
+      result.textContent =
+        '总分: ' + data.total_score + '\n' +
+        '等级: ' + data.level + ' (' + data.grade + ')\n' +
+        'analysis_id: ' + data.analysis_id + '\n' +
+        '音准: ' + data.scores.pitch + ' | 节奏: ' + data.scores.rhythm + '\n' +
+        '气息: ' + data.scores.breath + ' | 技术: ' + data.scores.technique + '\n' +
+        '建议: ' + (data.advice||[]).join('; ');
+    } else {
+      status.innerHTML = '<span style="color:red">❌ 失败: ' + (data.error || data.detail || '未知错误') + '</span>';
+    }
+  } catch(e) {
+    status.innerHTML = '<span style="color:red">❌ 网络错误: ' + e.message + '</span>';
+  }
+}
+</script>
+</body>
+</html>

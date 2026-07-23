@@ -52,7 +52,7 @@ function formatElapsed(seconds: number): string {
 function getScoreColor(score: number): string {
   if (score >= 88) return '#22c55e'
   if (score >= 78) return '#3b82f6'
-  if (score >= 62) return '#10b981'
+  if (score >= 62) return 'var(--el-color-primary)'
   if (score >= 45) return '#f59e0b'
   if (score >= 25) return '#f97316'
   return '#ef4444'

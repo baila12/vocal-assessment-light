@@ -5,7 +5,10 @@ ADR-6: Phase 1 即实现 EventBus，避免后续在 API 路由里硬编码调用
 """
 
 from __future__ import annotations
+import logging
 from typing import Callable, Type, Any
+
+logger = logging.getLogger(__name__)
 
 
 class DomainEvent:
@@ -22,9 +25,19 @@ class EventBus:
         self._handlers = {}
 
     def publish(self, event: DomainEvent) -> None:
-        """发布事件 — 同步调用所有订阅的处理器"""
+        """发布事件 — 同步调用所有订阅的处理器。
+
+        每个处理器有独立的错误隔离: 单个处理器崩溃不会阻止其他处理器执行。
+        """
         for handler in self._handlers.get(type(event), []):
-            handler(event)
+            try:
+                handler(event)
+            except Exception:
+                logger.exception(
+                    "EventBus handler %s failed for event %s",
+                    handler.__qualname__ if hasattr(handler, '__qualname__') else handler,
+                    type(event).__name__,
+                )
 
     def subscribe(
         self,

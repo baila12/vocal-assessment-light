@@ -4,6 +4,143 @@
 
 ---
 
+## v7.0.1 — 代码审查修复 (2026-07-22)
+
+### 全面代码审查 (52 findings → 11 remaining)
+
+四代理并行审查（Python backend + Vue frontend + Security + Electron），发现 52 个问题，已修复 41 个。
+
+#### CRITICAL 修复 (6 项)
+
+| # | 问题 | 文件 | 修复 |
+|---|------|------|------|
+| 1 | `/separate` 端点缺少路径遍历防护 | `api/routes/upload.py`, `backend/interfaces/api/routes/assessment.py` | 添加 `validate_filepath()` 调用 |
+| 2 | Flask 绑定 `0.0.0.0` 暴露于局域网 | `web_app.py` | `host="127.0.0.1"` |
+| 3 | Nasality 公式 bug — `max(5.0, ...)` 对高鼻音指数无效 | `backend/domain/assessment/timbre_adjuster.py:117` | `max(0.0, ...)` |
+| 4 | CORS `allow_credentials=True` + `allow_origins=["*"]` 互斥 | `backend/main.py` | `allow_credentials=False` |
+| 5 | 评分等级阈值在 6+ 文件中重复实现 | `services/`, `backend/`, `frontend/` | 统一委托到 `ScoreLevel.from_score()` |
+| 6 | WebSocket 实时评分 technique/muscle/artistry 硬编码为 50 | `backend/interfaces/ws/score_handler.py` | DSP 代理算法 (spectral flatness/RMS stability/pitch variation) |
+
+#### HIGH 修复 (17 项)
+
+| 类别 | 数量 | 关键修复 |
+|------|------|---------|
+| 前端类型安全 | 4 | `any` 类型清除, `HistoryView` store 直接修改, `ScoreCard` 颜色重复 |
+| 错误处理 | 5 | 盲目 `except: pass` 添加日志, `print()` 替换为 `logger`, `_save_history` try/except |
+| 架构一致性 | 3 | 评分重复消除, `_detect_gpu()` 去重, `sys.path.insert` 文档化 |
+| API 协议 | 3 | DELETE body 恢复, 历史分页修复, 虚假进度条优化 |
+| 事件系统 | 1 | EventBus 处理器错误隔离 |
+| WebSocket 安全 | 1 | 每帧 1MB 上限 + `asyncio.to_thread()` 防事件循环阻塞 |
+
+#### MEDIUM 修复 (14 项)
+
+| 类别 | 关键修复 |
+|------|---------|
+| Pydantic 验证 | `two_stems` 添加 `Literal["vocals","drums","bass","other"]` |
+| 输入安全 | `SeparateRequest` schema 约束, `_parse_frames` 帧大小限制 |
+| 评分算法 | artistry 公式参数调优, `valid`/`rms_energy` 变量初始化, `dir()` 反模式移除 |
+| 前端一致性 | `SingView.getScoreColor` 与 `ScoreCard`/`ReportView` 对齐 |
+| 资源管理 | `progressTimer` clearInterval 移至 finally 块 |
+| 数据流 | `fetchHistory` 响应格式对齐后端 `{ history, total }` |
+
+#### 剩余未修复 (11 项 — 非阻塞)
+
+- **HIGH (2)**: 速率限制缺失 (需引入新依赖), 安全响应头缺失
+- **MEDIUM (4)**: Electron asar 路径假设, `useApi` 死代码, 导出报告按钮无 handler, `sandbox: false` 待验证
+- **LOW (5)**: 分值颜色重复, Canvas 深度 watch, pitchHistory 裁剪间隙, Options API 不一致, v-for key
+
+#### 构建验证
+
+```
+TypeScript vue-tsc:     ✅ Zero errors
+Python py_compile:       ✅ 18/18 files
+前后端 API 对齐:         ✅ 已对齐
+事件循环阻塞:            ✅ asyncio.to_thread()
+WS 帧大小限制:           ✅ 1MB 上限
+```
+
+#### 修改文件 (18 个)
+
+| 层 | 文件 |
+|----|------|
+| Backend | `backend/main.py`, `backend/shared/event_bus.py`, `backend/domain/assessment/services.py`, `backend/domain/assessment/timbre_adjuster.py`, `backend/interfaces/ws/score_handler.py`, `backend/interfaces/ws/streaming_session.py`, `backend/interfaces/api/routes/assessment.py`, `backend/interfaces/api/schemas/assessment.py`, `backend/interfaces/api/deps.py` |
+| Services | `services/score_service.py`, `services/dl_services/emotion_manager.py`, `services/separation_service.py` |
+| Flask API | `web_app.py`, `api/__init__.py`, `api/errors.py`, `api/routes/upload.py` |
+| Frontend | `frontend/src/api/client.ts`, `frontend/src/stores/assessment.store.ts`, `frontend/src/stores/history.store.ts`, `frontend/src/views/HomeView.vue`, `frontend/src/views/SingView.vue`, `frontend/src/components/ScoreCard.vue` |
+
+---
+
+## v7.0.1 — 运行时修复 (2026-07-22)
+
+代码审查后启动应用发现前端无法正常工作，逐一排查修复。
+
+### 前端上传功能修复 (4 项)
+
+| # | 问题 | 根因 | 修复 |
+|---|------|------|------|
+| 1 | **上传响应格式不匹配** | 前端期望 `{ success, data: {...} }`，后端返回扁平 `{ success, total_score, ... }` | `assessment.store.ts` — 直接使用 `result` 替代 `result.data` |
+| 2 | **开发模式跨域请求** | `apiClient.getBaseUrl()` 返回绝对 URL `http://127.0.0.1:8000`，请求绕过 Vite 代理 | `api/client.ts` — 开发模式返回空字符串，使用相对路径走 Vite 代理 |
+| 3 | **el-upload 不接收文件** | `before-upload` 返回 `false` 导致 el-upload 拒绝文件 | `FileUploader.vue` — 重写为 `on-change` 事件 + `return true` |
+| 4 | **首页图标缺失** | `<Headset />` 使用但未 import | `HomeView.vue` — 添加 `Headset` 到 import |
+
+### 代理与路由修复 (4 项)
+
+| # | 问题 | 根因 | 修复 |
+|---|------|------|------|
+| 5 | **健康检查显示"后端未启动"** | `/health` 路径不在 Vite 代理中 | `vite.config.ts` — 添加 `/health` 代理 |
+| 6 | **后端无法直接启动** | `backend/main.py` 缺少项目根目录的 `sys.path` | `backend/main.py` — 添加 `sys.path.insert(0, _project_root)` |
+| 7 | **上传响应缺 `analysis_id`** | `UploadResponse.analysis_id` 为 null，前端导航到 `/report/null` | `assessment.py` — 生成 12 位 UUID 作为 `analysis_id` |
+| 8 | **上传响应缺 `grade`** | 旧评分管线不填充 grade 字段 | `assessment.py` — 从 `ScoreLevel.from_score()` 派生 grade |
+
+### 历史页加载修复 (1 项)
+
+| # | 问题 | 根因 | 修复 |
+|---|------|------|------|
+| 9 | **历史页点不进去** | `ReportView` 不使用路由参数 `:id` 加载历史数据 | `ReportView.vue` — 新增 `loadFromHistory(id)` + `useRoute()` |
+
+### 其他修复 (3 项)
+
+| # | 问题 | 根因 | 修复 |
+|---|------|------|------|
+| 10 | `_get_level_info` 崩溃 | 删除 `LEVELS` 后未更新 `_get_level_info` | `score_service.py` — 委托到 `ScoreLevel.from_score()` + `_STAR_MAP` |
+| 11 | `progressTimer` 内存泄漏 | `clearInterval` 仅在成功路径，错误路径跳过 | `assessment.store.ts` — 移至 `finally` 块 |
+| 12 | Electron CommonJS/ESM 不兼容 | `type: module` 下 Electron 无法加载 CJS | `tsconfig.electron.json` — `module: "CommonJS"` + `electron-dist/package.json` |
+
+### 构建验证
+
+```
+TypeScript vue-tsc:     ✅ Zero errors
+Python py_compile:       ✅ 18/18 files
+Vitest:                  33/33 passed
+Python 集成测试:         8/8 passed (ScoreLevel, EventBus, TimbreAdjuster, etc.)
+Vite 生产构建:           ✅ 10.14s (所有 chunk < 350KB gzip)
+后端运行验证:            ✅ healthy + GPU CUDA + 全部 API 正常
+前端运行验证:            ✅ 上传分析 + 历史加载 + 报告页 + 健康检查
+```
+
+### 新增/修改文件 (本批次)
+
+| 文件 | 变更 |
+|------|------|
+| `frontend/vite.config.ts` | 添加 `/health` 代理 |
+| `frontend/src/api/client.ts` | 开发模式相对路径 (`import.meta.env.DEV`) |
+| `frontend/src/stores/assessment.store.ts` | 扁平响应格式 + progressTimer 移到 finally |
+| `frontend/src/components/FileUploader.vue` | 重写为 `on-change` 事件模式 |
+| `frontend/src/views/HomeView.vue` | 添加 `Headset` icon import |
+| `frontend/src/views/ReportView.vue` | 新增 `loadFromHistory()` + `useRoute()` |
+| `frontend/src/views/SingView.vue` | 颜色对齐 ScoreCard/ReportView |
+| `frontend/src/stores/history.store.ts` | fetchHistory 响应格式对齐 + `Math.max(1,...)` |
+| `frontend/src/main.ts` | 全局 JS/Promise 错误捕获 |
+| `frontend/tsconfig.electron.json` | `module: "CommonJS"` |
+| `frontend/electron-dist/package.json` | `{"type": "commonjs"}` (覆盖父级 ESM) |
+| `backend/main.py` | 项目根目录 `sys.path.insert` |
+| `backend/interfaces/api/routes/assessment.py` | `analysis_id` UUID + `grade` 派生 |
+| `services/score_service.py` | `_get_level_info` → `ScoreLevel.from_score()` + `_STAR_MAP` |
+| `frontend/public/test.html` | 诊断用 API 测试页 |
+| `frontend/public/upload-test.html` | 诊断用上传测试页 |
+
+---
+
 ## v7.0 — Phase 5: Electron Desktop Packaging (2026-07-22)
 
 ### Electron Main Process

@@ -9,9 +9,10 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Setting, Folder, Delete, VideoPlay, Microphone, DataAnalysis, Lightning, Aim, Document, Moon, Sunny } from '@element-plus/icons-vue'
+import { Setting, Folder, Delete, VideoPlay, Microphone, DataAnalysis, Lightning, Aim, Document, Moon, Sunny, Headset } from '@element-plus/icons-vue'
 import { useAssessmentStore } from '@/stores/assessment.store'
 import { usePreferencesStore } from '@/stores/preferences.store'
+import { apiClient } from '@/api/client'
 import FileUploader from '@/components/FileUploader.vue'
 import ProgressOverlay from '@/components/ProgressOverlay.vue'
 
@@ -39,10 +40,7 @@ const fileSize = computed(() => {
 // ---- 健康检查 ----
 async function checkHealth(): Promise<void> {
   try {
-    const resp = await fetch(
-      `${(window as any).BACKEND_URL || 'http://127.0.0.1:8000'}/health`,
-    )
-    const data = await resp.json()
+    const data = await apiClient.get<{ status: string; version: string }>('/health')
     healthStatus.value = data.status === 'healthy' ? 'healthy' : 'unhealthy'
     healthVersion.value = data.version || ''
   } catch {

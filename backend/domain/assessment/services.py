@@ -74,15 +74,7 @@ class ScoringDomainService:
 
     @staticmethod
     def determine_level(total_score: float) -> tuple[str, str, str]:
-        """等级判定: (label, grade, color)"""
-        if total_score >= 88:
-            return ("专业级", "S", "#22c55e")
-        if total_score >= 78:
-            return ("优秀", "A", "#3b82f6")
-        if total_score >= 62:
-            return ("良好", "B", "#10b981")
-        if total_score >= 45:
-            return ("中等", "C", "#f59e0b")
-        if total_score >= 25:
-            return ("及格", "D", "#f97316")
-        return ("待改进", "E", "#ef4444")
+        """等级判定 — 委托到共享内核 ScoreLevel.from_score() 确保唯一权威来源"""
+        from backend.shared.domain_types import ScoreLevel
+        level = ScoreLevel.from_score(total_score)
+        return (level.label, level.grade, level.color)

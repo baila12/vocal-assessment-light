@@ -6,6 +6,7 @@ from flask import Flask
 from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 from pathlib import Path
+from typing import Optional
 import numpy as np
 
 from config import Config
@@ -37,9 +38,11 @@ def _detect_gpu_info() -> dict:
             info['name'] = 'Apple Silicon GPU'
             info['demucs_accelerated'] = True
     except ImportError:
-        pass
+        import logging
+        logging.getLogger(__name__).debug("PyTorch not available — GPU acceleration disabled")
     except Exception:
-        pass
+        import logging
+        logging.getLogger(__name__).warning("GPU detection failed", exc_info=True)
     return info
 
 
@@ -58,7 +61,7 @@ class NumpyJSONProvider(DefaultJSONProvider):
         return super().default(obj)
 
 
-def create_app(config: Config = None) -> Flask:
+def create_app(config: Optional[Config] = None) -> Flask:
     """应用工厂函数"""
     if config is None:
         from config import config as default_config

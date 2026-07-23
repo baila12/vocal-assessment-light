@@ -64,36 +64,35 @@ export const useAssessmentStore = defineStore('assessment', () => {
     formData.append('file', file)
     formData.append('mode', mode)
 
+    let progressTimer: ReturnType<typeof setInterval> | undefined
+
     try {
       progress.value = { stage: 'analyze', percent: 20, message: '正在分析音频特征...' }
 
-      // 模拟进度更新（后端暂为同步处理，Phase 5+ 改造为非阻塞 SSE）
-      const progressTimer = setInterval(() => {
-        if (progress.value.percent < 90) {
-          progress.value.percent += Math.random() * 15
-          if (progress.value.percent > 90) progress.value.percent = 90
+      // 使用非精确进度指示 (后端为同步处理，Phase 5+ 改造为非阻塞 SSE)
+      progressTimer = setInterval(() => {
+        if (progress.value.percent < 85) {
+          progress.value.percent += 8
+          if (progress.value.percent > 85) progress.value.percent = 85
         }
-      }, 800)
+      }, 1000)
 
-      const result = await apiClient.upload<{
-        success: boolean
-        data: AssessmentResult
-      }>('/api/v1/upload', formData)
+      // 后端 UploadResponse 为扁平结构: { success, total_score, scores, level, ... }
+      const result = await apiClient.upload<AssessmentResult & { success: boolean }>('/api/v1/upload', formData)
 
-      clearInterval(progressTimer)
-
-      if (!result.success || !result.data) {
+      if (!result.success) {
         throw new ApiError(500, '服务器返回异常数据')
       }
 
       progress.value = { stage: 'complete', percent: 100, message: '分析完成' }
-      currentResult.value = result.data
-      return result.data
+      currentResult.value = result
+      return result
     } catch (e) {
       const message = e instanceof ApiError ? e.message : '网络连接失败，请检查后端是否启动'
       error.value = message
       throw e
     } finally {
+      if (progressTimer !== undefined) clearInterval(progressTimer)
       isAnalyzing.value = false
     }
   }

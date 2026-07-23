@@ -74,12 +74,10 @@ def register_error_handlers(app):
     @app.errorhandler(Exception)
     def handle_unexpected_error(error) -> Tuple[dict, int]:
         """处理未预期的错误"""
-        import traceback
-        error_trace = traceback.format_exc()
-        # 仅在服务器端记录详细错误
-        print(f"[ERROR] Unexpected error: {error}")
-        print(error_trace)
-        # 返回通用错误信息给客户端
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("Unexpected error: %s", error)
+        # 返回通用错误信息给客户端 (不暴露内部细节)
         return jsonify({
             'success': False,
             'error': '服务器内部错误'

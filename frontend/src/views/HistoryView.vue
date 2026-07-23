@@ -63,7 +63,8 @@ function getModeLabel(mode: string): string {
 
 // ---- 选择处理 ----
 function handleSelectionChange(rows: HistoryRecord[]): void {
-  store.selectedIds = rows.map((r) => r.id)
+  // 通过 store 方法批量设置选中状态，避免直接修改 store 内部状态
+  store.setSelectedIds(rows.map((r) => r.id))
 }
 
 // ---- 操作 ----

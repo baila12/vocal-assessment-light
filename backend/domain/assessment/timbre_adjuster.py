@@ -114,4 +114,4 @@ class TimbreAdjuster:
         elif index < 0.50:
             return 30.0 + (0.50 - index) / 0.20 * 30
         else:
-            return max(5.0, 5.0 - (index - 0.50) * 5)
+            return max(0.0, 5.0 - (index - 0.50) * 5)

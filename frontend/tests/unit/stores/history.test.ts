@@ -143,6 +143,7 @@ describe('useHistoryStore', () => {
     expect(store.totalPages).toBe(3)
 
     store.records = []
-    expect(store.totalPages).toBe(0)
+    // Math.max(1, ...) 确保空列表至少显示第 1 页 (而非第 0 页)
+    expect(store.totalPages).toBe(1)
   })
 })

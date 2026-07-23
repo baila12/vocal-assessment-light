@@ -233,6 +233,8 @@ def separate_audio():
     filepath = request.json.get('filepath')
     if not filepath:
         raise ValidationError('缺少 filepath 参数')
+    # 路径安全验证 (修复: C-1 path traversal)
+    validate_filepath(filepath)
     if not Path(filepath).exists():
         raise NotFoundError('文件不存在')
 
@@ -404,13 +406,17 @@ def compare_audio():
 
 def _save_history(result: dict, filepath: str):
     """保存历史记录"""
-    history_record = {
-        'filename': result['basic_info']['filename'],
-        'filepath': filepath,
-        'total_score': result['total_score'],
-        'scores': result['scores'],
-        'level': result['level'],
-        'advice': result['advice'],
-        'mode': result.get('mode', 'quick'),  # 持久化评估模式
-    }
-    history_repo.save(history_record)
+    try:
+        basic_info = result.get('basic_info', {}) or {}
+        history_record = {
+            'filename': basic_info.get('filename', Path(filepath).name),
+            'filepath': filepath,
+            'total_score': result.get('total_score', 0),
+            'scores': result.get('scores', {}),
+            'level': result.get('level', ''),
+            'advice': result.get('advice', []),
+            'mode': result.get('mode', 'quick'),
+        }
+        history_repo.save(history_record)
+    except Exception:
+        logger.exception("Failed to save history record")

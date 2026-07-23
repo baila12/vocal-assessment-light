@@ -43,15 +43,23 @@ class ScoreServiceV4:
     - 可测试：各评分器可独立单元测试
     """
 
-    # 等级划分 v5.10 — 匹配新的分数分布
-    LEVELS = {
-        (88, 100): ("专业级", "★★★", "#22c55e"),
-        (78, 88):  ("优秀",   "★★☆", "#3b82f6"),
-        (62, 78):  ("良好",   "★★",  "#10b981"),
-        (45, 62):  ("中等",   "★☆",  "#f59e0b"),
-        (25, 45):  ("及格",   "★",   "#f97316"),
-        (0, 25):   ("待改进", "☆",   "#ef4444"),
+    # 等级划分 v5.10 — 委托到共享内核 ScoreLevel.from_score() 确保单一权威来源
+    # 本地保留星级映射以兼容旧版 UI (v6.3 使用 ★ 而非 S/A/B/C/D/E)
+    _STAR_MAP = {
+        "专业级": "★★★",
+        "优秀": "★★☆",
+        "良好": "★★",
+        "中等": "★☆",
+        "及格": "★",
+        "待改进": "☆",
     }
+
+    @staticmethod
+    def _get_level(total_score: float) -> tuple[str, str, str]:
+        """等级判定 — 委托到共享内核"""
+        from backend.shared.domain_types import ScoreLevel
+        level = ScoreLevel.from_score(total_score)
+        return (level.label, level.grade, level.color)
 
     def __init__(
         self,
@@ -547,17 +555,15 @@ class ScoreServiceV4:
 
 
     def _get_level_info(self, total_score: float) -> tuple:
-        """根据总分获取等级信息 v5.12: 修复边界情况 score>=100 和 score<0"""
+        """根据总分获取等级信息 (含星级, 兼容旧版 UI)"""
         if total_score >= 100:
             return "专业级", "S", "★★★", "#22c55e"
         if total_score < 0:
             return "无效", "?", "☆☆☆☆☆", "#888888"
-        for (low, high), (level, stars, color) in self.LEVELS.items():
-            if low <= total_score < high:
-                grade = level[0] if level != "待改进" else "D"
-                return level, grade, stars, color
-        # 不应到达这里，但作为最终回退
-        return "待改进", "D", "☆", "#ef4444"
+        from backend.shared.domain_types import ScoreLevel
+        level = ScoreLevel.from_score(total_score)
+        stars = self._STAR_MAP.get(level.label, "☆")
+        return level.label, level.grade, stars, level.color
 
 
 # 保持向后兼容

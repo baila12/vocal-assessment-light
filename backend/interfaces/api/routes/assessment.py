@@ -23,6 +23,7 @@ from backend.interfaces.api.schemas.assessment import (
     SeparateRequest, SeparateResponse, ReportRequest, ReportResponse,
     CompareRequest, CompareResponse,
 )
+import uuid
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -136,12 +137,21 @@ async def upload_audio(
     if result.get("success"):
         _save_history(result, str(filepath), repo)
 
+    # 生成分析 ID (前端路由 /report/:id 需要)
+    analysis_id = str(uuid.uuid4())[:12]
+    # 派生 grade (旧版评分管线可能未填充 grade 字段)
+    grade = result.get("grade", "")
+    if not grade and result.get("level"):
+        from backend.shared.domain_types import ScoreLevel
+        grade = ScoreLevel.from_score(result.get("total_score", 0)).grade
+
     return UploadResponse(
         success=result.get("success", False),
+        analysis_id=analysis_id,
         total_score=result.get("total_score", 0),
         scores=result.get("scores", {}),
         level=result.get("level", ""),
-        grade=result.get("grade", ""),
+        grade=grade,
         advice=result.get("advice", []),
         mode=result.get("mode", "quick"),
         is_voice=result.get("is_voice", True),
@@ -245,8 +255,11 @@ async def extract_pitch(
 async def separate_audio(
     body: SeparateRequest,
     sep_service=Depends(get_separation_service),
+    config=Depends(get_flask_config),
 ):
     """人声分离 (Demucs)"""
+    # 路径安全验证 (修复: C-1 path traversal)
+    validate_filepath(body.filepath, config)
     if not Path(body.filepath).exists():
         raise HTTPException(status_code=404, detail=_FILE_NOT_FOUND)
 

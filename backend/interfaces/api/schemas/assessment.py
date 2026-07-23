@@ -1,7 +1,7 @@
 """Pydantic v2 评估相关 Schema"""
 
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, Field
 
 
@@ -40,7 +40,7 @@ class SeparateRequest(BaseModel):
     """人声分离请求"""
     filepath: str
     model: str = "htdemucs_ft"
-    two_stems: Optional[str] = "vocals"
+    two_stems: Optional[Literal["vocals", "drums", "bass", "other"]] = "vocals"
 
 
 class SeparateResponse(BaseModel):

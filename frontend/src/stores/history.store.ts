@@ -44,8 +44,9 @@ export const useHistoryStore = defineStore('history', () => {
     return filteredRecords.value.slice(start, start + pageSize.value)
   })
 
+  // 分页基于过滤后的记录数 (客户端搜索在所有已加载记录中过滤)
   const totalPages = computed(() =>
-    Math.ceil(filteredRecords.value.length / pageSize.value),
+    Math.max(1, Math.ceil(filteredRecords.value.length / pageSize.value)),
   )
 
   const hasSelection = computed(() => selectedIds.value.length > 0)
@@ -57,14 +58,17 @@ export const useHistoryStore = defineStore('history', () => {
 
     try {
       const dateParam = filter.value === 'all' ? '' : `?date=${filter.value}`
+      // 后端 HistoryListResponse 扁平结构: { success, history, total, page, total_pages, limit }
       const response = await apiClient.get<{
         success: boolean
-        data: { records: HistoryRecord[]; total: number; page: number }
+        history: HistoryRecord[]
+        total: number
+        page: number
       }>(`/api/v1/history${dateParam}`)
 
-      if (response.success && response.data) {
-        records.value = response.data.records
-        total.value = response.data.total
+      if (response.success && response.history) {
+        records.value = response.history
+        total.value = response.total
       } else {
         records.value = []
         total.value = 0
@@ -92,6 +96,7 @@ export const useHistoryStore = defineStore('history', () => {
     if (selectedIds.value.length === 0) return
 
     try {
+      // DELETE 带 body 为非标准 HTTP，但匹配当前后端 API (Phase 6+ 迁移为 POST)
       await apiClient.delete('/api/v1/history/batch', {
         ids: selectedIds.value,
       })
@@ -126,6 +131,10 @@ export const useHistoryStore = defineStore('history', () => {
   function setSearch(q: string): void {
     searchQuery.value = q
     currentPage.value = 1
+  }
+
+  function setSelectedIds(ids: number[]): void {
+    selectedIds.value = [...ids]
   }
 
   function toggleSelect(id: number): void {
@@ -172,6 +181,7 @@ export const useHistoryStore = defineStore('history', () => {
     deleteAll,
     setFilter,
     setSearch,
+    setSelectedIds,
     toggleSelect,
     toggleSelectAll,
     goToPage,

@@ -1,6 +1,6 @@
 # 声乐评估系统文档索引
 
-> **v7.0 | 2026-07-22** | Phase 0-5 完成, 279 tests passed | 分支: `feat/v7-fastapi-vue-refactor`
+> **v7.0.1 | 2026-07-22** | 代码审查 52→11 + 运行时修复 12 项 | 分支: `feat/v7-fastapi-vue-refactor`
 > v7.0 全栈重构完成 ✅ — FastAPI + Vue 3 + Element Plus + Electron
 > 8 ADR 全部落地, 详见 [V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md)
 
@@ -48,7 +48,7 @@
 | 文档 | 说明 |
 |------|------|
 | [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.0 进度、已知问题 |
-| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (含 v7.0-alpha Phase 0-3) |
+| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (含 v7.0.1 代码审查修复) |
 | [4-process/V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md) | **v7.0 全栈重构计划** (六阶段, 8 ADR, 26.5 天) |
 
 ## 5. 归档文档

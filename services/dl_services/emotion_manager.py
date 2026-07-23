@@ -4,8 +4,11 @@ Manages Demucs vocal separation. v5.12: Wav2Vec2 emotion model removed.
 """
 import os
 import json
+import logging
 import numpy as np
 import torch
+
+logger = logging.getLogger(__name__)
 
 MODEL_CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'models', 'model_config.json')
 
@@ -43,10 +46,10 @@ class ModelManager:
             model = pretrained.get_model('htdemucs')
             model.eval()
             self.models['demucs'] = model
-            print("[ModelManager] Demucs model loaded successfully")
+            logger.info("Demucs model loaded successfully")
             return model
         except Exception as e:
-            print(f"[ModelManager] Failed to load Demucs: {e}")
+            logger.warning("Failed to load Demucs: %s", e)
             return None
 
     def separate_vocals(self, audio_data, sample_rate):
@@ -69,7 +72,7 @@ class ModelManager:
             accompaniment = sources[0, :3, 0, :].sum(dim=0).numpy()
             return vocals, accompaniment
         except Exception as e:
-            print(f"[ModelManager] Demucs inference failed: {e}")
+            logger.warning("Demucs inference failed: %s", e)
             return audio_data, np.zeros_like(audio_data)
 
     def analyze_emotion(self, audio_data, sample_rate):
