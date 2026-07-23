@@ -1,6 +1,27 @@
 # 变更日志
 
-> 当前状态和已知问题见 [PROJECT_STATUS.md](PROJECT_STATUS.md) | 计划见 [PRD.md](../1-product/PRD.md)
+> 当前状态和已知问题见 [PROJECT_STATUS.md](PROJECT_STATUS.md) | 计划见 [PRD.md](../1-product/PRD.md) | 技术研究见 [TECH_RESEARCH.md](../2-technical/TECH_RESEARCH.md)
+
+---
+
+## v7.1-alpha — 五维度文献研究 (2026-07-23)
+
+### 研究范围
+对气声比、音色、咬字清晰度、面部肌肉力量、身体肌肉力量五个维度进行深度文献研究。
+- 源码框架深度分析: 完整评分管道数据流、7维度特征-评分链路、扩展点
+- 文献验证: 各维度效应量(r值/AUC)、样本量、跨研究一致性、验证质量评级
+- GitHub项目可运行性: 24个开源项目评级 (A:可直接用 到 D:不可用)
+
+### 研究发现
+- 气声比: CPPS/GNE/ABI 在病理语音上充分验证 (1,756样本)，歌声验证仅n=2 — **可接入，需校准**
+- 音色: MFCC分类成熟，但"好音色"专家一致率仅37.5% — **分类可用，质量评分主观**
+- 咬字清晰度: 仅1人试点研究 — **最大空白，标注为 Experimental**
+- 面部/身体肌肉: 零纯音频验证 — **必须保持 HEURISTIC 标注**
+- 8个A级开源工具可直接 pip install 接入
+
+### 产出
+- `参考论文/` 6篇研究总结 + 综合评估报告
+- [TECH_RESEARCH.md](../2-technical/TECH_RESEARCH.md) 技术研究文档
 
 ---
 
