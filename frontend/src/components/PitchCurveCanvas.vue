@@ -7,7 +7,6 @@
  */
 
 import { ref, watch, onMounted } from 'vue'
-import type { PropType } from 'vue'
 
 export interface PitchPoint {
   time: number
@@ -15,28 +14,21 @@ export interface PitchPoint {
   confidence?: number
 }
 
-const props = defineProps({
-  pitchData: {
-    type: Array as PropType<PitchPoint[]>,
-    required: true,
+const props = withDefaults(
+  defineProps<{
+    pitchData: PitchPoint[]
+    currentTime?: number
+    height?: number
+    lineColor?: string
+    cursorColor?: string
+  }>(),
+  {
+    currentTime: 0,
+    height: 200,
+    lineColor: '#6366f1',
+    cursorColor: '#ef4444',
   },
-  currentTime: {
-    type: Number,
-    default: 0,
-  },
-  height: {
-    type: Number,
-    default: 200,
-  },
-  lineColor: {
-    type: String,
-    default: '#6366f1',
-  },
-  cursorColor: {
-    type: String,
-    default: '#ef4444',
-  },
-})
+)
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let dpr = 1
@@ -165,12 +157,15 @@ onMounted(() => {
   draw()
 })
 
+// 浅监听: pitchData 替换引用时或 currentTime 变化时重绘
+// deep:true 对大型数组 (>2000元素, 60fps) 开销过高，移除。
+// 父组件应通过替换数组引用 (ref.value = newArray) 而非 mutation 来触发更新。
 watch(
   () => [props.pitchData, props.currentTime],
   () => {
     draw()
   },
-  { deep: true },
+  { deep: false },
 )
 </script>
 

@@ -94,6 +94,16 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ===== v7.0.2: 安全中间件 =====
+    from backend.interfaces.api.middleware import (
+        SecurityHeadersMiddleware,
+        RateLimitMiddleware,
+    )
+    # 安全响应头 (CSP, X-Content-Type-Options, X-Frame-Options, etc.)
+    app.add_middleware(SecurityHeadersMiddleware)
+    # 速率限制 (全局 120/min, 上传 20/min, WebSocket 10/min)
+    app.add_middleware(RateLimitMiddleware)
+
     # ===== Phase 2: 注册 FastAPI REST 路由 =====
     from backend.interfaces.api.routes.health import router as health_router
     from backend.interfaces.api.routes.assessment import router as assessment_router

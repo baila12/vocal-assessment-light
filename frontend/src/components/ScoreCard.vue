@@ -7,6 +7,7 @@
  */
 
 import { computed } from 'vue'
+import { scoreColor as sc } from '@/utils/colors'
 
 const props = defineProps<{
   label: string
@@ -20,14 +21,7 @@ const emit = defineEmits<{
   (e: 'click'): void
 }>()
 
-const scoreColor = computed(() => {
-  if (props.score >= 88) return 'var(--el-color-success)'
-  if (props.score >= 78) return '#3b82f6'
-  if (props.score >= 62) return 'var(--el-color-primary)'
-  if (props.score >= 45) return 'var(--el-color-warning)'
-  if (props.score >= 25) return '#f97316'
-  return 'var(--el-color-danger)'
-})
+const scoreColor = computed(() => sc(props.score))
 
 const levelLabel = computed(() => {
   if (props.score >= 88) return '专业级'

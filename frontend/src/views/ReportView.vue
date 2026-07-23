@@ -14,6 +14,7 @@ import { useAssessmentStore } from '@/stores/assessment.store'
 import { usePreferencesStore } from '@/stores/preferences.store'
 import { useApi } from '@/composables/useApi'
 import { apiClient, ApiError } from '@/api/client'
+import { scoreColor } from '@/utils/colors'
 import ScoreCard from '@/components/ScoreCard.vue'
 import ScoreRadar from '@/components/ScoreRadar.vue'
 import AudioPlayer from '@/components/AudioPlayer.vue'
@@ -64,15 +65,7 @@ const scoreCards = computed(() => {
   ]
 })
 
-const totalScoreColor = computed(() => {
-  const s = result.value?.total_score ?? 0
-  if (s >= 88) return 'var(--el-color-success)'
-  if (s >= 78) return '#3b82f6'
-  if (s >= 62) return 'var(--el-color-primary)'
-  if (s >= 45) return 'var(--el-color-warning)'
-  if (s >= 25) return '#f97316'
-  return 'var(--el-color-danger)'
-})
+const totalScoreColor = computed(() => scoreColor(result.value?.total_score ?? 0))
 
 // ---- 从历史记录加载 ----
 const loadingFromHistory = ref(false)
@@ -120,6 +113,24 @@ watch(
     }
   },
 )
+
+// ---- 导出报告 ----
+const isExporting = ref(false)
+
+async function exportReport(): Promise<void> {
+  if (!result.value) return
+  isExporting.value = true
+  try {
+    // 触发浏览器打印对话框 (Electron 中效果良好)
+    // Phase 6+ 可切换为调用后端 POST /api/v1/report 生成 PDF
+    window.print()
+    ElMessage.success('报告已发送到打印机')
+  } catch {
+    ElMessage.warning('导出失败，请尝试截图保存')
+  } finally {
+    isExporting.value = false
+  }
+}
 
 // ---- 操作 ----
 function goHome(): void {
@@ -235,7 +246,7 @@ function onTimeUpdate(time: number): void {
       <!-- 底部操作 -->
       <div class="report-footer">
         <el-button :icon="Plus" @click="goHome">新分析</el-button>
-        <el-button type="primary" :icon="Document">
+        <el-button type="primary" :icon="Document" :loading="isExporting" @click="exportReport">
           导出报告
         </el-button>
       </div>
@@ -380,6 +391,34 @@ function onTimeUpdate(time: number): void {
   }
   .report-view {
     padding-bottom: 72px;
+  }
+}
+
+/* 打印样式 — 隐藏导航和按钮, 优化报告排版 */
+@media print {
+  .report-footer,
+  .top-nav,
+  .bottom-nav {
+    display: none !important;
+  }
+  .report-view {
+    padding: 0;
+    max-width: 100%;
+  }
+  .cards-grid {
+    break-inside: avoid;
+  }
+  .score-hero {
+    break-after: avoid;
+  }
+  .radar-section,
+  .cards-section,
+  .advice-section {
+    break-inside: avoid;
+    margin-bottom: 16px;
+  }
+  .total-score {
+    font-size: 48px;
   }
 }
 </style>

@@ -10,6 +10,7 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Aim, Microphone, CircleCheckFilled, InfoFilled } from '@element-plus/icons-vue'
 import { apiClient } from '@/api/client'
+import { matchColor } from '@/utils/colors'
 import FileUploader from '@/components/FileUploader.vue'
 
 // ---- 状态 ----
@@ -87,18 +88,7 @@ async function startCompare(): Promise<void> {
   }
 }
 
-// ---- 结果展示辅助 ----
-function getScoreColor(score: number): string {
-  if (score >= 80) return 'var(--el-color-success)'
-  if (score >= 60) return 'var(--el-color-warning)'
-  return 'var(--el-color-danger)'
-}
-
-function getMatchColor(rate: number): string {
-  if (rate >= 80) return 'var(--el-color-success)'
-  if (rate >= 60) return 'var(--el-color-warning)'
-  return 'var(--el-color-danger)'
-}
+// ---- 结果展示辅助 (使用 @/utils/colors 共享工具) ----
 </script>
 
 <template>
@@ -186,7 +176,7 @@ function getMatchColor(rate: number): string {
         <el-card shadow="hover" class="result-card">
           <div class="result-card-content">
             <span class="result-label">综合匹配评分</span>
-            <span class="result-value-large" :style="{ color: getScoreColor(compareResult.score) }">
+            <span class="result-value-large" :style="{ color: matchColor(compareResult.score) }">
               {{ compareResult.score }}
             </span>
             <el-tag
@@ -201,7 +191,7 @@ function getMatchColor(rate: number): string {
         <el-card shadow="hover" class="result-card">
           <div class="result-card-content">
             <span class="result-label">音准匹配率</span>
-            <span class="result-value" :style="{ color: getMatchColor(compareResult.pitch_match_rate) }">
+            <span class="result-value" :style="{ color: matchColor(compareResult.pitch_match_rate) }">
               {{ compareResult.pitch_match_rate }}%
             </span>
             <el-progress
@@ -217,7 +207,7 @@ function getMatchColor(rate: number): string {
         <el-card shadow="hover" class="result-card">
           <div class="result-card-content">
             <span class="result-label">节奏匹配率</span>
-            <span class="result-value" :style="{ color: getMatchColor(compareResult.rhythm_match_rate) }">
+            <span class="result-value" :style="{ color: matchColor(compareResult.rhythm_match_rate) }">
               {{ compareResult.rhythm_match_rate }}%
             </span>
             <el-progress

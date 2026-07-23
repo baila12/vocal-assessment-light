@@ -18,6 +18,7 @@ import { ElMessage } from 'element-plus'
 import { Microphone, VideoPause } from '@element-plus/icons-vue'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useAudioContext } from '@/composables/useAudioContext'
+import { scoreColor } from '@/utils/colors'
 import type { WsEvent } from '@/composables/useWebSocket'
 
 // ---- Composables ----
@@ -47,15 +48,6 @@ function formatElapsed(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-}
-
-function getScoreColor(score: number): string {
-  if (score >= 88) return '#22c55e'
-  if (score >= 78) return '#3b82f6'
-  if (score >= 62) return 'var(--el-color-primary)'
-  if (score >= 45) return '#f59e0b'
-  if (score >= 25) return '#f97316'
-  return '#ef4444'
 }
 
 // ---- 连接 WebSocket ----
@@ -210,7 +202,8 @@ watch(
               conf: event.confidence?.[i] ?? 1,
             })
           }
-          if (pitchHistory.value.length > 3000) {
+          // 保持最近 2000 个数据点 (~33s @ 60fps)
+          if (pitchHistory.value.length > 2000) {
             pitchHistory.value = pitchHistory.value.slice(-2000)
           }
         }
@@ -378,7 +371,7 @@ onBeforeUnmount(() => {
         <el-card shadow="hover">
           <template #header><span>评分结果</span></template>
           <div class="final-score-hero">
-            <span class="final-total" :style="{ color: getScoreColor(finalResult.total) }">
+            <span class="final-total" :style="{ color: scoreColor(finalResult.total) }">
               {{ finalResult.total }}
             </span>
             <span class="final-unit">分</span>

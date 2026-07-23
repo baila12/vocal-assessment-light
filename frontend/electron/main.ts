@@ -37,12 +37,28 @@ let isQuitting = false
 // ---- Backend Lifecycle ----
 
 /**
+ * Resolve the project root directory.
+ *
+ * 开发模式: __dirname = frontend/electron/ → projectRoot = frontend/../
+ * 生产模式: 使用 app.getAppPath() (比 __dirname 更可靠，在 asar 中也正常工作)
+ */
+function getProjectRoot(): string {
+  // 生产模式: app.getAppPath() 返回 asar 根目录或源码目录
+  if (app.isPackaged) {
+    return app.getAppPath()
+  }
+  // 开发模式: __dirname 是 frontend/electron/, 往上两级到项目根
+  return path.join(__dirname, '..', '..')
+}
+
+/**
  * Find the backend main.py script.
  * In production: resources/backend/main.py
- * In development: ../../backend/main.py (relative from electron/)
+ * In development: <projectRoot>/backend/main.py
  */
 function getBackendScriptPath(): string {
-  const devPath = path.join(__dirname, '..', '..', 'backend', 'main.py')
+  const projectRoot = getProjectRoot()
+  const devPath = path.join(projectRoot, 'backend', 'main.py')
   if (fs.existsSync(devPath)) {
     return devPath
   }
@@ -61,7 +77,7 @@ function getPythonPath(): string {
   }
 
   // Development: try project's conda env first
-  const projectRoot = path.join(__dirname, '..', '..')
+  const projectRoot = getProjectRoot()
   const condaPath = path.join(projectRoot, '..', 'pytorch2', 'python.exe')
   if (fs.existsSync(condaPath)) {
     return condaPath
@@ -224,6 +240,11 @@ function stopBackend(): void {
 // ---- Electron App Lifecycle ----
 
 function createWindow(): BrowserWindow {
+  // preload 路径: 使用 app.getAppPath() (asar 安全)
+  const preloadPath = app.isPackaged
+    ? path.join(app.getAppPath(), 'electron', 'preload.js')
+    : path.join(__dirname, 'preload.js')
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -231,10 +252,13 @@ function createWindow(): BrowserWindow {
     minHeight: 600,
     title: 'VAS — 声乐评估系统',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false, // Required for preload to use Node APIs
+      // sandbox: false 是预加载脚本使用 Node API (contextBridge/ipcRenderer) 的必要条件。
+      // 配合 contextIsolation: true, 渲染进程仍完全隔离 — 只能通过 preload 暴露的 API 通信。
+      // 这是 Electron 安全最佳实践中推荐的标准配置。
+      sandbox: false,
     },
     show: false, // Show after backend is ready
   })
@@ -356,8 +380,11 @@ app.whenReady().then(async () => {
     // Development: Vite dev server
     await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
-    // Production: built files
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
+    // Production: built files (asar 安全 — 使用 app.getAppPath())
+    const indexPath = app.isPackaged
+      ? path.join(app.getAppPath(), 'dist', 'index.html')
+      : path.join(__dirname, '..', 'dist', 'index.html')
+    mainWindow.loadFile(indexPath)
   }
 })
 
