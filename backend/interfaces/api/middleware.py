@@ -175,6 +175,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._limiter = limiter or _rate_limiter
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # 集成测试模式: 禁用限流 (单元测试中不设置此变量)
+        import os
+        if os.environ.get("VAS_DISABLE_RATE_LIMIT"):
+            return await call_next(request)
+
         # 健康检查不限流
         if request.url.path == "/health":
             return await call_next(request)

@@ -1,6 +1,118 @@
 # 项目状态
 
-> 更新: 2026-07-23 | 当前版本: **v7.0.3** | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-23 | 当前版本: **v7.1.0** | 分支: `feat/v7-fastapi-vue-refactor`
+
+---
+
+## v7.1.0 — DDD 评分接入生产 + FCPE 集成 + 死代码清理 (2026-07-23)
+
+### 四阶段重构完成
+
+基于 V7_MIGRATION_PLAN.md 验收差距分析 + 3 代理并行代码库探索，完成 TDD+DDD+BDD 驱动的四阶段重构。
+
+#### Phase A: 死代码清理 + 测试修复 ✅
+
+| 变更 | 详情 |
+|------|------|
+| 删除 | `services/dl_services/dl_quality_assessor.py` (279行 SingMOS) |
+| 删除 | `services/dl_services/emotion_manager.py` (~100行 DL 情绪) |
+| 删除 | `services/professional_feedback.py` (~400行, 零生产引用) |
+| 删除 | `api/business/audio_comparison.py` (403行, 所有函数从未调用) |
+| 移除 | `ScoreServiceV4._apply_dl_fusion()` 方法 (~40行) |
+| 移除 | `ScoreResultV4` 中 `dl_mos_*`, `dl_confidence` 字段 (4 fields) |
+| 移除 | `AnalysisResult` 中 DL 字段 (4 fields) |
+| 修复 | Quick mode → `FeatureFlags.for_quick()`, Pro → `FeatureFlags.for_professional()` |
+| 修复 | 3 个已有 FeatureFlags 测试失败 (v5.18→v6.2 默认值变更) |
+| 修复 | Rate-limit 中间件测试环境禁用 (`VAS_DISABLE_RATE_LIMIT` env var) |
+| 新增 | `tests/tdd/test_phase_a_cleanup.py` — 13 个 TDD 测试 |
+
+#### Phase B: DDD Domain 层接入生产 ✅
+
+| 变更 | 详情 |
+|------|------|
+| **新建** | `backend/application/assessment/feature_adapters.py` — 7 维度特征适配器 (旧 AudioFeaturesResult → DDD feature dataclass) |
+| **新建** | `backend/application/assessment/scoring_orchestrator.py` — 统一评分编排器 (6 DDD scorer → ScoringDomainService → 生产 dict) |
+| **新建** | `backend/application/assessment/history_subscriber.py` — EventBus 订阅者 (ScoreCalculated → JsonHistoryRepository.save()) |
+| **Flag** | `FeatureFlags.enable_ddd_scoring` — 门控新旧路径切换 |
+| **兼容** | `_s()` helper + dict/dataclass 双格式 — `_build_success_result`, advice_service, 诊断函数 |
+| **新增** | API 响应中 `muscle_strength` + `timbre_adjustment` + `heuristic_dimensions` 字段 |
+
+**架构变更**: DDD `ScoringDomainService` 现在是默认生产评分路径 (绞杀者: 旧 `ScoreServiceV4` 可通过 flag 回退)。
+
+```
+BEFORE: route → analyze_and_score() → ScoreServiceV4 (旧五维)
+AFTER:  route → analyze_and_score() → ScoringOrchestrator (新六维, 默认)
+                                        → FeatureAdapters → 6 DDD scorers
+                                        → ScoringDomainService → EventBus
+```
+
+#### Phase C: Infrastructure 音频层 + Structured Logging ✅
+
+| 变更 | 详情 |
+|------|------|
+| **实现** | `backend/infrastructure/audio/librosa_loader.py` — `AudioData` frozen dataclass + `AudioLoadError` |
+| **实现** | `backend/infrastructure/audio/pyin_extractor.py` — `PitchResult` frozen dataclass + TorchCREPE fallback |
+| **实现** | `backend/infrastructure/audio/demucs_separator.py` — `SeparationResult` frozen dataclass + GPU auto-detect |
+| **新建** | `backend/infrastructure/audio/protocols.py` — `AudioLoader`, `PitchExtractor`, `VoiceSeparator` Protocol 接口 |
+
+> ⚠️ 基础设施层已实现但尚未接入生产特征提取管线 — 生产仍使用 `services/features/`。
+
+#### Phase D: torchfcpe FCPE 基频检测集成 ✅
+
+| 变更 | 详情 |
+|------|------|
+| **安装** | `pip install torchfcpe` — 成功 |
+| **新建** | `backend/infrastructure/audio/fcpe_extractor.py` — FCPE 替换 YIN (96.79% RPA, GPU 加速) |
+| **验证** | 440Hz sine → 439.6Hz (偏差 < 1Hz), detection_rate=1.0 |
+| **Flag** | `FeatureFlags.enable_fcpe` (默认 False) + `enable_audiofeat` + `enable_timbral_models` 预留 |
+
+#### 其他改进
+
+| 变更 | 详情 |
+|------|------|
+| **Vue 3 SPA** | FastAPI 在生产模式下服务 `frontend/dist/` (SPA fallback + /assets) |
+| **DL 诊断** | 移除 diagnostic.py 中 s3prl/wvmos/speechbrain 引用 |
+| **默认值** | `enable_ddd_scoring=True` — Quick/Pro 全部模式默认六维评分 |
+
+### 测试状态 (v7.1.0)
+
+```
+280 passed, 0 failed — 单元 + TDD + 中间件测试
+347 passed, 20 failed — 全量套件 (含集成/BDD, 20 失败为已有遗留)
+DDD 真实音频: melody.wav total=73.8 level=良好 6-dim ✅
+FCPE: 440Hz → 439.6Hz ✅
+```
+
+---
+
+## 绞杀者模式残留清单
+
+重构核心已完成 — DDD 评分层接入生产并设为默认。以下为绞杀者模式中仍存在的旧代码：
+
+| 残留 | 类型 | 行数 | 说明 |
+|------|------|------|------|
+| **`services/features/`** (12 files) | 旧特征提取 | ~4,000 | **唯一生产特征提取来源**, 无 DDD 替代 |
+| **`services/scoring/`** (8 files) | 旧评分器 | ~2,000 | Flag 回退路径 (`enable_ddd_scoring=False`) |
+| **`web/static/js/`** (~30 files) | 旧 SPA 前端 | ~5,000 | 磁盘残留, Flask 仍可服务 (`/old`) |
+| **`api/routes/`** (Flask) | 重复 API 层 | ~500 | 与 FastAPI 端点完全重复 |
+| **`services/dl_services/`** (11 files) | DL 模型 | ~2,000 | style classifier, VAD, DTW 仍在使用 |
+| **`backend/domain/audio/`** | DDD 桩 | ~10 | entities.py, services.py 未实现 |
+| **`backend/domain/comparison/`** | DDD 桩 | ~10 | entities.py, services.py 未实现 |
+| **audiofeat** + **timbral_models** | v7.1 P0 | - | 未安装/集成 (flag 已预留) |
+| **PyArmor** | 代码保护 | - | 未应用 (ADR-8) |
+| **electron-builder** | 桌面打包 | - | 配置就绪, 完整打包未执行 |
+| **Playwright E2E** | 测试 | - | 未执行 (需要运行服务) |
+
+### 优先级排序
+
+| 优先级 | 下一个任务 | 影响 |
+|--------|-----------|------|
+| **P0** | 用 `backend/infrastructure/audio/` 替换 `services/features/` | 移除最大残留 |
+| **P0** | 删除 `web/static/js/` → Flask 切换到仅服务 Vue 3 dist | 清理旧前端 |
+| **P1** | 删除 `services/scoring/` (DDD 成为唯一评分来源后) | 清理旧评分器 |
+| **P1** | audiofeat + timbral_models pip install + 集成 | v7.1 研究落地 |
+| **P2** | 实现 `backend/domain/audio/` + `backend/domain/comparison/` | DDD 完整 |
+| **P2** | PyArmor 保护 + electron-builder 完整打包 | 发布就绪 |
 
 ---
 

@@ -8,13 +8,13 @@
 
 声乐评估系统 VAS 当前为 v6.3 (Flask + Vanilla JS SPA)，需升级为 v7.0，同时实现六维评分体系重构。
 
-| # | 问题 | 目标 |
-|---|------|------|
-| 1 | Flask 单线程阻塞，无法支持 WebSocket 实时评分 | FastAPI 异步 + WebSocket |
-| 2 | Vanilla JS SPA 有 162 内联样式 + 120+ emoji，难维护 | Vue 3 + Element Plus |
-| 3 | 五维评分权重不合理 (音准 28%/节奏 20% 过高) | 六维: 音准/节奏各 10%，新增肌肉力量 25% |
-| 4 | 缺少肌肉力量维度、咬字/气声比子维度 | 发声技术拆分 + 肌肉力量 + 音色加减分 |
-| 5 | 浏览器访问，无法原生桌面体验 | Electron + 嵌入式 Python 运行时 |
+| # | 问题                                                | 目标                                    |
+| - | --------------------------------------------------- | --------------------------------------- |
+| 1 | Flask 单线程阻塞，无法支持 WebSocket 实时评分       | FastAPI 异步 + WebSocket                |
+| 2 | Vanilla JS SPA 有 162 内联样式 + 120+ emoji，难维护 | Vue 3 + Element Plus                    |
+| 3 | 五维评分权重不合理 (音准 28%/节奏 20% 过高)         | 六维: 音准/节奏各 10%，新增肌肉力量 25% |
+| 4 | 缺少肌肉力量维度、咬字/气声比子维度                 | 发声技术拆分 + 肌肉力量 + 音色加减分    |
+| 5 | 浏览器访问，无法原生桌面体验                        | Electron + 嵌入式 Python 运行时         |
 
 **目标架构**: DDD 四层分离 (domain/application/infrastructure/interfaces) + FastAPI 异步 + Vue 3 Composition API + Element Plus + Electron
 
@@ -31,18 +31,19 @@
 **Why**: PyInstaller 打包后启动要解压数百 MB 依赖到临时目录 (10-15s)，篡改 `sys._MEIPASS` 导致 librosa/sndfile 路径崩溃，且无法增量更新。嵌入式 Python 方案已被 Notion、Figma 早期版本、UberEats 桌面端验证。
 
 **How to apply**:
+
 - Electron `resources/` 携带官方嵌入式 Python zip → 安装 pip → 修改 `python312._pth` (取消 `#import site` 注释) → pip install 依赖
 - `backend/main.py` 顶部 `multiprocessing.freeze_support()` + Uvicorn `workers=1`
 - **Phase 0 结束前必须跑通最小原型** (Electron 启动 → Python 打印端口 → Vue 显示)，提前验证最危险的技术栈
 
-| 对比 | PyInstaller | 嵌入式 Python |
-|------|------------|---------------|
-| 启动速度 | 10-15s (解压数百 MB) | <2s |
-| 路径可靠性 | `sys._MEIPASS` 导致 librosa/sndfile DLL 找不到 | 标准目录，零修改 |
-| 增量更新 | 重编译整个 exe (600MB+) | electron-updater 推送 KB 级 .py 文件 |
-| 调试 | 无法直接运行 exe 看堆栈 | 拖 `python.exe main.py` 进 CMD 即可 |
-| 杀毒误报 | Inno Setup exe 极易被拦截 | electron-builder NSIS 误报率低 |
-| SQLite | spec 中手动添加 DLL | 嵌入式包自带 `DLLs/sqlite3.dll` |
+| 对比       | PyInstaller                                      | 嵌入式 Python                        |
+| ---------- | ------------------------------------------------ | ------------------------------------ |
+| 启动速度   | 10-15s (解压数百 MB)                             | <2s                                  |
+| 路径可靠性 | `sys._MEIPASS` 导致 librosa/sndfile DLL 找不到 | 标准目录，零修改                     |
+| 增量更新   | 重编译整个 exe (600MB+)                          | electron-updater 推送 KB 级 .py 文件 |
+| 调试       | 无法直接运行 exe 看堆栈                          | 拖`python.exe main.py` 进 CMD 即可 |
+| 杀毒误报   | Inno Setup exe 极易被拦截                        | electron-builder NSIS 误报率低       |
+| SQLite     | spec 中手动添加 DLL                              | 嵌入式包自带`DLLs/sqlite3.dll`     |
 
 ### ADR-2: 肌肉力量 & 音色 → 启发式代理指标
 
@@ -50,11 +51,11 @@
 
 **How to apply**:
 
-| 维度 | 代理指标 | 置信度 |
-|------|---------|--------|
-| 身体肌肉力量 | max_db_level + low_freq_energy_ratio + rms_decay_rate_held_notes | 中 |
-| 面部肌肉力量 | singers_formant_energy + formant_clustering_quality + overtone_richness | 中 |
-| 音色评估 | spectral_centroid_deviation + mfcc_cluster_distance + harmonic_richness | 低 (MFCC 聚类纯度 <0.6 时归零) |
+| 维度         | 代理指标                                                                | 置信度                         |
+| ------------ | ----------------------------------------------------------------------- | ------------------------------ |
+| 身体肌肉力量 | max_db_level + low_freq_energy_ratio + rms_decay_rate_held_notes        | 中                             |
+| 面部肌肉力量 | singers_formant_energy + formant_clustering_quality + overtone_richness | 中                             |
+| 音色评估     | spectral_centroid_deviation + mfcc_cluster_distance + harmonic_richness | 低 (MFCC 聚类纯度 <0.6 时归零) |
 
 - 所有新特征提取器返回 `is_heuristic: bool = True`
 - 前端显示 "估算值" 标签 + 可点击展开说明
@@ -65,6 +66,7 @@
 **Why**: URL 驱动 (`openapi-typescript http://localhost:8000/openapi.json`) 在后端未启动时中断构建，违反前后端并行开发原则。
 
 **How to apply**:
+
 ```bash
 # 后端: 导出到 shared/ 目录并提交 Git
 python backend/main.py --export-openapi > shared/openapi.json
@@ -72,6 +74,7 @@ python backend/main.py --export-openapi > shared/openapi.json
 # 前端: 读取本地文件生成类型 (无需后端运行)
 # package.json: "gen:api": "openapi-typescript ../shared/openapi.json --output src/api/schema.d.ts"
 ```
+
 **收益**: CI/CD 无需后端即可构建、前后端并行开发互不阻塞、Git diff 追踪 API 变更。
 
 ### ADR-4: Alembic 迁移 + legacy 表隔离
@@ -79,11 +82,13 @@ python backend/main.py --export-openapi > shared/openapi.json
 **Why**: 绞杀者模式下旧 Flask 与新 FastAPI 共享数据库。如果 Alembic 执行新迁移 (增加 `muscle_strength` 列)，旧 Flask 的 SQLAlchemy 模型未同步更新 → `Unknown column` 错误。
 
 **How to apply**:
+
 ```python
 # legacy/models.py — 复制 v6.3 表定义，锁定为独立表名
 class HistoryRecordV6(Base):
     __tablename__ = "history_v6"  # 独立表，不受新迁移影响
 ```
+
 新 FastAPI 用新表 `history`。Phase 4 迁移完成后，数据迁移脚本 `history_v6` → `history`，删除旧表。
 
 ### ADR-5: 结构化日志 → structlog + electron-log
@@ -91,17 +96,20 @@ class HistoryRecordV6(Base):
 **Why**: 当用户反馈"评分卡住"时，需要把 session_id 输入日志解析脚本，把前后端日志按时间戳拼合成完整链路。
 
 **How to apply**:
+
 ```python
 # Python: structlog 强制 JSON 格式
 import structlog
 logger = structlog.get_logger()
 logger.info("scoring.complete", task_id="abc123", total_score=85.3, elapsed_s=18.2)
 ```
+
 ```typescript
 // JS: electron-log 同目录输出
 import log from 'electron-log';
 log.info('analysis:start', { mode: 'quick', fileSize: 3.2e6 });
 ```
+
 前后端日志同目录 (`userData/logs/`)，微秒时间戳，按日切割。
 
 ### ADR-6: EventBus 最小原型 (Phase 1 即实现)
@@ -109,6 +117,7 @@ log.info('analysis:start', { mode: 'quick', fileSize: 3.2e6 });
 **Why**: 领域事件如果只创建不触发，等到 Phase 4 需要"评分完成时自动保存历史"时，会被迫在 API 路由里硬编码调用仓储，污染接口层。
 
 **How to apply**:
+
 ```python
 # shared/event_bus.py
 class EventBus:
@@ -131,9 +140,11 @@ event_bus.publish(ScoreCalculated(result))  # 触发历史存储
 **Why**: WebSocket 消息不保留帧边界。客户端两个 2048-sample 帧被 TCP 合并成一个包 → `np.frombuffer` 把两个帧当成一个数组解析 → 音高数据错乱。
 
 **How to apply**:
+
 ```
 [4-byte big-endian uint32 length][Float32Array PCM data][4-byte length][PCM data]...
 ```
+
 服务端循环: 读 4 字节 → 确定帧长 → 读指定字节 → `np.frombuffer` → 循环解析。即使 TCP 合并包也能正确分帧。
 
 ### ADR-8: 源码保护 → PyArmor 编译领域层
@@ -148,15 +159,15 @@ event_bus.publish(ScoreCalculated(result))  # 触发历史存储
 
 ### 3.1 权重分配
 
-| 维度 | 旧权重 | 新权重 | 子维度 | 算法来源 |
-|------|--------|--------|--------|---------|
-| 音准 (Pitch) | 28% | **10%** | — | v6.2 多指标体系: MAE指数衰减(40%)+RPA(25%)+RCA(10%)+Gross Error(15%)+Smoothness(5%)+Octave(5%) |
-| 节奏 (Rhythm) | 20% | **10%** | — | onset CV 分段 + irregularity 惩罚 + is_clean_vocal 重校准 |
-| 气息 (Breath) | 20% | **20%** | 长音支撑(40%) + 动态控制(25%) + 气口设计(20%) + 气声技巧(15%) | 不变，v6.1 连续线性映射 |
-| 发声技术 (Technique) | 18% | **25%** | 咬字清晰度(50%) + 气声比(50%) | **拆分**: 咬字=f(onset_density, spectral_flux, consonant_clarity)；气声比=f(HNR, spectral_tilt, hf_energy_ratio) |
-| 肌肉力量 (Muscle) | — | **25%** | 身体肌肉(50%) + 面部肌肉(50%) | **NEW ⚠️ 启发式** |
-| 艺术表现 (Artistry) | 14% | **10%** | 颤音品质(30%) + 动态控制(30%) + 乐句表现力(25%) + 音高变化(15%) | 不变，v6.1 独立声学特征 |
-| **总计** | 100% | **100%** | | |
+| 维度                 | 旧权重 | 新权重         | 子维度                                                          | 算法来源                                                                                                               |
+| -------------------- | ------ | -------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 音准 (Pitch)         | 28%    | **10%**  | —                                                              | v6.2 多指标体系: MAE指数衰减(40%)+RPA(25%)+RCA(10%)+Gross Error(15%)+Smoothness(5%)+Octave(5%)                         |
+| 节奏 (Rhythm)        | 20%    | **10%**  | —                                                              | onset CV 分段 + irregularity 惩罚 + is_clean_vocal 重校准                                                              |
+| 气息 (Breath)        | 20%    | **20%**  | 长音支撑(40%) + 动态控制(25%) + 气口设计(20%) + 气声技巧(15%)   | 不变，v6.1 连续线性映射                                                                                                |
+| 发声技术 (Technique) | 18%    | **25%**  | 咬字清晰度(50%) + 气声比(50%)                                   | **拆分**: 咬字=f(onset_density, spectral_flux, consonant_clarity)；气声比=f(HNR, spectral_tilt, hf_energy_ratio) |
+| 肌肉力量 (Muscle)    | —     | **25%**  | 身体肌肉(50%) + 面部肌肉(50%)                                   | **NEW ⚠️ 启发式**                                                                                              |
+| 艺术表现 (Artistry)  | 14%    | **10%**  | 颤音品质(30%) + 动态控制(30%) + 乐句表现力(25%) + 音高变化(15%) | 不变，v6.1 独立声学特征                                                                                                |
+| **总计**       | 100%   | **100%** |                                                                 |                                                                                                                        |
 
 ### 3.2 音色加减分 (不属于六维)
 
@@ -199,14 +210,14 @@ class DimensionFlags:
 
 ### 3.4 分数等级映射 (不变)
 
-| 分数范围 | 等级 | 星级 | 颜色 |
-|---------|------|------|------|
-| 88-100 | 专业级 | ★★★ | #22c55e |
-| 78-88 | 优秀 | ★★☆ | #3b82f6 |
-| 62-78 | 良好 | ★★ | #10b981 |
-| 45-62 | 中等 | ★☆ | #f59e0b |
-| 25-45 | 及格 | ★ | #f97316 |
-| 0-25 | 待改进 | ☆ | #ef4444 |
+| 分数范围 | 等级   | 星级   | 颜色    |
+| -------- | ------ | ------ | ------- |
+| 88-100   | 专业级 | ★★★ | #22c55e |
+| 78-88    | 优秀   | ★★☆ | #3b82f6 |
+| 62-78    | 良好   | ★★   | #10b981 |
+| 45-62    | 中等   | ★☆   | #f59e0b |
+| 25-45    | 及格   | ★     | #f97316 |
+| 0-25     | 待改进 | ☆     | #ef4444 |
 
 ### 3.5 关键业务规则 (来自 v6.2，保持不变)
 
@@ -517,23 +528,23 @@ function startBackend(): Promise<number> {
 
 ### 4.6 文件清单
 
-| 操作 | 文件 | 说明 |
-|------|------|------|
-| CREATE | `backend/` 完整目录结构 | 含 40+ `__init__.py` + 空模块 |
-| CREATE | `backend/main.py` | FastAPI 入口 + lifespan + freeze_support |
-| CREATE | `backend/infrastructure/config.py` | Pydantic Settings |
-| CREATE | `backend/shared/domain_types.py` | ScoreValue, PositiveFloat |
-| CREATE | `backend/shared/event_bus.py` | EventBus 最小原型 |
-| CREATE | `backend/shared/result.py` | Result[T, E] monad |
-| CREATE | `backend/legacy/flask_app.py` | Flask app 包装为 WSGI callable |
-| CREATE | `backend/legacy/models.py` | 旧表定义 (history_v6) |
-| CREATE | `backend/migrations/` | Alembic 初始化 |
-| CREATE | `frontend/` | Vite + Vue 3 + Element Plus 脚手架 |
-| CREATE | `frontend/src/api/client.ts` | HTTP 客户端 (零硬编码 URL) |
-| CREATE | `shared/openapi.json` | 空文件，Phase 2 填充 |
-| CREATE | `scripts/build-python-runtime.bat` | 嵌入式 Python 构建 |
-| MODIFY | `web_app.py` | 提取 `create_app()` 为可复用工厂 |
-| MODIFY | `start.bat` | 增加 FastAPI + Vite 启动选项 |
+| 操作   | 文件                                 | 说明                                     |
+| ------ | ------------------------------------ | ---------------------------------------- |
+| CREATE | `backend/` 完整目录结构            | 含 40+`__init__.py` + 空模块           |
+| CREATE | `backend/main.py`                  | FastAPI 入口 + lifespan + freeze_support |
+| CREATE | `backend/infrastructure/config.py` | Pydantic Settings                        |
+| CREATE | `backend/shared/domain_types.py`   | ScoreValue, PositiveFloat                |
+| CREATE | `backend/shared/event_bus.py`      | EventBus 最小原型                        |
+| CREATE | `backend/shared/result.py`         | Result[T, E] monad                       |
+| CREATE | `backend/legacy/flask_app.py`      | Flask app 包装为 WSGI callable           |
+| CREATE | `backend/legacy/models.py`         | 旧表定义 (history_v6)                    |
+| CREATE | `backend/migrations/`              | Alembic 初始化                           |
+| CREATE | `frontend/`                        | Vite + Vue 3 + Element Plus 脚手架       |
+| CREATE | `frontend/src/api/client.ts`       | HTTP 客户端 (零硬编码 URL)               |
+| CREATE | `shared/openapi.json`              | 空文件，Phase 2 填充                     |
+| CREATE | `scripts/build-python-runtime.bat` | 嵌入式 Python 构建                       |
+| MODIFY | `web_app.py`                       | 提取`create_app()` 为可复用工厂        |
+| MODIFY | `start.bat`                        | 增加 FastAPI + Vite 启动选项             |
 
 ### 4.7 BDD 验收
 
@@ -581,6 +592,7 @@ Feature: 基础设施健康检查
 基于 TDD 实现 7 个独立可测的维度评分器 + 音色调整 + 总分协调 + EventBus。
 
 **核心原则**:
+
 - 每个维度单一职责、零依赖 (测 Pitch 只需跑 pitch_scorer)
 - Feature Flag 独立开关 (关一个不影响其余)
 - 所有新增维度 (Muscle/Timbre) 标记为启发式
@@ -751,21 +763,22 @@ class ScoringDomainService:
 
 ### 5.3 TDD 实现顺序 (RED → GREEN → REFACTOR)
 
-| # | 评分器 | 测试数 | 测试文件 | 实现文件 | 状态 |
-|---|--------|--------|---------|---------|------|
-| 1 | **PitchScorer** | 16 | `tests/unit/domain/test_pitch_scorer.py` | `backend/domain/assessment/pitch_scorer.py` | 移植 v6.2 |
-| 2 | **RhythmScorer** | 12 | `tests/unit/domain/test_rhythm_scorer.py` | `backend/domain/assessment/rhythm_scorer.py` | 移植 |
-| 3 | **BreathScorer** | 14 | `tests/unit/domain/test_breath_scorer.py` | `backend/domain/assessment/breath_scorer.py` | 移植 |
-| 4 | **TechniqueScorer** | 10 | `tests/unit/domain/test_technique_scorer.py` | `backend/domain/assessment/technique_scorer.py` | **重构** |
-| 5 | **MuscleStrengthScorer** | 12 | `tests/unit/domain/test_muscle_scorer.py` | `backend/domain/assessment/muscle_scorer.py` | **NEW** |
-| 6 | **ArtistryScorer** | 8 | `tests/unit/domain/test_artistry_scorer.py` | `backend/domain/assessment/artistry_scorer.py` | 移植 |
-| 7 | **TimbreAdjuster** | 6 | `tests/unit/domain/test_timbre_adjuster.py` | `backend/domain/assessment/timbre_adjuster.py` | **NEW** |
-| 8 | **ScoringDomainService** | 10 | `tests/unit/domain/test_scoring_domain_service.py` | `backend/domain/assessment/services.py` | **重构** |
-| **总计** | | **88** | | | |
+| #              | 评分器                         | 测试数       | 测试文件                                             | 实现文件                                          | 状态           |
+| -------------- | ------------------------------ | ------------ | ---------------------------------------------------- | ------------------------------------------------- | -------------- |
+| 1              | **PitchScorer**          | 16           | `tests/unit/domain/test_pitch_scorer.py`           | `backend/domain/assessment/pitch_scorer.py`     | 移植 v6.2      |
+| 2              | **RhythmScorer**         | 12           | `tests/unit/domain/test_rhythm_scorer.py`          | `backend/domain/assessment/rhythm_scorer.py`    | 移植           |
+| 3              | **BreathScorer**         | 14           | `tests/unit/domain/test_breath_scorer.py`          | `backend/domain/assessment/breath_scorer.py`    | 移植           |
+| 4              | **TechniqueScorer**      | 10           | `tests/unit/domain/test_technique_scorer.py`       | `backend/domain/assessment/technique_scorer.py` | **重构** |
+| 5              | **MuscleStrengthScorer** | 12           | `tests/unit/domain/test_muscle_scorer.py`          | `backend/domain/assessment/muscle_scorer.py`    | **NEW**  |
+| 6              | **ArtistryScorer**       | 8            | `tests/unit/domain/test_artistry_scorer.py`        | `backend/domain/assessment/artistry_scorer.py`  | 移植           |
+| 7              | **TimbreAdjuster**       | 6            | `tests/unit/domain/test_timbre_adjuster.py`        | `backend/domain/assessment/timbre_adjuster.py`  | **NEW**  |
+| 8              | **ScoringDomainService** | 10           | `tests/unit/domain/test_scoring_domain_service.py` | `backend/domain/assessment/services.py`         | **重构** |
+| **总计** |                                | **88** |                                                      |                                                   |                |
 
 #### 各评分器 TDD 测试要点
 
 **PitchScorer** (16 tests):
+
 - MAE 指数衰减边界: 0音分→100, 40音分→36.8, 100音分→8.2
 - RPA/RCA 聚合: 全部命中→100, 全部未命中→0
 - gross_error 惩罚: rate=5%→100, rate=20%→70
@@ -775,6 +788,7 @@ class ScoringDomainService:
 - pitch_breaks YIN 校准: raw 785 → 校准后 226 (÷3.5)
 
 **MuscleStrengthScorer** (12 tests) — **NEW**:
+
 - 身体: 优秀呼吸支撑 (decay <0.5 dB/s) → >80分
 - 身体: 弱呼吸支撑 (decay >2.0 dB/s) → <40分
 - 身体: 宽动态范围 (>30dB) 加分
@@ -786,6 +800,7 @@ class ScoringDomainService:
 - 综合: `is_heuristic=True` 标记验证
 
 **TimbreAdjuster** (6 tests) — **NEW**:
+
 - 纯净音色 (高谱质心+丰富谐波+无鼻音) → adjustment = +3
 - 普通音色 → adjustment = 0
 - 鼻音重 → adjustment = -2
@@ -794,6 +809,7 @@ class ScoringDomainService:
 - clamp 验证: total=98 + adj=+3 → 100, total=3 + adj=-5 → 0
 
 **ScoringDomainService** (10 tests) — **含事件触发**:
+
 - 六维全部 80 分 → total = 80.0
 - 六维权重和 = 100% 验证
 - 音色加分 cap +3
@@ -878,31 +894,31 @@ Feature: 六维评分计算
 
 ### 5.6 文件清单
 
-| 操作 | 文件 | 说明 |
-|------|------|------|
-| CREATE | `backend/domain/__init__.py` | 领域层入口 |
-| CREATE | `backend/domain/assessment/value_objects.py` | 7 个值对象 |
-| CREATE | `backend/domain/assessment/services.py` | ScoringDomainService + EventBus |
-| CREATE | `backend/domain/assessment/events.py` | ScoreCalculated, DimensionAnalyzed |
-| CREATE | `backend/domain/assessment/errors.py` | InvalidScoreError 等 |
-| CREATE | `backend/domain/assessment/feature_flags.py` | DimensionFlags |
-| CREATE | `backend/domain/assessment/pitch_scorer.py` | 移植 v6.2 多指标体系 |
-| CREATE | `backend/domain/assessment/rhythm_scorer.py` | 移植 |
-| CREATE | `backend/domain/assessment/breath_scorer.py` | 移植 |
-| CREATE | `backend/domain/assessment/technique_scorer.py` | 重构: 咬字+气声比 |
-| CREATE | `backend/domain/assessment/muscle_scorer.py` | **NEW** 启发式 |
-| CREATE | `backend/domain/assessment/artistry_scorer.py` | 移植 |
-| CREATE | `backend/domain/assessment/timbre_adjuster.py` | **NEW** 启发式 |
-| CREATE | `backend/domain/audio/` | 音频上下文 |
-| CREATE | `backend/domain/comparison/` | 对比上下文 |
-| CREATE | `tests/unit/domain/test_pitch_scorer.py` | 16 tests |
-| CREATE | `tests/unit/domain/test_rhythm_scorer.py` | 12 tests |
-| CREATE | `tests/unit/domain/test_breath_scorer.py` | 14 tests |
-| CREATE | `tests/unit/domain/test_technique_scorer.py` | 10 tests |
-| CREATE | `tests/unit/domain/test_muscle_scorer.py` | 12 tests |
-| CREATE | `tests/unit/domain/test_artistry_scorer.py` | 8 tests |
-| CREATE | `tests/unit/domain/test_timbre_adjuster.py` | 6 tests |
-| CREATE | `tests/unit/domain/test_scoring_domain_service.py` | 10 tests (含事件) |
+| 操作   | 文件                                                 | 说明                               |
+| ------ | ---------------------------------------------------- | ---------------------------------- |
+| CREATE | `backend/domain/__init__.py`                       | 领域层入口                         |
+| CREATE | `backend/domain/assessment/value_objects.py`       | 7 个值对象                         |
+| CREATE | `backend/domain/assessment/services.py`            | ScoringDomainService + EventBus    |
+| CREATE | `backend/domain/assessment/events.py`              | ScoreCalculated, DimensionAnalyzed |
+| CREATE | `backend/domain/assessment/errors.py`              | InvalidScoreError 等               |
+| CREATE | `backend/domain/assessment/feature_flags.py`       | DimensionFlags                     |
+| CREATE | `backend/domain/assessment/pitch_scorer.py`        | 移植 v6.2 多指标体系               |
+| CREATE | `backend/domain/assessment/rhythm_scorer.py`       | 移植                               |
+| CREATE | `backend/domain/assessment/breath_scorer.py`       | 移植                               |
+| CREATE | `backend/domain/assessment/technique_scorer.py`    | 重构: 咬字+气声比                  |
+| CREATE | `backend/domain/assessment/muscle_scorer.py`       | **NEW** 启发式               |
+| CREATE | `backend/domain/assessment/artistry_scorer.py`     | 移植                               |
+| CREATE | `backend/domain/assessment/timbre_adjuster.py`     | **NEW** 启发式               |
+| CREATE | `backend/domain/audio/`                            | 音频上下文                         |
+| CREATE | `backend/domain/comparison/`                       | 对比上下文                         |
+| CREATE | `tests/unit/domain/test_pitch_scorer.py`           | 16 tests                           |
+| CREATE | `tests/unit/domain/test_rhythm_scorer.py`          | 12 tests                           |
+| CREATE | `tests/unit/domain/test_breath_scorer.py`          | 14 tests                           |
+| CREATE | `tests/unit/domain/test_technique_scorer.py`       | 10 tests                           |
+| CREATE | `tests/unit/domain/test_muscle_scorer.py`          | 12 tests                           |
+| CREATE | `tests/unit/domain/test_artistry_scorer.py`        | 8 tests                            |
+| CREATE | `tests/unit/domain/test_timbre_adjuster.py`        | 6 tests                            |
+| CREATE | `tests/unit/domain/test_scoring_domain_service.py` | 10 tests (含事件)                  |
 
 ### 5.7 Phase 1 验收
 
@@ -922,24 +938,24 @@ Feature: 六维评分计算
 
 ### 6.1 端点迁移表 (按批次)
 
-| # | Flask | FastAPI | 批 | 说明 |
-|---|-------|---------|-----|------|
-| 1 | `GET /health` | `GET /health` | 0 (Phase 0 已完成) | |
-| 2 | `GET /api/history` | `GET /api/v1/history` | 1 (I/O) | 查询参数: date=all/today/week/month |
-| 3 | `GET /api/history/<id>` | `GET /api/v1/history/{id}` | 1 | |
-| 4 | `DELETE /api/history/<id>` | `DELETE /api/v1/history/{id}` | 1 | |
-| 5 | `DELETE /api/history/batch` | `DELETE /api/v1/history/batch` | 1 | JSON body: {ids: [...]} |
-| 6 | `DELETE /api/history/all` | `DELETE /api/v1/history/all` | 1 | |
-| 7 | `GET /api/audio?file=...` | `GET /api/v1/audio?file=...` | 1 | 安全校验: 路径遍历 + 扩展名 |
-| 8 | `GET /api/separate/models` | `GET /api/v1/separate/models` | 1 | |
-| 9 | `POST /api/report` | `POST /api/v1/report` | 1 | pdf/image 导出 |
-| 10 | `POST /api/upload` | `POST /api/v1/upload` | 2 (CPU) | FormData: file + mode + reference_file |
-| 11 | `POST /api/analyze` | `POST /api/v1/analyze` | 2 | JSON: {filepath} |
-| 12 | `POST /api/extract-pitch` | `POST /api/v1/extract-pitch` | 2 | 音高曲线提取 |
-| 13 | `POST /api/separate` | `POST /api/v1/separate` | 2 | Demucs 人声分离 |
-| 14 | `POST /api/compare` | `POST /api/v1/compare` | 2 | DTW 双文件对比 |
-| 15-18 | (v6.3 缺失) | `GET/POST /api/v1/songs`, `GET /api/v1/songs/{id}`, `GET /api/v1/analysis/{id}`, `GET /api/v1/analysis/{id}/status` | 2 | **NEW** |
-| 19-21 | SPA + plots + `/old/` | 保留 | 0 | |
+| #     | Flask                         | FastAPI                                                                                                                     | 批                 | 说明                                   |
+| ----- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------------------- |
+| 1     | `GET /health`               | `GET /health`                                                                                                             | 0 (Phase 0 已完成) |                                        |
+| 2     | `GET /api/history`          | `GET /api/v1/history`                                                                                                     | 1 (I/O)            | 查询参数: date=all/today/week/month    |
+| 3     | `GET /api/history/<id>`     | `GET /api/v1/history/{id}`                                                                                                | 1                  |                                        |
+| 4     | `DELETE /api/history/<id>`  | `DELETE /api/v1/history/{id}`                                                                                             | 1                  |                                        |
+| 5     | `DELETE /api/history/batch` | `DELETE /api/v1/history/batch`                                                                                            | 1                  | JSON body: {ids: [...]}                |
+| 6     | `DELETE /api/history/all`   | `DELETE /api/v1/history/all`                                                                                              | 1                  |                                        |
+| 7     | `GET /api/audio?file=...`   | `GET /api/v1/audio?file=...`                                                                                              | 1                  | 安全校验: 路径遍历 + 扩展名            |
+| 8     | `GET /api/separate/models`  | `GET /api/v1/separate/models`                                                                                             | 1                  |                                        |
+| 9     | `POST /api/report`          | `POST /api/v1/report`                                                                                                     | 1                  | pdf/image 导出                         |
+| 10    | `POST /api/upload`          | `POST /api/v1/upload`                                                                                                     | 2 (CPU)            | FormData: file + mode + reference_file |
+| 11    | `POST /api/analyze`         | `POST /api/v1/analyze`                                                                                                    | 2                  | JSON: {filepath}                       |
+| 12    | `POST /api/extract-pitch`   | `POST /api/v1/extract-pitch`                                                                                              | 2                  | 音高曲线提取                           |
+| 13    | `POST /api/separate`        | `POST /api/v1/separate`                                                                                                   | 2                  | Demucs 人声分离                        |
+| 14    | `POST /api/compare`         | `POST /api/v1/compare`                                                                                                    | 2                  | DTW 双文件对比                         |
+| 15-18 | (v6.3 缺失)                   | `GET/POST /api/v1/songs`, `GET /api/v1/songs/{id}`, `GET /api/v1/analysis/{id}`, `GET /api/v1/analysis/{id}/status` | 2                  | **NEW**                          |
+| 19-21 | SPA + plots +`/old/`        | 保留                                                                                                                        | 0                  |                                        |
 
 **迁移策略**: 批 1 (I/O 端点) 先迁移 → 验证稳定 → 批 2 (CPU 密集型) 加 `asyncio.to_thread()`
 
@@ -1096,29 +1112,29 @@ Feature: FastAPI API 端点
 
 ### 6.7 文件清单
 
-| 操作 | 文件 | 说明 |
-|------|------|------|
-| CREATE | `backend/interfaces/api/__init__.py` | 全局异常处理注册 |
-| CREATE | `backend/interfaces/api/deps.py` | 依赖注入 (Depends) |
-| CREATE | `backend/interfaces/api/routes/assessment.py` | 上传/分析/分离/报告 |
-| CREATE | `backend/interfaces/api/routes/history.py` | 历史 CRUD |
-| CREATE | `backend/interfaces/api/routes/comparison.py` | DTW 对比 |
-| CREATE | `backend/interfaces/api/routes/songs.py` | 曲库 CRUD [NEW] |
-| CREATE | `backend/interfaces/api/routes/health.py` | 健康检查 |
-| CREATE | `backend/interfaces/api/schemas/assessment.py` | UploadResponse, UploadRequest |
-| CREATE | `backend/interfaces/api/schemas/history.py` | HistoryListResponse |
-| CREATE | `backend/interfaces/api/schemas/comparison.py` | CompareRequest, CompareResponse |
-| CREATE | `backend/interfaces/api/schemas/common.py` | ApiResponse[T], ErrorResponse |
-| CREATE | `backend/application/assessment/analyze_audio.py` | AnalyzeAudioUseCase |
-| CREATE | `backend/application/history/query_history.py` | QueryHistoryUseCase |
-| CREATE | `backend/application/comparison/compare_audio.py` | CompareAudioUseCase |
-| CREATE | `backend/infrastructure/persistence/json_history_repo.py` | JSON 仓储实现 |
-| CREATE | `backend/infrastructure/audio/librosa_loader.py` | Librosa 音频加载适配器 |
-| CREATE | `backend/legacy/flask_app.py` | Flask app 包装为 WSGI callable |
-| CREATE | `tests/integration/test_api_routes.py` | FastAPI TestClient (14 tests) |
-| CREATE | `tests/integration/test_full_pipeline.py` | 端到端管线 (7 tests) |
-| MODIFY | `backend/main.py` | 注册路由 + mount Flask |
-| RUN | `python backend/main.py --export-openapi > shared/openapi.json` | 提交 Git |
+| 操作   | 文件                                                              | 说明                            |
+| ------ | ----------------------------------------------------------------- | ------------------------------- |
+| CREATE | `backend/interfaces/api/__init__.py`                            | 全局异常处理注册                |
+| CREATE | `backend/interfaces/api/deps.py`                                | 依赖注入 (Depends)              |
+| CREATE | `backend/interfaces/api/routes/assessment.py`                   | 上传/分析/分离/报告             |
+| CREATE | `backend/interfaces/api/routes/history.py`                      | 历史 CRUD                       |
+| CREATE | `backend/interfaces/api/routes/comparison.py`                   | DTW 对比                        |
+| CREATE | `backend/interfaces/api/routes/songs.py`                        | 曲库 CRUD [NEW]                 |
+| CREATE | `backend/interfaces/api/routes/health.py`                       | 健康检查                        |
+| CREATE | `backend/interfaces/api/schemas/assessment.py`                  | UploadResponse, UploadRequest   |
+| CREATE | `backend/interfaces/api/schemas/history.py`                     | HistoryListResponse             |
+| CREATE | `backend/interfaces/api/schemas/comparison.py`                  | CompareRequest, CompareResponse |
+| CREATE | `backend/interfaces/api/schemas/common.py`                      | ApiResponse[T], ErrorResponse   |
+| CREATE | `backend/application/assessment/analyze_audio.py`               | AnalyzeAudioUseCase             |
+| CREATE | `backend/application/history/query_history.py`                  | QueryHistoryUseCase             |
+| CREATE | `backend/application/comparison/compare_audio.py`               | CompareAudioUseCase             |
+| CREATE | `backend/infrastructure/persistence/json_history_repo.py`       | JSON 仓储实现                   |
+| CREATE | `backend/infrastructure/audio/librosa_loader.py`                | Librosa 音频加载适配器          |
+| CREATE | `backend/legacy/flask_app.py`                                   | Flask app 包装为 WSGI callable  |
+| CREATE | `tests/integration/test_api_routes.py`                          | FastAPI TestClient (14 tests)   |
+| CREATE | `tests/integration/test_full_pipeline.py`                       | 端到端管线 (7 tests)            |
+| MODIFY | `backend/main.py`                                               | 注册路由 + mount Flask          |
+| RUN    | `python backend/main.py --export-openapi > shared/openapi.json` | 提交 Git                        |
 
 ### 6.8 Phase 2 验收
 
@@ -1153,6 +1169,7 @@ WebSocket `/ws/v1/score` 支持实时音频流 + 增量评分。AudioWorklet 48k
 ```
 
 **⚠️ 防粘包解析逻辑** (WebSocket 消息不保留帧边界):
+
 ```python
 import struct
 import numpy as np
@@ -1285,17 +1302,17 @@ Feature: WebSocket 实时评分
 
 ### 7.5 文件清单
 
-| 操作 | 文件 | 说明 |
-|------|------|------|
-| CREATE | `backend/interfaces/ws/__init__.py` | WebSocket 路由注册 |
-| CREATE | `backend/interfaces/ws/score_handler.py` | ScoreWebSocketHandler + 粘包解析 |
-| CREATE | `backend/interfaces/ws/streaming_session.py` | 流式会话管理 (音频缓冲 + 增量特征) |
-| CREATE | `backend/interfaces/ws/schemas.py` | WS 消息 Pydantic 模型 |
-| CREATE | `backend/application/assessment/stream_score.py` | StreamScoreUseCase |
-| CREATE | `frontend/src/composables/useWebSocket.ts` | WebSocket 连接 + 重连 + 二进制帧 |
-| CREATE | `frontend/public/audio-processor.js` | AudioWorklet 重采样处理器 |
-| CREATE | `tests/integration/test_ws_score.py` | WebSocket 集成测试 (8 tests) |
-| MODIFY | `backend/main.py` | 注册 WebSocket 端点 |
+| 操作   | 文件                                               | 说明                               |
+| ------ | -------------------------------------------------- | ---------------------------------- |
+| CREATE | `backend/interfaces/ws/__init__.py`              | WebSocket 路由注册                 |
+| CREATE | `backend/interfaces/ws/score_handler.py`         | ScoreWebSocketHandler + 粘包解析   |
+| CREATE | `backend/interfaces/ws/streaming_session.py`     | 流式会话管理 (音频缓冲 + 增量特征) |
+| CREATE | `backend/interfaces/ws/schemas.py`               | WS 消息 Pydantic 模型              |
+| CREATE | `backend/application/assessment/stream_score.py` | StreamScoreUseCase                 |
+| CREATE | `frontend/src/composables/useWebSocket.ts`       | WebSocket 连接 + 重连 + 二进制帧   |
+| CREATE | `frontend/public/audio-processor.js`             | AudioWorklet 重采样处理器          |
+| CREATE | `tests/integration/test_ws_score.py`             | WebSocket 集成测试 (8 tests)       |
+| MODIFY | `backend/main.py`                                | 注册 WebSocket 端点                |
 
 ### 7.6 Phase 3 验收
 
@@ -1315,13 +1332,13 @@ Feature: WebSocket 实时评分
 
 ### 8.1 时间分配 (已修正 — SingPage 是最危险的页面)
 
-| 顺序 | 页面 | 复杂度 | 工作量 | 重点风险 |
-|------|------|--------|--------|---------|
-| 1 | **HomeView** (含 Settings 抽屉 + SongLibrary 抽屉) | 中 | 1.5天 | 三个页面合并为一个 (ElDrawer) |
-| 2 | **HistoryView** | 中 | 1天 | ElTable + ElPagination + **乱码修复** (GBK→UTF-8) |
-| 3 | **ReportView** | 高 | 2天 | 六维雷达图 + 音高曲线 Canvas + 音频播放器 + 启发式标签 |
-| 4 | **SingView** | **极高** | **2.5天** | Canvas 实时绘制 1.5天 + UI 交互 1天 + **内存泄露防护** |
-| 5 | **CompareView** | 高 | 1天 | 双文件上传 + DTW 结果可视化 |
+| 顺序 | 页面                                                     | 复杂度         | 工作量          | 重点风险                                                    |
+| ---- | -------------------------------------------------------- | -------------- | --------------- | ----------------------------------------------------------- |
+| 1    | **HomeView** (含 Settings 抽屉 + SongLibrary 抽屉) | 中             | 1.5天           | 三个页面合并为一个 (ElDrawer)                               |
+| 2    | **HistoryView**                                    | 中             | 1天             | ElTable + ElPagination +**乱码修复** (GBK→UTF-8)     |
+| 3    | **ReportView**                                     | 高             | 2天             | 六维雷达图 + 音高曲线 Canvas + 音频播放器 + 启发式标签      |
+| 4    | **SingView**                                       | **极高** | **2.5天** | Canvas 实时绘制 1.5天 + UI 交互 1天 +**内存泄露防护** |
+| 5    | **CompareView**                                    | 高             | 1天             | 双文件上传 + DTW 结果可视化                                 |
 
 ### 8.2 ⚠️ SingView 内存泄露防护 (6 步清理法)
 
@@ -1370,24 +1387,24 @@ App.vue
 
 ### 8.4 迁移映射 (Vanilla JS → Vue 3)
 
-| Vanilla JS (v6.3) | Vue 3 (v7.0) | 备注 |
-|-------------------|-------------|------|
-| `AppContext` (DI 容器) | `app.provide()` / `inject()` | 直接映射 |
-| `context.store` | `Pinia useAssessmentStore()` | Proxy→Pinia |
-| `context.router` | `Vue Router useRouter()` | HashRouter→Vue Router |
-| `context.api` | `composables/useApi()` | 零硬编码 URL |
-| `context.ac` | `composables/useGsap()` | gsap.context 自动清理 |
-| `context.events` | `mitt()` + Pinia `$subscribe` | API 一致 |
-| `BaseComponent` (mount/render/bindEvents) | `<script setup>` + `onMounted`/`onBeforeUnmount` | |
-| `BaseComponent.animateIn()` | `<Transition name="page">` | GSAP inside onMounted |
-| `HashRouter` (register/navigate) | Vue Router 4 (`createRouter`) | hash→history mode |
-| `Store` (Proxy) | Pinia `defineStore` (setup syntax) | |
-| `ApiClient` (ApiError) | `useApi()` + `openapi-typescript` 生成类型 | 强类型 |
-| `AnimationController` | `useGsap()` + `gsap.context()` | 自动清理 |
-| `Toast` / `Modal` / `ProgressBar` | `ElMessage` / `ElDialog` / `ElProgress` | Element Plus |
-| 120+ Unicode Emoji | `@element-plus/icons-vue` | 跨平台一致渲染 |
-| 162 inline styles | Element Plus 组件属性 + scoped CSS | |
-| `Navigation` (TopNav + BottomNav) | `ElMenu` + `ElIcon` | |
+| Vanilla JS (v6.3)                           | Vue 3 (v7.0)                                           | 备注                   |
+| ------------------------------------------- | ------------------------------------------------------ | ---------------------- |
+| `AppContext` (DI 容器)                    | `app.provide()` / `inject()`                       | 直接映射               |
+| `context.store`                           | `Pinia useAssessmentStore()`                         | Proxy→Pinia           |
+| `context.router`                          | `Vue Router useRouter()`                             | HashRouter→Vue Router |
+| `context.api`                             | `composables/useApi()`                               | 零硬编码 URL           |
+| `context.ac`                              | `composables/useGsap()`                              | gsap.context 自动清理  |
+| `context.events`                          | `mitt()` + Pinia `$subscribe`                      | API 一致               |
+| `BaseComponent` (mount/render/bindEvents) | `<script setup>` + `onMounted`/`onBeforeUnmount` |                        |
+| `BaseComponent.animateIn()`               | `<Transition name="page">`                           | GSAP inside onMounted  |
+| `HashRouter` (register/navigate)          | Vue Router 4 (`createRouter`)                        | hash→history mode     |
+| `Store` (Proxy)                           | Pinia`defineStore` (setup syntax)                    |                        |
+| `ApiClient` (ApiError)                    | `useApi()` + `openapi-typescript` 生成类型         | 强类型                 |
+| `AnimationController`                     | `useGsap()` + `gsap.context()`                     | 自动清理               |
+| `Toast` / `Modal` / `ProgressBar`     | `ElMessage` / `ElDialog` / `ElProgress`          | Element Plus           |
+| 120+ Unicode Emoji                          | `@element-plus/icons-vue`                            | 跨平台一致渲染         |
+| 162 inline styles                           | Element Plus 组件属性 + scoped CSS                     |                        |
+| `Navigation` (TopNav + BottomNav)         | `ElMenu` + `ElIcon`                                |                        |
 
 ### 8.5 Pinia Store 设计
 
@@ -1452,23 +1469,25 @@ export const usePreferencesStore = defineStore('preferences', () => {
 ### 8.6 Element Plus 集成要点
 
 **图标替换映射** (120+ emoji → Element Plus Icons):
-| Emoji | Element Plus Icon | 使用位置 |
-|-------|-------------------|---------|
-| 🎵 🎶 | `<Music />` `<Headset />` | 导航、歌曲卡片 |
-| 🎤 | `<Microphone />` | 录音按钮 |
-| ⚡ | `<Lightning />` | 快速模式标识 |
-| 🎯 | `<Aim />` | 精准度标识 |
-| 📊 📈 | `<DataAnalysis />` `<TrendCharts />` | 报告页图表 |
-| ⚙️ 🔧 | `<Setting />` `<Tools />` | 设置入口 |
-| 📁 📂 | `<Folder />` `<FolderOpened />` | 文件选择 |
-| 🗑️ | `<Delete />` | 删除操作 |
-| 📋 | `<Document />` | 报告/历史 |
-| ⚠️ ❌ ✅ | `<WarningFilled />` `<CircleCloseFilled />` `<CircleCheckFilled />` | 状态提示 |
-| 🔍 | `<Search />` | 搜索框 |
-| 🏠 | `<HomeFilled />` | 首页导航 |
-| 🕐 ⏳ | `<Clock />` `<Loading />` | 进度提示 |
+
+| Emoji      | Element Plus Icon                                                         | 使用位置       |
+| ---------- | ------------------------------------------------------------------------- | -------------- |
+| 🎵 🎶      | `<Music />` `<Headset />`                                             | 导航、歌曲卡片 |
+| 🎤         | `<Microphone />`                                                        | 录音按钮       |
+| ⚡         | `<Lightning />`                                                         | 快速模式标识   |
+| 🎯         | `<Aim />`                                                               | 精准度标识     |
+| 📊 📈      | `<DataAnalysis />` `<TrendCharts />`                                  | 报告页图表     |
+| ⚙️ 🔧    | `<Setting />` `<Tools />`                                             | 设置入口       |
+| 📁 📂      | `<Folder />` `<FolderOpened />`                                       | 文件选择       |
+| 🗑️       | `<Delete />`                                                            | 删除操作       |
+| 📋         | `<Document />`                                                          | 报告/历史      |
+| ⚠️ ❌ ✅ | `<WarningFilled />` `<CircleCloseFilled />` `<CircleCheckFilled />` | 状态提示       |
+| 🔍         | `<Search />`                                                            | 搜索框         |
+| 🏠         | `<HomeFilled />`                                                        | 首页导航       |
+| 🕐 ⏳      | `<Clock />` `<Loading />`                                             | 进度提示       |
 
 **主题定制**:
+
 ```scss
 // frontend/src/styles/element-override.scss
 :root {
@@ -1542,43 +1561,43 @@ Feature: Vue 3 SPA 功能
 
 ### 8.8 文件清单
 
-| 操作 | 文件 | 说明 |
-|------|------|------|
-| CREATE | `frontend/src/main.ts` | Vue 入口 + Element Plus + Pinia + Router |
-| CREATE | `frontend/src/App.vue` | 根组件 + `<router-view>` + `<Transition>` |
-| CREATE | `frontend/src/router/index.ts` | Vue Router 配置 (history mode) |
-| CREATE | `frontend/src/stores/assessment.store.ts` | Pinia 评估 store |
-| CREATE | `frontend/src/stores/history.store.ts` | Pinia 历史 store |
-| CREATE | `frontend/src/stores/preferences.store.ts` | Pinia 偏好 store (persisted) |
-| CREATE | `frontend/src/api/client.ts` | HTTP 客户端 (零硬编码 URL) |
-| CREATE | `frontend/src/composables/useApi.ts` | API 调用封装 |
-| CREATE | `frontend/src/composables/useWebSocket.ts` | WebSocket + 重连 |
-| CREATE | `frontend/src/composables/useGsap.ts` | GSAP (gsap.context 自动清理) |
-| CREATE | `frontend/src/composables/useAudioContext.ts` | Web Audio API 管理 |
-| CREATE | `frontend/src/composables/useMediaRecorder.ts` | 录音控制 |
-| CREATE | `frontend/src/views/HomeView.vue` | 首页 + ElDrawer(设置+曲库) |
-| CREATE | `frontend/src/views/ReportView.vue` | 报告页 |
-| CREATE | `frontend/src/views/HistoryView.vue` | 历史页 (UTF-8 重写) |
-| CREATE | `frontend/src/views/CompareView.vue` | 对比页 |
-| CREATE | `frontend/src/views/SingView.vue` | 演唱页 (含 6 步清理法) |
-| CREATE | `frontend/src/components/layout/AppLayout.vue` | ElContainer 布局 |
-| CREATE | `frontend/src/components/layout/TopNav.vue` | ElMenu |
-| CREATE | `frontend/src/components/layout/BottomNav.vue` | 移动端导航 |
-| CREATE | `frontend/src/components/ScoreCard.vue` | 评分卡片 |
-| CREATE | `frontend/src/components/ScoreRadar.vue` | 六维雷达图 |
-| CREATE | `frontend/src/components/PitchCurveCanvas.vue` | 音高曲线 Canvas |
-| CREATE | `frontend/src/components/AudioPlayer.vue` | 音频播放器 (seek+波形) |
-| CREATE | `frontend/src/components/ProgressOverlay.vue` | 分析进度条 |
-| CREATE | `frontend/src/components/FileUploader.vue` | 拖拽上传 |
-| CREATE | `frontend/src/types/api.ts` | TS 类型 (手动维护关键接口) |
-| CREATE | `frontend/src/api/schema.d.ts` | openapi-typescript 自动生成 |
-| CREATE | `frontend/src/styles/variables.css` | CSS 变量 |
-| CREATE | `frontend/src/styles/element-override.scss` | Element Plus 主题覆盖 |
-| CREATE | `frontend/src/styles/global.css` | 全局样式 |
-| CREATE | `frontend/tests/unit/stores/assessment.test.ts` | Vitest |
-| CREATE | `frontend/tests/unit/stores/history.test.ts` | Vitest |
-| CREATE | `frontend/tests/unit/components/ScoreCard.test.ts` | Vitest |
-| RUN | `npm run gen:api` | 生成 TypeScript 类型 |
+| 操作   | 文件                                                 | 说明                                         |
+| ------ | ---------------------------------------------------- | -------------------------------------------- |
+| CREATE | `frontend/src/main.ts`                             | Vue 入口 + Element Plus + Pinia + Router     |
+| CREATE | `frontend/src/App.vue`                             | 根组件 +`<router-view>` + `<Transition>` |
+| CREATE | `frontend/src/router/index.ts`                     | Vue Router 配置 (history mode)               |
+| CREATE | `frontend/src/stores/assessment.store.ts`          | Pinia 评估 store                             |
+| CREATE | `frontend/src/stores/history.store.ts`             | Pinia 历史 store                             |
+| CREATE | `frontend/src/stores/preferences.store.ts`         | Pinia 偏好 store (persisted)                 |
+| CREATE | `frontend/src/api/client.ts`                       | HTTP 客户端 (零硬编码 URL)                   |
+| CREATE | `frontend/src/composables/useApi.ts`               | API 调用封装                                 |
+| CREATE | `frontend/src/composables/useWebSocket.ts`         | WebSocket + 重连                             |
+| CREATE | `frontend/src/composables/useGsap.ts`              | GSAP (gsap.context 自动清理)                 |
+| CREATE | `frontend/src/composables/useAudioContext.ts`      | Web Audio API 管理                           |
+| CREATE | `frontend/src/composables/useMediaRecorder.ts`     | 录音控制                                     |
+| CREATE | `frontend/src/views/HomeView.vue`                  | 首页 + ElDrawer(设置+曲库)                   |
+| CREATE | `frontend/src/views/ReportView.vue`                | 报告页                                       |
+| CREATE | `frontend/src/views/HistoryView.vue`               | 历史页 (UTF-8 重写)                          |
+| CREATE | `frontend/src/views/CompareView.vue`               | 对比页                                       |
+| CREATE | `frontend/src/views/SingView.vue`                  | 演唱页 (含 6 步清理法)                       |
+| CREATE | `frontend/src/components/layout/AppLayout.vue`     | ElContainer 布局                             |
+| CREATE | `frontend/src/components/layout/TopNav.vue`        | ElMenu                                       |
+| CREATE | `frontend/src/components/layout/BottomNav.vue`     | 移动端导航                                   |
+| CREATE | `frontend/src/components/ScoreCard.vue`            | 评分卡片                                     |
+| CREATE | `frontend/src/components/ScoreRadar.vue`           | 六维雷达图                                   |
+| CREATE | `frontend/src/components/PitchCurveCanvas.vue`     | 音高曲线 Canvas                              |
+| CREATE | `frontend/src/components/AudioPlayer.vue`          | 音频播放器 (seek+波形)                       |
+| CREATE | `frontend/src/components/ProgressOverlay.vue`      | 分析进度条                                   |
+| CREATE | `frontend/src/components/FileUploader.vue`         | 拖拽上传                                     |
+| CREATE | `frontend/src/types/api.ts`                        | TS 类型 (手动维护关键接口)                   |
+| CREATE | `frontend/src/api/schema.d.ts`                     | openapi-typescript 自动生成                  |
+| CREATE | `frontend/src/styles/variables.css`                | CSS 变量                                     |
+| CREATE | `frontend/src/styles/element-override.scss`        | Element Plus 主题覆盖                        |
+| CREATE | `frontend/src/styles/global.css`                   | 全局样式                                     |
+| CREATE | `frontend/tests/unit/stores/assessment.test.ts`    | Vitest                                       |
+| CREATE | `frontend/tests/unit/stores/history.test.ts`       | Vitest                                       |
+| CREATE | `frontend/tests/unit/components/ScoreCard.test.ts` | Vitest                                       |
+| RUN    | `npm run gen:api`                                  | 生成 TypeScript 类型                         |
 
 ### 8.9 Phase 4 验收
 
@@ -1873,15 +1892,15 @@ Feature: Electron 桌面应用
 
 ### 9.7 文件清单
 
-| 操作 | 文件 | 说明 |
-|------|------|------|
-| CREATE | `electron/main.ts` | 主进程 + 进程守护 + autoUpdater |
-| CREATE | `electron/preload.ts` | contextBridge (set-backend-url) |
-| CREATE | `electron-builder.yml` | NSIS 打包配置 + extraResources |
-| CREATE | `scripts/build-python-runtime.bat` | 嵌入式 Python 构建 + PyArmor |
-| MODIFY | `backend/main.py` | freeze_support() + --port=0 + workers=1 |
-| MODIFY | `frontend/package.json` | electron-builder + electron-updater scripts |
-| MODIFY | `frontend/vite.config.ts` | Electron 开发配置 |
+| 操作   | 文件                                 | 说明                                        |
+| ------ | ------------------------------------ | ------------------------------------------- |
+| CREATE | `electron/main.ts`                 | 主进程 + 进程守护 + autoUpdater             |
+| CREATE | `electron/preload.ts`              | contextBridge (set-backend-url)             |
+| CREATE | `electron-builder.yml`             | NSIS 打包配置 + extraResources              |
+| CREATE | `scripts/build-python-runtime.bat` | 嵌入式 Python 构建 + PyArmor                |
+| MODIFY | `backend/main.py`                  | freeze_support() + --port=0 + workers=1     |
+| MODIFY | `frontend/package.json`            | electron-builder + electron-updater scripts |
+| MODIFY | `frontend/vite.config.ts`          | Electron 开发配置                           |
 
 ### 9.8 Phase 5 验收
 
@@ -1899,14 +1918,14 @@ Feature: Electron 桌面应用
 
 ### 10.1 每 Phase 门禁
 
-| Phase | 通过标准 |
-|-------|---------|
-| 0 | FastAPI `/health` 200 + Vue 首页渲染 + Flask `/old/` 共存 + 嵌入式 Python 原型跑通 |
-| 1 | 88 单元测试 GREEN + 5 音频回归偏差 < ±1 + EventBus 集成测试 + `is_heuristic` 标记验证 |
-| 2 | 21 端点全部正确 + Pydantic 校验非法输入 + Flask `/old/` 仍可用 + openapi.json 已提交 |
-| 3 | WS 握手成功 + 粘包分帧正确 + WS vs 批量评分偏差 < 1 + Session 清理无内存增长 |
-| 4 | 5 页面 Vue 渲染 + 零硬编码 URL + HistoryView 中文正常 + SingView 无内存泄露 + Playwright E2E |
-| 5 | Electron <3s 启动 + 崩溃自愈 + 增量更新 + 嵌入式 Python 可调试 |
+| Phase | 通过标准                                                                                     |
+| ----- | -------------------------------------------------------------------------------------------- |
+| 0     | FastAPI`/health` 200 + Vue 首页渲染 + Flask `/old/` 共存 + 嵌入式 Python 原型跑通        |
+| 1     | 88 单元测试 GREEN + 5 音频回归偏差 < ±1 + EventBus 集成测试 +`is_heuristic` 标记验证      |
+| 2     | 21 端点全部正确 + Pydantic 校验非法输入 + Flask`/old/` 仍可用 + openapi.json 已提交        |
+| 3     | WS 握手成功 + 粘包分帧正确 + WS vs 批量评分偏差 < 1 + Session 清理无内存增长                 |
+| 4     | 5 页面 Vue 渲染 + 零硬编码 URL + HistoryView 中文正常 + SingView 无内存泄露 + Playwright E2E |
+| 5     | Electron <3s 启动 + 崩溃自愈 + 增量更新 + 嵌入式 Python 可调试                               |
 
 ### 10.2 回归测试 (每 Phase 后运行)
 
@@ -1926,55 +1945,55 @@ npx playwright test                     # E2E
 
 ### 10.3 评分基线 (5 个真实音频 — 必须通过)
 
-| 音频 | v6.3 总分 | v7.0 预期范围 | 允许偏差 |
-|------|----------|-------------|---------|
-| 恋人（高分） | 82.2 | 75-85 | ±5 |
-| 音频-3分26秒(高分) | 80.1 | 73-83 | ±5 |
-| 1（高分） | 79.4 | 72-82 | ±5 |
-| 手写的从前（高分） | 79.0 | 72-82 | ±5 |
-| 陈奕迅难听之声（低分） | 50.0 | 40-55 | ±5 |
+| 音频                   | v6.3 总分 | v7.0 预期范围 | 允许偏差 |
+| ---------------------- | --------- | ------------- | -------- |
+| 恋人（高分）           | 82.2      | 75-85         | ±5      |
+| 音频-3分26秒(高分)     | 80.1      | 73-83         | ±5      |
+| 1（高分）              | 79.4      | 72-82         | ±5      |
+| 手写的从前（高分）     | 79.0      | 72-82         | ±5      |
+| 陈奕迅难听之声（低分） | 50.0      | 40-55         | ±5      |
 
 > **注意**: v7.0 六维权重与原五维不同 (音准 28→10%, 节奏 20→10%, 技术 18→25%, 新增肌肉 25%, 艺术 14→10%)，总分预期会有 ±5 分系统偏差。Phase 1 先用 `enable_vnext_weights=False` 回退旧权重验证 88 个单元测试全部通过，再启用新权重运行基线验证。
 
 ### 10.4 现有已知 Bug 修复计划
 
-| # | Bug | 修复 Phase | 说明 |
-|---|-----|-----------|------|
-| P1 | HistoryPage.js GBK/UTF-8 乱码 | Phase 4 | Vue 重写为 UTF-8 |
-| P1 | API 字段名不匹配 (standard vs standard_file) | Phase 2 | openapi-typescript 强类型同步 |
-| P1 | 6 个后端路由缺失 (songs CRUD, analysis status, SSE) | Phase 2 | 新增 FastAPI 端点 |
-| P1 | 报告导出 PDF/图片不可用 | Phase 2 | 修复 reports 路由 |
-| P1 | ComparePage 无法两侧都上传文件 | Phase 4 | CompareView.vue 双 ElUpload |
-| P1 | 播放器不能拖动 seek | Phase 4 | AudioPlayer.vue click-to-seek |
-| P1 | SingPage 默认强制曲库选歌 | Phase 4 | HomeView 直接进入快速演唱 |
-| P2 | 前端/后端 API 路径不一致 (api.js vs modules/api.js) | Phase 4 | 统一 useApi() composable |
-| P2 | 前端双状态管理 (AppState + Store) | Phase 4 | 统一 Pinia |
+| #  | Bug                                                 | 修复 Phase | 说明                          |
+| -- | --------------------------------------------------- | ---------- | ----------------------------- |
+| P1 | HistoryPage.js GBK/UTF-8 乱码                       | Phase 4    | Vue 重写为 UTF-8              |
+| P1 | API 字段名不匹配 (standard vs standard_file)        | Phase 2    | openapi-typescript 强类型同步 |
+| P1 | 6 个后端路由缺失 (songs CRUD, analysis status, SSE) | Phase 2    | 新增 FastAPI 端点             |
+| P1 | 报告导出 PDF/图片不可用                             | Phase 2    | 修复 reports 路由             |
+| P1 | ComparePage 无法两侧都上传文件                      | Phase 4    | CompareView.vue 双 ElUpload   |
+| P1 | 播放器不能拖动 seek                                 | Phase 4    | AudioPlayer.vue click-to-seek |
+| P1 | SingPage 默认强制曲库选歌                           | Phase 4    | HomeView 直接进入快速演唱     |
+| P2 | 前端/后端 API 路径不一致 (api.js vs modules/api.js) | Phase 4    | 统一 useApi() composable      |
+| P2 | 前端双状态管理 (AppState + Store)                   | Phase 4    | 统一 Pinia                    |
 
 ---
 
 ## 十一、风险矩阵
 
-| 风险 | 概率 | 影响 | 缓解措施 |
-|------|------|------|---------|
-| 新维度 (Muscle/Timbre) 评分无区分度 | 高 | 中 | Phase 1 默认值框架 + 5 音频验证 + `is_heuristic` 标记 |
-| FastAPI + Demucs 内存 OOM (800MB+) | 低 | 高 | 单请求模型 + `asyncio.to_thread` + 内存不足跳过 Demucs |
-| Vue 3 Canvas 内存泄露 (SingView) | 中 | 中 | onBeforeUnmount 6 步清理法 + 单元测试验证 |
-| 嵌入式 Python DLL 缺失 (ssl, sqlite3) | 中 | 高 | Phase 0 最小原型验证 + DLLs/ 目录完整性脚本 |
-| 旧 Flask 与新 Alembic 迁移冲突 | 中 | 中 | legacy 表隔离 (`history_v6`) + 数据迁移脚本 |
-| WebSocket 粘包导致音高数据错乱 | 低 | 高 | 4 字节长度前缀协议 + 粘包单元测试 |
-| 六维权重变化导致旧用户困惑 | 中 | 低 | 报告页显示权重说明 + 可切换旧五维视图 |
-| electron-builder NSIS 打包后杀毒误报 | 低 | 低 | 代码签名 + 提交 Windows Defender 白名单 |
+| 风险                                  | 概率 | 影响 | 缓解措施                                                |
+| ------------------------------------- | ---- | ---- | ------------------------------------------------------- |
+| 新维度 (Muscle/Timbre) 评分无区分度   | 高   | 中   | Phase 1 默认值框架 + 5 音频验证 +`is_heuristic` 标记  |
+| FastAPI + Demucs 内存 OOM (800MB+)    | 低   | 高   | 单请求模型 +`asyncio.to_thread` + 内存不足跳过 Demucs |
+| Vue 3 Canvas 内存泄露 (SingView)      | 中   | 中   | onBeforeUnmount 6 步清理法 + 单元测试验证               |
+| 嵌入式 Python DLL 缺失 (ssl, sqlite3) | 中   | 高   | Phase 0 最小原型验证 + DLLs/ 目录完整性脚本             |
+| 旧 Flask 与新 Alembic 迁移冲突        | 中   | 中   | legacy 表隔离 (`history_v6`) + 数据迁移脚本           |
+| WebSocket 粘包导致音高数据错乱        | 低   | 高   | 4 字节长度前缀协议 + 粘包单元测试                       |
+| 六维权重变化导致旧用户困惑            | 中   | 低   | 报告页显示权重说明 + 可切换旧五维视图                   |
+| electron-builder NSIS 打包后杀毒误报  | 低   | 低   | 代码签名 + 提交 Windows Defender 白名单                 |
 
 ---
 
 ## 十二、总工作量
 
-| Phase | 内容 | 工作日 |
-|-------|------|--------|
-| 0 | Foundation (DDD 目录 + Alembic + structlog + openapi-typescript + 嵌入式 Python 原型) | 3.5 |
-| 1 | Domain Model (六维评分 TDD 88 tests + EventBus + 启发式标记) | 5 |
-| 2 | FastAPI 迁移 (21 端点 + Pydantic schemas + openapi.json + legacy 表隔离) | 4 |
-| 3 | WebSocket (4 字节长度前缀 + 增量评分 + AudioWorklet + 粘包测试) | 3 |
-| 4 | Vue 3 前端 (5 页面, SingView 2.5天, Settings/SongLibrary 合并为抽屉) | 8 |
-| 5 | Electron (嵌入式 Python + PyArmor + 进程守护 + electron-updater) | 3 |
-| **总计** | | **26.5** |
+| Phase          | 内容                                                                                  | 工作日         |
+| -------------- | ------------------------------------------------------------------------------------- | -------------- |
+| 0              | Foundation (DDD 目录 + Alembic + structlog + openapi-typescript + 嵌入式 Python 原型) | 3.5            |
+| 1              | Domain Model (六维评分 TDD 88 tests + EventBus + 启发式标记)                          | 5              |
+| 2              | FastAPI 迁移 (21 端点 + Pydantic schemas + openapi.json + legacy 表隔离)              | 4              |
+| 3              | WebSocket (4 字节长度前缀 + 增量评分 + AudioWorklet + 粘包测试)                       | 3              |
+| 4              | Vue 3 前端 (5 页面, SingView 2.5天, Settings/SongLibrary 合并为抽屉)                  | 8              |
+| 5              | Electron (嵌入式 Python + PyArmor + 进程守护 + electron-updater)                      | 3              |
+| **总计** |                                                                                       | **26.5** |

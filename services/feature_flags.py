@@ -49,6 +49,15 @@ class FeatureFlags:
     # v6.2 Praat 声质特征 (jitter/shimmer/formants/spectral_tilt)
     # Baken & Orlikoff (2000), Sundberg (1987)
     enable_praat_voice_quality: bool = True
+    # v7.1: 启用 DDD ScoringOrchestrator (六维度 + EventBus 自动保存历史)
+    # 关闭时使用旧 ScoreServiceV4 (五维度)
+    enable_ddd_scoring: bool = True
+    # v7.1 P0: FCPE 替换 YIN 基频检测 (精度 96.79% RPA, ~77x faster on GPU)
+    enable_fcpe: bool = False
+    # v7.1 P0: audiofeat 130+ 特征 (CPPS/GNE/HNR/ABI)
+    enable_audiofeat: bool = False
+    # v7.1 P0: timbral_models 8维音色 (替换手工 brightness/warmth)
+    enable_timbral_models: bool = False
 
     @classmethod
     def for_quick(cls) -> 'FeatureFlags':
@@ -61,6 +70,7 @@ class FeatureFlags:
             enable_cross_dimension_modifiers=True,
             enable_reverb_compensation=False,  # 混响补偿开销大, Quick 跳过
             enable_praat_voice_quality=True,  # v6.2: 已截断到 60s, 可接受
+            enable_ddd_scoring=True,  # v7.1: DDD 六维度评分
         )
 
     @classmethod
@@ -74,6 +84,7 @@ class FeatureFlags:
             enable_cross_dimension_modifiers=True,
             enable_reverb_compensation=True,
             enable_praat_voice_quality=True,
+            enable_ddd_scoring=True,  # v7.1: DDD 六维度评分
         )
 
     @classmethod

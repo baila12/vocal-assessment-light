@@ -61,22 +61,26 @@ class AdviceService:
         'emotion': "情感表达丰富，感染力强！"
     }
 
-    def generate(self, scores: ScoreResult) -> AdviceResult:
+    def generate(self, scores: 'ScoreResult | dict') -> 'AdviceResult':
         """
-        生成改进建议
+        生成改进建议 (v7.1: 兼容 dict 和 ScoreResultV4 dataclass)
 
         Args:
-            scores: 评分结果
+            scores: 评分结果 (dict 或 dataclass)
 
         Returns:
             AdviceResult: 建议结果
         """
+        def _s(key, default=0.0):
+            return scores.get(key, default) if isinstance(scores, dict) else getattr(scores, key, default)
+
         score_dict = {
-            'volume': scores.volume,
-            'pitch': scores.pitch,
-            'rhythm': scores.rhythm,
-            'breath': scores.breath,
-            'emotion': scores.emotion
+            'volume': _s('volume'),
+            'pitch': _s('pitch'),
+            'rhythm': _s('rhythm'),
+            'breath': _s('breath'),
+            'emotion': _s('emotion'),
+            'total': _s('total'),
         }
 
         # 排序找出最强和最弱维度
@@ -87,7 +91,7 @@ class AdviceService:
         advice = []
 
         # 总体评价
-        advice.append(self._get_overall_comment(strongest, scores.total))
+        advice.append(self._get_overall_comment(strongest, _s('total')))
 
         # 针对最弱维度的建议
         if weakest[1] < 75:

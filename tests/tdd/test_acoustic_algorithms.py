@@ -23,7 +23,7 @@ class TestFeatureFlags:
     """Feature Flag 系统 — 控制实验功能的开/关"""
 
     def test_feature_flags_dataclass_exists(self):
-        """FeatureFlags dataclass 应存在且所有 flag 默认 False"""
+        """FeatureFlags dataclass — v6.2+ 已验证算法默认启用"""
         from services.feature_flags import FeatureFlags
 
         flags = FeatureFlags()
@@ -33,33 +33,36 @@ class TestFeatureFlags:
         assert hasattr(flags, 'enable_torchcrepe_fallback')
         assert hasattr(flags, 'enable_cross_dimension_modifiers')
         assert hasattr(flags, 'enable_reverb_compensation')
-        # 默认全部关闭
-        assert flags.enable_multiscale_hnr is False
-        assert flags.enable_praat_cpp is False
-        assert flags.enable_cross_dimension_modifiers is False
-        assert flags.enable_reverb_compensation is False
+        assert hasattr(flags, 'enable_praat_voice_quality')
+        # v6.2+: 已验证算法默认启用
+        assert flags.enable_multiscale_hnr is True
+        assert flags.enable_praat_cpp is True
+        assert flags.enable_cross_dimension_modifiers is True
+        assert flags.enable_reverb_compensation is True
 
     def test_feature_flags_not_affect_default_scoring(self):
         """FeatureFlags 全默认: 开关隔离性验证 (纯逻辑, 无音频依赖)
 
         验证:
-        1. 所有新算法 flag 默认关闭
-        2. 手动开启后生效
-        3. 开启一个 flag 不影响其他
+        1. v6.2+: 已验证算法默认启用
+        2. 手动关闭后不生效
+        3. 关闭一个 flag 不影响其他
         """
         from services.feature_flags import FeatureFlags
 
         flags = FeatureFlags()
 
-        # 所有新算法默认关闭
-        assert flags.enable_multiscale_hnr is False
-        assert flags.enable_praat_cpp is False
-        assert flags.enable_voicing_detection is False
-        assert flags.enable_torchcrepe_fallback is False
-        assert flags.enable_cross_dimension_modifiers is False
-        assert flags.enable_reverb_compensation is False
+        # v6.2+: 已验证算法默认启用
+        assert flags.enable_multiscale_hnr is True
+        assert flags.enable_praat_cpp is True
+        assert flags.enable_voicing_detection is True
+        assert flags.enable_torchcrepe_fallback is True
+        assert flags.enable_cross_dimension_modifiers is True
+        assert flags.enable_reverb_compensation is True
 
-        # 手动开启
+        # v6.2+: 使用 safe_baseline 验证开关隔离性
+        flags = FeatureFlags.safe_baseline()
+        assert flags.enable_reverb_compensation is False
         flags.enable_reverb_compensation = True
         assert flags.enable_reverb_compensation is True
 

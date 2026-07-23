@@ -23,18 +23,6 @@ class ModelDiagnostic:
                 'PyTorch 未安装，请运行: pip install torch',
                 '如果使用CUDA，请安装对应版本: pip install torch --index-url https://download.pytorch.org/whl/cu121'
             ],
-            'wvmos': [
-                'wvmos 未安装，请运行: pip install wvmos',
-                'MOS评估将使用启发式方法'
-            ],
-            's3prl': [
-                's3prl 未安装，请运行: pip install s3prl',
-                'SingMOS模型依赖此库'
-            ],
-            'speechbrain': [
-                'SpeechBrain 未安装，请运行: pip install speechbrain',
-                '将使用启发式MOS评估'
-            ],
             'onnxruntime': [
                 'ONNX Runtime 未安装，请运行: pip install onnxruntime',
                 'ONNX模型将无法加载'
@@ -139,31 +127,7 @@ class ModelDiagnostic:
                 'cuda_available': False
             }
 
-        # v5.12: torchcrepe 依赖检查已移除（CREPE 未在评分管线中使用）
-
-        # 检查wvmos
-        try:
-            import wvmos
-            dependencies['wvmos'] = {
-                'installed': True,
-                'version': getattr(wvmos, '__version__', 'unknown')
-            }
-        except ImportError:
-            dependencies['wvmos'] = {
-                'installed': False
-            }
-
-        # 检查speechbrain
-        try:
-            import speechbrain
-            dependencies['speechbrain'] = {
-                'installed': True,
-                'version': getattr(speechbrain, '__version__', 'unknown')
-            }
-        except ImportError:
-            dependencies['speechbrain'] = {
-                'installed': False
-            }
+        # v7.1: wvmos/speechbrain/s3prl 依赖检查已移除 (SingMOS 已在 v5.15 移除)
 
         # 检查onnxruntime
         try:
@@ -181,23 +145,23 @@ class ModelDiagnostic:
 
     @classmethod
     def get_installation_guide(cls) -> str:
-        """获取安装指南"""
+        """获取安装指南 (v7.1: DL模型精简)"""
         return """
 # 深度学习模型安装指南
 
 ## 必需依赖
 pip install torch librosa numpy
 
-## 可选依赖（按功能）
+## 可选依赖
 
-### Wav2Vec2-MOS 语音质量评估
-pip install wvmos
+### ONNX Runtime (人声检测 + 唱法分类)
+pip install onnxruntime
 
-### SingMOS 歌声评估
-pip install s3prl
+### Demucs (人声分离)
+pip install demucs
 
-### SpeechBrain 语音处理
-pip install speechbrain
+### torchfcpe (高精度基频检测, v7.1)
+pip install torchfcpe
 
 ### ONNX Runtime（可选，用于ONNX模型）
 pip install onnxruntime

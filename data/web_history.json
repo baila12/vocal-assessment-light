@@ -720,5 +720,85 @@
     "mode": "quick",
     "id": 34,
     "timestamp": "2026-07-22T20:40:40.970770"
+  },
+  {
+    "total_score": 40.2,
+    "level": "及格",
+    "grade": "D",
+    "scores": {
+      "pitch": 47.5,
+      "rhythm": 100.0,
+      "breath": 100.0,
+      "technique": 0.0,
+      "muscle_strength": 21.2,
+      "artistry": 1.0
+    },
+    "timbre_adjustment": 0.0,
+    "timestamp": "2026-07-23T10:37:12.401750+00:00",
+    "id": 35
+  },
+  {
+    "total_score": 40.2,
+    "level": "及格",
+    "grade": "D",
+    "scores": {
+      "pitch": 47.5,
+      "rhythm": 100.0,
+      "breath": 100.0,
+      "technique": 0.0,
+      "muscle_strength": 21.2,
+      "artistry": 1.0
+    },
+    "timbre_adjustment": 0.0,
+    "timestamp": "2026-07-23T10:39:03.962430+00:00",
+    "id": 36
+  },
+  {
+    "total_score": 58.8,
+    "level": "中等",
+    "grade": "C",
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 46.9,
+      "muscle_strength": 69.2,
+      "artistry": 56.4
+    },
+    "timbre_adjustment": -2.0,
+    "timestamp": "2026-07-23T10:58:10.592210+00:00",
+    "id": 37
+  },
+  {
+    "total_score": 58.8,
+    "level": "中等",
+    "grade": "C",
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 46.9,
+      "muscle_strength": 69.2,
+      "artistry": 56.4
+    },
+    "timbre_adjustment": -2.0,
+    "timestamp": "2026-07-23T10:58:49.275177+00:00",
+    "id": 38
+  },
+  {
+    "total_score": 58.8,
+    "level": "中等",
+    "grade": "C",
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 46.9,
+      "muscle_strength": 69.2,
+      "artistry": 56.4
+    },
+    "timbre_adjustment": -2.0,
+    "timestamp": "2026-07-23T10:59:55.314156+00:00",
+    "id": 39
   }
 ]

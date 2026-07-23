@@ -40,6 +40,7 @@ declare module 'vue' {
     ScoreCard: typeof import('./src/components/ScoreCard.vue')['default']
     ScoreRadar: typeof import('./src/components/ScoreRadar.vue')['default']
     TopNav: typeof import('./src/components/layout/TopNav.vue')['default']
+    WaveformCanvas: typeof import('./src/components/WaveformCanvas.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

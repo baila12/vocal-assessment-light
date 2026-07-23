@@ -126,6 +126,28 @@ def create_app() -> FastAPI:
     flask_app = get_flask_app()
     app.mount("/old", WSGIMiddleware(flask_app))
 
+    # ===== v7.1: 挂载 Vue 3 生产构建 =====
+    from fastapi.staticfiles import StaticFiles
+    from starlette.responses import FileResponse
+    import os as _os
+
+    _frontend_dist = _os.path.join(_project_root, "frontend", "dist")
+    if _os.path.isdir(_frontend_dist):
+        app.mount("/assets", StaticFiles(directory=_os.path.join(_frontend_dist, "assets")), name="assets")
+        # SPA fallback: Vue Router history mode — 非 API/WS 路径返回 index.html
+        _SPA_SKIP_PREFIXES = ("api/", "ws/", "old/", "health", "docs", "redoc", "openapi.json", "assets/")
+
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            if any(full_path.startswith(pfx) for pfx in _SPA_SKIP_PREFIXES):
+                from fastapi.responses import JSONResponse
+                return JSONResponse({"detail": "Not Found"}, status_code=404)
+            index_path = _os.path.join(_frontend_dist, "index.html")
+            if _os.path.isfile(index_path):
+                return FileResponse(index_path)
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+
     return app
 
 

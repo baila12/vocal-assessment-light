@@ -18,6 +18,26 @@ from services.audio_features_service import AudioFeaturesResult
 from services.feature_flags import FeatureFlags
 from api.response_builder import AnalysisResult, build_response
 
+# v7.1 DDD 评分编排器 (绞杀者模式: 与旧 ScoreServiceV4 共存)
+try:
+    from backend.shared.event_bus import EventBus
+    from backend.application.assessment.scoring_orchestrator import ScoringOrchestrator
+    _event_bus = EventBus()
+    ddd_orchestrator = ScoringOrchestrator(event_bus=_event_bus)
+    # 注册历史记录自动保存
+    from repositories.history_repository import JsonHistoryRepository
+    _history_repo = JsonHistoryRepository(
+        str(config.HISTORY_FILE),
+        config.HISTORY_MAX_RECORDS
+    )
+    from backend.application.assessment.history_subscriber import HistoryEventSubscriber
+    HistoryEventSubscriber(_history_repo, upload_dir=str(config.UPLOAD_FOLDER)).subscribe_to(_event_bus)
+    _ddd_scoring_available = True
+except Exception as e:
+    logging.getLogger(__name__).warning("DDD ScoringOrchestrator init failed: %s, falling back to ScoreServiceV4", e)
+    ddd_orchestrator = None
+    _ddd_scoring_available = False
+
 logger = logging.getLogger(__name__)
 
 # 初始化服务
@@ -28,14 +48,6 @@ visualization_service = VisualizationService(config)
 timbre_service = TimbreService(config.AUDIO_SAMPLE_RATE)
 phrase_service = PhraseService(config.AUDIO_SAMPLE_RATE)
 voice_quality_service = VoiceQualityService(config.AUDIO_SAMPLE_RATE)
-
-# v5.0 深度学习质量评估
-try:
-    from services.dl_services.dl_quality_assessor import create_dl_assessor
-    dl_assessor = create_dl_assessor()
-except Exception as e:
-    logger.warning(f"DL assessor init failed: {e}")
-    dl_assessor = None
 
 def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = None,
                      feature_flags: Optional[FeatureFlags] = None) -> dict:
@@ -79,41 +91,43 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         quick_mode=(mode == 'quick')
     )
 
-    # 4. 评分计算
+    # 4. 评分计算（DL评估已移除v7.1 — Quick/Pro均使用相同的声学评分标准）
     advanced_features = audio_result._advanced_features or AudioFeaturesResult()
     style_profile = getattr(audio_result, '_style_profile', None)
     music_mood = getattr(audio_result, '_music_mood', None)
 
-    # v5.0 深度学习质量评估（专业模式才使用）
-    if mode == 'professional':
-        dl_result = _assess_with_dl(filepath)
-    else:
-        # 快速模式跳过深度学习评估，节省时间
-        dl_result = {'mos_score': 0.0, 'mos_normalized': 0.0, 'method': 'none', 'confidence': 0.0}
-
-    # 快速/专业模式使用相同的评分标准
-    # 快速模式的"快"来自跳过的分析步骤（DL评估、逐句评分、可视化等），而非放宽评分标准
     scoring_config = None  # 使用默认配置
 
-    score_result = score_service.calculate(
-        features=advanced_features,
-        emotion_confidence=emotion_info['confidence'],
-        emotions=emotion_info['emotions'],
-        voice_quality_score=voice_quality.quality_score,
-        style_profile=style_profile,
-        music_mood=music_mood,
-        dl_mos_score=dl_result['mos_score'],
-        dl_mos_normalized=dl_result['mos_normalized'],
-        dl_method=dl_result['method'],
-        dl_confidence=dl_result['confidence'],
-        scoring_config=scoring_config,
-        user_filepath=filepath,
-        audio_data=audio_result._audio_data,
-        f0=audio_result._f0,
-        sample_rate=audio_result.sample_rate,
-        reference_path=reference_path,
-        feature_flags=feature_flags,  # v6.2: 跨维度修正
+    # v7.1: DDD 六维度评分 (flag 门控, 默认关闭)
+    use_ddd = (
+        ddd_orchestrator is not None
+        and feature_flags is not None
+        and getattr(feature_flags, 'enable_ddd_scoring', False)
     )
+
+    if use_ddd:
+        is_clean = getattr(audio_result, 'is_separated', False)
+        score_result = ddd_orchestrator.calculate(
+            features=advanced_features,
+            is_clean_vocal=is_clean,
+            voice_quality_score=voice_quality.quality_score,
+        )
+    else:
+        score_result = score_service.calculate(
+            features=advanced_features,
+            emotion_confidence=emotion_info['confidence'],
+            emotions=emotion_info['emotions'],
+            voice_quality_score=voice_quality.quality_score,
+            style_profile=style_profile,
+            music_mood=music_mood,
+            scoring_config=scoring_config,
+            user_filepath=filepath,
+            audio_data=audio_result._audio_data,
+            f0=audio_result._f0,
+            sample_rate=audio_result.sample_rate,
+            reference_path=reference_path,
+            feature_flags=feature_flags,  # v6.2: 跨维度修正
+        )
 
     # 5. 生成建议
     advice_result = advice_service.generate(score_result)
@@ -193,23 +207,11 @@ def _build_non_voice_result(audio_result, voice_quality) -> dict:
     return result
 
 
-def _assess_with_dl(filepath: str) -> dict:
-    """深度学习质量评估"""
-    if not dl_assessor:
-        return {'mos_score': 0.0, 'mos_normalized': 0.0, 'method': 'none', 'confidence': 0.0}
-
-    try:
-        result = dl_assessor.assess(filepath)
-        logger.info(f"[DL] MOS: {result.mos_score:.2f}, Method: {result.method}")
-        return {
-            'mos_score': result.mos_score,
-            'mos_normalized': result.mos_normalized,
-            'method': result.method,
-            'confidence': result.confidence
-        }
-    except Exception as e:
-        logger.warning(f"DL assessment failed: {e}")
-        return {'mos_score': 0.0, 'mos_normalized': 0.0, 'method': 'none', 'confidence': 0.0}
+def _s(obj, key, default=0.0):
+    """统一访问 dict 和 object 属性 — v7.1 兼容 DDD orchestrator (dict) 和旧 ScoreServiceV4 (dataclass)"""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 
 def _build_success_result(
@@ -241,27 +243,25 @@ def _build_success_result(
         style_cn=style_profile.style_cn if style_profile else '未知',
         style_confidence=round(audio_result._style_confidence * 100, 1) if audio_result._style_confidence else 0,
         music_mood=audio_result._music_mood or 'unknown',
-        dl_mos_score=round(score_result.dl_mos_score, 2),
-        dl_mos_normalized=round(score_result.dl_mos_normalized, 1),
-        dl_method=score_result.dl_method,
-        dl_confidence=round(score_result.dl_confidence, 2),
-        dl_available=score_result.dl_method != 'none',
-        pitch_score=float(score_result.pitch_score),
-        rhythm_score=float(score_result.rhythm_score),
-        breath_score=float(score_result.breath_score),
-        technique_score=float(score_result.technique_score),
-        artistry_score=float(score_result.artistry_score),
-        total_score=float(score_result.total_score),
-        level=score_result.level,
-        stars=score_result.stars,
-        color=score_result.color,
-        pitch_diagnosis=_build_diagnosis_dict(score_result.pitch_diagnosis, 'mae_cents'),
-        rhythm_diagnosis=_build_diagnosis_dict(score_result.rhythm_diagnosis, 'deviation_ratio'),
-        breath_diagnosis=_build_breath_diagnosis(score_result.breath_diagnosis),
-        technique_diagnosis=_build_technique_diagnosis(score_result.technique_diagnosis),
-        artistry_diagnosis=_build_diagnosis_dict(score_result.artistry_diagnosis),
-        critical_issues=score_result.critical_issues,
-        is_disqualified=score_result.is_disqualified,
+        pitch_score=float(_s(score_result, 'pitch_score')),
+        rhythm_score=float(_s(score_result, 'rhythm_score')),
+        breath_score=float(_s(score_result, 'breath_score')),
+        technique_score=float(_s(score_result, 'technique_score')),
+        muscle_strength_score=float(_s(score_result, 'muscle_strength_score')),
+        artistry_score=float(_s(score_result, 'artistry_score')),
+        total_score=float(_s(score_result, 'total_score')),
+        timbre_adjustment=float(_s(score_result, 'timbre_adjustment')),
+        heuristic_dimensions=_s(score_result, 'heuristic_dimensions', []),
+        level=str(_s(score_result, 'level', '')),
+        stars=str(_s(score_result, 'stars', '')),
+        color=str(_s(score_result, 'color', '')),
+        pitch_diagnosis=_build_diagnosis_dict(_s(score_result, 'pitch_diagnosis', {}), 'mae_cents'),
+        rhythm_diagnosis=_build_diagnosis_dict(_s(score_result, 'rhythm_diagnosis', {}), 'deviation_ratio'),
+        breath_diagnosis=_build_breath_diagnosis(_s(score_result, 'breath_diagnosis', {})),
+        technique_diagnosis=_build_technique_diagnosis(_s(score_result, 'technique_diagnosis', {})),
+        artistry_diagnosis=_build_diagnosis_dict(_s(score_result, 'artistry_diagnosis', {})),
+        critical_issues=_s(score_result, 'critical_issues', []),
+        is_disqualified=_s(score_result, 'is_disqualified', False),
         advice=advice_result.advice,
         visualization=_build_viz_dict(viz_result) if viz_result and viz_result.success else None,
         timbre=_build_timbre_dict(timbre_result) if timbre_result and timbre_result.success else None,
@@ -278,15 +278,29 @@ def _build_success_result(
     )
 
     result = build_response(result_dto, version='5.0')
-    result['scores']['volume'] = float(score_result.volume)
-    result['scores']['emotion'] = float(score_result.artistry_score)
+    result['scores']['volume'] = float(_s(score_result, 'volume'))
+    result['scores']['emotion'] = float(_s(score_result, 'artistry_score'))
+    result['scores']['muscle_strength'] = float(_s(score_result, 'muscle_strength_score'))
+    result['timbre_adjustment'] = float(_s(score_result, 'timbre_adjustment'))
+    result['heuristic_dimensions'] = _s(score_result, 'heuristic_dimensions', [])
     result['mode'] = mode  # Quick / Professional
 
     return result
 
 
 def _build_diagnosis_dict(diagnosis, *extra_fields) -> dict:
-    """构建诊断字典"""
+    """构建诊断字典 (兼容 dict 和 dataclass)"""
+    if isinstance(diagnosis, dict):
+        result = {
+            'score': float(diagnosis.get('score', 0.0)),
+            'level': diagnosis.get('level', ''),
+            'issues': diagnosis.get('issues', []),
+            'suggestions': diagnosis.get('suggestions', [])
+        }
+        for field in extra_fields:
+            if field in diagnosis:
+                result[field] = float(diagnosis[field])
+        return result
     result = {
         'score': float(diagnosis.score),
         'level': diagnosis.level,
@@ -300,14 +314,29 @@ def _build_diagnosis_dict(diagnosis, *extra_fields) -> dict:
 
 
 def _build_breath_diagnosis(diagnosis) -> dict:
-    """构建气息诊断"""
+    """构建气息诊断 (兼容 dict 和 dataclass)"""
+    if isinstance(diagnosis, dict):
+        return {
+            'score': float(diagnosis.get('score', 0.0)),
+            'fluctuation': float(diagnosis.get('fluctuation', 0.0)),
+            'level': diagnosis.get('level', ''),
+            'issues': diagnosis.get('issues', []),
+            'suggestions': diagnosis.get('suggestions', []),
+            'positives': diagnosis.get('positives', []),
+            'long_note_support': float(diagnosis.get('long_note_support', 0.0)),
+            'dynamic_control': float(diagnosis.get('dynamic_control', 0.0)),
+            'breath_design': float(diagnosis.get('breath_design', 0.0)),
+            'breath_technique': float(diagnosis.get('breath_technique', 0.0)),
+            'is_artistic': diagnosis.get('is_artistic', False),
+            'has_controlled_breathiness': diagnosis.get('has_controlled_breathiness', False)
+        }
     return {
         'score': float(diagnosis.score),
         'fluctuation': float(diagnosis.fluctuation),
         'level': diagnosis.level,
         'issues': diagnosis.issues,
         'suggestions': diagnosis.suggestions,
-        'positives': diagnosis.positives,  # 正面发现
+        'positives': diagnosis.positives,
         'long_note_support': float(diagnosis.long_note_support),
         'dynamic_control': float(diagnosis.dynamic_control),
         'breath_design': float(diagnosis.breath_design),
@@ -318,7 +347,18 @@ def _build_breath_diagnosis(diagnosis) -> dict:
 
 
 def _build_technique_diagnosis(diagnosis) -> dict:
-    """构建技巧诊断"""
+    """构建技巧诊断 (兼容 dict 和 dataclass)"""
+    if isinstance(diagnosis, dict):
+        return {
+            'score': float(diagnosis.get('score', 0.0)),
+            'level': diagnosis.get('level', ''),
+            'issues': diagnosis.get('issues', []),
+            'suggestions': diagnosis.get('suggestions', []),
+            'hnr': float(diagnosis.get('hnr', 0.0)),
+            'cpp': float(diagnosis.get('cpp', 0.0)),
+            'vibrato_quality': float(diagnosis.get('vibrato_quality', 0.0)),
+            'is_mixed_audio': diagnosis.get('is_mixed_audio', False)
+        }
     return {
         'score': float(diagnosis.score),
         'level': diagnosis.level,
@@ -399,22 +439,7 @@ def analyze_emotion(audio_data, sample_rate: int, quick_mode: bool = False) -> d
     """
     import librosa
 
-    # 快速模式直接使用启发式方法
-    if not quick_mode:
-        # 尝试使用模型
-        try:
-            from services.dl_services.emotion_manager import get_model_manager
-            manager = get_model_manager()
-            result = manager.analyze_emotion(audio_data, sample_rate)
-            return {
-                'emotions': result.get('emotions', {}),
-                'dominant': result.get('dominant', 'neutral'),
-                'confidence': result.get('confidence', 0.5)
-            }
-        except Exception as e:
-            logger.warning(f"Emotion analysis failed: {e}")
-
-    # 启发式方法（快速模式或模型失败时使用）
+    # v7.1: 统一使用启发式方法（DL emotion模型已移除）
     rms_feature = librosa.feature.rms(y=audio_data)[0]
     energy_mean = np.mean(rms_feature)
     energy_std = np.std(rms_feature)

@@ -100,7 +100,7 @@ def upload_file():
 
     try:
         result = analyze_and_score(str(filepath), mode=mode, reference_path=reference_path,
-                             feature_flags=FeatureFlags())  # v6.2: 激活全部高级算法
+                             feature_flags=FeatureFlags.for_quick() if mode == 'quick' else FeatureFlags.for_professional())
     except Exception as e:
         logger.exception(f"Analysis failed: {e}")
         return jsonify({'success': False, 'error': f'分析失败: {str(e)}'}), 500
@@ -362,8 +362,8 @@ def compare_audio():
             return jsonify({'success': False, 'error': dtw_result.get('error', 'DTW对比分析失败')}), 500
 
         # 保留标准/用户音频的基础分析结果，供前端可视化使用（波形、音高曲线等）
-        standard_result = analyze_and_score(str(filepath_obj_std), feature_flags=FeatureFlags())
-        user_result = analyze_and_score(str(filepath_obj_user), feature_flags=FeatureFlags())
+        standard_result = analyze_and_score(str(filepath_obj_std), feature_flags=FeatureFlags.for_quick())
+        user_result = analyze_and_score(str(filepath_obj_user), feature_flags=FeatureFlags.for_quick())
 
     except Exception as e:
         logger.exception(f"Compare analysis failed: {e}")

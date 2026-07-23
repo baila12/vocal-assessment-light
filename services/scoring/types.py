@@ -91,10 +91,6 @@ class ScoreResultV4:
     artistry_diagnosis: ArtistryDiagnosis = field(default_factory=ArtistryDiagnosis)
     critical_issues: List[str] = field(default_factory=list)
     is_disqualified: bool = False
-    dl_mos_score: float = 0.0
-    dl_mos_normalized: float = 0.0
-    dl_method: str = "none"
-    dl_confidence: float = 0.0
     volume: float = 0.0
     pitch: float = 0.0
     rhythm: float = 0.0

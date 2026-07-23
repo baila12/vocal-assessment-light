@@ -128,7 +128,7 @@ async def upload_audio(
             str(filepath),
             mode=mode,
             reference_path=reference_path,
-            feature_flags=FeatureFlags(),
+            feature_flags=FeatureFlags.for_quick() if mode == 'quick' else FeatureFlags.for_professional(),
         )
     except Exception as e:
         logger.exception(f"Analysis failed: {e}")
@@ -188,7 +188,7 @@ async def analyze_file(
             str(filepath_obj),
             mode=body.mode,
             reference_path=ref_path,
-            feature_flags=FeatureFlags(),
+            feature_flags=FeatureFlags.for_quick() if mode == 'quick' else FeatureFlags.for_professional(),
         )
     except Exception as e:
         logger.exception(f"Analysis failed: {e}")

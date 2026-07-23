@@ -33,11 +33,7 @@ class AnalysisResult:
     style_confidence: float = 0.0
     music_mood: str = "unknown"
 
-    # DL 评估
-    dl_mos_score: float = 0.0
-    dl_mos_normalized: float = 0.0
-    dl_method: str = "none"
-    dl_confidence: float = 0.0
+    # v7.1: DL评估已移除，保留字段向后兼容
     dl_available: bool = False
 
     # 五维评分
@@ -45,8 +41,11 @@ class AnalysisResult:
     rhythm_score: float = 0.0
     breath_score: float = 0.0
     technique_score: float = 0.0
+    muscle_strength_score: float = 0.0   # v7.1: 六维度之肌肉力量
     artistry_score: float = 0.0
     total_score: float = 0.0
+    timbre_adjustment: float = 0.0       # v7.1: 音色加减分
+    heuristic_dimensions: list = None     # v7.1: 启发式维度标记
 
     # 等级
     level: str = ""
@@ -132,12 +131,8 @@ class ResponseV5Builder(ResponseBuilder):
                 'mood': result.music_mood
             },
 
-            # DL 评估
+            # v7.1: DL评估已移除
             'dl_assessment': {
-                'mos_score': round(result.dl_mos_score, 2),
-                'mos_normalized': round(result.dl_mos_normalized, 1),
-                'method': result.dl_method,
-                'confidence': round(result.dl_confidence, 2),
                 'available': result.dl_available
             },
 

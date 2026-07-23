@@ -1,15 +1,14 @@
-# 系统架构 v7.1-alpha
+# 系统架构 v7.1.0
 
-> 更新: 2026-07-23 | 架构: Flask (v6.3 legacy) + FastAPI (v7.0) 绞杀者共存 | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-23 | 架构: FastAPI (DDD 四层) + Flask (绞杀者) + Vue 3 SPA | 分支: `feat/v7-fastapi-vue-refactor`
 >
 > **v7.0 迁移计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — Phase 0-5 ✅
+> **v7.1 重构完成**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) — DDD 评分默认 + 死代码清理 + FCPE 集成
 > **v7.1 技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md) — 五维度算法验证 + 实施路线
-> **参考论文**: `参考论文/` (项目外部) — 完整论文PDF + 六维研究总结
-> **当前状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) — 237 tests passed
 
 ---
 
-## 一、架构总览 (v7.0-alpha 绞杀者模式)
+## 一、架构总览 (v7.1.0 绞杀者模式)
 
 ```
                              ┌─────────────────────┐
@@ -18,37 +17,51 @@
                              │  嵌入式 Python 运行时  │
                              └──────────┬──────────┘
                                         │
-          ┌─────────────────────────────┼─────────────────────────────┐
-          │                             │                             │
-    ┌─────▼──────┐              ┌──────▼──────┐              ┌───────▼──────┐
-    │  Vue 3 SPA │              │  FastAPI    │              │  Flask v6.3  │
-    │  (P4: ⏳)   │◄────HTTP────►│  v7.0 :8000 │◄────WSGI────►│  /old mount  │
-    │  Vite:5173  │              │  + WebSocket│              │  legacy SPA  │
-    └────────────┘              └──────┬──────┘              └──────────────┘
+                   ┌────────────────────┼────────────────────┐
+                   │                    │                    │
+            ┌──────▼──────┐    ┌───────▼──────┐    ┌───────▼──────┐
+            │  Vue 3 SPA  │    │   FastAPI    │    │  Flask v6.3  │
+            │  (生产构建)  │◄───│  v7.1 :8000  │◄───│  /old mount  │
+            │  dist/      │    │  + WebSocket │    │  legacy API  │
+            └─────────────┘    └──────┬───────┘    └──────────────┘
                                       │
-    ┌─────────────────────────────────┼─────────────────────────────────┐
-    │                    backend/ (DDD 四层)                             │
-    │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │
-    │  │ interfaces/ │  │application/ │  │       domain/           │   │
-    │  │ api/routes/ │──►│ assessment/ │──►│  assessment/           │   │
-    │  │ ws/         │  │ history/    │  │  ├─ pitch_scorer (10%)  │   │
-    │  │ schemas/    │  │ comparison/ │  │  ├─ rhythm_scorer(10%)  │   │
-    │  └─────────────┘  └─────────────┘  │  ├─ breath_scorer(20%)  │   │
-    │                                    │  ├─ technique_  (25%)   │   │
-    │  ┌─────────────┐  ┌─────────────┐  │  ├─ muscle_     (25%)   │   │
-    │  │infrastructure│  │   shared/   │  │  ├─ artistry_   (10%)  │   │
-    │  │ config.py   │  │ event_bus   │  │  └─ timbre_adjuster     │   │
-    │  │ persistence │  │ result[T,E] │  └─────────────────────────┘   │
-    │  │ audio/      │  │ domain_types│                                │
-    │  └─────────────┘  └─────────────┘                                │
-    └──────────────────────────────────────────────────────────────────┘
+    ┌─────────────────────────────────┼──────────────────────────┐
+    │                    backend/ (DDD 四层)                      │
+    │                                                             │
+    │  ┌──────────────────┐  ┌───────────────────────────────┐   │
+    │  │   interfaces/    │  │        application/           │   │
+    │  │ api/routes/      │─►│ assessment/                   │   │
+    │  │   assessment.py  │  │  ├─ scoring_orchestrator.py 🆕│   │
+    │  │   history.py     │  │  ├─ feature_adapters.py    🆕│   │
+    │  │ ws/score_handler │  │  └─ history_subscriber.py  🆕│   │
+    │  │ schemas/         │  └───────────────────────────────┘   │
+    │  │ middleware.py     │                                      │
+    │  └──────────────────┘  ┌───────────────────────────────┐   │
+    │                        │          domain/              │   │
+    │  ┌──────────────────┐  │  assessment/                  │   │
+    │  │ infrastructure/  │  │  ├─ pitch_scorer    (10%) ⭐ │   │
+    │  │ audio/           │  │  ├─ rhythm_scorer   (10%) ⭐ │   │
+    │  │  librosa_loader  │  │  ├─ breath_scorer   (20%) ⭐ │   │
+    │  │  pyin_extractor  │  │  ├─ technique_scorer(25%) ⭐ │   │
+    │  │  demucs_separator│  │  ├─ muscle_scorer   (25%) ⭐ │   │
+    │  │  fcpe_extractor🆕│  │  ├─ artistry_scorer (10%) ⭐ │   │
+    │  │  protocols.py 🆕 │  │  └─ timbre_adjuster       ⭐ │   │
+    │  │ persistence/     │  │  audio/    (entities+services) │   │
+    │  └──────────────────┘  │  comparison/ (entities+services)│   │
+    │                        └───────────────────────────────┘   │
+    │  ┌──────────────────────────────────────────────────┐      │
+    │  │ shared/: event_bus, domain_types(ScoreLevel),    │      │
+    │  │          result[T,E]                              │      │
+    │  └──────────────────────────────────────────────────┘      │
+    └────────────────────────────────────────────────────────────┘
                                       │
-    ┌─────────────────────────────────┼─────────────────────────────────┐
-    │                    旧服务层 (v6.3, 委托复用)                       │
-    │  services/ (scoring, features, separation, DL)                    │
-    │  api/business/ (analyze_and_score, compare_with_dtw)              │
-    │  repositories/ (JsonHistoryRepository)                            │
-    └──────────────────────────────────────────────────────────────────┘
+    ┌─────────────────────────────────┼──────────────────────────┐
+    │              旧服务层 (绞杀者, 逐渐替换)                     │
+    │  services/features/ (12 特征提取 — 生产唯一来源)            │
+    │  services/scoring/  (8 旧评分器 — flag 回退路径)            │
+    │  services/dl_services/ (style/VAD/DTW — 仍在使用)          │
+    │  api/business/ (analyze_and_score — 关键桥梁)              │
+    └────────────────────────────────────────────────────────────┘
 │  │  pitch_scorer │ breath_scorer │ rhythm_scorer             │   │
 │  │  technique_scorer │ artistry_scorer │ critical_rules      │   │
 │  └──────────────────────────────────────────────────────────┘   │
@@ -795,18 +808,24 @@ HashRouter                      Vue Router
 | 数据存储 | localStorage + JSON 文件 | `app.getPath('userData')` |
 | Python 分发 | conda 环境 | 嵌入式 Python 运行时 |
 
-### 数据流 (v7.0)
+### 数据流 (v7.1.0 — DDD 默认)
 
 ```
-[Vue ElUpload] → POST /api/v1/upload (HTTP)
-                   → UploadFile → temp file → asyncio.to_thread(analyze_and_score)
-                   → Pydantic UploadResponse → {total_score, scores, advice...}
-
-[Vue SingView] → WebSocket /ws/v1/score
-                   → AudioWorklet 重采样 48kHz→16kHz
-                   → 每 2048 samples/frame 发送 (4 字节长度前缀)
-                   → asyncio.to_thread 增量评分
-                   → 实时推送 pitch_update + partial_score + final_score
+[Vue 3 SPA] → FastAPI (:8000)
+                ├─ /               Vue 3 SPA (SPA fallback)
+                ├─ /api/v1/upload  → analyze_and_score()
+                │                    → ScoringOrchestrator (DDD 默认 ⭐)
+                │                      → FeatureAdapters (bridge)
+                │                      → 6 DDD scorers
+                │                      → ScoringDomainService
+                │                      → EventBus → history_repo.save()
+                │                    → advice_service.generate()
+                │                    → {total_score, scores{6-dim}, heuristic_dimensions, ...}
+                │
+                ├─ /ws/v1/score    WebSocket 实时评分
+                │                    AudioWorklet → 4字节帧 → asyncio.to_thread
+                │
+                └─ /old            Flask legacy (绞杀者, 同调用 analyze_and_score)
 
 [Electron spawn] → python.exe backend/main.py --port=0
                    → stdout: "PORT=12345"

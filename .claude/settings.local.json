@@ -189,7 +189,14 @@
       "Read(//c/Users/jack/.claude/projects/C--Users-jack-Desktop---------vocal-assessment-light/memory/**)",
       "Bash(ls \"c:\\\\\\\\Users\\\\\\\\jack\\\\\\\\Desktop\\\\\\\\临时文件\\\\\\\\声乐\\\\\\\\vocal_assessment_light\\\\\\\\vocal_assessment.spec\")",
       "Bash(find \"c:\\\\\\\\Users\\\\\\\\jack\\\\\\\\Desktop\\\\\\\\临时文件\\\\\\\\声乐\\\\\\\\vocal_assessment_light\\\\\\\\services\" -name \"*.py\")",
-      "Bash(cp \"C:\\\\Users\\\\jack\\\\.claude\\\\plans\\\\ancient-dazzling-ember.md\" \"c:\\\\Users\\\\jack\\\\Desktop\\\\临时文件\\\\声乐\\\\vocal_assessment_light\\\\docs\\\\4-process\\\\V7_MIGRATION_PLAN.md\")"
+      "Bash(cp \"C:\\\\Users\\\\jack\\\\.claude\\\\plans\\\\ancient-dazzling-ember.md\" \"c:\\\\Users\\\\jack\\\\Desktop\\\\临时文件\\\\声乐\\\\vocal_assessment_light\\\\docs\\\\4-process\\\\V7_MIGRATION_PLAN.md\")",
+      "Bash(python -m pytest tests/ -q --tb=short)",
+      "Bash(python -m pytest tests/ -q --tb=short --no-header -p no:cacheprovider)",
+      "Bash(python -m pytest tests/ -q --tb=short -p no:capture --no-header)",
+      "Bash(python -m pytest tests/ --collect-only -q)",
+      "Bash(python -m pytest tests/unit/ -q --tb=short)",
+      "Bash(python -m pytest tests/integration/ -q --tb=short)",
+      "Bash(python -m pytest tests/tdd/ -q --tb=short)"
     ],
     "additionalDirectories": [
       "c:\\Users\\jack\\.claude\\plans",

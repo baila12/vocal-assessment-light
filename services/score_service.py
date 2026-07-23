@@ -1,15 +1,15 @@
 """
-评分计算服务 v6.2 - 跨维度修正版
+评分计算服务 v7.1 - 跨维度修正版
 
 核心原则：
 1. 风格自适应：根据音乐风格自动调整评分权重和标准
-2. 深度学习增强：整合SingMOS等模型的MOS预测
-3. 专业权重分配：根据风格动态调整各维度权重
-4. 底线规则：连续跑调、脱离节拍一票否决
-5. 精确量化：音分偏差、拍长归一化、专业气息评估、HNR、CPP
-6. 正向加分为主、负向扣分为辅
+2. 专业权重分配：根据风格动态调整各维度权重
+3. 底线规则：连续跑调、脱离节拍一票否决
+4. 精确量化：音分偏差、拍长归一化、专业气息评估、HNR、CPP
+5. 正向加分为主、负向扣分为辅
 
-v6.2 改进:
+v7.1 改进:
+- 移除了深度学习融合 (SingMOS跨域问题已确认)
 - 跨维度修正: HNR稳定性→气息, Voicing→音准, 频谱倾斜→气声
 - 文献: de Krom (1993), Sundberg (1987), Titze (1994)
 """
@@ -169,10 +169,6 @@ class ScoreServiceV4:
         voice_quality_score: float = 100.0,
         style_profile: StyleProfile = None,
         music_mood: str = None,
-        dl_mos_score: float = 0.0,
-        dl_mos_normalized: float = 0.0,
-        dl_method: str = "none",
-        dl_confidence: float = 0.0,
         scoring_config: 'ScoringConfig' = None,
         user_filepath: str = None,
         reference_path: str = None,
@@ -184,7 +180,7 @@ class ScoreServiceV4:
         feature_flags: FeatureFlags = None,
     ) -> ScoreResultV4:
         """
-        计算五维评分 v5.10 - DTW参考评分增强
+        计算五维评分 v7.1 - 移除DL融合
 
         Args:
             features: 音频特征提取结果
@@ -193,10 +189,6 @@ class ScoreServiceV4:
             voice_quality_score: 人声质量分数
             style_profile: 风格配置档案（可选，用于风格自适应评分）
             music_mood: 音乐情绪类型（可选，用于艺术表现评分）
-            dl_mos_score: 深度学习预测的MOS分数(1-5)
-            dl_mos_normalized: 归一化的MOS分数(0-100)
-            dl_method: 使用的DL方法
-            dl_confidence: DL置信度
             scoring_config: 评分配置（可选，用于快速/专业模式切换）
             user_filepath: 用户音频文件路径（用于DTW参考对比）
             reference_path: 参考音频文件路径（用于DTW参考对比）
@@ -211,12 +203,6 @@ class ScoreServiceV4:
 
         result = ScoreResultV4()
         result.critical_issues = []
-
-        # 存储DL评估结果
-        result.dl_mos_score = dl_mos_score
-        result.dl_mos_normalized = dl_mos_normalized
-        result.dl_method = dl_method
-        result.dl_confidence = dl_confidence
 
         # 如果提供了风格配置，使用风格自适应权重
         if style_profile:
@@ -373,12 +359,7 @@ class ScoreServiceV4:
             artistry_score * self.weights['artistry']
         )
 
-        # 7. v5.1 深度学习融合
-        total = self._apply_dl_fusion(
-            total, dl_mos_normalized, dl_confidence
-        )
-
-        # 7.5 v6.2: 跨维度耦合惩罚 (气息-音准联动)
+        # 7. v6.2: 跨维度耦合惩罚 (气息-音准联动)
         if cross_dim_penalty_total > 0:
             total = max(0, total - cross_dim_penalty_total)
             logger.info(f"Cross-dim coupling penalty: -{cross_dim_penalty_total:.0f} → total={total:.0f}")
@@ -450,47 +431,6 @@ class ScoreServiceV4:
             self._critical_handler = CriticalRulesHandler(original_config.critical)
 
         return result
-
-    def _apply_dl_fusion(
-        self,
-        total: float,
-        dl_mos_normalized: float,
-        dl_confidence: float
-    ) -> float:
-        """
-        应用深度学习融合 v5.12
-
-        WARNING: SingMOS校准映射未经实验验证。
-        模型训练目标: 评估合成歌声(TTS singing)的自然度
-        实际使用场景: 评估真人演唱质量
-        这是跨域应用，融合权重已保守设置为15%。
-
-        Args:
-            total: 传统计算的总分
-            dl_mos_normalized: 归一化的MOS分数
-            dl_confidence: DL置信度
-
-        Returns:
-            融合后的总分
-        """
-        dl_config = self._config
-        if not (dl_config.dl_enabled and dl_mos_normalized > 0 and
-                dl_confidence > dl_config.dl_min_confidence):
-            return total
-
-        # v5.12: DL融合权重从0.4降到0.15，降低跨域误差影响
-        dl_weight = min(0.15, dl_confidence * 0.25)  # 从0.4降到0.15
-        traditional_weight = 1 - dl_weight
-
-        # 融合总分
-        total = total * traditional_weight + dl_mos_normalized * dl_weight
-
-        # 确保融合后分数合理（避免低估）
-        if dl_mos_normalized > total:
-            boost = (dl_mos_normalized - total) * 0.15  # v5.12: 0.3→0.15
-            total = min(100, total + boost)
-
-        return total
 
     def _apply_dtw_reference(
         self,
