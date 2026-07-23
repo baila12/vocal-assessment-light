@@ -1,7 +1,15 @@
 # 技术研究文档 — 五维声乐特征检测
 
 > 日期: 2026-07-23 | 版本: v7.1-alpha | 状态: 研究阶段
-> 原始论文和详细报告: `参考论文/`
+>
+> **原始论文和详细报告**: `C:\Users\jack\Desktop\临时文件\声乐\参考论文\` (项目外部目录)
+> - [00-综合评估](C:\Users\jack\Desktop\临时文件\声乐\参考论文\00-综合评估-算法契合度与有效性.md)
+> - [01-音色](C:\Users\jack\Desktop\临时文件\声乐\参考论文\01-音色检测\research-summary.md)
+> - [02-气声比](C:\Users\jack\Desktop\临时文件\声乐\参考论文\02-气声比检测\research-summary.md)
+> - [03-咬字清晰度](C:\Users\jack\Desktop\临时文件\声乐\参考论文\03-咬字清晰度\research-summary.md)
+> - [04-面部肌肉](C:\Users\jack\Desktop\临时文件\声乐\参考论文\04-面部肌肉力量\research-summary.md)
+> - [05-身体肌肉](C:\Users\jack\Desktop\临时文件\声乐\参考论文\05-身体肌肉力量\research-summary.md)
+> **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [SCORING.md](SCORING.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 
 ---
 

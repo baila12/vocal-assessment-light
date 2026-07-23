@@ -1,8 +1,10 @@
-# 系统架构 v7.0-alpha (Phase 0-3 完成)
+# 系统架构 v7.1-alpha
 
-> 更新: 2026-07-21 | 当前架构: Flask (v6.3 legacy) + FastAPI (v7.0) 绞杀者共存 | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-23 | 架构: Flask (v6.3 legacy) + FastAPI (v7.0) 绞杀者共存 | 分支: `feat/v7-fastapi-vue-refactor`
 >
-> **v7.0 迁移计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — Phase 0-3 ✅, Phase 4-5 ⏳
+> **v7.0 迁移计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — Phase 0-5 ✅
+> **v7.1 技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md) — 五维度算法验证 + 实施路线
+> **参考论文**: `参考论文/` (项目外部) — 完整论文PDF + 六维研究总结
 > **当前状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) — 237 tests passed
 
 ---
