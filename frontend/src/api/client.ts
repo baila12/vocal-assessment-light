@@ -75,8 +75,8 @@ export const apiClient = {
     }),
 
   delete: <T>(path: string, body?: unknown) =>
-    // 注意: DELETE 带 body 不符合 HTTP 规范, 但后端 /history/batch 需要 JSON body
-    // Phase 6+ 计划迁移为 POST /history/batch-delete
+    // v7.0.3: POST /history/batch-delete 已替代 DELETE-with-body
+    // 保留此方法仅用于标准 DELETE /api/v1/history/:id (无 body)
     request<T>(path, {
       method: 'DELETE',
       body: body ? JSON.stringify(body) : undefined,

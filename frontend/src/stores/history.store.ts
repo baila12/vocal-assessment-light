@@ -96,8 +96,8 @@ export const useHistoryStore = defineStore('history', () => {
     if (selectedIds.value.length === 0) return
 
     try {
-      // DELETE 带 body 为非标准 HTTP，但匹配当前后端 API (Phase 6+ 迁移为 POST)
-      await apiClient.delete('/api/v1/history/batch', {
+      // v7.0.3: POST /history/batch-delete 替代 DELETE-with-body (符合 HTTP 规范)
+      await apiClient.post('/api/v1/history/batch-delete', {
         ids: selectedIds.value,
       })
       records.value = records.value.filter(

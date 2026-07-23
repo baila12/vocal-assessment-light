@@ -47,7 +47,18 @@ async def list_history(
 async def delete_history_batch(
     body: HistoryBatchDeleteRequest, repo=Depends(get_history_repo)
 ):
-    """批量删除历史记录"""
+    """批量删除历史记录 (DEPRECATED: Phase 6+ 迁移到 POST /history/batch-delete)"""
+    if not body.ids or len(body.ids) == 0:
+        raise HTTPException(status_code=400, detail="ids 不能为空")
+    count = repo.delete_batch(body.ids)
+    return HistoryBatchDeleteResponse(success=True, deleted_count=count)
+
+
+@router.post("/history/batch-delete", response_model=HistoryBatchDeleteResponse)
+async def batch_delete_history(
+    body: HistoryBatchDeleteRequest, repo=Depends(get_history_repo)
+):
+    """批量删除历史记录 (v7.0.3: POST 替代 DELETE-with-body, 符合 HTTP 规范)"""
     if not body.ids or len(body.ids) == 0:
         raise HTTPException(status_code=400, detail="ids 不能为空")
     count = repo.delete_batch(body.ids)

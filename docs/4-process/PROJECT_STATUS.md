@@ -1,22 +1,48 @@
 # 项目状态
 
-> 更新: 2026-07-22 | 当前版本: **v7.0.1** (代码审查修复) | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-23 | 当前版本: **v7.0.3** | 分支: `feat/v7-fastapi-vue-refactor`
+
+---
+
+## v7.0.3 — Phase 6+ 活跃开发 (2026-07-23)
+
+代码审查遗留的 11 项问题全部修复 (52/52)，并完成以下 Phase 6+ 任务。
+
+### 代码审查收尾 (v7.0.2)
+
+| 严重级别 | 发现 | 已修复 | 状态 |
+|----------|------|--------|------|
+| CRITICAL | 6 | **6** | ✅ |
+| HIGH | 16 | **16** | ✅ (速率限制 + 安全响应头) |
+| MEDIUM | 18 | **18** | ✅ (useApi清理 + 导出按钮 + Electron路径 + sandbox验证) |
+| LOW | 12 | **12** | ✅ (颜色工具 + deep watch + pitchHistory + Options API + v-for) |
+| **总计** | **52** | **52** | **全部完成** |
+
+### Phase 6+ 功能完成
+
+- ✅ **速率限制中间件**: 全局 120/min, 上传 20/min, WebSocket 10/min, /health 不限流
+- ✅ **安全响应头**: CSP/X-Content-Type-Options/X-Frame-Options/HSTS/Referrer-Policy 等 8 个安全头
+- ✅ **批量删除 HTTP 规范**: `POST /api/v1/history/batch-delete` 替代 DELETE-with-body
+- ✅ **ReportView 导出**: `window.print()` + 打印 CSS 样式
+- ✅ **Electron 路径安全**: `getProjectRoot()` + `app.getAppPath()` 替代 `__dirname`
+- ✅ **评分颜色统一**: `frontend/src/utils/colors.ts` 共享工具
+- ✅ **对比分析字段修复**: 后端 `form.get("file")` → `form.get("user_file")` (修复前后端字段名不匹配)
+- ✅ **波形可视化**: `WaveformCanvas.vue` — ReportView 音频回放区域增加波形峰值图
+
+### 新增文件
+
+| 文件 | 用途 |
+|------|------|
+| `backend/interfaces/api/middleware.py` | 安全头 + 速率限制中间件 |
+| `frontend/src/utils/colors.ts` | 共享评分颜色工具 |
+| `frontend/src/components/WaveformCanvas.vue` | Web Audio API 波形可视化 |
+| `tests/unit/test_middleware.py` | 23 个中间件单元测试 |
 
 ---
 
 ## v7.0.1: 代码审查修复 (2026-07-22)
 
-四代理并行代码审查 (Python backend + Vue frontend + Security + Electron) 发现 52 个问题，已修复 41 个 (79%)。
-
-### 修复总览
-
-| 严重级别 | 发现 | 已修复 | 剩余 |
-|----------|------|--------|------|
-| CRITICAL | 6 | **6** | 0 |
-| HIGH | 16 | **14** | 2 (速率限制, 安全头 — 需新依赖) |
-| MEDIUM | 18 | **14** | 4 |
-| LOW | 12 | **7** | 5 |
-| **总计** | **52** | **41** | **11** |
+四代理并行代码审查 (Python backend + Vue frontend + Security + Electron) 发现 52 个问题。
 
 ### 关键修复
 
@@ -41,30 +67,8 @@
 - ✅ `asyncio.to_thread()` 防止 WS 阻塞事件循环
 
 **前端**:
-- ✅ ScoreCard 颜色修复 (62+ 不再与 88+ 同色)
 - ✅ 历史记录 API 响应格式对齐后端
 - ✅ progressTimer 泄漏修复 (clearInterval in finally)
-- ✅ SingView 颜色与 ReportView/ScoreCard 对齐
-- ✅ 空白 `except: pass` 全部处理
-
-### 剩余已知问题 (11 项, 非阻塞)
-
-#### HIGH (2)
-| # | 问题 | 计划 |
-|---|------|------|
-| H1 | 所有端点均无速率限制 | Phase 6+: 引入 `slowapi`/`asgi-ratelimit` |
-| H2 | 缺少安全响应头 (CSP, X-Content-Type-Options 等) | Phase 6+: 添加 Starlette middleware |
-
-#### MEDIUM (4)
-| # | 问题 |
-|---|------|
-| M1 | Electron `__dirname` 在 asar 打包后路径假设脆弱 |
-| M2 | `useApi.ts` composable 中 4/5 方法为死代码 |
-| M3 | ReportView "导出报告"按钮无 `@click` handler |
-| M4 | `sandbox: false` 可能可安全改为 `true` |
-
-#### LOW (5)
-代码风格/优化项: 分值颜色重复, Canvas deep watch, pitchHistory 裁剪, Options API 不一致, v-for key
 
 ### 构建验证
 

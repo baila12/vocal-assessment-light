@@ -18,6 +18,7 @@ import { scoreColor } from '@/utils/colors'
 import ScoreCard from '@/components/ScoreCard.vue'
 import ScoreRadar from '@/components/ScoreRadar.vue'
 import AudioPlayer from '@/components/AudioPlayer.vue'
+import WaveformCanvas from '@/components/WaveformCanvas.vue'
 import type { SixDimensionScores } from '@/types/score'
 import type { AssessmentResult } from '@/types/api'
 
@@ -121,8 +122,9 @@ async function exportReport(): Promise<void> {
   if (!result.value) return
   isExporting.value = true
   try {
-    // 触发浏览器打印对话框 (Electron 中效果良好)
-    // Phase 6+ 可切换为调用后端 POST /api/v1/report 生成 PDF
+    // 触发浏览器打印对话框 (本地桌面应用首选方案)
+    // window.print() 在 Electron 中效果良好，支持保存为 PDF
+    // 后端 POST /api/v1/report (PDF生成) 作为备选方案保留
     window.print()
     ElMessage.success('报告已发送到打印机')
   } catch {
@@ -220,10 +222,16 @@ function onTimeUpdate(time: number): void {
         </div>
       </div>
 
-      <!-- 音频播放器 -->
+      <!-- 音频回放 + 波形可视化 -->
       <div v-if="audioUrl" class="audio-section">
         <h3 class="section-title">音频回放</h3>
+        <WaveformCanvas
+          :audio-url="audioUrl"
+          :current-time="playbackTime"
+          :height="80"
+        />
         <AudioPlayer
+          class="audio-player"
           :audio-url="audioUrl"
           :auto-play="preferences.autoPlay"
           @time-update="onTimeUpdate"
@@ -344,6 +352,10 @@ function onTimeUpdate(time: number): void {
 /* 音频 */
 .audio-section {
   margin-bottom: 40px;
+}
+
+.audio-player {
+  margin-top: 8px;
 }
 
 /* 建议 */

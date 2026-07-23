@@ -328,7 +328,7 @@ async def compare_audio(
 
     if "multipart/form-data" in content_type:
         form = await request.form()
-        user_file = form.get("file")
+        user_file = form.get("user_file")
         standard_file = form.get("standard_file")
 
         if not user_file or not standard_file or not hasattr(user_file, 'filename'):
