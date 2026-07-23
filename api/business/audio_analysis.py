@@ -285,6 +285,11 @@ def _build_success_result(
     result['heuristic_dimensions'] = _s(score_result, 'heuristic_dimensions', [])
     result['mode'] = mode  # Quick / Professional
 
+    # v7.1: analysis_id 始终生成 (API 层 + 业务层双重保障)
+    import uuid
+    if not result.get('analysis_id'):
+        result['analysis_id'] = str(uuid.uuid4())[:12]
+
     return result
 
 

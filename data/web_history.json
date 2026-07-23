@@ -800,5 +800,167 @@
     "timbre_adjustment": -2.0,
     "timestamp": "2026-07-23T10:59:55.314156+00:00",
     "id": 39
+  },
+  {
+    "total_score": 58.2,
+    "level": "中等",
+    "grade": "C",
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 44.8,
+      "muscle_strength": 69.2,
+      "artistry": 56.4
+    },
+    "timbre_adjustment": -2.0,
+    "timestamp": "2026-07-23T11:19:33.061194+00:00",
+    "id": 40
+  },
+  {
+    "total_score": 58.2,
+    "level": "中等",
+    "grade": "C",
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 44.8,
+      "muscle_strength": 69.2,
+      "artistry": 56.4
+    },
+    "timbre_adjustment": -2.0,
+    "timestamp": "2026-07-23T11:30:53.912934+00:00",
+    "id": 41
+  },
+  {
+    "total_score": 40.2,
+    "level": "及格",
+    "grade": "D",
+    "scores": {
+      "pitch": 47.5,
+      "rhythm": 100.0,
+      "breath": 100.0,
+      "technique": 0.0,
+      "muscle_strength": 21.2,
+      "artistry": 1.0
+    },
+    "timbre_adjustment": 0.0,
+    "timestamp": "2026-07-23T11:30:53.922435+00:00",
+    "id": 42
+  },
+  {
+    "total_score": 58.2,
+    "level": "中等",
+    "grade": "C",
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 44.8,
+      "muscle_strength": 69.2,
+      "artistry": 56.4
+    },
+    "timbre_adjustment": -2.0,
+    "timestamp": "2026-07-23T11:31:46.714627+00:00",
+    "id": 43
+  },
+  {
+    "total_score": 40.2,
+    "level": "及格",
+    "grade": "D",
+    "scores": {
+      "pitch": 47.5,
+      "rhythm": 100.0,
+      "breath": 100.0,
+      "technique": 0.0,
+      "muscle_strength": 21.2,
+      "artistry": 1.0
+    },
+    "timbre_adjustment": 0.0,
+    "timestamp": "2026-07-23T11:31:46.724100+00:00",
+    "id": 44
+  },
+  {
+    "total_score": 58.2,
+    "level": "中等",
+    "grade": "C",
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 44.8,
+      "muscle_strength": 69.2,
+      "artistry": 56.4
+    },
+    "timbre_adjustment": -2.0,
+    "timestamp": "2026-07-23T11:38:12.609346+00:00",
+    "id": 45
+  },
+  {
+    "filename": "melody.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\melody.wav",
+    "total_score": 58.2,
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 44.8,
+      "artistry": 56.4,
+      "total": 58.2,
+      "volume": 5.0,
+      "emotion": 56.4,
+      "muscle_strength": 69.2
+    },
+    "level": "中等",
+    "advice": [
+      "需要加强练习，重点关注节奏。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "节奏感出色，律动感强！"
+    ],
+    "mode": "quick",
+    "id": 46,
+    "timestamp": "2026-07-23T19:38:12.617083"
+  },
+  {
+    "total_score": 58.2,
+    "level": "中等",
+    "grade": "C",
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 44.8,
+      "muscle_strength": 69.2,
+      "artistry": 56.4
+    },
+    "timbre_adjustment": -2.0,
+    "timestamp": "2026-07-23T11:38:54.815001+00:00",
+    "id": 47
+  },
+  {
+    "filename": "melody.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\melody.wav",
+    "total_score": 58.2,
+    "scores": {
+      "pitch": 90.0,
+      "rhythm": 100.0,
+      "breath": 35.5,
+      "technique": 44.8,
+      "artistry": 56.4,
+      "total": 58.2,
+      "volume": 5.0,
+      "emotion": 56.4,
+      "muscle_strength": 69.2
+    },
+    "level": "中等",
+    "advice": [
+      "需要加强练习，重点关注节奏。",
+      "音量建议：练习腹式呼吸，保持稳定气息支撑。注意强弱的对比变化，增强音乐表现力。",
+      "节奏感出色，律动感强！"
+    ],
+    "mode": "quick",
+    "id": 48,
+    "timestamp": "2026-07-23T19:38:54.822894"
   }
 ]

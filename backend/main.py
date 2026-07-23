@@ -157,7 +157,9 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.environ.get("PORT", 0))
+    # 开发模式默认 8000, 生产模式 (Electron) 使用 --port=0 随机端口
+    default_port = int(os.environ.get("PORT", 8000))
+    port = default_port
     if "--port=0" in sys.argv:
         port = 0
 
