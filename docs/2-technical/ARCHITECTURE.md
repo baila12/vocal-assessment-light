@@ -62,34 +62,15 @@
     │  services/dl_services/ (style/VAD/DTW — 仍在使用)          │
     │  api/business/ (analyze_and_score — 关键桥梁)              │
     └────────────────────────────────────────────────────────────┘
-│  │  pitch_scorer │ breath_scorer │ rhythm_scorer             │   │
-│  │  technique_scorer │ artistry_scorer │ critical_rules      │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │              comparison/ DTW 对比引擎                      │   │
-│  │  dtw_aligner → deviation_calculator → scoring_engine      │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │              其他服务                                      │   │
-│  │  voice_quality │ visualization │ advice │ phrase │ report │   │
-│  │  timbre │ style_aware_scorer │ professional_feedback      │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                   数据层 (Repositories)                           │
-│  repositories/history_repository.py  — JSON 文件持久化          │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                   配置层 (Config)                                 │
-│  config/default.py  │  services/scoring_config.py               │
-│  - 应用配置          │  - 五维阈值 (EmpiricalThresholds)        │
-│  - 路径/端口/文件    │  - 风格自适应权重                         │
-└─────────────────────────────────────────────────────────────────┘
 ```
+
+### 端口策略 (v7.1.0)
+
+| 模式 | 后端端口 | 前端 | 说明 |
+|------|---------|------|------|
+| **开发 (Vite)** | **8000** (默认) | Vite proxy → `http://127.0.0.1:8000` | `main.py` 默认 8000 |
+| **生产 (Electron)** | `--port=0` (OS 分配) | `window.BACKEND_URL` 动态注入 | Electron spawn + stdout `PORT=` |
+| **生产 (直接)** | 8000 | `frontend/dist/` → FastAPI 服务 | SPA fallback + `/assets` |
 
 ---
 

@@ -79,9 +79,35 @@ AFTER:  route → analyze_and_score() → ScoringOrchestrator (新六维, 默认
 ```
 280 passed, 0 failed — 单元 + TDD + 中间件测试
 347 passed, 20 failed — 全量套件 (含集成/BDD, 20 失败为已有遗留)
-DDD 真实音频: melody.wav total=73.8 level=良好 6-dim ✅
+DDD 真实音频: melody.wav total=58.2 level=中等 6-dim ✅ (3.2s Quick mode)
 FCPE: 440Hz → 439.6Hz ✅
 ```
+
+### 严格测试验证 (2026-07-23)
+
+本次独立测试验证了前后端完整链路，发现并修复 3 个问题：
+
+| 测试套件 | 结果 | 文件 |
+|----------|------|------|
+| **综合系统测试** | **50/50** ✅ | `tests/tools/test_comprehensive_e2e.py` |
+| **前端 E2E 测试** | **21/21** ✅ | `tests/tools/test_frontend_e2e.py` |
+| **pytest 单元测试** | **280/280** ✅ | 全量回归 |
+
+**测试覆盖**:
+- 模块导入 ✅ | FeatureFlags 默认值 ✅ | 上传+分析+评分 ✅ | DDD 编排器 ✅
+- 基础设施音频层 ✅ | FCPE 精度 ✅ | 历史仓储 ✅ | EventBus ✅
+- FastAPI 工厂 (26 routes) ✅ | 前端构建产物 ✅ | 非人声检测 ✅
+- **5 页面 UI**: Home / History / Compare / Sing / Report 全部加载 ✅
+- **0 控制台错误**: Vite proxy → backend:8000 ✅
+- **移动端响应式** (375px) ✅
+- **上传 API**: HTTP 200, 6 维评分 + muscle_strength + heuristic_dimensions ✅
+
+**测试发现并修复的问题**:
+| 问题 | 根因 | 修复 |
+|------|------|------|
+| `analysis_id` 缺失 | 仅在路由层生成, 直接调用 `analyze_and_score()` 无此字段 | 业务层自动生成 UUID |
+| Vite 前端 500 错误 | Vite proxy 指向 8000, 但 `main.py` 默认 `PORT=0` (随机端口) | `main.py` 默认端口改为 8000 |
+| OMP 库冲突崩溃 | torch + librosa 各加载一份 libiomp5md.dll | `KMP_DUPLICATE_LIB_OK=TRUE` |
 
 ---
 
@@ -101,7 +127,6 @@ FCPE: 440Hz → 439.6Hz ✅
 | **audiofeat** + **timbral_models** | v7.1 P0 | - | 未安装/集成 (flag 已预留) |
 | **PyArmor** | 代码保护 | - | 未应用 (ADR-8) |
 | **electron-builder** | 桌面打包 | - | 配置就绪, 完整打包未执行 |
-| **Playwright E2E** | 测试 | - | 未执行 (需要运行服务) |
 
 ### 优先级排序
 

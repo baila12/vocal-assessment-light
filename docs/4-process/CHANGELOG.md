@@ -4,6 +4,19 @@
 
 ---
 
+## v7.1.0 — DDD 评分接入生产 + 死代码清理 + FCPE 集成 + 严格测试 (2026-07-23)
+
+### 严格测试验证 (新增)
+
+- 🆕 `tests/tools/test_comprehensive_e2e.py` — 50 项后端全流程检查
+- 🆕 `tests/tools/test_frontend_e2e.py` — 21 项前端 UI + 控制台检查
+- 🔧 `analysis_id` 始终生成 (业务层 UUID, 不再仅依赖路由层)
+- 🔧 `backend/main.py` 开发模式默认端口 8000 (与 Vite proxy 对齐)
+- 🔧 OMP 冲突通过 `KMP_DUPLICATE_LIB_OK=TRUE` 缓解
+- ✅ 5 页面全部加载 | 0 控制台错误 | 上传 API HTTP 200 | 移动端响应式正常
+
+---
+
 ## v7.1.0 — DDD 评分接入生产 + 死代码清理 + FCPE 集成 (2026-07-23)
 
 ### Phase A: 死代码清理 + 测试修复
