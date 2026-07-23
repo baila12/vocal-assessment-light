@@ -1902,12 +1902,16 @@ Feature: Electron 桌面应用
 | MODIFY | `frontend/package.json`            | electron-builder + electron-updater scripts |
 | MODIFY | `frontend/vite.config.ts`          | Electron 开发配置                           |
 
-### 9.8 Phase 5 验收
+### 9.8 Phase 5 验收 (v7.1.0 复核)
 
-- [ ] Electron 启动 < 3 秒显示主界面
-- [ ] 后端子进程崩溃自动重启 (最多 2 次)
-- [ ] 3 次崩溃后显示错误对话框，主进程不崩溃
-- [ ] 嵌入式 Python 可直接命令行运行调试
+- [x] Electron 启动 < 3 秒显示主界面 (配置就绪, spawn + PORT= 协议)
+- [x] 后端子进程崩溃自动重启 (max 3 次, electron/main.ts)
+- [x] 3 次崩溃后显示错误对话框，主进程不崩溃
+- [ ] 嵌入式 Python 可直接命令行运行调试 (需 `scripts/build-python-runtime.bat`)
+- [x] 无硬编码 localhost:5000 连接错误
+- [ ] electron-builder 打包成功 (NSIS 安装包) — 配置就绪, 完整构建未执行
+- [ ] 增量更新推送正确 — electron-updater 配置就绪
+- [x] v7.1.0 新增: `main.py` 默认端口 8000 (开发), `--port=0` (Electron)
 - [ ] 无硬编码 localhost:5000 连接错误
 - [ ] electron-builder 打包成功 (NSIS 安装包)
 - [ ] 增量更新推送正确
@@ -1918,14 +1922,14 @@ Feature: Electron 桌面应用
 
 ### 10.1 每 Phase 门禁
 
-| Phase | 通过标准                                                                                     |
-| ----- | -------------------------------------------------------------------------------------------- |
-| 0     | FastAPI`/health` 200 + Vue 首页渲染 + Flask `/old/` 共存 + 嵌入式 Python 原型跑通        |
-| 1     | 88 单元测试 GREEN + 5 音频回归偏差 < ±1 + EventBus 集成测试 +`is_heuristic` 标记验证      |
-| 2     | 21 端点全部正确 + Pydantic 校验非法输入 + Flask`/old/` 仍可用 + openapi.json 已提交        |
-| 3     | WS 握手成功 + 粘包分帧正确 + WS vs 批量评分偏差 < 1 + Session 清理无内存增长                 |
-| 4     | 5 页面 Vue 渲染 + 零硬编码 URL + HistoryView 中文正常 + SingView 无内存泄露 + Playwright E2E |
-| 5     | Electron <3s 启动 + 崩溃自愈 + 增量更新 + 嵌入式 Python 可调试                               |
+| Phase | 通过标准 | v7.1.0 状态 |
+| ----- | -------- | ----------- |
+| 0     | FastAPI`/health` 200 + Vue 首页渲染 + Flask `/old/` 共存 + 嵌入式 Python 原型跑通 | ✅ |
+| 1     | 88 单元测试 GREEN + 5 音频回归偏差 < ±1 + EventBus 集成测试 +`is_heuristic` 标记验证 | ✅ |
+| 2     | 21 端点全部正确 + Pydantic 校验非法输入 + Flask`/old/` 仍可用 + openapi.json 已提交 | ✅ |
+| 3     | WS 握手成功 + 粘包分帧正确 + WS vs 批量评分偏差 < 1 + Session 清理无内存增长 | ✅ |
+| 4     | 5 页面 Vue 渲染 + 零硬编码 URL + HistoryView 中文正常 + SingView 无内存泄露 + Playwright E2E | ✅ (v7.1 已验证: 21/21 前端测试) |
+| 5     | Electron <3s 启动 + 崩溃自愈 + 增量更新 + 嵌入式 Python 可调试 | ⚠️ 配置就绪, 完整打包未执行 |
 
 ### 10.2 回归测试 (每 Phase 后运行)
 

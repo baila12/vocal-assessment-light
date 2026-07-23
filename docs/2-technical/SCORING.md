@@ -1,9 +1,10 @@
 # 评分算法文档
 
-> 更新: 2026-07-23 | v7.1-alpha — 六维评分体系 + 五维度研究验证
+> 更新: 2026-07-23 | v7.1.0 — 六维评分 DDD 默认 + FCPE 集成
 >
-> **技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md) — 各维度算法有效性详表
-> **参考论文**: `参考论文/` — 完整研究总结
+> **架构状态**: DDD `ScoringOrchestrator` 为默认生产路径 (flag: `enable_ddd_scoring=True`)
+> **技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md)
+> **当前状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 
 ---
 
@@ -56,9 +57,9 @@
 | 唱法分类 | ONNX (INT8 量化) | `models/style_classifier/model_quantized.onnx` | ❌ | ✅ | 正常 |
 | 自参照 DTW | librosa DTW | `services/dl_services/self_referenced_dtw.py` | ❌ | ✅ | 计算但未入评分 |
 | 音乐风格分析 | Heuristic + DL | `services/dl_services/singing_style_classifier.py` | ❌ | ✅ | 部分 |
-| **SingMOS (DL 质量评估)** | PyTorch Hub | `torch.hub.load("South-Twilight/SingMOS")` | ❌ | ✅ (静默失败) | ⚠️ 缺少 s3prl → 返回 0 |
+| **SingMOS (DL 质量评估)** | — | v5.15 移除, v7.1 代码删除 | ❌ | ❌ | ✅ 已完全移除 |
 
-> **SingMOS 问题**: `dl_quality_assessor.py:118` 调用 `torch.hub.load("South-Twilight/SingMOS:v1.1.2")`，需要 `s3prl` 包未安装。失败时 `predict()` 返回零分，DL fusion (`_apply_dl_fusion`) 成为永久 no-op。
+> **v7.1**: SingMOS 已在 v5.15 从评分管线移除, v7.1 彻底删除 `dl_quality_assessor.py` 文件。DL fusion (`_apply_dl_fusion`) 已从 `ScoreServiceV4` 中移除。
 
 ### 3. 评分计算层 (所有模式相同)
 
@@ -77,7 +78,7 @@
 |---------|---------|-------|-----|------|
 | **Cross-Dimension Modifiers** | `feature_flags.enable_cross_dimension_modifiers` | ✅ | ✅ | HNR→气息, Voicing→音准, 频谱倾斜→气声, Jitter→技术, 气息-音准耦合 |
 | **DTW 参考评分** | `reference_path != None` | ✅ | ✅ | 仅 Compare 模式和 upload 带 reference 时触发 |
-| **DL Fusion** | `dl_mos_normalized > 0` | ❌ (dl=0) | ❌ (SingMOS 失败) | 从未实际生效 |
+| **DL Fusion** | — | ❌ | ❌ | v7.1 已移除 |
 | **Critical Rules** | 无条件 | ✅ | ✅ | 连续跑调(>5音符), 脱拍(>40%), 严重漏气(HNR<3dB) |
 | **多维度联合惩罚** | 无条件 | ✅ | ✅ | 4维<40→上限40, 3维<40→上限55 |
 | **人声质量惩罚** | 无条件 | ✅ | ✅ | VQ<30→上限40, VQ<65→扣分 |
@@ -190,7 +191,7 @@ analyze_and_score()
 | **高级特征** (7 项 FeatureFlags) | ✅ 全部 | ✅ 全部 |
 | **Demucs 人声分离** | ❌ 跳过 | ✅ 混合音频时启用 |
 | **DL 模型** (VAD/分类/DTW/风格) | ❌ 全部跳过 | ✅ 全部启用 |
-| **SingMOS** | ❌ | ⚠️ 启用但静默失败 (缺 s3prl) |
+| **SingMOS** | ❌ | v5.15 移除, v7.1 代码删除 |
 | **五维评分器** | ✅ 相同算法 | ✅ 相同算法 |
 | **跨维度修正** | ✅ 相同 | ✅ 相同 |
 | **唱法自适应权重** | ❌ (无 style_profile) | ✅ (来自 DL 唱法分类) |
@@ -262,7 +263,7 @@ SingPage **始终使用 Quick 模式**。无论是否选择了曲库歌曲、是
 | **Style Classifier** | ONNX Runtime (INT8) | Pro/Compare 模式 | ✅ 正常 (`_run_singing_style_detection`) |
 | **Self-Referenced DTW** | librosa DTW | Pro/Compare 模式 | ✅ 计算但不影响评分 |
 | **Music Style** | Heuristic + DL | Pro/Compare 模式 | ⚠️ 部分工作 |
-| **SingMOS** | PyTorch Hub | Pro/Compare 模式 | ❌ 静默失败 (缺 s3prl) |
+| **SingMOS** | — | — | v5.15 移除, v7.1 代码删除 |
 | **Wav2Vec2 Emotion** | SpeechBrain/HF | v5.12 已移除 | ❌ 已替换为启发式 |
 | **TorchCREPE** | PyTorch | PYIN detection_rate<50% | ✅ (需 FeatureFlags) |
 
@@ -609,13 +610,11 @@ v6.1:  artistry = vibrato_expressiveness*0.30 + dynamic_expressiveness*0.30
 
 ---
 
-## DL 融合 (v5.15 已禁用)
+## DL 融合 (v7.1 已完全移除)
 
-- SingMOS 在 v5.15 完全移除 — 跨域反评分已铁证确认 (TTS 合成歌声自然度模型不适用于真人演唱)
-- `_apply_dl_fusion()` → pass-through (始终返回原总分)
-- `_assess_with_dl()` → 始终返回零值
-- 替代方案: `_self_consistency_penalty()` 自参照分段一致性 (v5.15)
-- 实现: `services/score_service.py:_apply_dl_fusion()` (保留为扩展点)
+- **v5.15**: SingMOS 从评分管线移除
+- **v7.1**: `_apply_dl_fusion()` 方法 + `_assess_with_dl()` 函数 + `dl_quality_assessor.py` 文件全部删除
+- 当前评分完全基于声学信号处理 (无 DL 融合)
 
 ---
 
