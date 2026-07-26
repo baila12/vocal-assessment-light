@@ -1,9 +1,9 @@
-# 系统架构 v7.1.3
+# 系统架构 v7.2
 
-> 更新: 2026-07-26 | 架构: FastAPI (DDD 四层) + Flask (绞杀者) + Vue 3 SPA | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-27 | 架构: FastAPI (DDD 四层) + Flask (绞杀者) + Vue 3 SPA | 分支: `feat/v7-fastapi-vue-refactor`
 >
 > **v7.0 迁移计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — Phase 0-5 ✅
-> **v7.1.3 状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) — DDD 绞杀者内移完成, 10/10 模块自包含
+> **v7.2 状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) — DDD 绞杀者完成, 13 模块自包含 + audiofeat
 > **v7.1 技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md) — 五维度算法验证 + 实施路线
 
 ---

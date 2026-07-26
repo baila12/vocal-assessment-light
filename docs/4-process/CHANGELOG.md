@@ -4,6 +4,127 @@
 
 ---
 
+## v7.2.1 — 代码审查修复 (2026-07-27)
+
+### 概述
+
+全面代码审查后修复 23 项问题 (5 CRITICAL + 9 HIGH + 7 MEDIUM + 2 LOW)，覆盖前后端对齐、静默崩溃、安全、代码质量和冗余。
+
+### CRITICAL 修复 (5)
+
+- 🔧 **前后端对齐**: analysis_id UUID 存入 history，`get_by_id()` 支持 UUID 字符串查找 → 页面刷新后可正确加载报告
+- 🔧 **字段名统一**: history 存储 `created_at` (timestamp 向后兼容)，前端 HistoryView 日期列正常显示
+- 🔧 **响应补全**: FastAPI `UploadResponse` 包含 `timbre_adjustment` + `normalization` (之前始终为 0)
+- 🔧 **history 完整性**: `_save_history()` 存储 grade/duration/timbre_adjustment/heuristic_dimensions/analysis_id
+- 🔧 **PEP 8**: dl_services 中 2 个裸 `except:` → `except Exception:`
+
+### HIGH 修复 (9)
+
+- 🔧 静默异常增加日志: `breath_extractor` (人声段过滤/HPSS), `technique_extractor` (颤音检测)
+- 🔧 `acoustic_feature_extractor`: HPSS 失败日志 debug→warning
+- 🔧 `audio_service`: 混合音频检测失败增加 warning
+- 🔧 错误信息泄露: `assessment.py`/`upload.py`/`score_handler.py` 中 `str(e)` → 通用消息
+- 🆕 `backend/shared/math_utils.py`: 提取 `safe_float` + `safe_clamp` (消除 4 处重复定义)
+- 🔧 删除 `_calc_rhythm_from_pitch` 死代码 (53 行，零调用)
+
+### MEDIUM 修复 (7)
+
+- 🔧 `DddFeatureSet` 设为 `frozen=True`
+- 🔧 前端 API client: `AbortController` 超时 (120s upload / 30s normal)
+- 🔧 前端 WebSocket 重连错误日志、AudioPlayer 播放失败日志、AudioContext 关闭失败日志
+- 🔧 `upload-test.html`: `innerHTML` XSS → `textContent`
+- 🔧 `history.store.ts`: `toggleSelect` 不可变更新 (push/splice → spread/filter)
+- 🔧 `normalize_loudness`: 静音输入增加 warning
+- 🔧 `HistoryListResponse.records` → `history` (匹配后端响应)
+
+### 测试
+
+- 226/226 DDD GREEN (无回归)
+
+---
+
+## v7.2.0 — audiofeat 增强特征提取 (2026-07-26)
+
+### 概述
+
+集成 audiofeat 1.1.1，新增 22 个声学特征提取。TDD 驱动，19 tests GREEN。
+
+### 新增
+
+- 🆕 **`AudiofeatExtractor`** (`backend/domain/audio/audiofeat_extractor.py`, 256 行) — 封装 audiofeat API
+- 🆕 **`AudiofeatFeatures`** — frozen dataclass，22 字段，自动 NaN/Inf/空输入安全回退
+- 🆕 **`DddFeatureSet.audiofeat`** — 集成到编排器，`enable_audiofeat` flag 门控
+
+### 提取特征
+
+| 类别 | 特征 |
+|------|------|
+| Voice Quality | CPPS (mean+std), HNR_praat, GNE (mean+max) |
+| Perturbation | Jitter (local+ppq5), Shimmer (dB) |
+| Glottal Flow | Closed Quotient (基于 PYIN F0) |
+| Phonation | Soft Phonation Index, Vocal Fry Ratio |
+| Spectral | Centroid, Flatness, Crest, Entropy, Roughness, Harmonic Richness, Inharmonicity, Hammarberg Index, Slope |
+| Other | Nasality, RMS Energy |
+
+### 测试
+
+- 19/19 GREEN (`test_audiofeat_extractor.py`): 初始化 + 22 特征 + 边缘情况 (静音/短音频/NaN) + flag
+
+---
+
+## v7.1.5 — 特征提取层绞杀者完成 (2026-07-26)
+
+### 概述
+
+移除 `AudioFeaturesService` 依赖，清理 `services/features/` 未使用分析器。特征提取层绞杀者模式完成。
+
+### 内联
+
+- 🔧 `audio_service.py`: 内联 `_extract_f0()` + `_extract_f0_crepe()` (从 AudioFeaturesService 移入，~80 行)
+- 🔧 移除 `AudioFeaturesService` 导入和 `_features_service` 字段
+- 🔧 移除 `extract_all_features()` 死代码调用 (两处，`_advanced_features` 已不再被消费)
+
+### 删除
+
+- ❌ `services/audio_features_service.py` (~500 行)
+- ❌ `services/features/` 未使用分析器 10 文件 (~1,220 行):
+  - breath.py, cpp.py, hnr.py, pitch.py, reverb.py, rhythm.py, technique.py, voicing.py, voice_quality_praat.py, \_\_init\_\_.py
+- ✅ 保留: `acoustic.py` (AcousticAnalyzer.detect_mixed_audio) + `types.py` (AudioFeaturesResult 类型)
+
+### 测试
+
+- 更新 `test_ddd_alignment.py`/`test_pitch_extractor.py`/`test_rhythm_extractor.py` — 移除 legacy 对比类
+- 214/214 GREEN
+
+---
+
+## v7.1.4 — 死代码清理 (2026-07-26)
+
+### 概述
+
+移除 V4 评分回退、旧 SPA 前端、遗留测试文件。简化 `analyze_and_score()` 为 DDD 唯一代码路径。
+
+### 删除
+
+- ❌ `services/scoring/` (8 files): PitchScorer, RhythmScorer, BreathScorer, TechniqueScorer, ArtistryScorer, CriticalRules, ScoreModifiers, Types
+- ❌ `services/score_service.py` — ScoreServiceV4
+- ❌ `services/scoring_config.py` — V4 阈值配置
+- ❌ `web/static/js/` (38 files) + `css/` (10 files) + `app.js` + `router.js` — 旧 vanilla JS SPA
+- ❌ 14 个 Category-1 遗留测试文件
+
+### 重构
+
+- 🔧 `api/business/audio_analysis.py`: 移除 V4 + adapter 回退，DDD 原生路径为唯一代码路径
+- 🔧 `services/advice_service.py`: 移除 ScoreResult 导入，更新为 v7 六维建议模板
+- 🔧 `services/__init__.py`: 移除 ScoreService/ScoreServiceV4 等 4 个导出
+
+### 统计
+
+- 净删除 ~22,800 行 (77 files)
+- 测试: 231/232 GREEN (1 预存 rate-limit)
+
+---
+
 ## v7.1.3 — DDD 绞杀者内移完成 (2026-07-26)
 
 ### 概述

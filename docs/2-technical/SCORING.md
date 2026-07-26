@@ -1,8 +1,8 @@
 # 评分算法文档
 
-> 更新: 2026-07-26 | v7.1.3 — DDD 绞杀者内移完成, 10/10 模块自包含
+> 更新: 2026-07-27 | v7.2 — DDD 绞杀者完成 + audiofeat 22 增强特征
 >
-> **架构状态**: DDD 原生提取路径为生产默认; 全部算法已内移到 DDD 层; 归一化透明度已加入 API 响应
+> **架构状态**: DDD 唯一评分路径; 13 自包含提取器; audiofeat 特征 (flag 门控, 默认关闭)
 > **技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md)
 > **当前状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 

@@ -1,8 +1,8 @@
 # 声乐评估系统文档索引
 
-> **v7.1.3 | 2026-07-26** | 分支: `feat/v7-fastapi-vue-refactor`
-> DDD 绞杀者内移完成 (10/10 模块自包含) | 评分对齐修复 | 严格真实音频验证
-> 337 单元 GREEN | 53 系统 GREEN | 10/10 真实音频 PASS
+> **v7.2.1 | 2026-07-27** | 分支: `feat/v7-fastapi-vue-refactor`
+> DDD 绞杀者完成 + audiofeat 22 增强特征 + 代码审查修复 (23 fixes)
+> 226 DDD GREEN | 88 domain | 106 infrastructure | 53 system | 12 real audio
 
 本目录按产品、技术、质量、过程和归档五类组织。
 
@@ -19,9 +19,9 @@
 
 | 文档 | 说明 |
 |------|------|
-| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.1.3 DDD 四层架构 + 绞杀者完成 + 10/10 自包含模块 |
-| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | v7.0 API 契约 (16 paths + WebSocket) |
-| [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分 + 权重说明 + 对齐数据 (v7.1.3 版) |
+| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.2 DDD 四层架构 + 绞杀者完成 + 13 自包含模块 + audiofeat |
+| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | v7.2 API 契约 (16 paths + WebSocket + normalization) |
+| [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分 + 权重说明 + audiofeat 增强特征 (v7.2 版) |
 | [2-technical/TECH_RESEARCH.md](2-technical/TECH_RESEARCH.md) | **v7.1 技术研究**: 五维度算法验证 + 开源工具评级 + 实施路线 |
 | [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 (Vue 3 + Element Plus) |
 
