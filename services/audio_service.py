@@ -17,9 +17,7 @@ import numpy as np
 from scipy import signal
 
 from config import Config
-from services.audio_features_service import AudioFeaturesService, AudioFeaturesResult
 from services.features.acoustic import AcousticAnalyzer
-
 from services.feature_flags import FeatureFlags
 
 # v5.18 DL 辅助方法 (从本文件提取以控制文件大小; 原 DL imports 已移入 AudioDLHelpers)
@@ -86,8 +84,8 @@ class AudioAnalysisResult:
     _voice_clarity: float = 0.5
     _vibrato_count: int = 0
 
-    # 高级特征提取结果 v4.0
-    _advanced_features: Optional[AudioFeaturesResult] = field(default=None, repr=False)
+    # 高级特征提取结果 v4.0 — v7.1.5 移除 (DDD 提取器已替代)
+    # _advanced_features 字段已移除 — 由 DddFeatureExtractionOrchestrator 直接提取
 
     # 深度学习分析结果 v5.0
     _voice_quality: Optional[Dict] = field(default=None, repr=False)  # 人声质量检测结果
@@ -129,12 +127,9 @@ class AudioService:
         self.config = config or Config()
         self._hop_length = self.config.AUDIO_HOP_LENGTH
         self._frame_length = self.config.AUDIO_FRAME_LENGTH
-        # 高级特征提取服务 v4.0
-        # 注意：音频会被降采样到16kHz，所以特征提取服务也使用16kHz
-        self._features_service = AudioFeaturesService(
-            sample_rate=16000,  # 与TARGET_SR一致
-            hop_length=self._hop_length
-        )
+        # v7.1.5: F0 提取内联 (移除 AudioFeaturesService 依赖)
+        self._voice_fmin = 80.0   # librosa.yin fmin
+        self._voice_fmax = 1200.0  # librosa.yin fmax
         # v5.18: 深度学习服务委托给 AudioDLHelpers
         self._dl = AudioDLHelpers()
 
@@ -252,11 +247,7 @@ class AudioService:
                 # 更新音量信息（基于纯净人声）
                 result.volume_info = self._analyze_volume(audio_data)
 
-            # 高级特征提取 v5.18（传递分离状态用于CV映射修正 + FeatureFlags）
-            result._advanced_features = self._features_service.extract_all_features(
-                audio_data, result._f0, singing_style='pop',
-                is_separated=used_sep, feature_flags=feature_flags
-            )
+            # v7.1.5: 高级特征提取已移除 — 由 DddFeatureExtractionOrchestrator 替代
 
             # ========== 深度学习分析 v5.0 ==========
             # 快速模式跳过耗时DL分析
@@ -277,7 +268,6 @@ class AudioService:
 
                 # 唱法识别
                 style_result = self._run_style_classification(filepath)
-                singing_style = 'pop'  # 默认
                 if style_result:
                     result._singing_style = {
                         'style': style_result.style.value,
@@ -285,12 +275,7 @@ class AudioService:
                         'probabilities': style_result.probabilities,
                         'method': style_result.method
                     }
-                    singing_style = style_result.style.value
-                    # 使用识别的风格重新提取高级特征
-                    result._advanced_features = self._features_service.extract_all_features(
-                        audio_data, result._f0, singing_style=singing_style,
-                        is_separated=used_sep, feature_flags=feature_flags
-                    )
+                # v7.1.5: singing_style 重提取已移除 — 由 DddFeatureExtractionOrchestrator 替代
 
                 # 自参照DTW音准评估（仅对有效人声）
                 if result._voice_quality and result._voice_quality.get('is_valid', True):
@@ -331,6 +316,70 @@ class AudioService:
                 traceback=traceback.format_exc()
             )
 
+    # v7.1.5: F0 提取内联 (从 AudioFeaturesService 内移)
+    def _extract_f0(
+        self, audio_data: np.ndarray, sample_rate: int,
+        feature_flags: Optional[FeatureFlags] = None,
+    ) -> np.ndarray:
+        """
+        提取基频序列 — 内联自 AudioFeaturesService._extract_f0 (v7.1.5)
+
+        使用 librosa.yin 算法。当 feature_flags.enable_torchcrepe_fallback=True
+        且 PYIN detection_rate < 0.5 时，自动切换到 TorchCREPE。
+        """
+        try:
+            f0 = librosa.yin(
+                audio_data,
+                fmin=self._voice_fmin,
+                fmax=self._voice_fmax,
+                sr=sample_rate,
+                hop_length=self._hop_length,
+            )
+            # CREPE fallback
+            if feature_flags is not None and feature_flags.enable_torchcrepe_fallback:
+                voiced_flags = ~np.isnan(f0)
+                detection_rate = np.mean(voiced_flags) if len(voiced_flags) > 0 else 0.0
+                if detection_rate < 0.5 and len(audio_data) > 0:
+                    logger.info(
+                        f"YIN detection_rate={detection_rate:.2f} < 0.5, "
+                        f"falling back to TorchCREPE"
+                    )
+                    f0_crepe = self._extract_f0_crepe(audio_data, sample_rate)
+                    if f0_crepe is not None and len(f0_crepe) > 0:
+                        f0 = f0_crepe
+            return f0
+        except Exception as e:
+            logger.warning(f"F0 extraction failed: {e}")
+            return np.array([])
+
+    def _extract_f0_crepe(
+        self, audio_data: np.ndarray, sample_rate: int,
+    ) -> Optional[np.ndarray]:
+        """
+        TorchCREPE 基频提取 — 内联自 AudioFeaturesService._extract_f0_crepe (v7.1.5)
+        """
+        try:
+            import torchcrepe
+            import torch as _torch
+            audio_tensor = _torch.from_numpy(
+                audio_data.astype(np.float32)
+            ).unsqueeze(0)
+            f0, _confidence = torchcrepe.predict(
+                audio_tensor,
+                sample_rate=sample_rate,
+                hop_length=self._hop_length,
+                fmin=self._voice_fmin,
+                fmax=self._voice_fmax,
+                model='full',
+                batch_size=1024,
+                device='cpu',
+                return_confidence=True,
+            )
+            return f0.squeeze().numpy()
+        except Exception as e:
+            logger.warning(f"TorchCREPE fallback failed: {e}")
+            return None
+
     def _analyze_volume(self, audio_data: np.ndarray) -> Dict:
         """分析音量信息"""
         rms = np.sqrt(np.mean(audio_data ** 2))
@@ -366,27 +415,8 @@ class AudioService:
         默认使用 librosa.yin。当 feature_flags.enable_torchcrepe_fallback=True
         且 PYIN detection_rate < 0.5 时，自动切换到 TorchCREPE。
         """
-        # v5.18: TorchCREPE fallback 集成
-        if (feature_flags is not None
-                and feature_flags.enable_torchcrepe_fallback):
-            f0_crepe = self._features_service._extract_f0(
-                audio_data, feature_flags
-            )
-            f0 = f0_crepe[0] if len(f0_crepe[0]) > 0 else librosa.yin(
-                audio_data,
-                fmin=self.config.PITCH_FMIN,
-                fmax=self.config.PITCH_FMAX,
-                sr=sample_rate,
-                hop_length=self._hop_length
-            )
-        else:
-            f0 = librosa.yin(
-                audio_data,
-                fmin=self.config.PITCH_FMIN,
-                fmax=self.config.PITCH_FMAX,
-                sr=sample_rate,
-                hop_length=self._hop_length
-            )
+        # v7.1.5: F0 提取内联 (移除 AudioFeaturesService 依赖)
+        f0 = self._extract_f0(audio_data, sample_rate, feature_flags)
 
         # yin返回的是频率，nan表示无声
         valid_mask = ~np.isnan(f0) & (f0 > 80) & (f0 < 1200)
