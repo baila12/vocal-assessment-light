@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from backend.domain.assessment.value_objects import TechniqueScore
 
 
-@dataclass
+@dataclass(frozen=True)
 class TechniqueFeatures:
-    """发声技术特征输入"""
+    """发声技术特征输入 (不可变)"""
     onset_density: float = 0.0       # onsets/second, 正常范围 1.5-5.0
     spectral_flux: float = 0.0       # 频谱变化率, 正常 < 3.0
     consonant_clarity: float = 0.0   # 辅音清晰度 0-100
@@ -21,6 +21,8 @@ class TechniqueFeatures:
     spectral_tilt: float = 0.0       # 频谱倾斜 (-10到+5, 负值=气声)
     hf_energy_ratio: float = 0.5     # >2kHz 能量占比
     cpp_mean: float = 1.0            # 声门闭合周期峰值
+    vibrato_quality: float = 0.0     # v7.1.3: 颤音质量 0-100 (来自 TechniqueAnalyzer)
+    vibrato_rate_avg: float = 5.0    # v7.1.3: 平均颤音速率 Hz (来自 TechniqueAnalyzer)
 
 
 class TechniqueScorer:

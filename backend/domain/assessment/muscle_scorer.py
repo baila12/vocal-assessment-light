@@ -15,9 +15,9 @@ from dataclasses import dataclass
 from backend.domain.assessment.value_objects import MuscleStrengthScore
 
 
-@dataclass
+@dataclass(frozen=True)
 class MuscleFeatures:
-    """肌肉力量特征输入 — 全部来自麦克风音频代理指标"""
+    """肌肉力量特征输入 — 全部来自麦克风音频代理指标 (不可变)"""
     max_db_level: float = -20.0           # 最大声压级
     low_freq_energy_ratio: float = 0.30   # <500Hz能量比
     rms_decay_rate: float = 1.0           # 长音衰减率 dB/s

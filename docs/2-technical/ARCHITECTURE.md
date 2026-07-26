@@ -1,9 +1,9 @@
-# 系统架构 v7.1.0
+# 系统架构 v7.1.3
 
-> 更新: 2026-07-23 | 架构: FastAPI (DDD 四层) + Flask (绞杀者) + Vue 3 SPA | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-26 | 架构: FastAPI (DDD 四层) + Flask (绞杀者) + Vue 3 SPA | 分支: `feat/v7-fastapi-vue-refactor`
 >
 > **v7.0 迁移计划**: [V7_MIGRATION_PLAN.md](../4-process/V7_MIGRATION_PLAN.md) — Phase 0-5 ✅
-> **v7.1 重构完成**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) — DDD 评分默认 + 死代码清理 + FCPE 集成
+> **v7.1.3 状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) — DDD 绞杀者内移完成, 10/10 模块自包含
 > **v7.1 技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md) — 五维度算法验证 + 实施路线
 
 ---
@@ -44,10 +44,22 @@
     │  │  librosa_loader  │  │  ├─ breath_scorer   (20%) ⭐ │   │
     │  │  pyin_extractor  │  │  ├─ technique_scorer(25%) ⭐ │   │
     │  │  demucs_separator│  │  ├─ muscle_scorer   (25%) ⭐ │   │
-    │  │  fcpe_extractor🆕│  │  ├─ artistry_scorer (10%) ⭐ │   │
-    │  │  protocols.py 🆕 │  │  └─ timbre_adjuster       ⭐ │   │
-    │  │ persistence/     │  │  audio/    (entities+services) │   │
-    │  └──────────────────┘  │  comparison/ (entities+services)│   │
+    │  │  fcpe_extractor  │  │  ├─ artistry_scorer (10%) ⭐ │   │
+    │  │  protocols.py    │  │  └─ timbre_adjuster       ⭐ │   │
+    │  │ persistence/     │  │  audio/ ✅ v7.1.3 全自包含    │   │
+    │  └──────────────────┘  │  ├─ audio_utils (3 纯函数)    │   │
+    │                        │  ├─ feature_types (Acoustic)  │   │
+    │  ┌──────────────────┐  │  ├─ feature_protocols (3)      │   │
+    │  │ application/     │  │  ├─ acoustic_feature_extractor│   │
+    │  │ assessment/      │  │  ├─ pitch_extractor           │   │
+    │  │  scoring_        │  │  ├─ rhythm_extractor          │   │
+    │  │  orchestrator ✅ │  │  ├─ breath_extractor          │   │
+    │  │  feature_        │  │  ├─ technique_extractor       │   │
+    │  │  adapters        │  │  ├─ muscle_extractor ⚠️      │   │
+    │  │  ddd_feature_    │  │  ├─ timbre_extractor  ⚠️     │   │
+    │  │  orchestrator ✅ │  │  └─ artistry_extractor        │   │
+    │  └──────────────────┘  │  comparison/ (stub)           │   │
+    │  └──────────────────┘  └───────────────────────────────┘   │
     │                        └───────────────────────────────┘   │
     │  ┌──────────────────────────────────────────────────┐      │
     │  │ shared/: event_bus, domain_types(ScoreLevel),    │      │
@@ -56,11 +68,11 @@
     └────────────────────────────────────────────────────────────┘
                                       │
     ┌─────────────────────────────────┼──────────────────────────┐
-    │              旧服务层 (绞杀者, 逐渐替换)                     │
-    │  services/features/ (12 特征提取 — 生产唯一来源)            │
+    │              旧服务层 (绞杀者 — v7.1.3 DDD 已完全替代)         │
+    │  services/features/ (12 文件 — DDD 10 模块完全替代, 可删除)  │
     │  services/scoring/  (8 旧评分器 — flag 回退路径)            │
     │  services/dl_services/ (style/VAD/DTW — 仍在使用)          │
-    │  api/business/ (analyze_and_score — 关键桥梁)              │
+    │  api/business/ (analyze_and_score — 桥梁, 已接入DDD路径)    │
     └────────────────────────────────────────────────────────────┘
 ```
 

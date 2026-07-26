@@ -52,6 +52,8 @@ class FeatureFlags:
     # v7.1: 启用 DDD ScoringOrchestrator (六维度 + EventBus 自动保存历史)
     # 关闭时使用旧 ScoreServiceV4 (五维度)
     enable_ddd_scoring: bool = True
+    # v7.1.2: DDD 原生特征提取 (绕过旧 AudioFeaturesService) — 默认启用
+    enable_ddd_feature_extraction: bool = True
     # v7.1 P0: FCPE 替换 YIN 基频检测 (精度 96.79% RPA, ~77x faster on GPU)
     enable_fcpe: bool = False
     # v7.1 P0: audiofeat 130+ 特征 (CPPS/GNE/HNR/ABI)
@@ -71,6 +73,7 @@ class FeatureFlags:
             enable_reverb_compensation=False,  # 混响补偿开销大, Quick 跳过
             enable_praat_voice_quality=True,  # v6.2: 已截断到 60s, 可接受
             enable_ddd_scoring=True,  # v7.1: DDD 六维度评分
+            enable_ddd_feature_extraction=True,  # v7.1.2: DDD 原生提取 (已验证)
         )
 
     @classmethod
@@ -85,6 +88,7 @@ class FeatureFlags:
             enable_reverb_compensation=True,
             enable_praat_voice_quality=True,
             enable_ddd_scoring=True,  # v7.1: DDD 六维度评分
+            enable_ddd_feature_extraction=True,  # v7.1.2: DDD 原生提取 (已验证)
         )
 
     @classmethod
@@ -98,4 +102,6 @@ class FeatureFlags:
             enable_cross_dimension_modifiers=False,
             enable_reverb_compensation=False,
             enable_praat_voice_quality=False,
+            enable_ddd_scoring=False,  # 安全基线不启用 DDD
+            enable_ddd_feature_extraction=False,
         )

@@ -23,6 +23,9 @@ class DimensionFlags:
     enable_timbre_adjustment: bool = True   # NEW ⚠️ 启发式
     enable_vnext_weights: bool = True       # False = 回退旧五维权重
 
+    # ===== v7.1.2: DDD 原生特征提取 =====
+    enable_ddd_feature_extraction: bool = True   # True = 绕过旧 AudioFeaturesService, 直接使用 7 个 DDD 提取器
+
     # ===== 子维度级 =====
     enable_articulation: bool = True        # 咬字清晰度
     enable_breath_voice_ratio: bool = True  # 气声比

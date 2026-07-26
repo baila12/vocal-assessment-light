@@ -1,10 +1,69 @@
 # 评分算法文档
 
-> 更新: 2026-07-23 | v7.1.0 — 六维评分 DDD 默认 + FCPE 集成
+> 更新: 2026-07-26 | v7.1.3 — DDD 绞杀者内移完成, 10/10 模块自包含
 >
-> **架构状态**: DDD `ScoringOrchestrator` 为默认生产路径 (flag: `enable_ddd_scoring=True`)
+> **架构状态**: DDD 原生提取路径为生产默认; 全部算法已内移到 DDD 层; 归一化透明度已加入 API 响应
 > **技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md)
 > **当前状态**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
+
+---
+
+## DDD 特征提取管线 (v7.1.3 自包含版)
+
+评分管线的特征提取有两种路径:
+
+| 路径 | 特征提取 | 特征→评分 | 状态 |
+|------|---------|----------|:--:|
+| **A (DDD 原生, 默认)** | `DddFeatureExtractionOrchestrator` → 10 自包含模块 | `calculate_ddd()` → DDD Scorers | ✅ 生产 |
+| **B (适配器, 回退)** | `AudioFeaturesService` → `AudioFeaturesResult` | `FeatureAdapterRegistry` → DDD Scorers | flag |
+
+路径 A 特点:
+- 10 个 DDD 模块**完全自包含**, 零 `services/features/` 依赖 (v7.1.3)
+- 算法逐位一致于 legacy 版本, 通过 33 个 TDD 一致性测试验证
+- 预处理: `normalize_loudness()` (RMS→0.05) + 人声段过滤 — 全部内移到 `audio_utils.py`
+- 所有 Features 数据类为 `@dataclass(frozen=True)` (不可变)
+- `enable_ddd_feature_extraction=True` (默认) 启用; `False` 回退到路径 B
+
+### DDD 提取器模块 (10/10 自包含)
+
+| 层级 | 提取器 | 核心算法 | 外部依赖 |
+|------|--------|---------|:--:|
+| — | `audio_utils.py` | normalize_loudness + vocal_segments + filter | ✅ 纯函数 |
+| L0 | `acoustic_feature_extractor.py` | HNR + CPP + HPSS + voicing + mixed_audio | ✅ |
+| L1 | `pitch_extractor.py` | MAE/RPA/RCA/gross/octave/smoothness/breaks | ✅ |
+| L1 | `rhythm_extractor.py` | onset CV + irregularity + off-beat + deviation | ✅ |
+| L2 | `breath_extractor.py` | long_note + dynamic + design + technique + decay | ✅ |
+| L2 | `technique_extractor.py` | vibrato + slides + falsetto + staccato + legato | ✅ |
+| L2 | `timbre_extractor.py` | centroid + cluster + harmonic + nasality | ✅ |
+| L3 | `muscle_extractor.py` | body/facial proxies (adapter 公式) | ✅ |
+| L3 | `artistry_extractor.py` | vibrato + dynamic + phrase + crescendo | ✅ |
+| — | `ddd_feature_orchestrator.py` | 拓扑编排 + normalize_loudness | ✅ |
+
+### 六维权重 (v7.0 scoring formula)
+
+| 维度 | 权重 | 子维度 | 说明 |
+|------|:---:|------|------|
+| pitch (音准) | **10%** | MAE指数衰减(40%)+RPA(25%)+RCA(10%)+Gross Error(15%)+Smoothness(5%)+Octave(5%) | v6 权重 28% |
+| rhythm (节奏) | **10%** | onset CV + irregularity 惩罚 + is_clean_vocal 重校准 | v6 权重 20% |
+| breath (气息) | **20%** | 长音支撑(40%)+动态控制(25%)+气口设计(20%)+气声技巧(15%) | — |
+| technique (技术) | **25%** | 咬字清晰度(50%)+气声比(50%) | v6 权重 18% |
+| muscle (肌肉) ⚠️ | **25%** | 身体力量(50%)+面部力量(50%) 启发式代理指标 | v7 新增 |
+| artistry (艺术) | **10%** | vibrato_quality + dynamic_control + phrase_expression + pitch_variation | v6 权重 14% |
+| timbre (音色) ⚠️ | **加减分** | brightness+warmth+nasality 综合调整, clamp[-5, +3] | 额外加减分 |
+
+> **v6 vs v7 分数差异**: v7 总分比 v6 低 5-15 分, 原因是 pitch(28%→10%)+rhythm(20%→10%) 权重削减, 新增 muscle(25%) 启发式维度。这是设计决策, 非 bug。
+
+### 对齐数据 (melody.wav, DDD vs Legacy)
+
+| 维度 | DDD | Legacy | Δ |
+|------|:---:|:---:|:---:|
+| pitch | 90.3 | 90.0 | +0.3 |
+| rhythm | 100.0 | 100.0 | 0.0 |
+| breath | 34.2 | 35.5 | -1.3 |
+| technique | 50.3 | 46.9 | +3.4 |
+| muscle | 73.3 | 75.0 | -1.7 |
+| artistry | 54.6 | 56.4 | -1.8 |
+| **total** | **62.2** | **60.2** | **+2.0** |
 
 ---
 

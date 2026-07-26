@@ -38,6 +38,20 @@ except Exception as e:
     ddd_orchestrator = None
     _ddd_scoring_available = False
 
+# v7.1.2 DDD 特征提取编排器 (替代 AudioFeaturesService)
+try:
+    from backend.application.assessment.ddd_feature_orchestrator import (
+        DddFeatureExtractionOrchestrator,
+    )
+    _ddd_feature_extractor = DddFeatureExtractionOrchestrator()
+    _ddd_feature_extractor_available = True
+except Exception as e:
+    logging.getLogger(__name__).warning(
+        "DDD FeatureExtractionOrchestrator init failed: %s", e
+    )
+    _ddd_feature_extractor = None
+    _ddd_feature_extractor_available = False
+
 logger = logging.getLogger(__name__)
 
 # 初始化服务
@@ -91,43 +105,77 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         quick_mode=(mode == 'quick')
     )
 
-    # 4. 评分计算（DL评估已移除v7.1 — Quick/Pro均使用相同的声学评分标准）
-    advanced_features = audio_result._advanced_features or AudioFeaturesResult()
-    style_profile = getattr(audio_result, '_style_profile', None)
-    music_mood = getattr(audio_result, '_music_mood', None)
-
-    scoring_config = None  # 使用默认配置
-
-    # v7.1: DDD 六维度评分 (flag 门控, 默认关闭)
-    use_ddd = (
-        ddd_orchestrator is not None
+    # 4. 评分计算
+    # v7.1.2: DDD 原生特征提取 + 评分 (绕过旧 AudioFeaturesService + 适配器)
+    use_ddd_extraction = (
+        _ddd_feature_extractor_available
+        and ddd_orchestrator is not None
         and feature_flags is not None
-        and getattr(feature_flags, 'enable_ddd_scoring', False)
+        and getattr(feature_flags, 'enable_ddd_feature_extraction', False)
     )
 
-    if use_ddd:
-        is_clean = getattr(audio_result, 'is_separated', False)
-        score_result = ddd_orchestrator.calculate(
-            features=advanced_features,
-            is_clean_vocal=is_clean,
+    if use_ddd_extraction:
+        y = audio_result._audio_data
+        sr = audio_result.sample_rate
+        f0 = audio_result._f0
+        # 从 F0 生成 voiced_flags: 非 NaN = voiced
+        if f0 is not None and len(f0) > 0:
+            voiced_flags = ~np.isnan(f0)
+        else:
+            voiced_flags = None
+        is_clean = getattr(audio_result, '_used_separation', False)
+
+        ddd_features = _ddd_feature_extractor.extract_all(
+            y, sr, f0, voiced_flags, is_clean_vocal=is_clean,
+        )
+        score_result = ddd_orchestrator.calculate_ddd(
+            pitch=ddd_features.pitch,
+            rhythm=ddd_features.rhythm,
+            breath=ddd_features.breath,
+            technique=ddd_features.technique,
+            muscle=ddd_features.muscle,
+            artistry=ddd_features.artistry,
+            timbre=ddd_features.timbre,
             voice_quality_score=voice_quality.quality_score,
         )
     else:
-        score_result = score_service.calculate(
-            features=advanced_features,
-            emotion_confidence=emotion_info['confidence'],
-            emotions=emotion_info['emotions'],
-            voice_quality_score=voice_quality.quality_score,
-            style_profile=style_profile,
-            music_mood=music_mood,
-            scoring_config=scoring_config,
-            user_filepath=filepath,
-            audio_data=audio_result._audio_data,
-            f0=audio_result._f0,
-            sample_rate=audio_result.sample_rate,
-            reference_path=reference_path,
-            feature_flags=feature_flags,  # v6.2: 跨维度修正
+        # 旧路径: AudioFeaturesResult → 适配器 → DDD Scorers
+        advanced_features = audio_result._advanced_features or AudioFeaturesResult()
+        style_profile = getattr(audio_result, '_style_profile', None)
+        music_mood = getattr(audio_result, '_music_mood', None)
+
+        scoring_config = None  # 使用默认配置
+
+        # v7.1: DDD 六维度评分 (flag 门控, 默认启用)
+        use_ddd = (
+            ddd_orchestrator is not None
+            and feature_flags is not None
+            and getattr(feature_flags, 'enable_ddd_scoring', False)
         )
+
+        if use_ddd:
+            is_clean = getattr(audio_result, '_used_separation', False)
+            score_result = ddd_orchestrator.calculate(
+                features=advanced_features,
+                is_clean_vocal=is_clean,
+                voice_quality_score=voice_quality.quality_score,
+            )
+        else:
+            score_result = score_service.calculate(
+                features=advanced_features,
+                emotion_confidence=emotion_info['confidence'],
+                emotions=emotion_info['emotions'],
+                voice_quality_score=voice_quality.quality_score,
+                style_profile=style_profile,
+                music_mood=music_mood,
+                scoring_config=scoring_config,
+                user_filepath=filepath,
+                audio_data=audio_result._audio_data,
+                f0=audio_result._f0,
+                sample_rate=audio_result.sample_rate,
+                reference_path=reference_path,
+                feature_flags=feature_flags,  # v6.2: 跨维度修正
+            )
 
     # 5. 生成建议
     advice_result = advice_service.generate(score_result)
@@ -252,6 +300,11 @@ def _build_success_result(
         total_score=float(_s(score_result, 'total_score')),
         timbre_adjustment=float(_s(score_result, 'timbre_adjustment')),
         heuristic_dimensions=_s(score_result, 'heuristic_dimensions', []),
+        normalization_applied=True,  # DDD + Legacy 都做归一化
+        recording_condition_note=(
+            '评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。'
+            'max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。'
+        ),
         level=str(_s(score_result, 'level', '')),
         stars=str(_s(score_result, 'stars', '')),
         color=str(_s(score_result, 'color', '')),

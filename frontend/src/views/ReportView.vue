@@ -45,6 +45,8 @@ const scores = computed<SixDimensionScores>(() => {
 })
 
 const heuristicDims = computed(() => result.value?.heuristic_dimensions ?? [])
+const normalization = computed(() => result.value?.normalization)
+const hasNormNote = computed(() => normalization.value?.applied && normalization.value?.note)
 
 const scoreCards = computed(() => {
   const s = scores.value
@@ -203,6 +205,10 @@ function onTimeUpdate(time: number): void {
         <p v-if="heuristicDims.length > 0" class="heuristic-note">
           <el-icon><WarningFilled /></el-icon>
           标记为 <el-tag type="warning" size="small" effect="plain">估算值</el-tag> 的维度基于麦克风音频的代理指标估算，非直接生理测量。点击维度卡片查看详情。
+        </p>
+        <p v-if="hasNormNote" class="heuristic-note">
+          <el-icon><WarningFilled /></el-icon>
+          {{ normalization?.note }}
         </p>
       </div>
 

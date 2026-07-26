@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from backend.domain.assessment.value_objects import BreathScore
 
 
-@dataclass
+@dataclass(frozen=True)
 class BreathFeatures:
-    """气息特征输入"""
+    """气息特征输入 (不可变)"""
     professional_breath_score: float = 0.0
     long_note_support: float = 0.0
     dynamic_control: float = 0.0
@@ -28,6 +28,11 @@ class BreathFeatures:
     soft_singing_quality: float = 0.0
     clean_breath_count: int = 0
     dynamic_range: float = 0.0
+    phrase_coherence: float = 0.0       # v7.1.2: 子维度 (适配 artistry)
+    crescendo_quality: float = 0.0      # v7.1.2: 子维度 (适配 artistry)
+    long_note_decay: float = 0.0        # v7.1.2: 子维度 (适配 muscle rms_decay)
+    pitch_stability_long: float = 0.0   # v7.1.2: 子维度 (适配 muscle formant_cluster)
+    harmonic_stability: float = 50.0    # v7.1.3: 子维度 (适配 timbre harmonic_richness)
     is_clean_vocal: bool = False
 
 

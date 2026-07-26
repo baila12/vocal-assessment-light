@@ -21,9 +21,9 @@ from backend.domain.assessment.value_objects import PitchScore
 _MAE_TAU = 40.0  # 指数衰减时间常数
 
 
-@dataclass
+@dataclass(frozen=True)
 class PitchFeatures:
-    """音准特征输入 (纯数据, 零行为)"""
+    """音准特征输入 (纯数据, 零行为, 不可变)"""
     mae_cents: float = 0.0
     rpa: float = 0.0       # 0-1
     rca: float = 0.0       # 0-1

@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from backend.domain.assessment.value_objects import RhythmScore
 
 
-@dataclass
+@dataclass(frozen=True)
 class RhythmFeatures:
-    """节奏特征输入"""
+    """节奏特征输入 (不可变)"""
     avg_deviation_ratio: float = 0.0
     irregularity: float = 0.0       # onset间隔 CV
     onset_density: float = 2.0      # events/second

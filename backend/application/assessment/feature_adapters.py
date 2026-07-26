@@ -137,6 +137,10 @@ class FeatureAdapterRegistry:
         cpp = _safe_float(getattr(features, 'cpp', 1.0), default=1.0)
         spectral_tilt = _safe_float(getattr(features, 'spectral_tilt', 0.0))
 
+        # vibrato info (传递给 Artistry 提取器)
+        vibrato_quality = _safe_float(vt.vibrato_quality) if vt else 0.0
+        vibrato_rate_avg = _safe_float(vt.vibrato_rate_avg, default=5.0) if vt else 5.0
+
         return TechniqueFeatures(
             onset_density=onset_density,
             spectral_flux=_safe_float(vt.technique_score if vt else 0.0) / 20.0,  # 近似映射
@@ -145,6 +149,8 @@ class FeatureAdapterRegistry:
             spectral_tilt=spectral_tilt,
             hf_energy_ratio=_safe_clamp(cpp / 5.0, 0, 1.0),  # CPP → 高频能量比
             cpp_mean=cpp,
+            vibrato_quality=vibrato_quality,
+            vibrato_rate_avg=vibrato_rate_avg,
         )
 
     # ================================================================
@@ -170,10 +176,14 @@ class FeatureAdapterRegistry:
         # singers_formant: 从 HNR 推导 (2.5-3.5kHz 聚类能量)
         singers_formant = _safe_clamp(hnr / 60.0, 0, 0.30)
 
-        # formant_clustering: 从 pitch_stability 推导
-        formant_cluster = _safe_clamp(
-            _safe_float(bs.pitch_stability_long, default=50.0) if bs else 50.0, 0, 100
-        )
+        # formant_clustering: 从 pitch_stability_long 推导, 为 0 时回退到 long_note_support
+        # (与 DDD LibrosaMuscleExtractor 一致: pitch_stability_long 可能未计算)
+        pitch_stability = _safe_float(bs.pitch_stability_long) if bs else 0.0
+        if pitch_stability > 0:
+            formant_source = pitch_stability
+        else:
+            formant_source = _safe_float(bs.long_note_support_score, default=50.0) if bs else 50.0
+        formant_cluster = _safe_clamp(formant_source, 0, 100)
 
         # overtone_richness: 从 controlled_breathiness 推导
         overtone = _safe_clamp(

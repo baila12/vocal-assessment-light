@@ -32,6 +32,10 @@ export interface AssessmentResult {
   filepath: string | null
   basic_info: Record<string, unknown> | null
   heuristic_dimensions: string[]
+  normalization: {
+    applied: boolean
+    note: string
+  }
 }
 
 export interface HistoryRecord {

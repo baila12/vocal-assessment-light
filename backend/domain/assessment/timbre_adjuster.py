@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from backend.domain.assessment.value_objects import TimbreAdjustment
 
 
-@dataclass
+@dataclass(frozen=True)
 class TimbreFeatures:
-    """音色特征输入 — ⚠️ 主观感知量的代理指标"""
+    """音色特征输入 — ⚠️ 主观感知量的代理指标 (不可变)"""
     spectral_centroid_deviation: float = 0.0
     mfcc_cluster_distance: float = 0.0
     mfcc_cluster_purity: float = 1.0     # 0-1 confidence

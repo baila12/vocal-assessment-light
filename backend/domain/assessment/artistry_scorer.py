@@ -16,9 +16,9 @@ from dataclasses import dataclass
 from backend.domain.assessment.value_objects import ArtistryScore
 
 
-@dataclass
+@dataclass(frozen=True)
 class ArtistryFeatures:
-    """艺术表现特征输入"""
+    """艺术表现特征输入 (不可变)"""
     vibrato_quality: float = 0.0     # 0-100
     vibrato_count: int = 0
     dynamic_range: float = 0.0       # dB

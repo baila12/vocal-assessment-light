@@ -36,6 +36,10 @@ class AnalysisResult:
     # v7.1: DL评估已移除，保留字段向后兼容
     dl_available: bool = False
 
+    # v7.1.2: 归一化透明度
+    normalization_applied: bool = True
+    recording_condition_note: str = ""
+
     # 五维评分
     pitch_score: float = 0.0
     rhythm_score: float = 0.0
@@ -97,7 +101,7 @@ class ResponseV5Builder(ResponseBuilder):
     """
     v5.0 响应格式
 
-    最新的五维评分格式
+    v7.1 更新：六维评分 + 音色加减分
     """
 
     def build(self, result: AnalysisResult) -> Dict[str, Any]:
@@ -136,14 +140,30 @@ class ResponseV5Builder(ResponseBuilder):
                 'available': result.dl_available
             },
 
-            # 五维评分
+            # v7.1 六维评分
             'scores': {
                 'pitch': result.pitch_score,
                 'rhythm': result.rhythm_score,
                 'breath': result.breath_score,
                 'technique': result.technique_score,
+                'muscle_strength': result.muscle_strength_score,
                 'artistry': result.artistry_score,
                 'total': result.total_score
+            },
+
+            # v7.1 音色加减分
+            'timbre_adjustment': result.timbre_adjustment,
+
+            # v7.1 启发式维度标记
+            'heuristic_dimensions': result.heuristic_dimensions or [],
+
+            # v7.1.2 归一化透明度
+            'normalization': {
+                'applied': result.normalization_applied,
+                'note': result.recording_condition_note or (
+                    '评分假设录音条件为标准人声拾音距离'
+                    if result.normalization_applied else ''
+                ),
             },
 
             # 诊断

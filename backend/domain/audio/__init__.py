@@ -1,1 +1,32 @@
-"""音频处理上下文"""
+"""
+音频处理上下文 — v7.1
+
+DDD 特征提取层:
+  - feature_types: 声学特征数据类型 (AcousticFeatures)
+  - feature_protocols: 提取器 Protocol 接口 (依赖倒置)
+  - acoustic_feature_extractor: LibrosaAcousticExtractor (Level 0)
+  - pitch_extractor: LibrosaPitchExtractor (Level 1)
+  - rhythm_extractor: LibrosaRhythmExtractor (Level 1)
+"""
+from backend.domain.audio.feature_types import AcousticFeatures
+from backend.domain.audio.feature_protocols import (
+    AcousticFeatureExtractor,
+    PitchFeatureExtractor,
+    RhythmFeatureExtractor,
+)
+from backend.domain.audio.acoustic_feature_extractor import LibrosaAcousticExtractor
+from backend.domain.audio.pitch_extractor import LibrosaPitchExtractor
+from backend.domain.audio.rhythm_extractor import LibrosaRhythmExtractor
+
+__all__ = [
+    # Types
+    "AcousticFeatures",
+    # Protocols
+    "AcousticFeatureExtractor",
+    "PitchFeatureExtractor",
+    "RhythmFeatureExtractor",
+    # Implementations
+    "LibrosaAcousticExtractor",
+    "LibrosaPitchExtractor",
+    "LibrosaRhythmExtractor",
+]
