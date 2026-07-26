@@ -114,7 +114,7 @@ class VoiceQualityDetector:
                 harmonic_energy = np.sum(y_harmonic**2)
                 total_energy = np.sum(y**2)
                 harmonic_ratio = harmonic_energy / (total_energy + 1e-10)
-            except:
+            except Exception:
                 harmonic_ratio = 0.5
 
             # 3. 能量分析

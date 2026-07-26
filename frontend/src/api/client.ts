@@ -43,22 +43,36 @@ export class ApiError extends Error {
   }
 }
 
+/** Default timeout: 120s for uploads, 30s for normal requests */
+const DEFAULT_TIMEOUT = 30_000
+const UPLOAD_TIMEOUT = 120_000
+
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
+  timeout = DEFAULT_TIMEOUT,
 ): Promise<T> {
   const url = `${getBaseUrl()}${path}`
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
     },
     ...options,
-  })
+  }, timeout)
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}))
+    const body = await response.json().catch(() => {
+      console.warn('Non-JSON error response from server')
+      return {}
+    })
     throw new ApiError(response.status, body.message || response.statusText, body)
   }
 
@@ -85,13 +99,16 @@ export const apiClient = {
 
   upload: async <T>(path: string, formData: FormData): Promise<T> => {
     const url = `${getBaseUrl()}${path}`
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       body: formData,
-    })
+    }, UPLOAD_TIMEOUT)
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
+      const body = await response.json().catch(() => {
+        console.warn('Non-JSON error response from upload endpoint')
+        return {}
+      })
       throw new ApiError(response.status, body.message || response.statusText, body)
     }
 

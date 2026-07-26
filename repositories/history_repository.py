@@ -160,16 +160,19 @@ class JsonHistoryRepository(HistoryRepository):
         return filtered[::-1]
 
     def save(self, record: Dict) -> Dict:
-        """保存历史记录"""
+        """保存历史记录 (v7.2: 统一使用 created_at)"""
         records = self._read_records()
 
         # 生成唯一 ID（取现有最大 ID + 1）
         max_id = max((r.get('id', 0) for r in records), default=0)
         record['id'] = max_id + 1
 
-        # 添加时间戳（如果没有）
+        # 添加时间戳 (v7.2: 统一使用 created_at 与前端对齐)
+        if 'created_at' not in record:
+            record['created_at'] = datetime.now().isoformat()
+        # 向后兼容: 同时保留 timestamp
         if 'timestamp' not in record:
-            record['timestamp'] = datetime.now().isoformat()
+            record['timestamp'] = record.get('created_at', datetime.now().isoformat())
 
         records.append(record)
 
@@ -181,16 +184,30 @@ class JsonHistoryRepository(HistoryRepository):
         return record
 
     def get_by_id(self, record_id) -> Optional[Dict]:
-        """根据 ID 获取记录"""
-        try:
-            record_id = int(record_id)
-        except (ValueError, TypeError):
-            return None
+        """
+        根据 ID 或 analysis_id 获取记录 (v7.2)
 
+        支持:
+        - 整数 ID (历史兼容)
+        - UUID 字符串 analysis_id (v7.2+)
+        """
         records = self._read_records()
+
+        # 尝试整数 ID
+        try:
+            int_id = int(record_id)
+            for record in records:
+                if record.get('id') == int_id:
+                    return record
+        except (ValueError, TypeError):
+            pass
+
+        # 尝试 analysis_id (UUID 字符串)
+        record_id_str = str(record_id)
         for record in records:
-            if record.get('id') == record_id:
+            if record.get('analysis_id') == record_id_str:
                 return record
+
         return None
 
     def delete(self, record_id) -> bool:

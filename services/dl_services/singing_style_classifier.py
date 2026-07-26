@@ -400,7 +400,7 @@ class SingingStyleClassifier:
                 noise = y - hnr
                 hnr_db = 10 * np.log10(np.sum(hnr**2) / (np.sum(noise**2) + 1e-10))
                 features['hnr_mean'] = hnr_db
-            except:
+            except Exception:
                 features['hnr_mean'] = 10.0
 
             # 3. 频谱展宽

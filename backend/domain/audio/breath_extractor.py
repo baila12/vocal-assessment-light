@@ -59,7 +59,7 @@ class LibrosaBreathExtractor:
                     if segments:
                         breath_audio = filter_audio_to_vocal_segments(y, segments, self.hop_length)
                 except Exception:
-                    pass
+                    logger.debug("vocal segment filter failed, using raw audio", exc_info=True)
 
             hnr = float(getattr(acoustic, 'hnr', 0.0) or 0.0)
 
@@ -325,7 +325,7 @@ def _eval_breath_technique(hnr, audio_data, singing_style):
             if harmonic_ratio > 0.3:
                 score += min(30.0, (harmonic_ratio - 0.3) / 0.7 * 30)
         except Exception:
-            pass
+            logger.debug("HPSS harmonic ratio failed in breath_technique", exc_info=True)
         breath_technique = max(0.0, min(100.0, score))
         return breath_technique, controlled_breathiness, uncontrolled_leak
     except Exception:

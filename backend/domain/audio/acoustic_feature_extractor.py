@@ -131,7 +131,7 @@ class LibrosaAcousticExtractor:
             ratio = h_energy / total if total > 0 else 0.0
             return harmonic, float(ratio)
         except Exception:
-            logger.debug("HPSS failed, returning raw audio")
+            logger.warning("HPSS failed, returning raw audio with ratio=0", exc_info=True)
             return y, 0.0
 
     # ================================================================

@@ -35,7 +35,7 @@ from backend.domain.assessment.feature_flags import DimensionFlags
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class DddFeatureSet:
     """DDD 特征全集 — 7 个维度的所有特征"""
     acoustic: AcousticFeatures = field(default_factory=AcousticFeatures)

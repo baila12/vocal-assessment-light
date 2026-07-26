@@ -103,7 +103,7 @@ def upload_file():
                              feature_flags=FeatureFlags.for_quick() if mode == 'quick' else FeatureFlags.for_professional())
     except Exception as e:
         logger.exception(f"Analysis failed: {e}")
-        return jsonify({'success': False, 'error': f'分析失败: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': '分析失败，请稍后重试'}), 500
 
     if result['success']:
         _save_history(result, str(filepath))
@@ -367,7 +367,7 @@ def compare_audio():
 
     except Exception as e:
         logger.exception(f"Compare analysis failed: {e}")
-        return jsonify({'success': False, 'error': f'分析失败: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': '分析失败，请稍后重试'}), 500
 
     # v5.12: 使用 DTW dimensions 构建 comparison 字段，替代 Legacy audio_comparison.py 的简单相关度方法
     dtw_dims = dtw_result.get('dimensions', {})

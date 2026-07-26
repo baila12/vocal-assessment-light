@@ -67,7 +67,9 @@ export function useWebSocket() {
           if (e.code !== 1000 && reconnectAttempts < MAX_RECONNECT) {
             reconnectAttempts++
             reconnectTimer = setTimeout(() => {
-              connect().catch(() => {})
+              connect().catch((err) => {
+                console.warn(`WebSocket reconnect ${reconnectAttempts}/${MAX_RECONNECT} failed:`, err)
+              })
             }, 1000 * reconnectAttempts)
           }
         }

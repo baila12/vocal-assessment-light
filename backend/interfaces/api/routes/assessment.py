@@ -9,6 +9,8 @@ import asyncio
 import re
 import time
 from pathlib import Path
+from datetime import datetime
+import uuid
 import logging
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Request, HTTPException
@@ -72,17 +74,27 @@ def validate_filepath(filepath: str, config) -> Path:
     return filepath_obj
 
 
-def _save_history(result: dict, filepath: str, repo) -> None:
-    """保存分析结果到历史记录"""
+def _save_history(result: dict, filepath: str, analysis_id: str, repo) -> None:
+    """保存分析结果到历史记录 (v7.2: 存储完整六维字段 + analysis_id)"""
     try:
+        basic_info = result.get("basic_info", {}) or {}
         record = {
-            "filename": result.get("basic_info", {}).get("filename", Path(filepath).name),
+            "analysis_id": analysis_id,
+            "filename": basic_info.get("filename", Path(filepath).name),
             "filepath": filepath,
             "total_score": result.get("total_score", 0),
             "scores": result.get("scores", {}),
             "level": result.get("level", ""),
+            "grade": result.get("grade", ""),
             "advice": result.get("advice", []),
             "mode": result.get("mode", "quick"),
+            "timbre_adjustment": result.get("timbre_adjustment", 0),
+            "heuristic_dimensions": result.get("heuristic_dimensions", []),
+            "normalization": result.get("normalization"),
+            "basic_info": basic_info,
+            "duration": basic_info.get("duration_seconds", 0),
+            "is_voice": result.get("is_voice", True),
+            "created_at": datetime.now().isoformat(),
         }
         repo.save(record)
     except Exception:
@@ -130,26 +142,36 @@ async def upload_audio(
             reference_path=reference_path,
             feature_flags=FeatureFlags.for_quick() if mode == 'quick' else FeatureFlags.for_professional(),
         )
-    except Exception as e:
-        logger.exception(f"Analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"分析失败: {e}")
+    except Exception:
+        logger.exception("Analysis failed")
+        raise HTTPException(status_code=500, detail="分析失败，请稍后重试")
 
-    if result.get("success"):
-        _save_history(result, str(filepath), repo)
-
-    # 生成分析 ID (前端路由 /report/:id 需要)
+    # 生成分析 ID (前端路由 /report/:id 需要) — 必须在 _save_history 之前生成
     analysis_id = str(uuid.uuid4())[:12]
     # 派生 grade (旧版评分管线可能未填充 grade 字段)
     grade = result.get("grade", "")
     if not grade and result.get("level"):
         from backend.shared.domain_types import ScoreLevel
         grade = ScoreLevel.from_score(result.get("total_score", 0)).grade
+    result["grade"] = grade
+    result["analysis_id"] = analysis_id
+
+    if result.get("success"):
+        _save_history(result, str(filepath), analysis_id, repo)
+
+    # 构建归一化信息
+    norm_data = result.get("normalization")
+    if isinstance(norm_data, dict):
+        normalization = {"applied": norm_data.get("applied", True), "note": norm_data.get("note", "")}
+    else:
+        normalization = {"applied": True, "note": ""}
 
     return UploadResponse(
         success=result.get("success", False),
         analysis_id=analysis_id,
         total_score=result.get("total_score", 0),
         scores=result.get("scores", {}),
+        timbre_adjustment=result.get("timbre_adjustment", 0),
         level=result.get("level", ""),
         grade=grade,
         advice=result.get("advice", []),
@@ -158,6 +180,9 @@ async def upload_audio(
         filepath=str(filepath),
         basic_info=result.get("basic_info"),
         heuristic_dimensions=result.get("heuristic_dimensions", []),
+        normalization=normalization,
+        duration=result.get("duration_seconds"),
+        duration_display=result.get("duration", ""),
     )
 
 
@@ -190,9 +215,9 @@ async def analyze_file(
             reference_path=ref_path,
             feature_flags=FeatureFlags.for_quick() if mode == 'quick' else FeatureFlags.for_professional(),
         )
-    except Exception as e:
-        logger.exception(f"Analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"分析失败: {e}")
+    except Exception:
+        logger.exception("Analysis failed")
+        raise HTTPException(status_code=500, detail="分析失败，请稍后重试")
 
     if result.get("success"):
         _save_history(result, str(filepath_obj), repo)
@@ -245,8 +270,8 @@ async def extract_pitch(
                 "frame_count": len(f0),
             },
         )
-    except Exception as e:
-        logger.exception(f"音高提取失败: {e}")
+    except Exception:
+        logger.exception("Pitch extraction failed")
         return PitchExtractResponse(success=False, error=str(e))
 
 

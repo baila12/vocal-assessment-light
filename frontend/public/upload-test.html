@@ -40,10 +40,12 @@ async function doUpload() {
         '气息: ' + data.scores.breath + ' | 技术: ' + data.scores.technique + '\n' +
         '建议: ' + (data.advice||[]).join('; ');
     } else {
-      status.innerHTML = '<span style="color:red">❌ 失败: ' + (data.error || data.detail || '未知错误') + '</span>';
+      status.style.color = 'red';
+      status.textContent = '❌ 失败: ' + (data.error || data.detail || '未知错误');
     }
   } catch(e) {
-    status.innerHTML = '<span style="color:red">❌ 网络错误: ' + e.message + '</span>';
+    status.style.color = 'red';
+    status.textContent = '❌ 网络错误: ' + (e instanceof Error ? e.message : String(e));
   }
 }
 </script>

@@ -760,6 +760,7 @@ class AudioService:
                 sample_rate, self._hop_length
             ).detect_mixed_audio(audio_data)
         except Exception:
+            logger.warning("Mixed audio detection failed, skipping separation", exc_info=True)
             return audio_data, sample_rate, None, False, False, 0.0
 
         if not is_mixed or confidence < 0.5:

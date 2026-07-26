@@ -167,7 +167,7 @@ def _detect_vibrato(f0: np.ndarray, sample_rate: int, hop_length: int) -> dict:
                     quality -= 20
                 result['quality'] = max(0.0, quality)
     except Exception:
-        pass
+        logger.debug("vibrato detection failed, returning defaults", exc_info=True)
     return result
 
 

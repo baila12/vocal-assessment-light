@@ -5,8 +5,14 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field
 
 
+class NormalizationInfo(BaseModel):
+    """归一化透明度信息 — v7.1.2"""
+    applied: bool = True
+    note: str = ""
+
+
 class UploadResponse(BaseModel):
-    """上传分析响应 — v7.0 六维格式"""
+    """上传分析响应 — v7.2 六维格式 + 归一化透明度"""
     success: bool = True
     analysis_id: Optional[str] = None
     total_score: float = Field(ge=0, le=100)
@@ -20,6 +26,10 @@ class UploadResponse(BaseModel):
     filepath: Optional[str] = None
     basic_info: Optional[dict] = None
     heuristic_dimensions: list[str] = Field(default_factory=list)
+    normalization: NormalizationInfo = Field(default_factory=NormalizationInfo)
+    # 基础信息
+    duration: Optional[float] = None
+    duration_display: str = ""
 
 
 class AnalyzeRequest(BaseModel):

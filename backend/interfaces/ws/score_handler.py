@@ -183,10 +183,10 @@ class ScoreWebSocketHandler:
                 duration_s=round(session.duration, 1),
             ).model_dump())
 
-        except Exception as e:
-            logger.exception(f"Final scoring error: {e}")
+        except Exception:
+            logger.exception("Final scoring error")
             await ws.send_json(WsServerError(
-                event="error", message=f"评分失败: {e}"
+                event="error", message="评分失败，请稍后重试"
             ).model_dump())
 
     def _score_lightweight(self, buffer: np.ndarray, session: StreamingSession) -> dict:
