@@ -158,61 +158,23 @@ class TestRhythmFeatureExtractor:
 # ================================================================
 
 class TestRhythmInternalization:
-    """验证内移后 rhythm 提取器与 legacy RhythmAnalyzer 完全一致"""
+    """验证 DDD rhythm 提取器行为 (v7.1.5 — legacy 对比已移除)"""
 
     @staticmethod
     def _make_rhythmic_audio(duration_s=3.0, sr=22050):
         """生成带节奏脉冲的测试音频"""
         rng = np.random.RandomState(42)
         n = int(sr * duration_s)
-        y = rng.randn(n).astype(np.float32) * 0.02  # noise floor
-
-        # Add rhythmic pulses at ~2 Hz
-        pulse_interval = int(sr / 2.0)  # every 0.5s
+        y = rng.randn(n).astype(np.float32) * 0.02
+        pulse_interval = int(sr / 2.0)
         for i in range(0, n, pulse_interval):
             pulse_len = min(int(sr * 0.05), n - i)
             t_pulse = np.linspace(0, np.pi, pulse_len)
             y[i:i+pulse_len] += (np.sin(t_pulse) * 0.8).astype(np.float32)
-
         return y / np.max(np.abs(y))
 
-    def test_extract_identical_to_legacy(self):
-        """内移版 extract 应与 legacy RhythmAnalyzer 输出完全一致"""
-        from services.features.rhythm import RhythmAnalyzer
-        from backend.domain.audio.rhythm_extractor import LibrosaRhythmExtractor
-
-        y = self._make_rhythmic_audio(duration_s=3.0)
-
-        # Legacy
-        legacy_analyzer = RhythmAnalyzer(sample_rate=22050, hop_length=512)
-        legacy_result = legacy_analyzer.calculate_rhythm_alignment(
-            y, f0=None, voiced_flags=None, is_clean_vocal=False,
-        )
-
-        # DDD extractor (internalized)
-        extractor = LibrosaRhythmExtractor(sample_rate=22050, hop_length=512)
-        ddd_result = extractor.extract(y, 22050, is_clean_vocal=False)
-
-        # 逐字段验证
-        assert ddd_result.avg_deviation_ratio == pytest.approx(
-            legacy_result.avg_deviation_ratio, rel=0.01,
-        ), f"avg_deviation_ratio: DDD={ddd_result.avg_deviation_ratio:.4f} vs legacy={legacy_result.avg_deviation_ratio:.4f}"
-        assert ddd_result.irregularity == pytest.approx(
-            legacy_result.irregularity, rel=0.01,
-        ), f"irregularity: DDD={ddd_result.irregularity:.4f} vs legacy={legacy_result.irregularity:.4f}"
-        assert ddd_result.onset_count == legacy_result.onset_count, (
-            f"onset_count: DDD={ddd_result.onset_count} vs legacy={legacy_result.onset_count}"
-        )
-        assert ddd_result.off_beat_segments == legacy_result.off_beat_segments, (
-            f"off_beat_segments: DDD={ddd_result.off_beat_segments} vs legacy={legacy_result.off_beat_segments}"
-        )
-        # onset_density is derived from beats_per_second — verify same conversion
-        legacy_bps = getattr(legacy_result, 'beats_per_second', 0.0)
-        expected_onset_density = max(0.5, legacy_bps)
-        assert ddd_result.onset_density == pytest.approx(expected_onset_density, rel=0.01)
-
     def test_clean_vocal_flag_behavior(self):
-        """is_clean_vocal 标记应正确传递"""
+        """is_clean_vocal 标记应正确传递并影响评分"""
         from backend.domain.audio.rhythm_extractor import LibrosaRhythmExtractor
         y = self._make_rhythmic_audio(duration_s=2.0)
 
@@ -221,7 +183,15 @@ class TestRhythmInternalization:
 
         assert ddd_clean.is_clean_vocal is True
         assert ddd_mixed.is_clean_vocal is False
-        # Clean vocal should have different deviation mapping
+        # Clean vocal vs mixed should produce different deviation ratios
         assert ddd_clean.avg_deviation_ratio != pytest.approx(
             ddd_mixed.avg_deviation_ratio, abs=0.001,
         ), "Clean vs mixed vocal should produce different deviation ratios"
+
+    def test_rhythmic_audio_has_valid_onsets(self):
+        """带节奏脉冲的音频应有可检测的 onset"""
+        from backend.domain.audio.rhythm_extractor import LibrosaRhythmExtractor
+        y = self._make_rhythmic_audio(duration_s=2.0)
+        result = LibrosaRhythmExtractor().extract(y, 22050, is_clean_vocal=False)
+        assert result.onset_count > 0, "Should detect onsets in rhythmic audio"
+        assert result.onset_density > 0.0

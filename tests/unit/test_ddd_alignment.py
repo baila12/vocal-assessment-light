@@ -206,18 +206,17 @@ class TestMuscleAlignment:
 
 
 # ================================================================
-# Test 3: 端到端 DDD vs Adapter 评分对齐 (synthetic audio)
+# Test 3: DDD 端到端评分一致性 (v7.1.5 — 移除旧 adapter 对比)
 # ================================================================
 
-class TestE2EScoringAlignment:
-    """端到端验证: DDD 原生路径 vs 适配器路径对同一音频评分一致"""
+class TestE2EScoringConsistency:
+    """验证 DDD 原生路径对合成音频产生一致的六维评分"""
 
-    def test_ddd_vs_adapter_score_on_synthetic_audio(self):
-        """同一合成音频, DDD 和 adapter 路径总分应在 ±5 以内"""
+    def test_ddd_scoring_on_synthetic_audio(self):
+        """DDD 原生路径应对合成音频产生有效评分 (总分 0-100)"""
         y, sr = _make_test_audio(duration_s=2.0)
         f0, voiced = _make_f0_from_audio(y, sr)
 
-        # Path A: DDD 原生提取 + 评分
         from backend.application.assessment.ddd_feature_orchestrator import (
             DddFeatureExtractionOrchestrator,
         )
@@ -227,127 +226,22 @@ class TestE2EScoringAlignment:
         features = extractor.extract_all(y, sr, f0, voiced, is_clean_vocal=True)
 
         scoring = ScoringOrchestrator()
-        ddd_result = scoring.calculate_ddd(
-            pitch=features.pitch,
-            rhythm=features.rhythm,
-            breath=features.breath,
-            technique=features.technique,
-            muscle=features.muscle,
-            artistry=features.artistry,
-            timbre=features.timbre,
-        )
-
-        # Path B: 适配器路径 (模拟 AudioFeaturesResult — 与 AudioFeaturesService 行为一致)
-        from services.features.breath import BreathAnalyzer
-        from services.features.pitch import PitchAnalyzer
-        from services.features.rhythm import RhythmAnalyzer
-        from services.features.technique import TechniqueAnalyzer
-        from services.features.acoustic import AcousticAnalyzer
-        from services.features.types import (
-            BreathStabilityResult, PitchDeviationResult,
-            RhythmAlignmentResult, VocalTechniqueResult,
-        )
-
-        # 预处理: normalize + HPSS (与 AudioFeaturesService.extract_all_features 一致)
-        y_norm = AcousticAnalyzer.normalize_loudness(y.copy())
-        hnr = AcousticAnalyzer(sample_rate=sr).calculate_hnr(y_norm)
-        cpp = AcousticAnalyzer(sample_rate=sr).calculate_cpp(y_norm)
-        # HPSS ratio — AudioFeaturesService 设置此值到 result 和 breath_stability
-        import librosa
-        hpss_harmonic, _hpss_perc = librosa.effects.hpss(y_norm, margin=(1.0, 3.0))
-        hpss_ratio = float(np.sum(hpss_harmonic ** 2) / (np.sum(y_norm ** 2) + 1e-10))
-
-        pitch_dev = PitchAnalyzer(sample_rate=sr).calculate_pitch_deviation_cents(f0, voiced)
-        rhythm_align = RhythmAnalyzer(sample_rate=sr).calculate_rhythm_alignment(
-            y, f0, voiced, is_clean_vocal=True,
-        )
-        breath_stab = BreathAnalyzer(sample_rate=sr).calculate_breath_stability(
-            y_norm, f0=f0, hnr=hnr,
-        )
-        # 设置 _hpss_harmonic_ratio (与 AudioFeaturesService 一致)
-        breath_stab._hpss_harmonic_ratio = hpss_ratio
-        vt = TechniqueAnalyzer(sample_rate=sr).detect_vocal_techniques(f0, y_norm)
-
-        # Build mock AudioFeaturesResult
-        from types import SimpleNamespace
-        mock_features = SimpleNamespace(
-            hnr=hnr, cpp=cpp, spectral_tilt=0.0,
-            _hpss_harmonic_ratio=hpss_ratio,
-            pitch_deviation=pitch_dev,
-            rhythm_alignment=rhythm_align,
-            breath_stability=breath_stab,
-            vocal_technique=vt,
-        )
-
-        adapter_result = scoring.calculate(
-            mock_features, is_clean_vocal=True, voice_quality_score=100.0,
-        )
-
-        # 验证每个维度差异
-        for dim in ['pitch_score', 'rhythm_score', 'breath_score',
-                     'technique_score', 'muscle_strength_score',
-                     'artistry_score']:
-            ddd_val = ddd_result[dim]
-            adapter_val = adapter_result[dim]
-            delta = abs(ddd_val - adapter_val)
-            assert delta < 10.0, (
-                f"{dim}: DDD={ddd_val:.1f} vs adapter={adapter_val:.1f} (Δ={delta:.1f})"
-            )
-
-        # 总分差应在 ±5 以内
-        total_delta = abs(ddd_result['total_score'] - adapter_result['total_score'])
-        assert total_delta < 5.0, (
-            f"Total score Δ={total_delta:.1f} exceeds 5.0 threshold\n"
-            f"DDD: {ddd_result['total_score']:.1f}, adapter: {adapter_result['total_score']:.1f}"
-        )
-
-    def test_ddd_vs_adapter_heuristic_dimensions_match(self):
-        """DDD 和 adapter 路径应标记相同的启发式维度"""
-        y, sr = _make_test_audio(duration_s=2.0)
-        f0, voiced = _make_f0_from_audio(y, sr)
-
-        from backend.application.assessment.ddd_feature_orchestrator import (
-            DddFeatureExtractionOrchestrator,
-        )
-        from backend.application.assessment.scoring_orchestrator import ScoringOrchestrator
-        from services.features.acoustic import AcousticAnalyzer
-        from services.features.breath import BreathAnalyzer
-        from services.features.pitch import PitchAnalyzer
-        from services.features.rhythm import RhythmAnalyzer
-        from services.features.technique import TechniqueAnalyzer
-        from types import SimpleNamespace
-
-        # DDD
-        extractor = DddFeatureExtractionOrchestrator()
-        features = extractor.extract_all(y, sr, f0, voiced, is_clean_vocal=True)
-        scoring = ScoringOrchestrator()
-        ddd_result = scoring.calculate_ddd(
+        result = scoring.calculate_ddd(
             pitch=features.pitch, rhythm=features.rhythm,
             breath=features.breath, technique=features.technique,
             muscle=features.muscle, artistry=features.artistry,
             timbre=features.timbre,
         )
 
-        # Adapter
-        y_norm = AcousticAnalyzer.normalize_loudness(y.copy())
-        hnr = AcousticAnalyzer(sample_rate=sr).calculate_hnr(y_norm)
-        cpp = AcousticAnalyzer(sample_rate=sr).calculate_cpp(y_norm)
-        pitch_dev = PitchAnalyzer(sample_rate=sr).calculate_pitch_deviation_cents(f0, voiced)
-        rhythm_align = RhythmAnalyzer(sample_rate=sr).calculate_rhythm_alignment(y, f0, voiced, is_clean_vocal=True)
-        breath_stab = BreathAnalyzer(sample_rate=sr).calculate_breath_stability(y_norm, f0=f0, hnr=hnr)
-        vt = TechniqueAnalyzer(sample_rate=sr).detect_vocal_techniques(f0, y_norm)
-        mock_features = SimpleNamespace(
-            hnr=hnr, cpp=cpp, spectral_tilt=0.0,
-            pitch_deviation=pitch_dev, rhythm_alignment=rhythm_align,
-            breath_stability=breath_stab, vocal_technique=vt,
-        )
-        adapter_result = scoring.calculate(mock_features, is_clean_vocal=True, voice_quality_score=100.0)
+        # 验证六维评分完整性
+        assert 'pitch_score' in result
+        assert 'rhythm_score' in result
+        assert 'breath_score' in result
+        assert 'technique_score' in result
+        assert 'muscle_strength_score' in result
+        assert 'artistry_score' in result
+        assert 0.0 <= result['total_score'] <= 100.0
 
-        # 两个路径都应标记 muscle_strength 和 timbre 为启发式
-        ddd_heuristic = set(ddd_result['heuristic_dimensions'])
-        adapter_heuristic = set(adapter_result['heuristic_dimensions'])
-        assert ddd_heuristic == adapter_heuristic, (
-            f"Heuristic dimensions mismatch: DDD={ddd_heuristic}, adapter={adapter_heuristic}"
-        )
-        assert 'muscle_strength' in ddd_heuristic
-        assert 'timbre' in ddd_heuristic
+        # 验证启发式标记
+        assert 'muscle_strength' in result['heuristic_dimensions']
+        assert 'timbre' in result['heuristic_dimensions']
