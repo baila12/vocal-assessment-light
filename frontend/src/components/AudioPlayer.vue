@@ -38,7 +38,8 @@ function togglePlay(): void {
   if (!audio) return
 
   if (audio.paused) {
-    audio.play().catch(() => {
+    audio.play().catch((err: unknown) => {
+      console.warn('Audio playback failed:', err instanceof Error ? err.message : err)
       hasError.value = true
     })
   } else {

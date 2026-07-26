@@ -9,11 +9,13 @@ import logging
 from backend.domain.assessment.timbre_adjuster import TimbreFeatures
 from backend.domain.audio.feature_types import AcousticFeatures
 
+from backend.shared.math_utils import safe_clamp
+
 logger = logging.getLogger(__name__)
 
-
+# timbre 特征归一化到 [0, 1]
 def _safe_clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
-    return max(lo, min(hi, value))
+    return safe_clamp(value, lo, hi)
 
 
 class LibrosaTimbreExtractor:

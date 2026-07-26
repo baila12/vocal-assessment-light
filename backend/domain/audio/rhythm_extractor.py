@@ -195,62 +195,6 @@ def _cv_to_deviation(cv: float, is_clean_vocal: bool = False) -> float:
             return min(1.0, 0.88 + (cv - 1.2) * 0.3)
 
 
-def _calc_rhythm_from_pitch(
-    audio_data: np.ndarray,
-    sr: int,
-    f0: np.ndarray,
-    hop_length: int,
-    is_clean_vocal: bool = False,
-) -> RhythmFeatures | None:
-    """
-    Pitch-based 节奏检测 v5.10 — 内移自 RhythmAnalyzer._calculate_rhythm_from_pitch.
-    使用音高变化 onset 替代传统 onset 检测, 不受伴奏干扰。
-    返回 None 表示 pitch-based 路径不足以检测节奏, 调用方应回退到 traditional 路径。
-    """
-    import librosa
-
-    valid_mask = ~np.isnan(f0) & (f0 > _VOICE_FMIN) & (f0 < _VOICE_FMAX)
-    if np.sum(valid_mask) < 20:
-        return None
-
-    f0_cents = np.where(valid_mask, 1200 * np.log2(f0 / 440.0 + 1e-10), np.nan)
-    f0_diff = np.abs(np.diff(f0_cents))
-    valid_diff_mask = valid_mask[:-1] & valid_mask[1:] & (~np.isnan(f0_diff))
-    pitch_onset_frames = np.where(valid_diff_mask & (f0_diff > 100))[0]
-
-    if len(pitch_onset_frames) < 3:
-        return None
-
-    pitch_onset_times = librosa.frames_to_time(
-        pitch_onset_frames, sr=sr, hop_length=hop_length,
-    )
-    onset_count = len(pitch_onset_times)
-
-    if onset_count < 2:
-        return None
-
-    ioi = np.diff(pitch_onset_times)
-    mean_ioi = np.mean(ioi)
-
-    if mean_ioi <= 0:
-        return None
-
-    total_dur = pitch_onset_times[-1] - pitch_onset_times[0]
-    beats_per_second = onset_count / total_dur if total_dur > 0 else 0.0
-    irregularity = float(np.std(ioi) / mean_ioi)
-    avg_dev = _cv_to_deviation(irregularity, is_clean_vocal)
-    off_beat = _count_irregular_segments(ioi, mean_ioi)
-
-    return RhythmFeatures(
-        avg_deviation_ratio=round(avg_dev, 4),
-        irregularity=round(irregularity, 4),
-        onset_density=max(0.5, round(beats_per_second, 2)),
-        onset_count=int(onset_count),
-        off_beat_segments=int(off_beat),
-        is_clean_vocal=is_clean_vocal,
-    )
-
-
 def _count_irregular_segments(ioi: np.ndarray, mean_ioi: float) -> int:
     """
     检测节奏不规则段。

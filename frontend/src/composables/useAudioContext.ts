@@ -62,7 +62,9 @@ export function useAudioContext() {
 
     // 2. 释放音频硬件锁
     if (audioContext.value && audioContext.value.state !== 'closed') {
-      audioContext.value.close().catch(() => {})
+      audioContext.value.close().catch((err: unknown) => {
+        console.warn('AudioContext close failed:', err instanceof Error ? err.message : err)
+      })
       audioContext.value = null
     }
 

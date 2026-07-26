@@ -10,7 +10,10 @@
   - filter_audio_to_vocal_segments() — 提取并拼接人声段
 """
 from __future__ import annotations
+import logging
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_loudness(audio_data: np.ndarray, target_rms: float = 0.05) -> np.ndarray:
@@ -35,6 +38,7 @@ def normalize_loudness(audio_data: np.ndarray, target_rms: float = 0.05) -> np.n
         # 限制增益范围避免过度放大噪声或压缩强信号
         gain = np.clip(gain, 0.1, 10.0)
         return audio_data * gain
+    logger.warning("normalize_loudness: near-silent audio detected (rms=%.6f)", float(rms))
     return audio_data
 
 

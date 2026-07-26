@@ -9,12 +9,9 @@ import logging
 from backend.domain.assessment.muscle_scorer import MuscleFeatures
 from backend.domain.audio.feature_types import AcousticFeatures
 from backend.domain.assessment.breath_scorer import BreathFeatures
+from backend.shared.math_utils import safe_clamp as _safe_clamp
 
 logger = logging.getLogger(__name__)
-
-
-def _safe_clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
-    return max(lo, min(hi, value))
 
 
 class LibrosaMuscleExtractor:

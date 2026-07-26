@@ -140,9 +140,9 @@ export const useHistoryStore = defineStore('history', () => {
   function toggleSelect(id: number): void {
     const idx = selectedIds.value.indexOf(id)
     if (idx === -1) {
-      selectedIds.value.push(id)
+      selectedIds.value = [...selectedIds.value, id]
     } else {
-      selectedIds.value.splice(idx, 1)
+      selectedIds.value = selectedIds.value.filter((_, i) => i !== idx)
     }
   }
 

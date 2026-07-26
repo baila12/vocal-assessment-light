@@ -50,7 +50,7 @@ export interface HistoryRecord {
 }
 
 export interface HistoryListResponse {
-  records: HistoryRecord[]
+  history: HistoryRecord[]
   total: number
   page: number
 }
