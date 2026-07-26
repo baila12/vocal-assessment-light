@@ -32,6 +32,9 @@ class DimensionFlags:
     enable_body_muscle: bool = True         # 身体肌肉
     enable_facial_muscle: bool = True       # 面部肌肉
 
+    # ===== v7.2: audiofeat 增强特征提取 =====
+    enable_audiofeat: bool = False           # True = 启用 audiofeat 130+ 声学特征 (CPPS/GNE/等)
+
     # ===== v6.2 高级算法开关 (保留) =====
     enable_multiscale_hnr: bool = True
     enable_praat_cpp: bool = True

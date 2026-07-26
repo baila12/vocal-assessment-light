@@ -19,6 +19,9 @@ from backend.domain.audio.technique_extractor import LibrosaTechniqueExtractor
 from backend.domain.audio.muscle_extractor import LibrosaMuscleExtractor
 from backend.domain.audio.artistry_extractor import LibrosaArtistryExtractor
 from backend.domain.audio.timbre_extractor import LibrosaTimbreExtractor
+from backend.domain.audio.audiofeat_extractor import (
+    AudiofeatExtractor, AudiofeatFeatures,
+)
 
 from backend.domain.assessment.pitch_scorer import PitchFeatures
 from backend.domain.assessment.rhythm_scorer import RhythmFeatures
@@ -43,6 +46,9 @@ class DddFeatureSet:
     muscle: MuscleFeatures = field(default_factory=MuscleFeatures)
     artistry: ArtistryFeatures = field(default_factory=ArtistryFeatures)
     timbre: TimbreFeatures = field(default_factory=TimbreFeatures)
+
+    # v7.2: audiofeat 增强特征 (可选, flag 控制)
+    audiofeat: AudiofeatFeatures = field(default_factory=AudiofeatFeatures)
 
 
 class DddFeatureExtractionOrchestrator:
@@ -71,6 +77,8 @@ class DddFeatureExtractionOrchestrator:
         self._muscle = LibrosaMuscleExtractor()
         self._artistry = LibrosaArtistryExtractor()
         self._timbre = LibrosaTimbreExtractor()
+        # v7.2: audiofeat 增强提取器 (可选)
+        self._audiofeat = AudiofeatExtractor() if self._flags.enable_audiofeat else None
 
     def extract_all(
         self,
@@ -127,6 +135,14 @@ class DddFeatureExtractionOrchestrator:
                                           vibrato_count=0,
                                           pitch_cv=max(0.01, vibrato_rate))
 
+        # v7.2: audiofeat 增强特征 (flag 门控)
+        audiofeat_features = AudiofeatFeatures()
+        if self._audiofeat is not None and self._audiofeat.available:
+            # audiofeat 需要 torch tensor
+            import torch
+            y_torch = torch.from_numpy(y.astype(np.float32))
+            audiofeat_features = self._audiofeat.extract(y_torch, sr)
+
         return DddFeatureSet(
             acoustic=acoustic,
             pitch=pitch,
@@ -136,4 +152,5 @@ class DddFeatureExtractionOrchestrator:
             muscle=muscle,
             artistry=artistry,
             timbre=timbre,
+            audiofeat=audiofeat_features,
         )
