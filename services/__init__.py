@@ -10,10 +10,6 @@ def __getattr__(name):
         "SeparationResult": ".separation_service",
         "ReportService": ".report_service",
         "ReportResult": ".report_service",
-        "ScoreService": ".score_service",
-        "ScoreResult": ".score_service",
-        "ScoreServiceV4": ".score_service",
-        "ScoreResultV4": ".score_service",
         "AudioService": ".audio_service",
         "AudioAnalysisResult": ".audio_service",
         "AdviceService": ".advice_service",
@@ -35,8 +31,6 @@ def __getattr__(name):
 
 __all__ = [
     "AudioService", "AudioAnalysisResult",
-    "ScoreService", "ScoreResult",
-    "ScoreServiceV4", "ScoreResultV4",
     "AdviceService", "AdviceResult",
     "VisualizationService", "VisualizationResult",
     "SeparationService", "SeparationResult",

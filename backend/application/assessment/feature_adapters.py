@@ -1,10 +1,10 @@
 """
-特征适配器 — v7.1 Phase B
+特征适配器 — v7.1.4 适配器路径 (Path B 回退)
 
-桥接旧 AudioFeaturesResult (services/) 到新 DDD 特征数据类 (backend/domain/assessment/)。
+桥接旧特征类型到新 DDD 特征数据类 (backend/domain/assessment/)。
 
 设计原则:
-- 绞杀者模式: 适配器是临时桥梁，Phase C 完成后逐步移除
+- 仅作为 flag 回退路径保留 (enable_ddd_feature_extraction=False 时使用)
 - 零副作用: 纯数据映射, 无 I/O
 - 宽松回退: 缺失字段使用合理默认值, 不崩溃
 - 启发式标记: Muscle/Timbre 维度标记 is_heuristic=True
@@ -34,14 +34,12 @@ def _safe_clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
 
 class FeatureAdapterRegistry:
     """
-    特征适配器注册表 — 将旧 AudioFeaturesResult 映射到 7 个 DDD 特征数据类。
+    特征适配器注册表 — v7.1.4 仅用于 flag 回退路径。
 
-    使用方式:
-        from services.audio_features_service import AudioFeaturesResult
+    使用方式 (Path B 回退):
         from backend.application.assessment.feature_adapters import FeatureAdapterRegistry
 
         adapters = FeatureAdapterRegistry()
-        features = old_audio_features_result
         pitch_features = adapters.to_pitch(features)
         score = PitchScorer().calculate(pitch_features)
     """

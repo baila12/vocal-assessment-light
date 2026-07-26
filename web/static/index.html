@@ -4,41 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <title>声乐评估系统</title>
-
-    <!-- 设计系统 & 样式 -->
-    <link rel="stylesheet" href="/css/variables.css">
-    <link rel="stylesheet" href="/css/base.css">
-    <link rel="stylesheet" href="/css/components.css">
-    <link rel="stylesheet" href="/css/layouts.css">
-    <link rel="stylesheet" href="/css/animations.css">
-    <link rel="stylesheet" href="/css/pages/home.css">
-    <link rel="stylesheet" href="/css/pages/report.css">
-    <link rel="stylesheet" href="/css/pages/sing.css">
-    <link rel="stylesheet" href="/css/pages/history.css">
-    <link rel="stylesheet" href="/css/pages/compare.css">
-    <link rel="stylesheet" href="/css/pages/settings.css">
-
-    <!-- GSAP (本地) -->
-    <script src="/lib/gsap/gsap.min.js"></script>
-    <!-- Chart.js (本地) -->
-    <script src="/lib/chart.js/chart.umd.min.js"></script>
-
+    <title>声乐评估系统 — VAS</title>
     <style>
-        .page { display: block; }  /* 覆盖 components.css 旧 .page { display: none; } */
-        #globalProgressBar {
-            position: fixed; top: 0; left: 0; height: 3px;
-            background: var(--primary); z-index: calc(var(--z-sticky) + 1);
-            width: 0%; transform-origin: left center;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; background: #0f172a; color: #e2e8f0;
         }
+        .container { text-align: center; padding: 2rem; }
+        h1 { font-size: 2rem; margin-bottom: 1rem; color: #38bdf8; }
+        p { font-size: 1.1rem; margin-bottom: 1.5rem; line-height: 1.6; color: #94a3b8; }
+        .links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        a {
+            display: inline-block; padding: 0.75rem 1.5rem;
+            background: #1e293b; color: #38bdf8; text-decoration: none;
+            border-radius: 0.5rem; border: 1px solid #334155;
+            transition: background 0.2s;
+        }
+        a:hover { background: #334155; }
+        .version { margin-top: 2rem; font-size: 0.85rem; color: #64748b; }
     </style>
 </head>
 <body>
-    <div class="toast-wrap" id="toastWrap" role="alert" aria-live="polite"></div>
-    <div id="globalProgressBar"></div>
-    <header id="topNavContainer"></header>
-    <main id="pageContainer"></main>
-    <nav id="bottomNavContainer"></nav>
-    <script type="module" src="/app.js"></script>
+    <div class="container">
+        <h1>🎤 声乐评估系统</h1>
+        <p>
+            v7 架构已升级至 Vue 3 + FastAPI。<br>
+            请通过 FastAPI 服务 (端口 8000) 访问新版前端。
+        </p>
+        <div class="links">
+            <a href="http://localhost:8000">新版前端 (Vue 3)</a>
+        </div>
+        <p class="version">v7.1.3 — Flask legacy SPA 已废弃</p>
+    </div>
 </body>
 </html>

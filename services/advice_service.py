@@ -10,8 +10,6 @@
 from dataclasses import dataclass
 from typing import Dict, List
 
-from .score_service import ScoreResult
-
 
 @dataclass
 class AdviceResult:
@@ -40,7 +38,10 @@ class AdviceService:
         'pitch': '音准',
         'rhythm': '节奏',
         'breath': '气息',
-        'emotion': '情绪'
+        'emotion': '情绪',
+        'technique': '技术',
+        'muscle_strength': '肌肉力量',
+        'artistry': '艺术表现',
     }
 
     # 改进建议模板
@@ -49,7 +50,10 @@ class AdviceService:
         'pitch': "每天跟唱音阶10分钟，使用调音器校准。多听标准音高，培养音准感觉。",
         'rhythm': "跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。",
         'breath': "练习长音保持，每天做呼吸操。注意换气点的选择，保持气息稳定。",
-        'emotion': "理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。"
+        'emotion': "理解歌词含义，多听优秀歌手演绎。尝试用肢体语言辅助情感表达。",
+        'technique': "练习咬字清晰度，注意气声比例的平衡。多做元音和辅音的发声练习。",
+        'muscle_strength': "加强腹式呼吸和核心力量训练，提升声音的穿透力和稳定性。",
+        'artistry': "注重颤音技巧和动态变化，增强乐句表现力。多听不同风格的音乐作品。",
     }
 
     # 表扬模板
@@ -58,15 +62,18 @@ class AdviceService:
         'pitch': "音准极佳，旋律线条清晰！",
         'rhythm': "节奏感出色，律动感强！",
         'breath': "气息控制稳定，颤音运用得当！",
-        'emotion': "情感表达丰富，感染力强！"
+        'emotion': "情感表达丰富，感染力强！",
+        'technique': "发声技术扎实，咬字清晰，气声比控制得当！",
+        'muscle_strength': "声音穿透力强，共鸣丰富，肌肉支撑稳定！",
+        'artistry': "艺术表现力出色，乐句处理细腻！",
     }
 
-    def generate(self, scores: 'ScoreResult | dict') -> 'AdviceResult':
+    def generate(self, scores: dict) -> 'AdviceResult':
         """
-        生成改进建议 (v7.1: 兼容 dict 和 ScoreResultV4 dataclass)
+        生成改进建议 (v7.1.4: DDD orchestrator 产生 dict)
 
         Args:
-            scores: 评分结果 (dict 或 dataclass)
+            scores: 评分结果 (dict)
 
         Returns:
             AdviceResult: 建议结果
@@ -74,13 +81,15 @@ class AdviceService:
         def _s(key, default=0.0):
             return scores.get(key, default) if isinstance(scores, dict) else getattr(scores, key, default)
 
+        # v7.1.4: DDD orchestrator 产生六维评分 dict (字段名以 _score 结尾)
         score_dict = {
-            'volume': _s('volume'),
-            'pitch': _s('pitch'),
-            'rhythm': _s('rhythm'),
-            'breath': _s('breath'),
-            'emotion': _s('emotion'),
-            'total': _s('total'),
+            'pitch': _s('pitch_score'),
+            'rhythm': _s('rhythm_score'),
+            'breath': _s('breath_score'),
+            'technique': _s('technique_score'),
+            'muscle_strength': _s('muscle_strength_score'),
+            'artistry': _s('artistry_score'),
+            'total': _s('total_score'),
         }
 
         # 排序找出最强和最弱维度

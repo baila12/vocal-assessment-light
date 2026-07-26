@@ -96,16 +96,14 @@ class TestDddExtractionIntegration:
         y /= np.max(np.abs(y))
         return (y * 0.8).astype(np.float32), sr
 
-    def test_flag_false_uses_legacy_path(self):
-        """enable_ddd_feature_extraction=False → 可显式回退旧评分路径"""
+    def test_flag_false_still_valid(self):
+        """enable_ddd_feature_extraction=False → flag 仍然有效 (v7.1.4 统一路径, 不再区分)"""
         from services.feature_flags import FeatureFlags
-        from api.business.audio_analysis import analyze_and_score
 
         flags = FeatureFlags(enable_ddd_feature_extraction=False)
-        # 验证 flag 被正确读取
+        # v7.1.4: flag 仍然存在且可被设置, 但 analyze_and_score 现在忽略此 flag,
+        # 始终使用 DDD 原生路径 (唯一路径)
         assert flags.enable_ddd_feature_extraction is False
-        # 验证 flag 存在且可被 analyze_and_score 访问
-        # (实际路径测试需要真实音频, 见 E2E)
 
     def test_flag_true_ddd_path_returns_valid_scores(self):
         """enable_ddd_feature_extraction=True → 返回有效六维评分"""
@@ -182,17 +180,14 @@ class TestDddExtractionIntegration:
         assert features.acoustic is not None
 
     def test_ddd_extractor_initialization_in_audio_analysis(self):
-        """验证 audio_analysis 模块能初始化 DDD 特征提取器"""
-        from api.business.audio_analysis import (
-            _ddd_feature_extractor_available,
-            _ddd_feature_extractor,
-        )
-        # DDD 特征提取器应已初始化
-        assert _ddd_feature_extractor_available, (
-            "DDD 特征提取器应可用 (依赖 domain/audio 模块)"
-        )
+        """验证 audio_analysis 模块始终初始化 DDD 特征提取器 (v7.1.4 唯一路径)"""
+        from api.business.audio_analysis import _ddd_feature_extractor
         from backend.application.assessment.ddd_feature_orchestrator import (
             DddFeatureExtractionOrchestrator,
+        )
+        # DDD 特征提取器应已初始化 (v7.1.4 移除 try/except, 作为必需依赖)
+        assert _ddd_feature_extractor is not None, (
+            "DDD 特征提取器必须可用 (v7.1.4 唯一评分路径)"
         )
         assert isinstance(_ddd_feature_extractor, DddFeatureExtractionOrchestrator), (
             "DDD 特征提取器应为 DddFeatureExtractionOrchestrator 实例"

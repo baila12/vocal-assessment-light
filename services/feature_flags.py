@@ -49,8 +49,7 @@ class FeatureFlags:
     # v6.2 Praat 声质特征 (jitter/shimmer/formants/spectral_tilt)
     # Baken & Orlikoff (2000), Sundberg (1987)
     enable_praat_voice_quality: bool = True
-    # v7.1: 启用 DDD ScoringOrchestrator (六维度 + EventBus 自动保存历史)
-    # 关闭时使用旧 ScoreServiceV4 (五维度)
+    # v7.1: DDD 评分编排 (仅保留适配器回退路径)
     enable_ddd_scoring: bool = True
     # v7.1.2: DDD 原生特征提取 (绕过旧 AudioFeaturesService) — 默认启用
     enable_ddd_feature_extraction: bool = True
