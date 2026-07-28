@@ -1,6 +1,9 @@
 """
 声学指标计算模块 v6.2
 
+DEPRECATED: Use backend.domain.audio.acoustic_feature_extractor.LibrosaAcousticExtractor instead.
+This module is retained for backward compatibility only and will be removed in a future version.
+
 包含：
 1. HNR (谐波噪声比) - 反映声带闭合程度
 2. CPP (倒谱峰值显著性) - 反映声带闭合质量
@@ -12,15 +15,29 @@ import numpy as np
 import librosa
 from scipy import stats
 import logging
+import warnings
 from .types import AcousticResult
 
 logger = logging.getLogger(__name__)
+
+warnings.warn(
+    "services.features.acoustic is deprecated. "
+    "Use backend.domain.audio.acoustic_feature_extractor.LibrosaAcousticExtractor instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class AcousticAnalyzer:
     """声学指标分析器"""
 
     def __init__(self, sample_rate: int = 22050, hop_length: int = 512):
+        warnings.warn(
+            "AcousticAnalyzer is deprecated. "
+            "Use backend.domain.audio.acoustic_feature_extractor.LibrosaAcousticExtractor instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.sample_rate = sample_rate
         self.hop_length = hop_length
 

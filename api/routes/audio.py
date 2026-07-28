@@ -9,6 +9,7 @@ import re
 
 from config import config
 from api.errors import NotFoundError, ForbiddenError
+from api.routes.rate_limit import rate_limit
 
 audio_bp = Blueprint('audio', __name__)
 
@@ -24,6 +25,7 @@ MIME_TYPES = {
 
 
 @audio_bp.route('/audio', methods=['GET'])
+@rate_limit(120, 60)
 def get_audio():
     """
     获取音频文件用于播放

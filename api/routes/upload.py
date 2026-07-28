@@ -13,6 +13,7 @@ from services import SeparationService, ReportService
 from repositories import JsonHistoryRepository
 from api.errors import ValidationError, NotFoundError, ForbiddenError
 from api.business import analyze_and_score
+from api.routes.rate_limit import rate_limit
 from services.feature_flags import FeatureFlags
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,7 @@ def validate_filepath(filepath: str) -> Path:
 
 
 @upload_bp.route('/upload', methods=['POST'])
+@rate_limit(20, 60)
 def upload_file():
     """上传并分析音频文件
 
@@ -115,6 +117,7 @@ def upload_file():
 
 
 @upload_bp.route('/analyze', methods=['POST'])
+@rate_limit(20, 60)
 def analyze_file():
     """分析已存在的音频文件，支持可选参考音频"""
     filepath = request.json.get('filepath')
@@ -143,6 +146,7 @@ def analyze_file():
 
 
 @upload_bp.route('/extract-pitch', methods=['POST'])
+@rate_limit(120, 60)
 def extract_pitch():
     """
     提取音频的音高曲线 v5.10
@@ -230,6 +234,7 @@ def extract_pitch():
 
 
 @upload_bp.route('/separate', methods=['POST'])
+@rate_limit(120, 60)
 def separate_audio():
     """人声分离"""
     filepath = request.json.get('filepath')
@@ -258,12 +263,14 @@ def separate_audio():
 
 
 @upload_bp.route('/separate/models', methods=['GET'])
+@rate_limit(120, 60)
 def get_separation_models():
     """获取可用的分离模型列表"""
     return jsonify({'models': separation_service.get_available_models()})
 
 
 @upload_bp.route('/report', methods=['POST'])
+@rate_limit(120, 60)
 def generate_report():
     """生成评估报告"""
     data = request.json
@@ -288,6 +295,7 @@ def generate_report():
 
 
 @upload_bp.route('/compare', methods=['POST'])
+@rate_limit(20, 60)
 def compare_audio():
     """对比分析两个音频文件
 

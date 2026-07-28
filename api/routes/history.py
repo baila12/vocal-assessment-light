@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request
 
 from config import config
 from repositories import JsonHistoryRepository
+from api.routes.rate_limit import rate_limit
 
 history_bp = Blueprint('history', __name__)
 
@@ -14,6 +15,7 @@ history_repo = JsonHistoryRepository(config.HISTORY_FILE, config.HISTORY_MAX_REC
 
 
 @history_bp.route('/history', methods=['GET'])
+@rate_limit(120, 60)
 def get_history():
     """
     获取历史记录（支持分页）
@@ -52,6 +54,7 @@ def get_history():
 
 
 @history_bp.route('/history/<record_id>', methods=['GET'])
+@rate_limit(120, 60)
 def get_history_detail(record_id):
     """
     获取单条历史记录详情
@@ -76,6 +79,7 @@ def get_history_detail(record_id):
 
 
 @history_bp.route('/history/<record_id>', methods=['DELETE'])
+@rate_limit(120, 60)
 def delete_history(record_id):
     """
     删除历史记录
@@ -98,6 +102,7 @@ def delete_history(record_id):
 
 
 @history_bp.route('/history/batch', methods=['DELETE'])
+@rate_limit(120, 60)
 def delete_history_batch():
     """
     批量删除历史记录
@@ -142,6 +147,7 @@ def delete_history_batch():
 
 
 @history_bp.route('/history/all', methods=['DELETE'])
+@rate_limit(120, 60)
 def delete_history_all():
     """
     删除所有历史记录
@@ -165,6 +171,7 @@ def delete_history_all():
 
 
 @history_bp.route('/test-files', methods=['GET'])
+@rate_limit(120, 60)
 def get_test_files():
     """
     获取测试音乐文件列表
