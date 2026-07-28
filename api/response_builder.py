@@ -374,26 +374,21 @@ def build_response(
 
 def build_error_response(
     error: str,
-    traceback: Optional[str] = None,
     version: str = '5.0'
 ) -> Dict[str, Any]:
     """
     构建错误响应
 
+    注意: 仅返回通用错误消息，不泄露内部异常细节。
+
     Args:
-        error: 错误信息
-        traceback: 堆栈跟踪（可选）
+        error: 用户友好的错误信息
         version: API 版本号
 
     Returns:
         错误响应字典
     """
-    response = {
+    return {
         'success': False,
         'error': error
     }
-
-    if traceback:
-        response['traceback'] = traceback
-
-    return response
