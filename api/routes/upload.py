@@ -222,9 +222,9 @@ def extract_pitch():
                 'frame_count': len(f0)
             }
         })
-    except Exception as e:
-        logger.exception(f"音高提取失败: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+    except Exception:
+        logger.exception("音高提取失败")
+        return jsonify({'success': False, 'error': '音高提取失败，请稍后重试'}), 500
 
 
 @upload_bp.route('/separate', methods=['POST'])

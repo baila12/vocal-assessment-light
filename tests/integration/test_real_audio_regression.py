@@ -4,7 +4,7 @@
 使用 tests/test_data/audio/vocal/ 中的 5 个真实音频文件，
 验证评分系统在代码变更前后保持一致性。
 
-基线数据来源: v5.19 真实音频测试 (见 docs/4-process/PROJECT_STATUS.md)
+基线数据来源: v7.3 DDD 唯一路径 + audiofeat 增强 (见 docs/4-process/PROJECT_STATUS.md)
 
 TDD 用法:
   - GREEN: 当前基线必须通过 (保护已有评分不被意外修改)
@@ -79,8 +79,7 @@ BASELINE_V7_3 = {
     },
 }
 
-# 别名: 保留旧引用
-BASELINE_v5_19 = BASELINE_V7_3
+BASELINE = BASELINE_V7_3
 
 
 def _resolve_audio_path(filename):
@@ -98,7 +97,7 @@ def _resolve_audio_path(filename):
 
 @pytest.mark.parametrize("filename", REAL_AUDIO_FILES)
 class TestRealAudioRegression:
-    """真实音频评分回归 — 与 v5.19 基线对比"""
+    """真实音频评分回归 — 与 v7.3 基线对比"""
 
     def test_audio_file_exists(self, filename):
         """测试音频文件存在"""
@@ -120,7 +119,7 @@ class TestRealAudioRegression:
         assert result.get('level') != '?', f"{filename}: level 不应为 '?'"
 
     def test_total_score_in_baseline_range(self, filename):
-        """总分在 v5.19 基线范围内"""
+        """总分在 v7.3 基线范围内"""
         path = _resolve_audio_path(filename)
         if path is None:
             pytest.skip(f"测试音频不存在: {filename}")
@@ -129,7 +128,7 @@ class TestRealAudioRegression:
         if not result.get('success'):
             pytest.skip(f"分析失败: {result.get('error')}")
 
-        baseline = BASELINE_v5_19.get(filename, {})
+        baseline = BASELINE.get(filename, {})
         total_min, total_max = baseline.get("total_range", (0, 100))
         total = result['total_score']
 
@@ -146,7 +145,7 @@ class TestRealAudioRegression:
         if not result.get('success'):
             pytest.skip(f"分析失败: {result.get('error')}")
 
-        baseline = BASELINE_v5_19.get(filename, {})
+        baseline = BASELINE.get(filename, {})
         scores = result['scores']
 
         for dim in ['pitch', 'rhythm', 'breath', 'technique', 'artistry']:
