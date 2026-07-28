@@ -106,7 +106,6 @@ class AudioAnalysisResult:
 
     # 错误信息
     error: Optional[str] = None
-    traceback: Optional[str] = None
 
 
 class AudioService:
@@ -313,7 +312,6 @@ class AudioService:
                 sample_rate=0,
                 file_size=0,
                 error=str(e),
-                traceback=traceback.format_exc()
             )
 
     # v7.1.5: F0 提取内联 (从 AudioFeaturesService 内移)

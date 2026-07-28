@@ -28,7 +28,7 @@ class Config:
     # ========== 上传配置 ==========
     UPLOAD_FOLDER: Path = field(default_factory=lambda: Path(__file__).parent.parent / "uploads")
     MAX_CONTENT_LENGTH: int = 50 * 1024 * 1024  # 50MB
-    ALLOWED_EXTENSIONS: Tuple[str, ...] = ('.wav', '.mp3', '.flac', '.ogg', '.m4a')
+    ALLOWED_EXTENSIONS: Tuple[str, ...] = ('.wav', '.mp3', '.flac', '.ogg', '.m4a', '.aac')
 
     # ========== 历史记录配置 ==========
     HISTORY_FILE: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data" / "web_history.json")

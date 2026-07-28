@@ -70,7 +70,7 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         logger.error(f"Audio analysis failed: {audio_result.error}")
         return {
             'success': False,
-            'error': audio_result.error
+            'error': '音频分析失败，请稍后重试'
         }
 
     # 2. 人声质量检测

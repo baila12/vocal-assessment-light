@@ -111,6 +111,25 @@ def create_app() -> FastAPI:
     # 速率限制 (全局 120/min, 上传 20/min, WebSocket 10/min)
     app.add_middleware(RateLimitMiddleware)
 
+    # ===== v7.3.1: 请求体大小限制 (50MB, 对齐 Flask MAX_CONTENT_LENGTH) =====
+    from backend.infrastructure.config import Settings as _AppSettings
+    _settings = _AppSettings()
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse as StarletteJSONResponse
+
+    class _MaxBodySizeMiddleware(BaseHTTPMiddleware):
+        """拒绝超过 max_content_length 的请求体 (413 Payload Too Large)"""
+        async def dispatch(self, request, call_next):
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > _settings.max_content_length:
+                return StarletteJSONResponse(
+                    {"detail": "文件大小超出 50MB 限制"},
+                    status_code=413,
+                )
+            return await call_next(request)
+
+    app.add_middleware(_MaxBodySizeMiddleware)
+
     # ===== v7.3: 全局异常处理器 =====
     from fastapi.responses import JSONResponse
     from fastapi import Request

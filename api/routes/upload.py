@@ -82,6 +82,8 @@ def upload_file():
 
     # 获取评估模式参数
     mode = request.form.get('mode', 'quick')  # 默认快速模式
+    if mode not in ('quick', 'professional'):
+        raise ValidationError(f'无效的评估模式: {mode}，仅支持 quick 或 professional')
 
     safe_name = sanitize_filename(file.filename)
     filepath = config.get_upload_path(safe_name)

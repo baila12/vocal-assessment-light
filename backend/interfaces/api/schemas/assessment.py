@@ -36,7 +36,7 @@ class AnalyzeRequest(BaseModel):
     """分析请求"""
     filepath: str
     reference_filepath: Optional[str] = None
-    mode: str = "quick"
+    mode: Literal["quick", "professional"] = "quick"
 
 
 class PitchExtractResponse(BaseModel):

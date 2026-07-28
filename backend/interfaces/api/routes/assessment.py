@@ -25,7 +25,6 @@ from backend.interfaces.api.schemas.assessment import (
     SeparateRequest, SeparateResponse, ReportRequest, ReportResponse,
     CompareRequest, CompareResponse,
 )
-import uuid
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -115,6 +114,8 @@ async def upload_audio(
         raise HTTPException(status_code=400, detail="没有选择文件")
     if not config.is_allowed_extension(file.filename):
         raise HTTPException(status_code=400, detail="不支持的文件格式")
+    if mode not in ('quick', 'professional'):
+        raise HTTPException(status_code=400, detail=f"无效的评估模式: {mode}，仅支持 quick 或 professional")
 
     safe_name = sanitize_filename(file.filename)
     filepath = config.get_upload_path(safe_name)
@@ -303,7 +304,7 @@ async def extract_pitch(
                 "frame_count": len(f0),
             },
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Pitch extraction failed")
         return PitchExtractResponse(success=False, error="音高提取失败，请稍后重试")
 

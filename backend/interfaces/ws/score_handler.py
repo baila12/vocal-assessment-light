@@ -87,7 +87,7 @@ class ScoreWebSocketHandler:
             logger.exception(f"WS session {session.id} error: {e}")
             try:
                 await ws.send_json(WsServerError(
-                    event="error", message=str(e)
+                    event="error", message="处理请求时发生错误，请重试"
                 ).model_dump())
             except Exception:
                 logger.exception(f"WS session {session.id}: failed to send error to client")
@@ -156,7 +156,7 @@ class ScoreWebSocketHandler:
             ).model_dump())
         except Exception as e:
             await ws.send_json(WsServerError(
-                event="error", message=str(e)
+                event="error", message="处理请求时发生错误，请重试"
             ).model_dump())
 
     async def _compute_final(self, ws: WebSocket, session: StreamingSession) -> None:
