@@ -4,6 +4,67 @@
 
 ---
 
+## v7.3.1 — 安全审查修复 + Flask 限速 + BDD 增强 (2026-07-28)
+
+### 概述
+
+基于安全审查发现的 11 项问题，完成 9 处信息泄露修复、Flask 14 routes 速率限制、FastAPI 50MB 上传限制。同时推进架构演进：旧服务废弃标记、BDD 29 scenarios 步骤定义、pytest 配置清理。
+
+### 安全修复 (CRITICAL 3 + HIGH 5)
+
+**信息泄露 (9处):**
+- 🔧 **C-1**: `api/business/audio_analysis.py` — `analyze_and_score` 返回 `str(e)` → 通用错误消息
+- 🔧 **C-2**: `services/audio_service.py` — `AudioAnalysisResult` 移除 `traceback` 字段
+- 🔧 **C-3**: `api/routes/upload.py` — `/extract-pitch` 路由 `str(e)` → 通用消息
+- 🔧 **H-1**: `backend/interfaces/ws/score_handler.py` — WebSocket `str(e)` → 通用消息 (2处)
+- 🔧 **H-2**: `api/response_builder.py` — `build_error_response()` 移除 `traceback` 参数
+
+**其他安全加固:**
+- 🔧 **H-3**: `backend/main.py` — 新增 `MaxBodySizeMiddleware` (50MB, 对齐 Flask)
+- 🔧 **M-1**: `mode` 参数验证 — Flask upload + FastAPI upload + `AnalyzeRequest` Literal 类型
+- 🔧 **M-2**: `config/default.py` — `ALLOWED_EXTENSIONS` 添加 `.aac` (对齐 FastAPI)
+
+### Flask 速率限制 (M-3)
+
+- 🆕 `api/routes/rate_limit.py` — token bucket 限速器
+  - `@rate_limit(20, 60)`: `/upload`, `/analyze`, `/compare`
+  - `@rate_limit(120, 60)`: 其余 11 routes (extract-pitch, separate, history, audio 等)
+  - `VAS_DISABLE_RATE_LIMIT=1` 跳过 (测试兼容, conftest 已设置)
+  - 线程安全 + 过期桶自动清理
+
+### 架构演进 (P2)
+
+- ⚠ `services/features/acoustic.py` — 添加 `DeprecationWarning` (模块级 + `__init__`)
+- ⚠ `services/features/types.py` — 添加 `DeprecationWarning` (模块级)
+- ✅ 无行为变更，仅标记为废弃
+
+### BDD 测试增强 (P2)
+
+- 🆕 `tests/bdd/steps/test_animations_steps.py` — 16 GSAP animation scenarios (67 step defs)
+- 🆕 `tests/bdd/steps/test_offline_steps.py` — 5 offline/library scenarios (19 step defs)
+- 🆕 `tests/bdd/steps/test_responsive_steps.py` — 8 responsive layout scenarios (33 step defs)
+- 🆕 119 step definitions total, 29 scenarios, `@pytest.mark.browser` 标记
+- 🔧 `tests/pytest.ini` — 新增 `browser` marker
+
+### 代码质量
+
+- 🔧 `tests/pytest.ini` — filterwarnings (外部库噪音) + 移除无效 `asyncio_mode`
+- 🔧 `tests/integration/test_real_audio_regression.py` — `BASELINE_v5_19` → `BASELINE` 别名清理
+- 🔧 `backend/interfaces/api/routes/assessment.py` — 移除重复 `import uuid` + 未使用变量
+- 🔧 全部 375 测试 GREEN (无回归)
+
+### 修改文件 (17)
+
+| 层 | 文件 |
+|----|------|
+| Backend | `main.py`, `assessment.py`, `assessment.py` (schemas), `score_handler.py` |
+| Services | `audio_service.py`, `acoustic.py` (features), `types.py` (features) |
+| Flask API | `upload.py`, `history.py`, `audio.py`, `rate_limit.py` (new), `audio_analysis.py`, `response_builder.py` |
+| Config | `default.py` |
+| Tests | `pytest.ini`, `test_real_audio_regression.py`, `test_animations_steps.py` (new), `test_offline_steps.py` (new), `test_responsive_steps.py` (new), `test_spa_steps.py` |
+
+---
+
 ## v7.3.0 — audiofeat 评分接入 + Comparison DDD + 严格测试审计 (2026-07-27)
 
 ### 概述

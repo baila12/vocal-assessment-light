@@ -1,6 +1,6 @@
 # 评分算法文档
 
-> 更新: 2026-07-27 | v7.3 — audiofeat 评分闭环 + Comparison DDD + 真实音频基线更新
+> 更新: 2026-07-28 | v7.3.1 — audiofeat 评分闭环 + Comparison DDD + 安全加固 + 真实音频基线更新
 >
 > **架构状态**: DDD 唯一评分路径; 13 自包含提取器; audiofeat 4 scorers 增强 (flag 门控, 默认关闭)
 > **技术研究**: [TECH_RESEARCH.md](TECH_RESEARCH.md)
