@@ -258,8 +258,9 @@ class TestRateLimitMiddleware:
         response = client.post("/api/v1/upload")
         assert response.status_code == 200
 
-    def test_rate_limited_response_has_retry_after(self, limiter_with_tokens):
+    def test_rate_limited_response_has_retry_after(self, limiter_with_tokens, monkeypatch):
         """限流响应应包含 Retry-After 头"""
+        monkeypatch.delenv("VAS_DISABLE_RATE_LIMIT", raising=False)
         from fastapi import FastAPI
         app = FastAPI()
 
@@ -281,8 +282,9 @@ class TestRateLimitMiddleware:
         assert response.status_code == 429
         assert "Retry-After" in response.headers
 
-    def test_ws_endpoint_uses_separate_limit(self, limiter_with_tokens):
+    def test_ws_endpoint_uses_separate_limit(self, limiter_with_tokens, monkeypatch):
         """WebSocket 端点使用独立的速率限制"""
+        monkeypatch.delenv("VAS_DISABLE_RATE_LIMIT", raising=False)
         from fastapi import FastAPI
         app = FastAPI()
 

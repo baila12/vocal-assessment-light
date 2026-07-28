@@ -4,6 +4,66 @@
 
 ---
 
+## v7.3.0 — audiofeat 评分接入 + Comparison DDD + 严格测试审计 (2026-07-27)
+
+### 概述
+
+P1 audiofeat 特征接入 4 个 scorer 完成评分增强闭环。实现完整 DDD comparison 领域（结束 Phase 2 桩代码状态）。全面代码审计修复 12 项（5 CRITICAL + 7 HIGH）。测试从 226 增长到 375（100% GREEN）。
+
+### audiofeat 评分接入 (P1)
+
+- 🆕 **BreathScorer**: CPPS/GNE/HNR_praat 增强气息评分（±8 分微调），区分可控气声 vs 不可控漏气
+- 🆕 **TechniqueScorer**: Jitter/Shimmer/Closed Quotient 增强发声技术评分（±10 分微调）
+- 🆕 **TimbreAdjuster**: 增强路径替代启发式 — centroid/roughness/nasality/inharmonicity 直接测量
+- 🆕 **MuscleStrengthScorer**: Soft Phonation/Vocal Fry 补充身体力量代理（20% 权重混合）
+- 🆕 `ScoringOrchestrator.calculate_ddd()` 接收 `audiofeat` 参数
+- 🆕 `api/business/audio_analysis.py` 传递 `audiofeat=ddd_features.audiofeat`
+- 🧪 32 新增 audiofeat 增强测试（8 breath + 9 technique + 9 timbre + 6 muscle）
+
+### Comparison DDD 实现
+
+- 🆕 `backend/domain/comparison/` 完整 DDD 三层：
+  - `entities.py`: `ComparisonResult`, `AlignmentData`, `DeviationData` (frozen)
+  - `value_objects.py`: `ComparisonScores`, `DimensionComparisonScore` (frozen, 4 风格权重)
+  - `services.py`: `ComparisonScoringService` (移植 scoring_engine.py 算法)
+- 🆕 `CompareAudioUseCase` 应用层对比用例（绞杀者: 复用旧 DTW + 新 DDD 评分）
+- 🆕 `/compare` 路由 DDD 优先路径 + 旧路径异常 fallback
+- 🧪 24 新增 comparison 测试（10 value objects + 14 scoring）
+
+### 严格测试审计 (12 修复)
+
+**CRITICAL (5):**
+- 🔧 `assessment.py:275`: `str(e)` NameError → `except Exception as e`
+- 🔧 `main.py`: 全局异常处理器（防止原始 traceback 泄露）
+- 🔧 `score_handler.py:92`: `except: pass` → `logger.exception(...)`
+- 🔧 `SingView.vue`: `startSinging()` try/catch + 状态复位
+- 🔧 `SingView.vue`: `initConnection()` `.catch()` 消除浮空 Promise
+
+**HIGH (7):**
+- 🔧 `assessment.py:216`: `/analyze` 裸 `mode` → `body.mode`
+- 🔧 `assessment.py:223`: `_save_history` 缺 `analysis_id` 参数
+- 🔧 `assessment.py:439`: `/compare` 信息泄露 `str(e)` → 通用消息
+- 🔧 `assessment.py`: `/separate` + `/report` try/catch 缺失
+- 🔧 `assessment.py`: `/analyze` + `/compare` 缺失 `response_model`
+- 🔧 `TopNav.vue` + `BottomNav.vue`: 图标组件未导入（Headset, HomeFilled 等）
+- 🔧 `HistoryRecordOut`: 缺失 `duration` 字段
+
+### 测试基础设施
+
+- 🔧 Rate-limit 测试修复: monkeypatch `VAS_DISABLE_RATE_LIMIT`（23/23, 从 21/23）
+- 🔧 集成测试进程隔离: Flask vs FastAPI 测试独立进程（C 扩展冲突）
+- 🆕 `tests/extended/`: 需完整音频栈的测试独立目录
+- 🆕 `tests/conftest.py`: `VAS_SKIP_GPU=1` + `VAS_DISABLE_RATE_LIMIT=1` + Playwright lazy import
+- 🆕 `backend/main.py`: `VAS_SKIP_GPU` env var 跳过 GPU 检测
+
+### 真实音频基线
+
+- 📊 v7.3 Quick 模式评分 (DDD 唯一路径): 5 文件六维实测 + 基线更新
+- 📊 technique 重构偏移 ~-30 分, 高低分差 12.9（v5.19: 20）
+- 📊 `BASELINE_V7_3` 替代 `BASELINE_v5_19`
+
+---
+
 ## v7.2.1 — 代码审查修复 (2026-07-27)
 
 ### 概述

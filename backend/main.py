@@ -29,7 +29,10 @@ from fastapi.middleware.wsgi import WSGIMiddleware
 
 
 def _detect_gpu() -> dict:
-    """检测 GPU 加速可用性"""
+    """检测 GPU 加速可用性
+
+    VAS_SKIP_GPU=1 跳过 GPU 检测 (测试环境避免 PyTorch 扩展模块冲突)
+    """
     import logging
     logger = logging.getLogger(__name__)
     info: dict = {
@@ -38,6 +41,10 @@ def _detect_gpu() -> dict:
         "name": None,
         "demucs_accelerated": False,
     }
+    # v7.3: 测试环境跳过 GPU 检测 — 避免 pytest 进程中 PyTorch C 扩展冲突
+    if os.environ.get("VAS_SKIP_GPU"):
+        info["device"] = "skipped (VAS_SKIP_GPU)"
+        return info
     try:
         import torch
         if torch.cuda.is_available():
@@ -103,6 +110,21 @@ def create_app() -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
     # 速率限制 (全局 120/min, 上传 20/min, WebSocket 10/min)
     app.add_middleware(RateLimitMiddleware)
+
+    # ===== v7.3: 全局异常处理器 =====
+    from fastapi.responses import JSONResponse
+    from fastapi import Request
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        """统一的全局异常处理器 — 防止静默崩溃和原始 traceback 泄露"""
+        import logging
+        _logger = logging.getLogger("backend.main")
+        _logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "服务器内部错误，请稍后重试", "detail": ""},
+        )
 
     # ===== Phase 2: 注册 FastAPI REST 路由 =====
     from backend.interfaces.api.routes.health import router as health_router

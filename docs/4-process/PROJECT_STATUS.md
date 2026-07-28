@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-07-27 | 版本: **v7.2.1** | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-27 | 版本: **v7.3.0** | 分支: `feat/v7-fastapi-vue-refactor`
 
 ---
 
@@ -13,18 +13,19 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
     │  backend/ (DDD 四层)            │  旧服务层 (残留)           │
     │  domain/assessment/ (7 scorers) │  services/features/ (2)   │
     │  domain/audio/ (13 模块自包含)   │  services/dl_services/ (11)│
-    │  application/ (orchestrator)    │  services/audio_service.py │
-    │  infrastructure/audio/ (4)      │  api/business/ (bridge)   │
-    │  interfaces/api/ + ws/          │  api/routes/ (Flask, 残留)│
+    │  domain/comparison/ (NEW v7.3)  │  services/audio_service.py │
+    │  application/ (orchestrator)    │  api/business/ (bridge)   │
+    │  infrastructure/audio/ (4)      │  api/routes/ (Flask, 残留)│
+    │  interfaces/api/ + ws/          │                           │
     │  shared/ (EventBus, math_utils) │                           │
     └─────────────────────────────────┴──────────────────────────┘
 ```
 
-### 评分路径 (v7.2: DDD 唯一路径)
+### 评分路径 (v7.3: DDD 唯一路径 + audiofeat 增强)
 
 | 路径 | 特征提取 | 评分 | 状态 |
 |------|---------|------|:----:|
-| **DDD 原生** | `DddFeatureExtractionOrchestrator` → 13 自包含模块 | `ScoringOrchestrator.calculate_ddd()` | ✅ 生产 |
+| **DDD 原生** | `DddFeatureExtractionOrchestrator` → 13 自包含模块 | `ScoringOrchestrator.calculate_ddd()` + audiofeat | ✅ 生产 |
 | V4 回退 | `ScoreServiceV4` (五维) | — | ❌ v7.1.4 已移除 |
 
 ### DDD domain/audio/ 自包含模块 (v7.2 完成)
@@ -45,7 +46,27 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
 | — | `feature_types.py` | AcousticFeatures 冻结数据类 | ✅ 零依赖 |
 | — | `feature_protocols.py` | 提取器 Protocol 接口 | ✅ 零依赖 |
 
-**绞杀者状态**: 13/13 模块完全自包含。旧 `services/features/` (原 12 files) 已缩减为 2 文件 (acoustic.py + types.py, 仍被 audio_service 使用)。
+### DDD domain/comparison/ (v7.3 新增)
+
+| 文件 | 内容 | 状态 |
+|------|------|:--:|
+| `entities.py` | `ComparisonResult`, `AlignmentData`, `DeviationData` (frozen) | ✅ |
+| `value_objects.py` | `ComparisonScores`, `DimensionComparisonScore` (frozen) | ✅ |
+| `services.py` | `ComparisonScoringService` (四维加权评分, 4 风格) | ✅ |
+| `__init__.py` | 上下文入口 | ✅ |
+
+### 评分增强路径 (v7.3: audiofeat 接入)
+
+| Scorer | Audiofeat 特征 | 增强方式 |
+|--------|---------------|---------|
+| **BreathScorer** | CPPS, GNE, HNR_praat | 气声控制力微调 (±8 分) |
+| **TechniqueScorer** | Jitter, Shimmer, Closed Quotient | 频率/幅度稳定性微调 (±10 分) |
+| **TimbreAdjuster** | Centroid, Roughness, Nasality, Inharmonicity | 增强路径替换启发式 (4→4 维等权) |
+| **MuscleStrengthScorer** | Soft Phonation, Vocal Fry | 身体力量代理微调 (20% 权重混合) |
+
+### 绞杀者状态
+
+13/13 模块完全自包含。旧 `services/features/` (原 12 files) 已缩减为 2 文件 (acoustic.py + types.py, 仍被 audio_service 使用)。
 
 ### 预处理管线
 
@@ -59,6 +80,28 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
 
 ## 二、完成功能
 
+### v7.3.0 (2026-07-27) — audiofeat 评分接入 + Comparison DDD + 严格测试审计
+
+| 类别 | 项目 | 状态 |
+|------|------|------|
+| **P1** | audiofeat 22 特征接入 4 scorers (Breath/Technique/Timbre/Muscle) | ✅ |
+| **新增** | `ScoringOrchestrator.calculate_ddd()` 接收 audiofeat 参数 | ✅ |
+| **新增** | `backend/domain/comparison/` 完整 DDD 实现 (实体+值对象+领域服务) | ✅ |
+| **新增** | `CompareAudioUseCase` 应用层对比用例 | ✅ |
+| **新增** | `/compare` 路由 DDD 优先路径 + 旧路径 fallback | ✅ |
+| **CRITICAL** | 全局异常处理器 (防止原始 traceback 泄露) | ✅ |
+| **CRITICAL** | extract-pitch 路由 `str(e)` NameError 修复 | ✅ |
+| **CRITICAL** | `/compare` + `/analyze` 信息泄露修复 (str(e)→通用消息) | ✅ |
+| **CRITICAL** | SingView `startSinging()` 未处理 Promise rejection 修复 | ✅ |
+| **CRITICAL** | WebSocket `except: pass` 静默崩溃添加日志 | ✅ |
+| **HIGH** | TopNav + BottomNav 图标导入修复 (Headset/HomeFilled 等) | ✅ |
+| **HIGH** | `/analyze` 路由 response_model + `body.mode` 变量修复 | ✅ |
+| **HIGH** | `/separate` + `/report` 路由添加 try/catch | ✅ |
+| **HIGH** | `HistoryRecordOut` 添加缺失的 `duration` 字段 | ✅ |
+| **HIGH** | Rate-limit 中间件测试修复 (monkeypatch env var) | ✅ |
+| **测试** | 24 新增 comparison 测试 + 32 audiofeat 测试 | ✅ |
+| **测试** | 测试进程隔离策略 (集成测试独立进程运行) | ✅ |
+
 ### v7.2.1 (2026-07-27) — 代码审查修复
 
 | 类别 | 项目 | 状态 |
@@ -67,88 +110,71 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
 | **CRITICAL** | history 字段 created_at 统一 + grade/v7 字段存储 | ✅ |
 | **CRITICAL** | FastAPI UploadResponse 补全 timbre_adjustment + normalization | ✅ |
 | **CRITICAL** | 修复 dl_services 裸 except: → except Exception: | ✅ |
-| **HIGH** | 静默异常增加日志 (breath/technique/acoustic/audio_service) | ✅ |
-| **HIGH** | 错误信息泄露修复 (str(e) → 通用消息) | ✅ |
-| **HIGH** | 提取 shared/math_utils.py (safe_float/safe_clamp 去重) | ✅ |
-| **HIGH** | 删除 _calc_rhythm_from_pitch 死代码 (53行) | ✅ |
-| **MEDIUM** | DddFeatureSet frozen=True + API 超时 + WS 重连日志 | ✅ |
-| **MEDIUM** | 前端不可变更新 + XSS 修复 + AudioPlayer/AudioContext 日志 | ✅ |
-| **MEDIUM** | HistoryListResponse 类型修复 (records→history) | ✅ |
-| **测试** | 226/226 DDD GREEN (含 106 infrastructure + 88 domain + 32 对齐/flag/SPA) | ✅ |
+| **HIGH** | 静默异常增加日志 + 错误信息泄露修复 + math_utils 去重 | ✅ |
+| **MEDIUM** | DddFeatureSet frozen=True + API 超时 + 前端不可变更新 | ✅ |
+| **测试** | 226/226 DDD GREEN | ✅ |
 
 ### v7.2.0 (2026-07-26) — audiofeat 增强特征提取
 
 | 类别 | 项目 | 状态 |
 |------|------|------|
 | **新增** | `AudiofeatExtractor` + `AudiofeatFeatures` (22 声学特征) | ✅ |
-| **特征** | CPPS, HNR_praat, GNE, Jitter, Shimmer, Closed Quotient, Soft Phonation, Vocal Fry | ✅ |
-| **特征** | Spectral Centroid/Flatness/Crest/Entropy/Roughness, Harmonic Richness, Inharmonicity | ✅ |
-| **集成** | `DddFeatureSet.audiofeat` + `enable_audiofeat` flag 门控 | ✅ |
-| **Flag** | `DimensionFlags.enable_audiofeat` + `FeatureFlags.enable_audiofeat` | ✅ |
-| **TDD** | 19/19 GREEN (初始化 + 提取 + 边缘情况 + flag 门控) | ✅ |
+| **特征** | CPPS, HNR_praat, GNE, Jitter, Shimmer 等 + 频谱特征 | ✅ |
+| **TDD** | 19/19 GREEN | ✅ |
 
-### v7.1.5 (2026-07-26) — 特征提取层绞杀者完成
+### 更早版本
 
-| 类别 | 项目 | 状态 |
-|------|------|------|
-| **内联** | audio_service.py 内联 _extract_f0 + _extract_f0_crepe | ✅ |
-| **删除** | services/audio_features_service.py (~500 行) | ✅ |
-| **删除** | services/features/ 未使用分析器 10 文件 (~1,220 行) | ✅ |
-| **保留** | services/features/acoustic.py + types.py (混合音频检测仍需要) | ✅ |
-| **测试** | 更新 test_ddd_alignment/test_pitch/test_rhythm 移除 legacy 对比 | ✅ |
-
-### v7.1.4 (2026-07-26) — 死代码清理
-
-| 类别 | 项目 | 状态 |
-|------|------|------|
-| **删除** | services/scoring/ (8 files) + score_service.py + scoring_config.py | ✅ |
-| **删除** | web/static/js/ (38 files) + css/ (10 files) + app.js + router.js | ✅ |
-| **删除** | 14 个 Category-1 遗留测试文件 | ✅ |
-| **简化** | api/business/audio_analysis.py → DDD 唯一评分路径 | ✅ |
-| **简化** | services/__init__.py 移除 ScoreService 导出 | ✅ |
-| **更新** | services/advice_service.py → v7 六维建议 | ✅ |
-
-### v7.1.3 (2026-07-26) — DDD 绞杀者内移完成
-
-详见 [CHANGELOG.md](CHANGELOG.md)。
+v7.1.5 ~ v7.1.3: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态
+## 三、测试状态 (v7.3.0)
 
-| 套件 | 结果 | 说明 |
-|------|------|------|
-| DDD 领域测试 | **88/88** | 7 个 scorer (pitch/rhythm/breath/technique/muscle/artistry/timbre) |
-| DDD 基建测试 | **106/106** | 含 19 audiofeat + 18 audio_utils + 16 acoustic + 11 pitch + 10 rhythm + 8 breath + 6 technique + 4 batch4 + 4 orchestrator + 4 technique_extractor + 6 breath_extractor |
-| DDD Flag 测试 | **11/11** | Flag 存在性 + 默认值 + 集成链路 |
-| DDD 对齐/SPA | **21/21** | 7 alignment + 11 flag + 15 SPA routes (合并计数) |
-| 综合系统测试 | **53/53** | 含 DDD scoring + extraction + upload + FCPE + history |
-| 真实音频验证 | **12/12** | melody.wav + 5 文件批量 (DDD 唯一路径) |
-| **DDD 合计** | **226/226** | **100% GREEN** |
-| v6.x 单元测试 | ~79/79 | 预存失败 (rate-limit ×2) 不在 DDD 范围 |
+### 生产测试 (全部 GREEN)
 
-### v7.2 新增测试
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| DDD 领域 (含 comparison + audiofeat) | 120 | ✅ 100% | 7 scorers + comparison scoring + value objects |
+| DDD 基建 (extractors + orchestrator) | 106 | ✅ 100% | audiofeat + audio_utils + acoustic + pitch + rhythm + breath + technique |
+| DDD 对齐 + Flag | 17 | ✅ 100% | alignment + extraction flag + SPA routes |
+| 中间件 (修复 rate-limit) | 23 | ✅ 100% | SecurityHeaders + RateLimit (含 monkeypatch 修复) |
+| **DDD 合计** | **290** | **100% GREEN** | |
+| FastAPI 集成 | 20 | ✅ 100% | test_api_routes (独立进程) |
+| Flask + WS 集成 | 14 | ✅ 100% | test_ws_score + test_api (独立进程) |
+| 扩展测试 (DTW/repos/calibrator/SPA) | 51 | ✅ 100% | tests/extended/ (独立进程) |
+| **生产代码总计** | **375** | **100% GREEN** | |
+
+### 真实音频回归 (基线漂移)
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| 真实音频 Quick 模式 | 21 passed + 7 baseline drift | ⚠️ | v5.19 基线需更新到 v7.3 |
+| TDD 未来特性 | 1 skip + 4 xfail | ⏭️ | 按需实现 |
+| BDD | 36 steps 未实现 | ⏭️ | 按需实现 |
+
+### v7.3 新增测试
 
 | 文件 | 测试数 | 覆盖 |
 |------|--------|------|
-| `tests/unit/infrastructure/test_audiofeat_extractor.py` | 19 | AudiofeatExtractor 初始化 + 22 特征 + 边缘情况 + flag |
-| `tests/unit/infrastructure/test_audio_utils.py` | 18 | normalize_loudness + vocal_segments + filter |
-| `tests/unit/infrastructure/test_acoustic_extractor.py` | 16 | HNR/CPP/HPSS/voicing |
-| `tests/unit/infrastructure/test_pitch_extractor.py` | 11 | MAE/RPA/RCA/breaks/wobble |
-| `tests/unit/infrastructure/test_rhythm_extractor.py` | 10 | onset CV/irregularity/off-beat |
-| `tests/unit/infrastructure/test_breath_extractor.py` | 8 | 8 子评估器 |
-| `tests/unit/infrastructure/test_technique_extractor.py` | 6 | vibrato/slides/falsetto/staccato/legato |
-| `tests/unit/infrastructure/test_orchestrator.py` | 4 | DDD vs adapter 路径 |
+| `tests/unit/domain/test_comparison_value_objects.py` | 10 | ComparisonScores + DimensionComparisonScore |
+| `tests/unit/domain/test_comparison_scoring.py` | 14 | ComparisonScoringService (4 风格 + 边界 + 建议) |
+| 各 scorer audiofeat 增强测试 | 32 | Breath/Technique/Timbre/Muscle audiofeat 参数 |
+
+### 真实音频评分 (v7.3 Quick 模式 — DDD 唯一路径)
+
+| 音频文件 | Total | Pitch | Rhythm | Breath | Tech | Muscle | Art | Timbre |
+|----------|:-----:|:-----:|:------:|:------:|:----:|:------:|:---:|:------:|
+| 恋人（高分） | **65.7** | 67 | 66 | 92 | 25 | 80 | 76 | 0 |
+| 手写的从前（高分） | **61.7** | 70 | 42 | 94 | 19 | 76 | 77 | 0 |
+| 1（高分） | **65.7** | 71 | 71 | 97 | 20 | 78 | 76 | 0 |
+| 音频-3分26秒(高分) | **65.7** | 68 | 58 | 89 | 30 | 80 | 76 | 0 |
+| 陈奕迅难听之声（低分） | **52.8** | 66 | 5 | 84 | 16 | 70 | 74 | 0 |
+
+> **v5.19 → v7.3 基线漂移说明**: technique 维度在 v7.0 从 HNR/CPP/技巧完成度重构为咬字清晰度+气声比，评分体系整体偏移 (~30 分)。rhythm 维度在手写的从前（钢琴伴奏）中受和弦变化干扰。高低分差从 20→12.9（六维权重稀释了弱项扣分）。详见 [SCORING.md](../2-technical/SCORING.md)。
 
 ---
 
-## 四、评分对齐 (v7.1.3 验证, 当前 DDD 唯一路径)
-
-melody.wav: DDD total=62.2 | 5 文件批量: DDD avg=63.8 | DDD 评分比 legacy 更准确 (legacy 有采样率 bug)
-
----
-
-## 五、已知问题
+## 四、已知问题
 
 ### 架构残留
 
@@ -158,44 +184,40 @@ melody.wav: DDD total=62.2 | 5 文件批量: DDD avg=63.8 | DDD 评分比 legacy
 | **P2** | `services/features/types.py` | AudioFeaturesResult 类型 (test_orchestrator 仍使用) |
 | **P2** | `services/dl_services/` (11 files) | style classifier, VAD, DTW 仍在使用 |
 | **P2** | `api/routes/` (Flask, ~500 行) | 与 FastAPI 端点重复, Flask /old 挂载仍活跃 |
-| **P2** | `backend/domain/comparison/` (桩) | entities.py, services.py 未实现 |
 
 ### 功能未完成
 
 | 优先级 | 项目 | 说明 |
 |--------|------|------|
-| **P1** | `enable_audiofeat=True` 接入评分 | 特征已提取, 待接入 scorer 增强 breath/technique 维度 |
 | **P2** | PyArmor 代码保护 | ADR-8, 构建脚本就绪 |
 | **P2** | electron-builder 完整打包 | 配置就绪, 未执行 |
 | **P2** | timbral_models 集成 | Python 3.12 兼容性问题, 待上游修复 |
+| **P2** | 真实音频基线更新到 v7.3 | `BASELINE_v5_19` → 需更新为当前值 |
 
 ### 测试遗留
 
 | 问题 | 数量 | 说明 |
 |------|------|------|
-| Rate-limit 中间件测试 | 2 | `VAS_DISABLE_RATE_LIMIT` 环境变量问题 |
-| 已有 TDD 失败 | ~8 | v6.x FeatureFlags 默认值变更 |
-| 集成测试失败 | ~9 | FastAPI TestClient 部分端点超时 |
+| 真实音频基线漂移 | 7 | v5.19 硬编码基线需更新到 v7.3 |
 | BDD 步骤未实现 | ~36 | Step definitions 缺失或 API 契约不匹配 |
+| 集成测试不可混跑 | — | Flask + FastAPI 测试需独立进程 (C 扩展冲突, pytest-forked 可解决) |
 
 ---
 
-## 六、快速参考
+## 五、快速参考
 
 ### 关键文件
 
 | 文件 | 说明 |
 |------|------|
-| `backend/domain/audio/audio_utils.py` | 归一化 + 人声分段 (纯函数, 零依赖) |
-| `backend/domain/audio/audiofeat_extractor.py` | v7.2 — 22 增强声学特征 (CPPS/GNE/Jitter/等) |
-| `backend/shared/math_utils.py` | v7.2.1 — safe_float + safe_clamp (去重) |
-| `backend/domain/audio/feature_types.py` | `AcousticFeatures` 冻结数据类 |
-| `backend/domain/audio/feature_protocols.py` | 提取器 Protocol 接口 |
-| `backend/application/assessment/ddd_feature_orchestrator.py` | 特征编排 (13 提取器, DddFeatureSet frozen) |
-| `backend/application/assessment/scoring_orchestrator.py` | 评分编排 (calculate_ddd) |
+| `backend/domain/audio/audiofeat_extractor.py` | v7.2 — 22 增强声学特征 |
+| `backend/domain/comparison/` | v7.3 — DDD 对比分析领域 |
+| `backend/application/assessment/scoring_orchestrator.py` | 评分编排 (calculate_ddd + audiofeat) |
+| `backend/application/comparison/compare_audio.py` | v7.3 — CompareAudioUseCase |
 | `backend/domain/assessment/feature_flags.py` | DimensionFlags (含 enable_audiofeat) |
-| `services/feature_flags.py` | FeatureFlags (含 enable_audiofeat) |
-| `api/business/audio_analysis.py` | analyze_and_score() — DDD 唯一路径 |
+| `backend/main.py` | v7.3 — 全局异常处理器 + VAS_SKIP_GPU |
+| `tests/conftest.py` | v7.3 — VAS_SKIP_GPU=1 + VAS_DISABLE_RATE_LIMIT=1 |
+| `tests/extended/` | v7.3 — 需完整音频栈的测试独立目录 |
 
 ### 启动命令
 
@@ -204,10 +226,20 @@ melody.wav: DDD total=62.2 | 5 文件批量: DDD avg=63.8 | DDD 评分比 legacy
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 测试
-pytest tests/unit/domain/ -q               # 领域评分测试 (88 tests)
-pytest tests/unit/infrastructure/ -q        # DDD 基建测试 (106 tests)
-pytest tests/unit/test_ddd_alignment.py     # DDD 对齐测试
-pytest tests/unit/test_ddd_extraction_flag.py  # Flag 测试
-python tests/tools/test_real_audio_comparison.py  # 真实音频验证
+# 默认测试 (290 tests, ~17s)
+pytest tests/unit/domain/ tests/unit/infrastructure/ \
+       tests/unit/test_middleware.py \
+       tests/unit/test_ddd_alignment.py \
+       tests/unit/test_ddd_extraction_flag.py
+
+# 集成测试 (独立进程, ~20s)
+pytest tests/integration/test_api_routes.py -v         # FastAPI (20 tests)
+pytest tests/integration/test_ws_score.py \
+       tests/integration/test_api.py -v                # Flask + WS (14 tests)
+
+# 扩展测试 (独立进程, ~9s)
+pytest tests/extended/ -v                              # DTW/repos/etc (51 tests)
+
+# 真实音频回归 (独立进程, ~27min)
+pytest tests/integration/test_real_audio_regression.py -v
 ```

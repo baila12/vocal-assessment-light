@@ -18,6 +18,7 @@ class HistoryRecordOut(BaseModel):
     scores: dict[str, float] = Field(default_factory=dict)
     created_at: Optional[str] = None
     basic_info: Optional[dict] = None
+    duration: Optional[float] = None  # v7.3: 音频时长 (秒)
 
 
 class HistoryListResponse(BaseModel):

@@ -90,7 +90,7 @@ class ScoreWebSocketHandler:
                     event="error", message=str(e)
                 ).model_dump())
             except Exception:
-                pass
+                logger.exception(f"WS session {session.id}: failed to send error to client")
         finally:
             self._remove_session(session.id)
 

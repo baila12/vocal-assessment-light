@@ -3,12 +3,17 @@
 
 v6.3 旧版: HNR(40%) + CPP(30%) + technique(30%)
 v7.0 新版: 拆分为两个独立子维度，每个基于可测量的声学特征
+v7.3: audiofeat 增强 — Jitter/Shimmer/Closed Quotient 用于精化技术评分
 """
 
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from backend.domain.assessment.value_objects import TechniqueScore
+
+if TYPE_CHECKING:
+    from backend.domain.audio.audiofeat_extractor import AudiofeatFeatures
 
 
 @dataclass(frozen=True)
@@ -26,9 +31,35 @@ class TechniqueFeatures:
 
 
 class TechniqueScorer:
-    """发声技术评分器 — 纯计算, 零副作用"""
+    """发声技术评分器 — 纯计算, 零副作用
 
-    def calculate(self, features: TechniqueFeatures) -> TechniqueScore:
+    v7.3: 可选 audiofeat 参数增强评分精度:
+      - Jitter (频率微扰): 咬字稳定性
+      - Shimmer (幅度微扰): 振幅控制
+      - Closed Quotient (声门闭合商): 发声效率
+    """
+
+    # ---- audiofeat 阈值 (v7.3) ----
+    JITTER_EXCELLENT = 0.5     # < 0.5% = 极稳定
+    JITTER_HIGH = 3.0           # > 3% = 不稳定 (病理)
+    SHIMMER_EXCELLENT = 0.1     # < 0.1 dB = 极稳定
+    SHIMMER_HIGH = 0.5          # > 0.5 dB = 不稳定
+    CQ_OPTIMAL_LOW = 0.4        # 最优闭合商下限
+    CQ_OPTIMAL_HIGH = 0.6       # 最优闭合商上限
+    CQ_LOW = 0.2                # < 0.2 = 闭合不足
+
+    JITTER_BONUS = 5.0          # 极稳定加分
+    JITTER_PENALTY = 10.0       # 不稳定扣分
+    SHIMMER_BONUS = 3.0         # 极稳定加分
+    SHIMMER_PENALTY = 5.0       # 不稳定扣分
+    CQ_BONUS = 3.0              # 高效发声加分
+    CQ_PENALTY = 5.0            # 闭合不足扣分
+
+    def calculate(
+        self,
+        features: TechniqueFeatures,
+        audiofeat: 'AudiofeatFeatures | None' = None,
+    ) -> TechniqueScore:
         # 1. 咬字清晰度 (50%)
         articulation = self._calc_articulation(
             features.onset_density,
@@ -42,6 +73,12 @@ class TechniqueScorer:
             features.spectral_tilt,
             features.hf_energy_ratio,
         )
+
+        # 3. v7.3: audiofeat 增强微调
+        if audiofeat is not None:
+            articulation, breath_voice = self._apply_audiofeat_enhancement(
+                articulation, breath_voice, audiofeat,
+            )
 
         # 加权合成
         score = articulation * 0.50 + breath_voice * 0.50
@@ -61,6 +98,42 @@ class TechniqueScorer:
             cpp_mean=features.cpp_mean,
             diagnosis=tuple(diagnosis),
         )
+
+    def _apply_audiofeat_enhancement(
+        self,
+        articulation: float,
+        breath_voice: float,
+        af: 'AudiofeatFeatures',
+    ) -> tuple[float, float]:
+        """v7.3: audiofeat 增强 — Jitter/Shimmer/CQ 微调子维度分数"""
+        jitter = af.jitter_local
+        shimmer = af.shimmer_db
+        cq = af.closed_quotient
+
+        # 所有值为 0 (默认/不可用) → 无增强
+        if jitter == 0.0 and shimmer == 0.0 and cq == 0.0:
+            return articulation, breath_voice
+
+        # Jitter: 频率稳定性 → 影响咬字清晰度
+        if jitter > 0 and jitter < self.JITTER_EXCELLENT:
+            articulation = min(100.0, articulation + self.JITTER_BONUS)
+        elif jitter > self.JITTER_HIGH:
+            articulation = max(0.0, articulation - self.JITTER_PENALTY)
+
+        # Shimmer: 振幅稳定性 → 影响气声比
+        if shimmer > 0 and shimmer < self.SHIMMER_EXCELLENT:
+            breath_voice = min(100.0, breath_voice + self.SHIMMER_BONUS)
+        elif shimmer > self.SHIMMER_HIGH:
+            breath_voice = max(0.0, breath_voice - self.SHIMMER_PENALTY)
+
+        # Closed Quotient: 声门闭合效率 → 影响气声比
+        if cq > 0:
+            if self.CQ_OPTIMAL_LOW <= cq <= self.CQ_OPTIMAL_HIGH:
+                breath_voice = min(100.0, breath_voice + self.CQ_BONUS)
+            elif cq < self.CQ_LOW:
+                breath_voice = max(0.0, breath_voice - self.CQ_PENALTY)
+
+        return articulation, breath_voice
 
     @staticmethod
     def _calc_articulation(

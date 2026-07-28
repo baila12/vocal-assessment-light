@@ -101,3 +101,89 @@ class TestBreathScorer:
         f = make_features(rms_fluctuation=3.0, breath_breaks=50)
         result = self.scorer.calculate(f)
         assert 0 <= result.raw_score <= 100
+
+
+# ================================================================
+# v7.3: BreathScorer + audiofeat 增强测试
+# ================================================================
+
+def _make_audiofeat(**kwargs):
+    """构造 AudiofeatFeatures 测试数据"""
+    from backend.domain.audio.audiofeat_extractor import AudiofeatFeatures
+    return AudiofeatFeatures(**kwargs)
+
+
+class TestBreathScorerAudiofeat:
+    """BreathScorer audiofeat 增强路径测试 — v7.3"""
+
+    def setup_method(self):
+        self.scorer = BreathScorer()
+
+    # ---- 向后兼容 ----
+
+    def test_audiofeat_none_backward_compatible(self):
+        """audiofeat=None 时行为不变"""
+        f = make_features(professional_breath_score=80.0)
+        result = self.scorer.calculate(f, audiofeat=None)
+        assert result.raw_score == 80.0
+
+    def test_audiofeat_all_defaults_no_effect(self):
+        """全零 audiofeat 不应影响评分"""
+        f = make_features(professional_breath_score=75.0)
+        af = _make_audiofeat()  # all zeros
+        result = self.scorer.calculate(f, audiofeat=af)
+        assert result.raw_score == 75.0
+
+    # ---- GNE (Glottal-to-Noise Excitation) ----
+
+    def test_audiofeat_gne_low_with_low_hnr_penalizes(self):
+        """GNE<0.4 且 HNR<10 → 不可控漏气惩罚"""
+        f = make_features(professional_breath_score=75.0)
+        af = _make_audiofeat(gne_mean=0.3, hnr_mean=8.0)
+        result = self.scorer.calculate(f, audiofeat=af)
+        assert result.raw_score < 75.0  # should penalize
+
+    def test_audiofeat_gne_high_quality_bonus(self):
+        """GNE>0.8 且 CPPS>10 → 优秀声门控制加分"""
+        f = make_features(professional_breath_score=75.0)
+        af = _make_audiofeat(gne_mean=0.85, cpp_mean=12.0)
+        result = self.scorer.calculate(f, audiofeat=af)
+        assert result.raw_score >= 75.0  # bonus should apply
+
+    def test_audiofeat_gne_moderate_no_effect(self):
+        """GNE 0.5-0.7 → 不触发增强"""
+        f = make_features(professional_breath_score=75.0)
+        af = _make_audiofeat(gne_mean=0.6, hnr_mean=12.0)
+        result = self.scorer.calculate(f, audiofeat=af)
+        assert result.raw_score == 75.0  # no change
+
+    # ---- CPPS ----
+
+    def test_audiofeat_cpp_very_low_indicates_weak_support(self):
+        """CPPS<3 → 声门闭合极弱, 扣分"""
+        f = make_features(professional_breath_score=75.0)
+        af = _make_audiofeat(cpp_mean=2.0)
+        result = self.scorer.calculate(f, audiofeat=af)
+        assert result.raw_score < 75.0
+
+    # ---- HNR_praat ----
+
+    def test_audiofeat_hnr_very_low_with_gne_penalizes(self):
+        """HNR<5 且 GNE低 → 组合惩罚"""
+        f = make_features(professional_breath_score=70.0)
+        af_combined = _make_audiofeat(hnr_mean=3.0, gne_mean=0.2)
+        result_combined = self.scorer.calculate(f, audiofeat=af_combined)
+        # 组合 (HNR低 + GNE低) 应惩罚
+        assert result_combined.raw_score < 70.0
+        # 无 audiofeat 对比：惩罚后分数应低于无 audiofeat
+        result_no_af = self.scorer.calculate(f, audiofeat=None)
+        assert result_combined.raw_score < result_no_af.raw_score
+
+    # ---- Score clamping ----
+
+    def test_audiofeat_enhanced_score_in_range(self):
+        """增强后分数仍在 [0, 100]"""
+        f = make_features(professional_breath_score=95.0)
+        af = _make_audiofeat(gne_mean=0.95, cpp_mean=15.0, hnr_mean=25.0)
+        result = self.scorer.calculate(f, audiofeat=af)
+        assert 0.0 <= result.raw_score <= 100.0

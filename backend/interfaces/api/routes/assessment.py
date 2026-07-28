@@ -187,7 +187,7 @@ async def upload_audio(
 
 
 # ===== POST /api/v1/analyze =====
-@router.post("/analyze")
+@router.post("/analyze", response_model=UploadResponse)
 async def analyze_file(
     body: AnalyzeRequest,
     config=Depends(get_flask_config),
@@ -213,16 +213,49 @@ async def analyze_file(
             str(filepath_obj),
             mode=body.mode,
             reference_path=ref_path,
-            feature_flags=FeatureFlags.for_quick() if mode == 'quick' else FeatureFlags.for_professional(),
+            feature_flags=FeatureFlags.for_quick() if body.mode == 'quick' else FeatureFlags.for_professional(),
         )
     except Exception:
         logger.exception("Analysis failed")
         raise HTTPException(status_code=500, detail="分析失败，请稍后重试")
 
-    if result.get("success"):
-        _save_history(result, str(filepath_obj), repo)
+    # 生成 analysis_id
+    analysis_id = str(uuid.uuid4())[:12]
+    grade = result.get("grade", "")
+    if not grade and result.get("level"):
+        from backend.shared.domain_types import ScoreLevel
+        grade = ScoreLevel.from_score(result.get("total_score", 0)).grade
+    result["grade"] = grade
+    result["analysis_id"] = analysis_id
 
-    return result
+    if result.get("success"):
+        _save_history(result, str(filepath_obj), analysis_id, repo)
+
+    # 构建 NormalizationInfo
+    norm_data = result.get("normalization")
+    if isinstance(norm_data, dict):
+        normalization = {"applied": norm_data.get("applied", True), "note": norm_data.get("note", "")}
+    else:
+        normalization = {"applied": True, "note": ""}
+
+    return UploadResponse(
+        success=result.get("success", False),
+        analysis_id=analysis_id,
+        total_score=result.get("total_score", 0),
+        scores=result.get("scores", {}),
+        timbre_adjustment=result.get("timbre_adjustment", 0),
+        level=result.get("level", ""),
+        grade=grade,
+        advice=result.get("advice", []),
+        mode=result.get("mode", "quick"),
+        is_voice=result.get("is_voice", True),
+        filepath=str(filepath_obj),
+        basic_info=result.get("basic_info"),
+        heuristic_dimensions=result.get("heuristic_dimensions", []),
+        normalization=normalization,
+        duration=result.get("duration_seconds"),
+        duration_display=result.get("duration", ""),
+    )
 
 
 # ===== POST /api/v1/extract-pitch =====
@@ -270,9 +303,9 @@ async def extract_pitch(
                 "frame_count": len(f0),
             },
         )
-    except Exception:
+    except Exception as e:
         logger.exception("Pitch extraction failed")
-        return PitchExtractResponse(success=False, error=str(e))
+        return PitchExtractResponse(success=False, error="音高提取失败，请稍后重试")
 
 
 # ===== POST /api/v1/separate =====
@@ -288,13 +321,17 @@ async def separate_audio(
     if not Path(body.filepath).exists():
         raise HTTPException(status_code=404, detail=_FILE_NOT_FOUND)
 
-    result = await asyncio.to_thread(
-        sep_service.separate,
-        audio_path=body.filepath,
-        model=body.model,
-        two_stems=body.two_stems,
-        output_format="mp3",
-    )
+    try:
+        result = await asyncio.to_thread(
+            sep_service.separate,
+            audio_path=body.filepath,
+            model=body.model,
+            two_stems=body.two_stems,
+            output_format="mp3",
+        )
+    except Exception:
+        logger.exception("Audio separation failed")
+        raise HTTPException(status_code=500, detail="人声分离失败，请稍后重试")
 
     return SeparateResponse(
         success=result.success,
@@ -323,16 +360,20 @@ async def generate_report(
     report_service=Depends(get_report_service),
 ):
     """生成评估报告 (PDF/图片)"""
-    if body.format == "pdf":
-        result = await asyncio.to_thread(
-            report_service.generate_pdf_report,
-            body.analysis_result, body.filename,
-        )
-    else:
-        result = await asyncio.to_thread(
-            report_service.generate_image_report,
-            body.analysis_result, body.filename,
-        )
+    try:
+        if body.format == "pdf":
+            result = await asyncio.to_thread(
+                report_service.generate_pdf_report,
+                body.analysis_result, body.filename,
+            )
+        else:
+            result = await asyncio.to_thread(
+                report_service.generate_image_report,
+                body.analysis_result, body.filename,
+            )
+    except Exception:
+        logger.exception("Report generation failed")
+        raise HTTPException(status_code=500, detail="报告生成失败，请稍后重试")
 
     return ReportResponse(
         success=result.success,
@@ -343,7 +384,7 @@ async def generate_report(
 
 
 # ===== POST /api/v1/compare =====
-@router.post("/compare")
+@router.post("/compare", response_model=CompareResponse)
 async def compare_audio(
     request: Request,
     config=Depends(get_flask_config),
@@ -377,9 +418,11 @@ async def compare_audio(
         style = form.get("style", "pop")
     else:
         body = await request.json()
-        filepath_std = body.get("standard_filepath")
-        filepath_user = body.get("user_filepath")
-        style = body.get("style", "pop")
+        # v7.3: 使用 Pydantic 模型验证 JSON 输入
+        compare_req = CompareRequest(**body)
+        filepath_std = compare_req.standard_filepath
+        filepath_user = compare_req.user_filepath
+        style = compare_req.style
 
         if not filepath_std or not filepath_user:
             raise HTTPException(status_code=400, detail="缺少文件路径")
@@ -390,11 +433,34 @@ async def compare_audio(
         from api.business import compare_with_dtw, analyze_and_score
         from services.feature_flags import FeatureFlags
 
-        dtw_result = await asyncio.to_thread(
-            compare_with_dtw, filepath_std, filepath_user, style=style
-        )
-        if not dtw_result.get("success"):
-            raise HTTPException(status_code=500, detail=dtw_result.get("error", "DTW对比分析失败"))
+        # v7.3: 尝试 DDD comparison 路径, 失败时回退到旧路径
+        dtw_result = None
+        try:
+            from backend.application.comparison.compare_audio import CompareAudioUseCase
+            usecase = CompareAudioUseCase()
+            dto = usecase.execute_lightweight(filepath_std, filepath_user, style=style)
+            # 将 DDD DTO 映射为旧格式 (保持 response 兼容)
+            dtw_result = {
+                "success": True,
+                "score": dto["score"],
+                "level": dto["level"],
+                "confidence": dto["confidence"],
+                "pitch_match_rate": dto["pitch_match_rate"],
+                "rhythm_match_rate": dto["rhythm_match_rate"],
+                "avg_cents_error": dto["avg_cents_error"],
+                "diagnosis": dto["diagnosis"],
+                "suggestions": dto["suggestions"],
+                "method": dto["method"],
+                "dimensions": {},  # DDD lightweight 模式暂不返回 dimensions
+            }
+        except Exception:
+            logger.warning("DDD comparison path failed, falling back to legacy")
+            dtw_result = await asyncio.to_thread(
+                compare_with_dtw, filepath_std, filepath_user, style=style
+            )
+
+        if not dtw_result or not dtw_result.get("success"):
+            raise HTTPException(status_code=500, detail="DTW对比分析失败")
 
         standard_result = await asyncio.to_thread(
             analyze_and_score, filepath_std, feature_flags=FeatureFlags()
@@ -434,6 +500,6 @@ async def compare_audio(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"Compare analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"分析失败: {e}")
+    except Exception:
+        logger.exception("Compare analysis failed")
+        raise HTTPException(status_code=500, detail="对比分析失败，请稍后重试")

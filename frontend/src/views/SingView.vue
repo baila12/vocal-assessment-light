@@ -62,28 +62,36 @@ async function initConnection(): Promise<void> {
 
 // ---- 开始演唱 ----
 async function startSinging(): Promise<void> {
-  if (!isConnected.value) {
-    await initConnection()
-    if (!isConnected.value) return
+  try {
+    if (!isConnected.value) {
+      await initConnection()
+      if (!isConnected.value) return
+    }
+
+    pitchHistory.value = []
+    partialScore.value = null
+    finalResult.value = null
+    qualityWarning.value = null
+    elapsedTime.value = 0
+
+    // 1. 发送 start 控制消息
+    wsManager.sendControl('start')
+
+    // 2. 开始录音 + AudioWorklet
+    await audioManager.start((pcm: Float32Array) => {
+      wsManager.sendPcm(pcm)
+    })
+
+    // 3. 开始 Canvas 绘制循环
+    isSinging.value = true
+    drawLoop()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '录音启动失败'
+    ElMessage.error(`无法开始录音: ${msg}`)
+    // 确保状态复位
+    isSinging.value = false
+    wsManager.sendControl('stop')
   }
-
-  pitchHistory.value = []
-  partialScore.value = null
-  finalResult.value = null
-  qualityWarning.value = null
-  elapsedTime.value = 0
-
-  // 1. 发送 start 控制消息
-  wsManager.sendControl('start')
-
-  // 2. 开始录音 + AudioWorklet
-  await audioManager.start((pcm: Float32Array) => {
-    wsManager.sendPcm(pcm)
-  })
-
-  // 3. 开始 Canvas 绘制循环
-  isSinging.value = true
-  drawLoop()
 }
 
 // ---- 停止演唱 ----
@@ -243,7 +251,7 @@ onMounted(() => {
     if (ctx) ctx.scale(dpr, dpr)
   }
 
-  initConnection()
+  initConnection().catch(() => { /* 错误已在 initConnection 内部处理 */ })
 
   elapsedTimer = setInterval(() => {
     if (isSinging.value) elapsedTime.value++

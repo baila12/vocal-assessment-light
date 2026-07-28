@@ -109,6 +109,7 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         muscle=ddd_features.muscle,
         artistry=ddd_features.artistry,
         timbre=ddd_features.timbre,
+        audiofeat=ddd_features.audiofeat,  # v7.3: audiofeat 增强
         voice_quality_score=voice_quality.quality_score,
     )
 

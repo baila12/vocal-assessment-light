@@ -1,8 +1,8 @@
 # 声乐评估系统文档索引
 
-> **v7.2.1 | 2026-07-27** | 分支: `feat/v7-fastapi-vue-refactor`
-> DDD 绞杀者完成 + audiofeat 22 增强特征 + 代码审查修复 (23 fixes)
-> 226 DDD GREEN | 88 domain | 106 infrastructure | 53 system | 12 real audio
+> **v7.3.0 | 2026-07-27** | 分支: `feat/v7-fastapi-vue-refactor`
+> audiofeat 评分闭环 + Comparison DDD + 严格测试审计 (12 fixes)
+> 375 生产测试 GREEN | 120 domain | 106 infrastructure | 23 middleware | 51 extended | 34 integration
 
 本目录按产品、技术、质量、过程和归档五类组织。
 
@@ -19,10 +19,10 @@
 
 | 文档 | 说明 |
 |------|------|
-| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.2 DDD 四层架构 + 绞杀者完成 + 13 自包含模块 + audiofeat |
-| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | v7.2 API 契约 (16 paths + WebSocket + normalization) |
-| [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分 + 权重说明 + audiofeat 增强特征 (v7.2 版) |
-| [2-technical/TECH_RESEARCH.md](2-technical/TECH_RESEARCH.md) | **v7.1 技术研究**: 五维度算法验证 + 开源工具评级 + 实施路线 |
+| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.3 DDD 四层架构 + Comparison 领域 + audiofeat 增强 |
+| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | API 契约 (16 paths + WebSocket + normalization) |
+| [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分 + audiofeat 增强 + v7.3 真实音频基线 |
+| [2-technical/TECH_RESEARCH.md](2-technical/TECH_RESEARCH.md) | v7.1 技术研究: 五维度算法验证 + 开源工具评级 + 实施路线 |
 | [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 (Vue 3 + Element Plus) |
 
 ### 外部研究资源
@@ -40,31 +40,30 @@
 | [3-quality/TDD.md](3-quality/TDD.md) | TDD 规范 |
 | [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景 (21 Feature files) |
 
-### 测试体系状态
+### 测试体系状态 (v7.3.0)
 
-| 层级 | 测试数 | 通过率 |
-|------|--------|--------|
-| DDD 基建测试 (含新增) | 85 | ✅ 100% |
-| DDD Flag 测试 | 11 | ✅ 100% |
-| DDD 对齐回归测试 (v7.1.3) | 7 | ✅ 100% |
-| 音频工具测试 (v7.1.3) | 18 | ✅ 100% |
-| v6.3 单元测试 | 79 | ✅ 100% |
-| Phase 1 领域 TDD | 88 | ✅ 100% |
-| Phase 2 API 集成 | 20 | ✅ 100% |
-| Phase 3 WebSocket 集成 | 8 | ✅ 100% |
-| Phase 4 Vue 3 前端 | 33 | ✅ 100% (Vitest) |
-| v7.0.2 中间件测试 | 23 | ⚠️ 21/23 (2 预存 rate-limit) |
-| v6.x TDD + 集成 | 79 | ⚠️ 64 通过 (15 预存失败) |
-| 系统 E2E | 53 | ✅ 100% |
-| 真实音频验证 | 10 | ✅ 100% (5 files × 2 paths) |
-| **总计** | **~441** | **~402 通过** |
+| 层级 | 测试数 | 通过率 | 说明 |
+|------|:-----:|--------|------|
+| DDD 领域测试 (含 comparison + audiofeat) | 120 | ✅ 100% | 7 scorers + comparison scoring + value objects |
+| DDD 基建测试 (extractors + orchestrator) | 106 | ✅ 100% | audiofeat + audio_utils + pitch + rhythm + breath + technique |
+| DDD 对齐 + Flag 测试 | 17 | ✅ 100% | alignment + extraction flag + SPA routes |
+| 中间件测试 | 23 | ✅ 100% | SecurityHeaders + RateLimit (含 monkeypatch 修复) |
+| **DDD 合计** | **290** | **100% GREEN** | |
+| FastAPI 集成测试 | 20 | ✅ 100% | test_api_routes (独立进程) |
+| Flask + WS 集成测试 | 14 | ✅ 100% | test_ws_score + test_api (独立进程) |
+| 扩展测试 (DTW/repos/calibrator/SPA) | 51 | ✅ 100% | tests/extended/ (独立进程) |
+| **生产代码总计** | **375** | **100% GREEN** | |
+| Vue 3 前端 (Vitest) | 33 | ✅ 100% | stores + composables |
+| 真实音频回归 | 21 | ✅ 21/28 | v5.19→v7.3 基线漂移 7 项 (已更新基线) |
+| TDD 未来特性 | 1 skip + 4 xfail | ⏭️ | 按需实现 |
+| BDD | 36 steps 未实现 | ⏭️ | Step definitions 待实现 |
 
 ## 4. 过程文档
 
 | 文档 | 说明 |
 |------|------|
-| [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.1.3 进度、绞杀者完成 |
-| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (v5.0 → v7.1.3) |
+| [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.3 进度、已知问题、测试详情 |
+| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (v5.0 → v7.3.0) |
 | [4-process/V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md) | v7.0 全栈重构计划 (六阶段, 8 ADR) |
 
 ## 5. 归档文档

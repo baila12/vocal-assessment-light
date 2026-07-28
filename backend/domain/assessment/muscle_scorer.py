@@ -7,12 +7,18 @@ ADR-2: 仅凭麦克风音频，无法直接测量声门下压和身体肌肉力�
 代理指标:
   身体肌肉 (50%): max_db + low_freq_ratio + rms_decay
   面部肌肉 (50%): singers_formant + formant_cluster + overtone
+
+v7.3: audiofeat 增强 — soft_phonation/vocal_fry/hammarberg 补充代理指标
 """
 
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from backend.domain.assessment.value_objects import MuscleStrengthScore
+
+if TYPE_CHECKING:
+    from backend.domain.audio.audiofeat_extractor import AudiofeatFeatures
 
 
 @dataclass(frozen=True)
@@ -28,9 +34,27 @@ class MuscleFeatures:
 
 
 class MuscleStrengthScorer:
-    """肌肉力量评分器 — ⚠️ HEURISTIC: 代理指标，非直接生理测量"""
+    """肌肉力量评分器 — ⚠️ HEURISTIC: 代理指标，非直接生理测量
 
-    def calculate(self, features: MuscleFeatures) -> MuscleStrengthScore:
+    v7.3: 可选 audiofeat 增强:
+      - soft_phonation_mean → 身体支撑质量 (越低越好)
+      - vocal_fry_ratio → 支撑不足指示 (越高越差)
+      - hammarberg_index → 共鸣平衡 (低频/高频比)
+    """
+
+    # ---- audiofeat 阈值 (v7.3) ----
+    SOFT_PHONATION_HIGH = 0.6    # > 0.6 = 软发声过多 → 支撑不足
+    VOCAL_FRY_HIGH = 0.3         # > 0.3 = 气泡音过多 → 支撑不足
+    BODY_AUDIOFEAT_WEIGHT = 0.20 # audiofeat 在身体维度中的混合权重
+
+    SOFT_PHONATION_PENALTY = 10.0
+    VOCAL_FRY_PENALTY = 8.0
+
+    def calculate(
+        self,
+        features: MuscleFeatures,
+        audiofeat: 'AudiofeatFeatures | None' = None,
+    ) -> MuscleStrengthScore:
         # 1. 身体肌肉力量 (50%)
         # HEURISTIC: Proxy metric from microphone audio — not direct physiological measurement
         body = self._calc_body_strength(
@@ -47,6 +71,10 @@ class MuscleStrengthScorer:
             features.formant_clustering_quality,
             features.overtone_richness,
         )
+
+        # 3. v7.3: audiofeat 增强
+        if audiofeat is not None:
+            body, facial = self._apply_audiofeat_enhancement(body, facial, audiofeat)
 
         # 加权合成
         score = body * 0.50 + facial * 0.50
@@ -149,3 +177,34 @@ class MuscleStrengthScorer:
         return max(0.0, min(100.0,
             formant_score * 0.40 + cluster_score * 0.35 + overtone_score * 0.25
         ))
+
+    def _apply_audiofeat_enhancement(
+        self,
+        body: float,
+        facial: float,
+        af: 'AudiofeatFeatures',
+    ) -> tuple[float, float]:
+        """v7.3: audiofeat 增强 — soft_phonation/vocal_fry → body 微调"""
+        sp = af.soft_phonation_mean
+        vf = af.vocal_fry_ratio
+
+        # 所有值为 0 (默认/不可用) → 无增强
+        if sp == 0.0 and vf == 0.0:
+            return body, facial
+
+        # Soft phonation: 高 = 气息声/弱支撑 → 身体分数惩罚
+        audiofeat_body_adjust = 0.0
+        if sp > self.SOFT_PHONATION_HIGH:
+            penalty_ratio = min(1.0, (sp - self.SOFT_PHONATION_HIGH) / (1.0 - self.SOFT_PHONATION_HIGH))
+            audiofeat_body_adjust -= self.SOFT_PHONATION_PENALTY * penalty_ratio
+
+        # Vocal fry: 高 = 可能支撑不足 → 身体分数惩罚
+        if vf > self.VOCAL_FRY_HIGH:
+            penalty_ratio = min(1.0, (vf - self.VOCAL_FRY_HIGH) / (1.0 - self.VOCAL_FRY_HIGH))
+            audiofeat_body_adjust -= self.VOCAL_FRY_PENALTY * penalty_ratio
+
+        # 混合: audiofeat 权重 20%, 原启发式 80%
+        body_enhanced = max(0.0, min(100.0, body + audiofeat_body_adjust))
+        body = body * (1.0 - self.BODY_AUDIOFEAT_WEIGHT) + body_enhanced * self.BODY_AUDIOFEAT_WEIGHT
+
+        return body, facial

@@ -196,7 +196,9 @@
       "Bash(python -m pytest tests/ --collect-only -q)",
       "Bash(python -m pytest tests/unit/ -q --tb=short)",
       "Bash(python -m pytest tests/integration/ -q --tb=short)",
-      "Bash(python -m pytest tests/tdd/ -q --tb=short)"
+      "Bash(python -m pytest tests/tdd/ -q --tb=short)",
+      "Bash(python -m pytest tests/unit/infrastructure/test_acoustic_extractor.py -v --tb=short)",
+      "Bash(python -m pytest tests/unit/domain/test_comparison_value_objects.py -v)"
     ],
     "additionalDirectories": [
       "c:\\Users\\jack\\.claude\\plans",

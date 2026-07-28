@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 import logging
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from backend.domain.assessment.services import ScoringDomainService
 from backend.domain.assessment.pitch_scorer import PitchScorer, PitchFeatures
@@ -188,6 +188,7 @@ class ScoringOrchestrator:
         muscle: MuscleFeatures | None = None,
         artistry: ArtistryFeatures | None = None,
         timbre: TimbreFeatures | None = None,
+        audiofeat: 'AudiofeatFeatures | None' = None,
         voice_quality_score: float = 100.0,
     ) -> dict:
         """
@@ -196,8 +197,11 @@ class ScoringOrchestrator:
         用法:
             features = ddd_orchestrator.extract_all(y, sr, f0, voiced)
             score = scoring_orch.calculate_ddd(
-                pitch=features.pitch, rhythm=features.rhythm, ...
+                pitch=features.pitch, rhythm=features.rhythm, ...,
+                audiofeat=features.audiofeat,
             )
+
+        v7.3: audiofeat 可选增强 — 传入 AudiofeatFeatures 以精化评分
         """
         result: dict = {}
         heuristic_dimensions: list[str] = []
@@ -224,7 +228,7 @@ class ScoringOrchestrator:
 
         # 3. 气息 (20%)
         if self._flags.enable_breath and breath is not None:
-            bs = self._breath_scorer.calculate(breath)
+            bs = self._breath_scorer.calculate(breath, audiofeat=audiofeat)
         else:
             from backend.domain.assessment.value_objects import BreathScore
             bs = BreathScore(raw_score=0.0, long_note_support=0.0, dynamic_control=0.0,
@@ -234,7 +238,7 @@ class ScoringOrchestrator:
 
         # 4. 发声技术 (25%)
         if self._flags.enable_technique and technique is not None:
-            ts = self._technique_scorer.calculate(technique)
+            ts = self._technique_scorer.calculate(technique, audiofeat=audiofeat)
         else:
             from backend.domain.assessment.value_objects import TechniqueScore
             ts = TechniqueScore(raw_score=0.0, articulation_clarity=0.0,
@@ -243,7 +247,7 @@ class ScoringOrchestrator:
 
         # 5. 肌肉力量 (25%) ⚠️ HEURISTIC
         if self._flags.enable_muscle_strength and muscle is not None:
-            ms = self._muscle_scorer.calculate(muscle)
+            ms = self._muscle_scorer.calculate(muscle, audiofeat=audiofeat)
             heuristic_dimensions.append("muscle_strength")
         else:
             from backend.domain.assessment.value_objects import MuscleStrengthScore
@@ -262,7 +266,7 @@ class ScoringOrchestrator:
 
         # 音色加减分
         if self._flags.enable_timbre_adjustment and timbre is not None:
-            ta = self._timbre_adjuster.calculate(timbre)
+            ta = self._timbre_adjuster.calculate(timbre, audiofeat=audiofeat)
             heuristic_dimensions.append("timbre")
         else:
             from backend.domain.assessment.value_objects import TimbreAdjustment

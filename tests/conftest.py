@@ -1,16 +1,27 @@
 """
-声乐评估系统 E2E 测试 - Playwright 配置
-提供 pytest fixtures 用于浏览器测试
-"""
-import pytest
-from playwright.sync_api import sync_playwright
+声乐评估系统测试根配置 — v7.3
 
+环境隔离: VAS_SKIP_GPU=1 防止 pytest 进程中 PyTorch C 扩展冲突
+Playwright fixtures 仅 E2E 测试时加载
+"""
+
+import os
+import pytest
+
+
+def pytest_configure(config):
+    """pytest 启动最早时机 — 在任何测试模块 import 前设置环境变量"""
+    os.environ.setdefault("VAS_SKIP_GPU", "1")
+    os.environ.setdefault("VAS_DISABLE_RATE_LIMIT", "1")
+
+
+# ---- Playwright E2E fixtures (lazy import 避免单元测试加载 playwright) ----
 
 @pytest.fixture(scope="session")
 def browser_type_launch_args():
     """浏览器启动参数"""
     return {
-        "headless": True,  # 无头模式，避免浏览器连接问题
+        "headless": True,
         "args": [
             "--disable-blink-features=AutomationControlled",
             "--no-sandbox",
@@ -31,7 +42,8 @@ def browser_context_args():
 
 @pytest.fixture(scope="session")
 def browser(browser_type_launch_args):
-    """浏览器实例 - session 级别"""
+    """浏览器实例 - session 级别 (lazy import playwright)"""
+    from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
         browser = p.chromium.launch(**browser_type_launch_args)
         yield browser

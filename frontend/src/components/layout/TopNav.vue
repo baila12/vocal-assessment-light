@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
 import { usePreferencesStore } from '@/stores/preferences.store'
-import { Moon, Sunny } from '@element-plus/icons-vue'
+import {
+  Moon, Sunny, Headset,
+  HomeFilled, Microphone, Document, DataAnalysis,
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
 const preferences = usePreferencesStore()
 
 const navItems = [
-  { path: '/', label: '首页', icon: 'HomeFilled' },
-  { path: '/sing', label: '演唱', icon: 'Microphone' },
-  { path: '/history', label: '历史', icon: 'Document' },
-  { path: '/compare', label: '对比', icon: 'DataAnalysis' },
+  { path: '/', label: '首页', icon: HomeFilled },
+  { path: '/sing', label: '演唱', icon: Microphone },
+  { path: '/history', label: '历史', icon: Document },
+  { path: '/compare', label: '对比', icon: DataAnalysis },
 ]
 
 function navigate(path: string): void {

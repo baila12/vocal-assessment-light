@@ -95,3 +95,79 @@ class TestMuscleStrengthScorer:
         f = make_features()
         result = self.scorer.calculate(f)
         assert result.weighted() == result.raw_score * 0.25
+
+
+# ================================================================
+# v7.3: MuscleStrengthScorer + audiofeat 增强测试
+# ================================================================
+
+def _make_audiofeat(**kwargs):
+    """构造 AudiofeatFeatures 测试数据"""
+    from backend.domain.audio.audiofeat_extractor import AudiofeatFeatures
+    return AudiofeatFeatures(**kwargs)
+
+
+class TestMuscleScorerAudiofeat:
+    """MuscleStrengthScorer audiofeat 增强路径测试 — v7.3"""
+
+    def setup_method(self):
+        self.scorer = MuscleStrengthScorer()
+
+    # ---- 向后兼容 ----
+
+    def test_audiofeat_none_backward_compatible(self):
+        """audiofeat=None 时行为不变"""
+        f = make_features(max_db_level=-10.0, rms_decay_rate=1.0)
+        result = self.scorer.calculate(f, audiofeat=None)
+        assert 0 <= result.raw_score <= 100
+
+    def test_audiofeat_all_defaults_no_effect(self):
+        """全零 audiofeat 不影响评分"""
+        f = make_features()
+        result_no_af = self.scorer.calculate(f)
+        af = _make_audiofeat()
+        result_with_af = self.scorer.calculate(f, audiofeat=af)
+        assert result_with_af.raw_score == result_no_af.raw_score
+
+    # ---- Soft Phonation (身体力量代理) ----
+
+    def test_audiofeat_soft_phonation_high_penalizes(self):
+        """高软发声指数 → 支撑不足, 扣分"""
+        f = make_features(max_db_level=-10.0, rms_decay_rate=1.0)
+        af = _make_audiofeat(soft_phonation_mean=0.8)
+        result = self.scorer.calculate(f, audiofeat=af)
+        result_no_af = self.scorer.calculate(f)
+        assert result.body_muscle_strength < result_no_af.body_muscle_strength
+
+    # ---- Vocal Fry (身体力量代理) ----
+
+    def test_audiofeat_vocal_fry_excessive_penalizes(self):
+        """高气泡音占比 → 可能支撑不足, 扣分"""
+        f = make_features(max_db_level=-10.0, rms_decay_rate=1.0)
+        af = _make_audiofeat(vocal_fry_ratio=0.5)
+        result = self.scorer.calculate(f, audiofeat=af)
+        result_no_af = self.scorer.calculate(f)
+        assert result.body_muscle_strength < result_no_af.body_muscle_strength
+
+    # ---- Hammarberg Index (面部力量代理) ----
+
+    def test_audiofeat_hammarberg_enhances_facial(self):
+        """Hammarberg 反映低频/高频能量平衡 → 面部共鸣评估"""
+        f = make_features(singers_formant_energy=0.08)
+        af = _make_audiofeat(hammarberg_index=20.0)
+        result = self.scorer.calculate(f, audiofeat=af)
+        # Hammarberg 高 = 低频能量强 = 胸腔共鸣好
+        assert result.facial_muscle_strength > 0
+
+    # ---- 组合测试 ----
+
+    def test_audiofeat_enhanced_score_in_range(self):
+        """增强后分数仍在 [0, 100]"""
+        f = make_features()
+        af = _make_audiofeat(
+            soft_phonation_mean=0.3, vocal_fry_ratio=0.1,
+            hammarberg_index=15.0, rms_energy=0.5,
+        )
+        result = self.scorer.calculate(f, audiofeat=af)
+        assert 0.0 <= result.raw_score <= 100.0
+        assert result.is_heuristic is True

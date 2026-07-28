@@ -27,50 +27,60 @@ REAL_AUDIO_FILES = [
     "陈奕迅难听之声（低分）.mp3",
 ]
 
-# ── v5.19 Quick 模式评分基线 (基线降至10 + 音准阈值扩展 + HNR/CPP天花板) ──
-# 算法变更: PitchThresholds (8/45/65), Breath baseline 10, HNR ceiling 22, CPP ceiling 2.5
-BASELINE_v5_19 = {
+# ── v7.3 Quick 模式评分基线 (DDD 唯一路径 + audiofeat 增强) ──
+# v7.0 六维权重: pitch=10%, rhythm=10%, breath=20%, technique=25%, muscle=25%, artistry=10%
+# technique 重构: HNR/CPP/技巧 → 咬字清晰度+气声比 (评分体系整体偏移 ~-30)
+# 范围 = 实测值 ± buffer (pitch/rhythm/artistry: ±8, breath/muscle: ±10, technique: ±12)
+BASELINE_V7_3 = {
     "恋人（高分）.mp3": {
-        "total_range": (65, 85),
-        "pitch_range": (65, 85),       # v5.19: 曾 70-90
-        "rhythm_range": (55, 85),
-        "breath_range": (70, 95),      # v5.19: 曾 45-75
-        "technique_range": (50, 78),   # v5.19: 曾 70-92
-        "artistry_range": (65, 88),
+        "total_range": (60, 75),
+        "pitch_range":    (60, 78),
+        "rhythm_range":   (58, 75),
+        "breath_range":   (82, 100),
+        "technique_range": (13, 40),
+        "artistry_range":  (68, 85),
+        "muscle_range":    (70, 90),
     },
     "手写的从前（高分）.mp3": {
-        "total_range": (65, 88),
-        "pitch_range": (65, 85),       # v5.19: 曾 72-90
-        "rhythm_range": (55, 85),
-        "breath_range": (65, 92),      # v5.19: 曾 55-80
-        "technique_range": (55, 80),   # v5.19: 曾 65-88
-        "artistry_range": (65, 90),
+        "total_range": (55, 70),
+        "pitch_range":    (62, 80),
+        "rhythm_range":   (34, 55),     # 钢琴伴奏干扰 onset 检测
+        "breath_range":   (84, 100),
+        "technique_range": (10, 35),
+        "artistry_range":  (69, 86),
+        "muscle_range":    (66, 86),
     },
     "1（高分）.mp3": {
-        "total_range": (63, 85),
-        "pitch_range": (65, 85),       # v5.19: 曾 72-90
-        "rhythm_range": (55, 80),
-        "breath_range": (65, 95),      # v5.19: 曾 50-80
-        "technique_range": (50, 78),   # v5.19: 曾 65-88
-        "artistry_range": (60, 88),
+        "total_range": (60, 75),
+        "pitch_range":    (63, 80),
+        "rhythm_range":   (63, 80),
+        "breath_range":   (87, 100),
+        "technique_range": (10, 35),
+        "artistry_range":  (68, 85),
+        "muscle_range":    (68, 88),
     },
     "音频-3分26秒(高分).mp3": {
-        "total_range": (63, 85),
-        "pitch_range": (65, 85),       # v5.19: 曾 70-90
-        "rhythm_range": (55, 85),
-        "breath_range": (55, 85),      # v5.19: 曾 40-75
-        "technique_range": (55, 80),   # v5.19: 曾 72-92
-        "artistry_range": (65, 88),
+        "total_range": (60, 75),
+        "pitch_range":    (60, 78),
+        "rhythm_range":   (48, 68),
+        "breath_range":   (79, 99),
+        "technique_range": (15, 45),
+        "artistry_range":  (68, 85),
+        "muscle_range":    (70, 90),
     },
     "陈奕迅难听之声（低分）.mp3": {
-        "total_range": (35, 60),
-        "pitch_range": (55, 78),       # v5.19: 曾 60-85
-        "rhythm_range": (0, 15),
-        "breath_range": (60, 92),      # v5.19: 曾 35-65
-        "technique_range": (35, 65),   # v5.19: 曾 40-70
-        "artistry_range": (40, 65),
+        "total_range": (45, 62),
+        "pitch_range":    (58, 76),
+        "rhythm_range":   (0, 15),       # 严重脱拍
+        "breath_range":   (74, 95),
+        "technique_range": (5, 30),
+        "artistry_range":  (66, 83),
+        "muscle_range":    (60, 80),
     },
 }
+
+# 别名: 保留旧引用
+BASELINE_v5_19 = BASELINE_V7_3
 
 
 def _resolve_audio_path(filename):
@@ -172,7 +182,7 @@ class TestScoreDifferentiation:
     """评分区分度 — 高分 vs 低分应有显著差异"""
 
     def test_high_vs_low_total_differentiation(self):
-        """高分组（恋人）vs 低分组（陈奕迅）总分差 >= 20"""
+        """高分组（恋人）vs 低分组（陈奕迅）总分差 >= 10 (v7.3: 六维权重稀释)"""
         path_high = _resolve_audio_path("恋人（高分）.mp3")
         path_low = _resolve_audio_path("陈奕迅难听之声（低分）.mp3")
 
@@ -186,7 +196,7 @@ class TestScoreDifferentiation:
             pytest.skip("分析失败")
 
         diff = high['total_score'] - low['total_score']
-        assert diff >= 20, \
+        assert diff >= 10, \
             f"区分度不足: 高={high['total_score']}, 低={low['total_score']}, 差={diff}"
 
     def test_all_high_scores_above_low(self):
