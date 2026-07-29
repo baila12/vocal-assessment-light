@@ -46,6 +46,8 @@ class LibrosaArtistryExtractor:
 
         # is_artistic_fluctuation (与 adapter 一致)
         is_artistic = bool(getattr(breath, 'is_artistic_fluctuation', False))
+        # v7.6: 连续化分数 (优先)
+        artistic_fluctuation = float(getattr(breath, 'artistic_fluctuation_score', 0.0) or 0.0)
 
         # long_note_count (与 adapter 一致)
         long_note_count = int(getattr(breath, 'long_note_count', 0) or 0)
@@ -64,6 +66,7 @@ class LibrosaArtistryExtractor:
             crescendo_quality=round(crescendo_quality, 2),
             phrase_coherence=round(phrase_coherence, 2),
             is_artistic_fluctuation=is_artistic,
+            artistic_fluctuation_score=round(artistic_fluctuation, 2),  # v7.6: 连续化
             long_note_count=long_note_count,
             pitch_cv=round(pitch_cv, 4),
         )

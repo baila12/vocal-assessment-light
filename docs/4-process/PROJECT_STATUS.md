@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-07-29 | 版本: **v7.5** | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-29 | 版本: **v7.6** | 分支: `feat/v7-fastapi-vue-refactor`
 
 ---
 
@@ -128,6 +128,16 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
 
 ## 二、完成功能
 
+### v7.6 (2026-07-29) — P1 修复: Muscle 代理验证 + Artistry 区分度提升
+
+| 类别 | 项目 | 状态 |
+|------|------|------|
+| **P1-1** | Muscle v7.4 proxies: DDD 路径完全确认 (10 个提取/评分器集成测试) | ✅ 已验证 |
+| **P1-2** | crescendo_quality: 累积式→平均质量×覆盖率 (修复饱和) | ✅ |
+| **P1-3** | is_artistic_fluctuation: 布尔→连续 artistic_fluctuation_score (0-100) | ✅ |
+| **P1-3** | _calc_phrase(): 布尔 +30→连续 ×0.30 (提升区分度) | ✅ |
+| **测试** | 新增 ~20 tests (10 muscle 提取验证 + 4 crescendo + 6 artistic_fluctuation) | ✅ |
+
 ### v7.5 (2026-07-29) — P1-2b 音色八维 + P0 评分异常修复
 
 | 类别 | 项目 | 状态 |
@@ -191,11 +201,11 @@ v7.3.0 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | DDD 基建 (extractors + orchestrator) | 112 | ✅ 100% | audiofeat + audio_utils + acoustic + pitch + rhythm + breath + technique + muscle |
 | DDD 对齐 + Flag | 17 | ✅ 100% | alignment + extraction flag + SPA routes |
 | 中间件 | 22 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
-| **DDD 合计** | **343** | **100% GREEN** | (~15s) |
+| **DDD 合计** | **363** | **100% GREEN** | (~15s) |
 | FastAPI 集成 | 20 | ✅ 100% | test_api_routes (独立进程) |
 | Flask + WS 集成 | 14 | ✅ 100% | test_ws_score + test_api (独立进程) |
 | 扩展测试 (DTW/repos/calibrator/SPA) | 51 | ✅ 100% | tests/extended/ (独立进程) |
-| **生产代码总计** | **428** | **100% GREEN** | |
+| **生产代码总计** | **448** | **100% GREEN** | |
 
 - v7.5 新增: ~28 tests (timbre 八维 22 + muscle 代理 4 + artistry 2)
 
@@ -245,16 +255,13 @@ v7.3.0 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 优先级 | 项目 | 说明 |
 |--------|------|------|
-| **P1** | Muscle v7.4 proxies 激活 | 在 adapter 路径中为死代码 (哨兵默认值), 需接入真实特征管道 |
-| **P1** | Artistry crescendo_quality 饱和 | 累积公式导致几乎所有歌手达到 100, 区分度低 |
-| **P1** | Artistry is_artistic_fluctuation 连续化 | 当前为布尔值, +30 几乎人人触发 |
+| **P1** | Artistry rubato/attack slope | 文献 (Kondo 2025, Tan 2020) 验证的核心表达特征, 缺失 |
 | **P2** | CPPS/HNR 阈值改为歌声特定 | 当前使用语音病理范围 (3/5/8/12dB, 12-22dB), 文献 (Buckley 2023, Titze 2024) 建议歌声特定阈值 |
 | **P2** | PyArmor 代码保护 | ADR-8, 构建脚本就绪 |
 | **P2** | electron-builder 完整打包 | 配置就绪, 未执行 |
 | **P2** | timbral_models 集成 | Python 3.12 兼容性问题, 待上游修复 |
 | **P2** | Flask 路由最终移除 | DeprecationWarning + rate_limit 就绪，等待绞杀者完成 |
 | **P2** | ABI 9 参数模型 | Barsties 2017, 需 Parselmouth 实现 |
-| **P2** | Artistry rubato/attack slope | 文献 (Kondo 2025, Tan 2020) 验证的核心表达特征, 缺失 |
 
 ### 测试遗留
 

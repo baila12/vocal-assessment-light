@@ -90,6 +90,7 @@ class FeatureAdapterRegistry:
             breath_technique=_safe_float(bs.breath_technique_score),
             rms_fluctuation=_safe_float(bs.rms_fluctuation),
             is_artistic_fluctuation=bool(getattr(bs, 'is_artistic_fluctuation', False)),
+            artistic_fluctuation_score=_safe_float(getattr(bs, 'artistic_fluctuation_score', 0.0)),  # v7.6
             controlled_breathiness=_safe_float(bs.controlled_breathiness),
             uncontrolled_leak=_safe_float(bs.uncontrolled_leak),
             breath_breaks=int(_safe_float(bs.breath_breaks)),
@@ -227,6 +228,7 @@ class FeatureAdapterRegistry:
             crescendo_quality=crescendo_quality,
             phrase_coherence=phrase_coherence,
             is_artistic_fluctuation=is_artistic,
+            artistic_fluctuation_score=float(_safe_float(getattr(bs, 'artistic_fluctuation_score', 0.0))),  # v7.6
             long_note_count=long_note_count,
             pitch_cv=round(pitch_cv_adapter, 4),
         )

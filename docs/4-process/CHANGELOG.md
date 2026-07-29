@@ -1,3 +1,50 @@
+# 变更日志 v7.6
+
+> 更新: 2026-07-29 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.6 — P1 修复: Muscle 代理验证 + Artistry 区分度提升 (2026-07-29)
+
+### 概述
+
+完成 PROJECT_STATUS.md 剩余的 3 项 P1 任务。Muscle v7.4 五维代理经深度代码审计确认在 DDD 路径中完整可用。Artistry 两个算法缺陷 (crescendo_quality 累积饱和 + is_artistic_fluctuation 布尔区分度低) 已修复。
+
+### P1-1: Muscle v7.4 proxies DDD 路径验证 (仅测试+文档)
+
+- ✅ 深度代码审计: LibrosaMuscleExtractor → DddFeatureExtractionOrchestrator → ScoringOrchestrator 全链路完整
+- ✅ adapter 路径永久哨兵是设计意图 (无原始音频无法计算五维代理)
+- ✅ `_apply_body_proxies/_apply_facial_proxies` 哨兵守卫按预期工作
+- ✅ 新增 10 个提取器验证测试 (muscle_extractor + 五维辅助函数)
+- 📄 状态: PROJECT_STATUS.md P1-1 条目已移除
+
+### P1-2: crescendo_quality 累积饱和修复 (breath_extractor.py)
+
+- ❌ 旧: `crescendo = sum(smoothness * 0.01)` → 长音频必然 clamp 到 100
+- ✅ 新: `crescendo_quality = avg_quality × (0.5 + 0.5 × coverage)` → 长度无关
+- ✅ avg_quality: 检测窗口的平均平滑度 (0-100)
+- ✅ coverage: 动态变化覆盖率 (0-1), 短音频不受惩罚
+- 📈 效果: 3 分钟音频不再自动饱和, 真正反映动态控制质量
+- 🧪 新增 4 个 crescendo_quality 专项测试
+
+### P1-3: is_artistic_fluctuation 布尔→连续化 (breath_extractor.py + artistry_scorer.py)
+
+- ❌ 旧: `_detect_artistic_fluctuation()` 返回 bool, 阈值过低 → 几乎人人触发 +30
+- ✅ 新: `_calc_artistic_fluctuation_score()` 返回 0-100 连续值
+  - RMS 周期性 (0-50): 自相关峰值数量×显著性
+  - F0-RMS 耦合 (0-50): 相关系数连续映射
+- ✅ `_calc_phrase()`: 布尔 `+30` → 连续 `×0.30` (0→0, 100→30)
+- ✅ BreathFeatures/ArtistryFeatures 新增 `artistic_fluctuation_score` 字段
+- ✅ 向后兼容: `is_artistic_fluctuation` bool 保留, 委托给新函数
+- 📈 效果: phrase_expression 子维度获得连续区分度
+- 🧪 新增 6 个 artistic_fluctuation 专项测试
+
+### 测试增长
+
+- v7.5: 428 tests → v7.6: **448 tests (+20)**: 10 muscle 提取验证 + 4 crescendo + 6 artistic_fluctuation
+
+---
+
 # 变更日志 v7.5
 
 > 更新: 2026-07-29 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)

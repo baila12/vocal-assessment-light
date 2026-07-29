@@ -82,8 +82,9 @@ class LibrosaBreathExtractor:
 
             voiced_flags = ~np.isnan(f0) if f0 is not None else np.array([])
 
-            # Artistic fluctuation
+            # Artistic fluctuation (v7.6: 连续化)
             is_artistic = _detect_artistic_fluctuation(rms, f0, voiced_flags)
+            artistic_fluctuation = _calc_artistic_fluctuation_score(rms, f0, voiced_flags)
 
             # Sub-evaluators
             long_note_support, long_note_count, pitch_stability_long, harmonic_stability, long_note_avg_quality = _eval_long_note_support(
@@ -118,6 +119,7 @@ class LibrosaBreathExtractor:
                 breath_technique=round(breath_technique, 2),
                 rms_fluctuation=round(rms_fluctuation, 4),
                 is_artistic_fluctuation=is_artistic,
+                artistic_fluctuation_score=round(artistic_fluctuation, 2),  # v7.6: 连续化
                 controlled_breathiness=round(controlled_breathiness, 2),
                 uncontrolled_leak=round(uncontrolled_leak, 2),
                 breath_breaks=breath_breaks,
@@ -157,24 +159,61 @@ def _find_continuous_segments(mask: np.ndarray) -> list:
 
 
 def _detect_artistic_fluctuation(rms, f0, voiced_flags) -> bool:
+    """向后兼容: 保留旧布尔函数, 委托给 _calc_artistic_fluctuation_score()。
+
+    v7.6: 内部调用连续化函数, 分数 > 20 视为 True。
+    """
+    score = _calc_artistic_fluctuation_score(rms, f0, voiced_flags)
+    return score > 20.0
+
+
+def _calc_artistic_fluctuation_score(rms, f0, voiced_flags) -> float:
+    """计算艺术性波动分数 (0-100, 连续) — v7.6 P1-3 修复
+
+    综合两个信息源:
+    1. RMS 周期性: 自相关峰值数量和质量 → 0-50 分
+    2. F0-RMS 耦合: 相关系数 → 0-50 分
+
+    替代旧布尔函数 (阈值过低 + 无条件 +30 导致区分度低)。
+    """
     try:
+        score = 0.0
+
+        # === 1. RMS 周期性 (0-50) ===
         rms_norm = (rms - np.mean(rms)) / (np.std(rms) + 1e-10)
         autocorr = np.correlate(rms_norm, rms_norm, mode='full')
         autocorr = autocorr[len(autocorr)//2:]
         if len(autocorr) > 50:
-            peaks, _ = signal.find_peaks(autocorr[1:50])
+            # 用高度阈值 (0.15) 过滤噪声, 而非 prominence (纯周期信号峰等高 → prominence=0)
+            peaks, properties = signal.find_peaks(autocorr[1:50], height=0.15)
             if len(peaks) >= 2:
-                return True
+                # 峰值数量映射: 2→25, 4→40, 6+→50
+                peak_score = min(50.0, 25.0 + (len(peaks) - 2) * 6.25)
+                # 峰值显著性加成 (噪声会有高 prominence, 但也被 height 过滤了)
+                if properties is not None and 'prominences' in properties:
+                    prom = np.asarray(properties['prominences'])
+                    if len(prom) > 0:
+                        avg_prominence = float(np.mean(prom))
+                        # prominence 高 → 确信是真实周期性 → 小幅加成 (最多 10%)
+                        bonus = min(0.10, avg_prominence * 0.05)
+                        peak_score = min(50.0, peak_score * (1.0 + bonus))
+                score += peak_score
+
+        # === 2. F0-RMS 耦合 (0-50) ===
         if f0 is not None and len(f0) > 0:
             valid_f0 = f0[voiced_flags] if len(voiced_flags) > 0 else f0[~np.isnan(f0)]
             if len(valid_f0) > 50 and len(rms) > 50:
                 ml = min(len(valid_f0), len(rms))
                 if np.std(valid_f0[:ml]) > 0 and np.std(rms[:ml]) > 0:
-                    if np.corrcoef(valid_f0[:ml], rms[:ml])[0, 1] > 0.3:
-                        return True
-        return False
+                    corr = np.corrcoef(valid_f0[:ml], rms[:ml])[0, 1]
+                    if not np.isnan(corr) and corr > 0:
+                        # 相关系数映射: 0→0, 0.3→21, 0.5→36, 0.7+→50
+                        corr_score = min(50.0, corr * 50.0 / 0.70)
+                        score += corr_score
+
+        return min(100.0, score)
     except Exception:
-        return False
+        return 0.0
 
 
 def _eval_long_note_support(audio_data, rms, f0, hop_length, sample_rate):
@@ -238,15 +277,24 @@ def _eval_dynamic_control(rms):
                 soft_qualities.append(max(0.0, stability))
         soft_quality = float(np.mean(soft_qualities)) if soft_qualities else 0.0
 
-        crescendo = 0.0
+        # v7.6: crescendo_quality 改为平均质量 × 覆盖率 (修复 P1-2 累积饱和)
+        # 旧公式: crescendo = sum(smoothness * 0.01) → 长音频必然饱和到 100
+        # 新公式: avg_quality × (0.5 + 0.5 × coverage) → 长度无关, 区分度提升
+        crescendo_qualities = []
         w = 20
         for i in range(w, len(rms) - w):
             before = np.mean(rms[i-w:i])
             after = np.mean(rms[i:i+w])
             if before < rms[i] < after or before > rms[i] > after:
                 smoothness = 100.0 - np.std(rms[i-w:i+w]) / (np.mean(rms[i-w:i+w]) + 1e-10) * 50
-                crescendo += max(0.0, smoothness) * 0.01
-        crescendo_quality = min(100.0, crescendo)
+                crescendo_qualities.append(max(0.0, smoothness))
+
+        if crescendo_qualities:
+            avg_quality = float(np.mean(crescendo_qualities))
+            coverage = min(1.0, len(crescendo_qualities) / max(1, (len(rms) - 2*w)))
+            crescendo_quality = avg_quality * (0.5 + 0.5 * coverage)
+        else:
+            crescendo_quality = 0.0
 
         score = 0.0
         if soft_quality > 0:

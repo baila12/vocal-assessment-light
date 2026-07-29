@@ -25,7 +25,8 @@ class BreathFeatures:
     breath_design: float = 0.0
     breath_technique: float = 0.0
     rms_fluctuation: float = 0.0
-    is_artistic_fluctuation: bool = False
+    is_artistic_fluctuation: bool = False    # deprecated — 使用 artistic_fluctuation_score
+    artistic_fluctuation_score: float = 0.0 # v7.6: 连续化 0-100
     controlled_breathiness: float = 0.0
     uncontrolled_leak: float = 0.0
     breath_breaks: int = 0

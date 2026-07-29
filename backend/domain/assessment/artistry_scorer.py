@@ -24,7 +24,8 @@ class ArtistryFeatures:
     dynamic_range: float = 0.0       # dB
     crescendo_quality: float = 0.0   # 0-100
     phrase_coherence: float = 0.0    # 0-100
-    is_artistic_fluctuation: bool = False
+    is_artistic_fluctuation: bool = False   # deprecated — 使用 artistic_fluctuation_score
+    artistic_fluctuation_score: float = 0.0 # v7.6: 连续化 0-100
     long_note_count: int = 0
     pitch_cv: float = 0.0            # coefficient of variation
 
@@ -43,6 +44,7 @@ class ArtistryScorer:
             features.phrase_coherence,
             features.is_artistic_fluctuation,
             features.long_note_count,
+            features.artistic_fluctuation_score,  # v7.6: 连续化
         )
         pitch_var = self._calc_pitch_variation(features.pitch_cv)
 
@@ -116,11 +118,18 @@ class ArtistryScorer:
         coherence: float,
         is_artistic: bool,
         long_note_count: int,
+        artistic_fluctuation_score: float = 0.0,  # v7.6: 连续化
     ) -> float:
-        """乐句处理 = coherence * 0.70 + artistic_bonus + long_note_bonus"""
+        """乐句处理 = coherence * 0.70 + artistic_fluctuation * 0.30 + long_note_bonus
+
+        v7.6: 用连续 float 替代布尔 +30, 提升区分度。
+        """
         score = coherence * 0.70
-        if is_artistic:
-            score += 30.0
+        # v7.6: 优先使用连续分数 (0→0, 100→30), fallback 到旧布尔
+        if artistic_fluctuation_score > 0:
+            score += artistic_fluctuation_score * 0.30
+        elif is_artistic:
+            score += 30.0  # backward compat
         if long_note_count > 0:
             score += min(10.0, long_note_count * 2.0)
         return min(100.0, score)
