@@ -28,6 +28,10 @@ class TechniqueFeatures:
     cpp_mean: float = 1.0            # 声门闭合周期峰值
     vibrato_quality: float = 0.0     # v7.1.3: 颤音质量 0-100 (来自 TechniqueAnalyzer)
     vibrato_rate_avg: float = 5.0    # v7.1.3: 平均颤音速率 Hz (来自 TechniqueAnalyzer)
+    # v7.4: 咬字清晰度增强 (Rathi & Hsu 2021)
+    zcr_mean: float = 0.0            # 过零率均值 (0.02-0.08 元音, 0.15-0.40 擦音)
+    spectral_centroid: float = 0.0   # 频谱质心 Hz (500-3500 典型歌声)
+    cv_energy_ratio: float = -15.0   # C-V 能量比 dB (典型 -15dB, Hecker 1974)
 
 
 class TechniqueScorer:
@@ -65,6 +69,9 @@ class TechniqueScorer:
             features.onset_density,
             features.spectral_flux,
             features.consonant_clarity,
+            features.zcr_mean,            # v7.4: Rathi & Hsu 2021
+            features.spectral_centroid,    # v7.4: Rathi & Hsu 2021
+            features.cv_energy_ratio,      # v7.4: Hecker 1974
         )
 
         # 2. 气声比 (50%)
@@ -72,6 +79,7 @@ class TechniqueScorer:
             features.hnr_mean,
             features.spectral_tilt,
             features.hf_energy_ratio,
+            features.cpp_mean,  # v7.4: CPPS 作为主特征
         )
 
         # 3. v7.3: audiofeat 增强微调
@@ -140,8 +148,71 @@ class TechniqueScorer:
         onset_density: float,
         spectral_flux: float,
         consonant_clarity: float,
+        zcr_mean: float = 0.0,            # v7.4: Rathi & Hsu 2021
+        spectral_centroid: float = 0.0,    # v7.4: Rathi & Hsu 2021
+        cv_energy_ratio: float = -15.0,    # v7.4: Hecker 1974
     ) -> float:
-        """咬字清晰度 = f(onset_density, spectral_flux, consonant_clarity)"""
+        """咬字清晰度 = 文献驱动加权融合
+
+        文献依据:
+        - Rathi & Hsu (2021): 0.5*Flux + 1.0*Centroid + 0.5*ZCR
+        - Hecker (1974): C-V 能量比与可理解度的因果关系
+
+        权重设计 (v7.4):
+        - Spectral Centroid (30%): Rathi & Hsu 最重要特征
+        - Spectral Flux (25%): Rathi & Hsu 权重 0.5 → 归一化后 25%
+        - ZCR (25%): Rathi & Hsu 权重 0.5 → 归一化后 25%
+        - C-V 能量比 (10%): 经典可理解度指标
+        - Onset density (10%): 降权 (无文献特异性依据)
+        - Consonant clarity (fallback): 新特征缺失时回退
+        """
+        # 检查新特征是否可用
+        has_new_features = zcr_mean > 0 or spectral_centroid > 0
+
+        if has_new_features:
+            score = 0.0
+
+            # === 1. Spectral Centroid (30%) — 最重要特征 ===
+            if spectral_centroid > 0:
+                centroid_norm = min(1.0, spectral_centroid / 3500.0)
+                score += centroid_norm * 30.0
+
+            # === 2. Spectral Flux (25%) — 频谱变化速率 ===
+            if spectral_flux > 0:
+                if spectral_flux <= 4.0:
+                    flux_score = spectral_flux / 4.0 * 25.0
+                elif spectral_flux <= 8.0:
+                    flux_score = 25.0 - (spectral_flux - 4.0) * 2.0
+                else:
+                    flux_score = max(10.0, 17.0 - (spectral_flux - 8.0))
+                score += flux_score
+
+            # === 3. ZCR (25%) — 辅音噪声检测 ===
+            if zcr_mean > 0:
+                if zcr_mean >= 0.15:
+                    zcr_score = 25.0
+                elif zcr_mean >= 0.08:
+                    zcr_score = 15.0 + (zcr_mean - 0.08) / 0.07 * 10.0
+                else:
+                    zcr_score = zcr_mean / 0.08 * 15.0
+                score += zcr_score
+
+            # === 4. C-V 能量比 (10%) ===
+            if cv_energy_ratio < 0:
+                deviation = abs(cv_energy_ratio - (-15.0))
+                cv_score = max(0.0, 10.0 - deviation * 0.5)
+                score += cv_score
+
+            # === 5. Onset density (10%) — 降权保留 ===
+            if 1.5 <= onset_density <= 5.0:
+                score += 10.0
+            elif onset_density > 0:
+                dist = min(abs(onset_density - 1.5), abs(onset_density - 5.0))
+                score += max(0.0, 10.0 - dist * 3.0)
+
+            return max(0.0, min(100.0, score))
+
+        # === Fallback: 新特征不可用时的回退路径 (保持向后兼容) ===
         score = 0.0
 
         # consonant_clarity: 0→0, 100→50
@@ -166,30 +237,57 @@ class TechniqueScorer:
         hnr_mean: float,
         spectral_tilt: float,
         hf_energy_ratio: float,
+        cpp_mean: float = 1.0,  # v7.4: CPPS 主特征 (40%), 文献 Samlan & Story 2013
     ) -> float:
-        """气声比 = f(HNR, spectral_tilt, hf_energy_ratio)"""
+        """气声比 = f(CPPS主40%, HNR辅25%, spectral_tilt 20%, hf_energy 15%)
+
+        文献依据:
+        - CPPS: 单独解释 86.7% 感知气息感方差 (Samlan & Story 2013)
+        - HNR: 通用嗓音质量 r~0.78, 但气声特异度低 r=-0.56 (Barsties 2023)
+        - Spectral tilt: 区分可控气声 vs 不可控漏气 (Sundberg 1987)
+        """
         score = 0.0
 
-        # HNR: optimal 12-22 dB
-        if 12 <= hnr_mean <= 22:
-            score += 70.0
-        elif hnr_mean < 5:
-            score += 20.0  # very breathy
-        elif hnr_mean > 30:
-            score += 50.0  # unnaturally hard
-        elif hnr_mean < 12:
-            score += 20.0 + (hnr_mean - 5) / 7.0 * 50.0  # 5→20, 12→70
-        else:  # 22-30
-            score += 70.0 - (hnr_mean - 22) / 8.0 * 20.0  # 22→70, 30→50
+        # === 1. CPPS (40%) — 主特征 ===
+        # 文献: 连续语音 CPPS > 8.37 dB = 正常, < 3.0 dB = 严重气息
+        #       歌声阈值略低 (F0 范围更宽、强度变化大)
+        if cpp_mean > 0:
+            if cpp_mean >= 12.0:
+                score += 40.0
+            elif cpp_mean >= 8.0:
+                score += 30.0 + (cpp_mean - 8.0) / 4.0 * 10.0   # 8→30, 12→40
+            elif cpp_mean >= 5.0:
+                score += 15.0 + (cpp_mean - 5.0) / 3.0 * 15.0   # 5→15, 8→30
+            elif cpp_mean >= 3.0:
+                score += 5.0 + (cpp_mean - 3.0) / 2.0 * 10.0    # 3→5, 5→15
+            else:
+                score += max(0.0, cpp_mean / 3.0 * 5.0)          # 0→0, 3→5
 
-        # Spectral tilt 惩罚: negative = breathy
+        # === 2. HNR (25% CPPS 可用时 / 45% fallback) — 辅助验证 ===
+        # v7.5: 移除 HNR>22 的惩罚 (歌声 HNR 典型 49-51dB, 远高于语音)
+        # 文献: Buckley et al. 2023 — 歌声 HNR 远高于语音病理阈值
+        #       当前阈值 12-22dB 来自语音病理学, 对歌声无区分度
+        if cpp_mean > 0:
+            hnr_weight = 25.0  # CPPS 可用时，HNR 为辅助
+        else:
+            hnr_weight = 45.0  # CPPS 不可用时，HNR 提升为 fallback
+
+        if hnr_mean >= 12:
+            score += hnr_weight  # 干净声音 → 满分 (歌声 HNR 天然 >22)
+        elif hnr_mean < 5:
+            score += hnr_weight * 0.20    # 极低 HNR → 20%
+        else:  # 5-12
+            score += hnr_weight * (0.20 + (hnr_mean - 5) / 7.0 * 0.80)  # 线性过渡
+
+        # === 3. Spectral tilt (20%) — 区分艺术气声 vs 漏气 ===
+        # 文献: 气息音 H1-H2 = +2.08dB, 正常 = -0.60dB, 紧压 = -1.63dB
         if spectral_tilt < -5:
             penalty = min(20.0, abs(spectral_tilt + 5) * 4.0)
             score -= penalty
 
-        # HF energy ratio > 0.7 = breathy → penalty
+        # === 4. HF energy (15%) — 气声产生额外高频噪声 ===
         if hf_energy_ratio > 0.7:
-            penalty = min(10.0, (hf_energy_ratio - 0.7) * 30.0)
+            penalty = min(15.0, (hf_energy_ratio - 0.7) * 30.0)
             score -= penalty
 
         return max(0.0, min(100.0, score))

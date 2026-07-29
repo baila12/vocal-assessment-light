@@ -1,72 +1,35 @@
-# 前端路由契约
+# 前端路由 v7.3.1
 
-> 目标: 让前端路由、BDD、后端计划保持一致。旧 HTML 页面只承担迁移入口职责，主流程统一走 SPA hash route。
+> Vue 3 SPA, Vue Router 4.6, hash history (Electron 兼容)
 
-## 当前主路由
+---
 
-| 路由 | 状态 | 页面 | 说明 |
-|------|------|------|------|
-| `#/` | 已有 | Home | 上传、录音、对比入口 |
-| `#/sing` | 已有 | Sing | 实时录音/演唱页 |
-| `#/compare` | 已有 | Compare | 手动标准音频 + 用户音频对比 |
-| `#/report` | 已有 | Report | 当前依赖 store 展示最近结果 |
-| `#/report/:analysisId` | 需强化 | Report | 应支持刷新恢复 |
-| `#/history` | 已有 | History | 历史记录 |
-| `#/settings` | 已有 | Settings | 当前基础设置页 |
+## 当前路由
 
-## v6.0 预留路由
-
-| 路由 | 页面职责 | 后端来源 |
-|------|----------|----------|
-| `#/library` | 标准歌曲库浏览、搜索、筛选 | `database.feature`, PRD 3.3 |
-| `#/library/new` | 添加标准歌曲、填写元数据、上传标准音频 | `database.feature` |
-| `#/library/import` | 批量导入标准歌曲与 metadata | `database.feature` |
-| `#/library/:songId` | 标准歌曲详情、试听、评分配置摘要 | `database.feature`, `song-select.feature` |
-| `#/practice/:songId` | 选歌后录音准备、标准歌曲信息、原唱试听 | `song-select.feature` |
-| `#/settings/scoring` | 风格预设、五维权重、自定义预设导入导出 | `scoring-config.feature` |
-| `#/settings/models` | Feature Flag、GPU/模型状态、实验性算法开关 | PRD v5.18 |
-| `#/analysis/:taskId` | 非阻塞分析任务详情、阶段性特征展示 | `nonblocking-analysis.feature` |
-
-## 旧页面迁移
-
-| 旧路径 | 建议目标 | 说明 |
-|--------|----------|------|
-| `/analysis.html` | `/#/report` 或 `/#/report/:analysisId` | 有结果 ID 时进入报告，否则回首页 |
-| `/compare.html` | `/#/compare` | 手动对比入口 |
-| `/settings.html` | `/#/settings` | 设置入口 |
-
-## 路由性能合约
-
-| 指标 | 目标 | 说明 |
+| 路由 | 组件 | 说明 |
 |------|------|------|
-| **首屏加载** (无缓存) | < 1.5s | `index.html` + `app.js` + 初始 CSS |
-| **路由切换** (JS 内) | < 300ms | hashchange → Page mount → animateIn 完成 |
-| **懒加载页面** (v6.0) | < 500ms | 动态 import 页面模块 + CSS |
-| **404/错误页** | < 100ms | 纯静态，无 API 依赖 |
-| **旧页面重定向** | < 200ms | HTTP 301/302 → SPA hash route |
+| `#/` | `HomeView.vue` | 首页: 上传 + 模式选择 (Quick/Pro) + 录音入口 |
+| `#/report/:id?` | `ReportView.vue` | 评分报告: 六维雷达图 + 改进建议 + 音频回放 |
+| `#/history` | `HistoryView.vue` | 历史记录: 分页列表 + 搜索 + 批量删除 |
+| `#/compare` | `CompareView.vue` | 对比分析: 双文件上传 + DTW 结果 |
+| `#/sing` | `SingView.vue` | 实时演唱: Canvas + AudioWorklet + WebSocket 流式评分 |
 
-### 路由级代码分割 (计划)
+全部懒加载 (`() => import(...)`), hash history (`createWebHashHistory`).
 
-| 页面模块 | 预估大小 | 加载策略 |
-|---------|---------|---------|
-| `pages/HomePage.js` | ~15KB | 初始 bundle |
-| `pages/SingPage.js` | ~25KB | 初始 bundle |
-| `pages/ReportPage.js` | ~20KB | 初始 bundle |
-| `pages/SongLibraryPage.js` | ~18KB | 懒加载 (访问时) |
-| `pages/ComparePage.js` | ~22KB | 懒加载 |
-| `pages/HistoryPage.js` | ~12KB | 懒加载 |
-| `pages/SettingsPage.js` | ~15KB | 懒加载 |
-| `animation/Controller.js` | ~8KB | 初始 bundle (全局) |
-| `animation/presets.js` | ~5KB | 初始 bundle |
-| `components/*` | ~20KB | 初始 bundle |
+---
 
-## BDD 对齐要求
+## 路由性能
 
-| 要求 | 说明 |
-|------|------|
-| navigation.feature 是路由验收主入口 | E2E 不再各自定义旧页面 URL 期望 |
-| 报告页必须支持刷新恢复 | `#/report/:analysisId` 不应只依赖内存 store |
-| 无效路由要有用户可见反馈 | Router 不只 `console.warn`，还要 Toast 或状态提示 |
-| 旧页面重定向单独测试 | 不和主导航流程混在一起 |
-| 路由切换性能必须可测试 | BDD 场景: "页面应在 300ms 内完成入场动画" |
+| 指标 | 实际 (Vite build) |
+|------|:---:|
+| Main chunk (Element Plus + Vue + Chart.js) | ~346 KB gzip |
+| ReportView (含 Chart.js radar) | ~65 KB gzip |
+| 其他页面 (lazy loaded) | 2-4 KB gzip each |
+| Vite build 耗时 | ~9.5s |
 
+---
+
+## 旧页面重定向
+
+Flask `web/static/index.html` 显示重定向页面，引导用户到 `http://localhost:8000` (Vue 3 SPA)。
+旧 HTML 页面 (`/analysis.html`, `/compare.html`, `/settings.html`) 已废弃。

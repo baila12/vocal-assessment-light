@@ -132,6 +132,10 @@ class FeatureAdapterRegistry:
             cpp_mean=cpp,
             vibrato_quality=vibrato_quality,
             vibrato_rate_avg=vibrato_rate_avg,
+            # v7.4: 新特征在回退路径中不可用
+            zcr_mean=0.0,
+            spectral_centroid=0.0,
+            cv_energy_ratio=-15.0,
         )
 
     # ================================================================
@@ -179,6 +183,12 @@ class FeatureAdapterRegistry:
             formant_clustering_quality=formant_cluster,
             overtone_richness=overtone,
             dynamic_range_db=dynamic_range,
+            # v7.4: 适配器路径无原始音频, 五维代理默认 0
+            mpt_seconds=0.0,
+            crest_factor=0.0,
+            spr_ratio=1.0,
+            f1f2_area=0.0,
+            alpha_ratio=-15.0,
         )
 
     # ================================================================
@@ -201,6 +211,15 @@ class FeatureAdapterRegistry:
         # 从 vocal technique DTO 推导 crescendo_quality 和 pitch_cv
         crescendo_quality = _safe_float(bs.crescendo_quality, default=50.0) if bs else 50.0
 
+        # v7.5: pitch_cv 应为 F0 变异系数 (0.01-0.20), 不是 vibrato_rate_avg (Hz)
+        # Adapter 路径无原始 F0 数据, 使用 onset_density 作为代理:
+        # onset_density 1.5-5.0 → pitch_cv 0.03-0.12 (合理 CV 范围)
+        if vt and hasattr(vt, 'onset_density'):
+            onset = _safe_float(getattr(vt, 'onset_density', 2.0), default=2.0)
+        else:
+            onset = 2.0
+        pitch_cv_adapter = max(0.01, min(0.30, onset * 0.03))
+
         return ArtistryFeatures(
             vibrato_quality=vibrato_quality,
             vibrato_count=vibrato_count,
@@ -209,7 +228,7 @@ class FeatureAdapterRegistry:
             phrase_coherence=phrase_coherence,
             is_artistic_fluctuation=is_artistic,
             long_note_count=long_note_count,
-            pitch_cv=max(0.01, _safe_float(vt.vibrato_rate_avg, default=5.0)) if vt else 5.0,
+            pitch_cv=round(pitch_cv_adapter, 4),
         )
 
     # ================================================================
@@ -245,4 +264,5 @@ class FeatureAdapterRegistry:
             mfcc_cluster_purity=cluster_purity,
             harmonic_richness=harmonic_richness,
             nasality_index=nasality,
+            harmonic_stability=harmonic_stability,  # v7.4: 传递替代置信度
         )

@@ -1,6 +1,8 @@
 # 前端页面功能设计 v1.0 — 标准曲库 / 模式选择 / 对比分析 / 选歌录音
 
-> 基于 BDD 驱动设计，先写测试后实现
+> ⚠️ **已废弃**: 本文档描述 v6.0 计划时期的 Vanilla JS 页面设计。当前 v7.3.1 已迁移至 Vue 3 + Element Plus (`frontend/src/views/`)。本文档中描述的标准曲库、选歌演唱等页面尚未在 Vue 3 中实现，保留作为未来功能参考。
+>
+> 当前页面状态见: [README.md](README.md) | [ROUTES.md](ROUTES.md)
 
 ---
 

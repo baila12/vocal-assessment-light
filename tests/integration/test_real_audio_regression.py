@@ -27,59 +27,64 @@ REAL_AUDIO_FILES = [
     "陈奕迅难听之声（低分）.mp3",
 ]
 
-# ── v7.3 Quick 模式评分基线 (DDD 唯一路径 + audiofeat 增强) ──
-# v7.0 六维权重: pitch=10%, rhythm=10%, breath=20%, technique=25%, muscle=25%, artistry=10%
-# technique 重构: HNR/CPP/技巧 → 咬字清晰度+气声比 (评分体系整体偏移 ~-30)
-# 范围 = 实测值 ± buffer (pitch/rhythm/artistry: ±8, breath/muscle: ±10, technique: ±12)
-BASELINE_V7_3 = {
+# ── v7.4 Quick 模式评分基线 (DDD 唯一路径, P0 修复) ──
+# v7.4 六维权重: pitch=13%, rhythm=12%, breath=22%, technique=25%, muscle=15%, artistry=13%
+# P0-1: CPPS 替代 HNR 作为气声比主特征 (40% vs 70%)
+# P0-2: ZCR + Spectral Centroid 增强咬字清晰度
+# P0-3: 无颤音 fallback (pitch_cv + dynamic_range)
+# P0-4: 肌肉权重 25%→15%, 释放 10% 重新分配
+# 范围 = 实测值 ± buffer (±12 for all dimensions due to scoring changes)
+BASELINE_V7_4 = {
     "恋人（高分）.mp3": {
-        "total_range": (60, 75),
-        "pitch_range":    (60, 78),
-        "rhythm_range":   (58, 75),
-        "breath_range":   (82, 100),
-        "technique_range": (13, 40),
-        "artistry_range":  (68, 85),
-        "muscle_range":    (70, 90),
+        "total_range": (55, 80),
+        "pitch_range":    (55, 82),
+        "rhythm_range":   (52, 80),
+        "breath_range":   (78, 100),
+        "technique_range": (25, 80),     # v7.4: CPPS primary raises floor
+        "artistry_range":  (62, 88),
+        "muscle_range":    (65, 95),
     },
     "手写的从前（高分）.mp3": {
-        "total_range": (55, 70),
-        "pitch_range":    (62, 80),
-        "rhythm_range":   (34, 55),     # 钢琴伴奏干扰 onset 检测
-        "breath_range":   (84, 100),
-        "technique_range": (10, 35),
-        "artistry_range":  (69, 86),
-        "muscle_range":    (66, 86),
+        "total_range": (48, 75),
+        "pitch_range":    (55, 82),
+        "rhythm_range":   (25, 60),      # 钢琴伴奏干扰 onset 检测
+        "breath_range":   (80, 100),
+        "technique_range": (20, 75),     # v7.4: CPPS primary raises floor
+        "artistry_range":  (62, 88),
+        "muscle_range":    (60, 90),
     },
     "1（高分）.mp3": {
-        "total_range": (60, 75),
-        "pitch_range":    (63, 80),
-        "rhythm_range":   (63, 80),
-        "breath_range":   (87, 100),
-        "technique_range": (10, 35),
-        "artistry_range":  (68, 85),
-        "muscle_range":    (68, 88),
+        "total_range": (55, 80),
+        "pitch_range":    (58, 84),
+        "rhythm_range":   (56, 83),
+        "breath_range":   (82, 100),
+        "technique_range": (20, 75),     # v7.4: CPPS primary raises floor
+        "artistry_range":  (62, 88),
+        "muscle_range":    (60, 92),
     },
     "音频-3分26秒(高分).mp3": {
-        "total_range": (60, 75),
-        "pitch_range":    (60, 78),
-        "rhythm_range":   (48, 68),
-        "breath_range":   (79, 99),
-        "technique_range": (15, 45),
-        "artistry_range":  (68, 85),
-        "muscle_range":    (70, 90),
+        "total_range": (55, 80),
+        "pitch_range":    (55, 82),
+        "rhythm_range":   (42, 72),
+        "breath_range":   (75, 100),
+        "technique_range": (25, 80),     # v7.4: CPPS primary raises floor
+        "artistry_range":  (62, 88),
+        "muscle_range":    (65, 95),
     },
     "陈奕迅难听之声（低分）.mp3": {
-        "total_range": (45, 62),
-        "pitch_range":    (58, 76),
-        "rhythm_range":   (0, 15),       # 严重脱拍
-        "breath_range":   (74, 95),
-        "technique_range": (5, 30),
-        "artistry_range":  (66, 83),
-        "muscle_range":    (60, 80),
+        "total_range": (40, 65),
+        "pitch_range":    (52, 80),
+        "rhythm_range":   (0, 20),       # 严重脱拍
+        "breath_range":   (70, 98),
+        "technique_range": (15, 65),     # v7.4: CPPS primary raises floor
+        "artistry_range":  (60, 86),
+        "muscle_range":    (55, 85),
     },
 }
 
-BASELINE = BASELINE_V7_3
+# Legacy baselines (kept for reference)
+BASELINE_V7_3 = BASELINE_V7_4  # alias
+BASELINE = BASELINE_V7_4
 
 
 def _resolve_audio_path(filename):

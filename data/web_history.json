@@ -1,852 +1,852 @@
 [
   {
-    "total_score": 65.7,
+    "total_score": 72.0,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 67.5,
       "rhythm": 58.4,
       "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
+      "technique": 47.5,
+      "muscle_strength": 91.9,
       "artistry": 76.3
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:00:31.693080+00:00",
-    "id": 316,
-    "created_at": "2026-07-27T22:00:31.693080"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T07:54:13.238519+00:00",
+    "id": 442,
+    "created_at": "2026-07-29T15:54:13.239517"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 66.4,
       "rhythm": 5.2,
       "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
       "artistry": 74.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:01:09.122195+00:00",
-    "id": 317,
-    "created_at": "2026-07-27T22:01:09.122195"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T07:54:44.595569+00:00",
+    "id": 443,
+    "created_at": "2026-07-29T15:54:44.595569"
   },
   {
-    "total_score": 65.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 70.7,
-      "rhythm": 71.2,
-      "breath": 96.8,
-      "technique": 20.0,
-      "muscle_strength": 78.1,
-      "artistry": 76.4
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:01:28.742293+00:00",
-    "id": 318,
-    "created_at": "2026-07-27T22:01:28.742293"
-  },
-  {
-    "total_score": 65.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 67.5,
-      "rhythm": 58.4,
-      "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
-      "artistry": 76.3
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:02:11.638533+00:00",
-    "id": 319,
-    "created_at": "2026-07-27T22:02:11.638533"
-  },
-  {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 5.2,
-      "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
-      "artistry": 74.0
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:02:43.924966+00:00",
-    "id": 320,
-    "created_at": "2026-07-27T22:02:43.924966"
-  },
-  {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:03:41.388096+00:00",
-    "id": 321,
-    "created_at": "2026-07-27T22:03:41.388096"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T07:55:41.650433+00:00",
+    "id": 444,
+    "created_at": "2026-07-29T15:55:41.653436"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 66.4,
       "rhythm": 5.2,
       "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
       "artistry": 74.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:04:14.815117+00:00",
-    "id": 322,
-    "created_at": "2026-07-27T22:04:14.817131"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T07:56:13.120535+00:00",
+    "id": 445,
+    "created_at": "2026-07-29T15:56:13.121536"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 66.4,
       "rhythm": 5.2,
       "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
       "artistry": 74.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:04:48.022849+00:00",
-    "id": 323,
-    "created_at": "2026-07-27T22:04:48.022849"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T07:56:43.952118+00:00",
+    "id": 446,
+    "created_at": "2026-07-29T15:56:43.953166"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:05:45.483422+00:00",
-    "id": 324,
-    "created_at": "2026-07-27T22:05:45.483422"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T07:57:40.631135+00:00",
+    "id": 447,
+    "created_at": "2026-07-29T15:57:40.631643"
   },
   {
-    "total_score": 61.7,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 71.0,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 69.7,
       "rhythm": 42.2,
       "breath": 94.4,
-      "technique": 19.1,
-      "muscle_strength": 76.5,
+      "technique": 46.8,
+      "muscle_strength": 89.5,
       "artistry": 77.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:06:35.577901+00:00",
-    "id": 325,
-    "created_at": "2026-07-27T22:06:35.578901"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T07:58:29.116791+00:00",
+    "id": 448,
+    "created_at": "2026-07-29T15:58:29.116791"
   },
   {
-    "total_score": 65.7,
+    "total_score": 74.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 70.7,
       "rhythm": 71.2,
       "breath": 96.8,
-      "technique": 20.0,
-      "muscle_strength": 78.1,
+      "technique": 44.9,
+      "muscle_strength": 88.6,
       "artistry": 76.4
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:07:29.184007+00:00",
-    "id": 326,
-    "created_at": "2026-07-27T22:07:29.184007"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T07:59:23.972722+00:00",
+    "id": 449,
+    "created_at": "2026-07-29T15:59:23.972722"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.0,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 67.5,
       "rhythm": 58.4,
       "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
+      "technique": 47.5,
+      "muscle_strength": 91.9,
       "artistry": 76.3
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:08:11.488385+00:00",
-    "id": 327,
-    "created_at": "2026-07-27T22:08:11.489386"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:00:07.360670+00:00",
+    "id": 450,
+    "created_at": "2026-07-29T16:00:07.360670"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:09:08.521262+00:00",
-    "id": 328,
-    "created_at": "2026-07-27T22:09:08.522261"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:01:07.655235+00:00",
+    "id": 451,
+    "created_at": "2026-07-29T16:01:07.656353"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:12:00.221928+00:00",
-    "id": 329,
-    "created_at": "2026-07-27T22:12:00.223161"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:04:01.874475+00:00",
+    "id": 452,
+    "created_at": "2026-07-29T16:04:01.874475"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:26:03.713551+00:00",
-    "id": 330,
-    "created_at": "2026-07-27T22:26:03.713551"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:06:17.920287+00:00",
+    "id": 453,
+    "created_at": "2026-07-29T16:06:17.920789"
   },
   {
-    "total_score": 61.7,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 71.0,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 69.7,
       "rhythm": 42.2,
       "breath": 94.4,
-      "technique": 19.1,
-      "muscle_strength": 76.5,
+      "technique": 46.8,
+      "muscle_strength": 89.5,
       "artistry": 77.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:26:53.008878+00:00",
-    "id": 331,
-    "created_at": "2026-07-27T22:26:53.009901"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:07:05.586501+00:00",
+    "id": 454,
+    "created_at": "2026-07-29T16:07:05.587500"
   },
   {
-    "total_score": 65.7,
+    "total_score": 74.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 70.7,
       "rhythm": 71.2,
       "breath": 96.8,
-      "technique": 20.0,
-      "muscle_strength": 78.1,
+      "technique": 44.9,
+      "muscle_strength": 88.6,
       "artistry": 76.4
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:27:47.820930+00:00",
-    "id": 332,
-    "created_at": "2026-07-27T22:27:47.821930"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:07:58.677711+00:00",
+    "id": 455,
+    "created_at": "2026-07-29T16:07:58.678714"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.0,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 67.5,
       "rhythm": 58.4,
       "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
+      "technique": 47.5,
+      "muscle_strength": 91.9,
       "artistry": 76.3
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:28:31.802494+00:00",
-    "id": 333,
-    "created_at": "2026-07-27T22:28:31.802494"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:08:41.087137+00:00",
+    "id": 456,
+    "created_at": "2026-07-29T16:08:41.088138"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 66.4,
       "rhythm": 5.2,
       "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
       "artistry": 74.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:29:04.970306+00:00",
-    "id": 334,
-    "created_at": "2026-07-27T22:29:04.971399"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:09:12.945078+00:00",
+    "id": 457,
+    "created_at": "2026-07-29T16:09:12.945078"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:30:04.324675+00:00",
-    "id": 335,
-    "created_at": "2026-07-27T22:30:04.324675"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:10:10.544117+00:00",
+    "id": 458,
+    "created_at": "2026-07-29T16:10:10.545118"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 5.2,
-      "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
-      "artistry": 74.0
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-27T14:30:37.505798+00:00",
-    "id": 336,
-    "created_at": "2026-07-27T22:30:37.506797"
-  },
-  {
-    "total_score": 65.7,
+    "total_score": 71.0,
     "level": "良好",
     "grade": "B",
-    "scores": {
-      "pitch": 66.6,
-      "rhythm": 66.3,
-      "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
-      "artistry": 75.8
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:25:02.992683+00:00",
-    "id": 337,
-    "created_at": "2026-07-28T15:25:02.992683"
-  },
-  {
-    "total_score": 61.7,
-    "level": "中等",
-    "grade": "C",
     "scores": {
       "pitch": 69.7,
       "rhythm": 42.2,
       "breath": 94.4,
-      "technique": 19.1,
-      "muscle_strength": 76.5,
+      "technique": 46.8,
+      "muscle_strength": 89.5,
       "artistry": 77.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:25:53.814091+00:00",
-    "id": 338,
-    "created_at": "2026-07-28T15:25:53.814091"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:10:58.545650+00:00",
+    "id": 459,
+    "created_at": "2026-07-29T16:10:58.545650"
   },
   {
-    "total_score": 65.7,
+    "total_score": 74.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 70.7,
       "rhythm": 71.2,
       "breath": 96.8,
-      "technique": 20.0,
-      "muscle_strength": 78.1,
+      "technique": 44.9,
+      "muscle_strength": 88.6,
       "artistry": 76.4
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:26:49.006549+00:00",
-    "id": 339,
-    "created_at": "2026-07-28T15:26:49.007894"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:11:51.809835+00:00",
+    "id": 460,
+    "created_at": "2026-07-29T16:11:51.810836"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.0,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 67.5,
       "rhythm": 58.4,
       "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
+      "technique": 47.5,
+      "muscle_strength": 91.9,
       "artistry": 76.3
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:27:32.787176+00:00",
-    "id": 340,
-    "created_at": "2026-07-28T15:27:32.787176"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:12:34.378096+00:00",
+    "id": 461,
+    "created_at": "2026-07-29T16:12:34.378096"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 66.4,
       "rhythm": 5.2,
       "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
       "artistry": 74.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:28:05.691438+00:00",
-    "id": 341,
-    "created_at": "2026-07-28T15:28:05.692944"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:13:06.494091+00:00",
+    "id": 462,
+    "created_at": "2026-07-29T16:13:06.494091"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:29:05.351231+00:00",
-    "id": 342,
-    "created_at": "2026-07-28T15:29:05.351231"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:14:04.250653+00:00",
+    "id": 463,
+    "created_at": "2026-07-29T16:14:04.251156"
   },
   {
-    "total_score": 61.7,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 71.0,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 69.7,
       "rhythm": 42.2,
       "breath": 94.4,
-      "technique": 19.1,
-      "muscle_strength": 76.5,
+      "technique": 46.8,
+      "muscle_strength": 89.5,
       "artistry": 77.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:29:55.545197+00:00",
-    "id": 343,
-    "created_at": "2026-07-28T15:29:55.545197"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:14:52.519850+00:00",
+    "id": 464,
+    "created_at": "2026-07-29T16:14:52.519850"
   },
   {
-    "total_score": 65.7,
+    "total_score": 74.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 70.7,
       "rhythm": 71.2,
       "breath": 96.8,
-      "technique": 20.0,
-      "muscle_strength": 78.1,
+      "technique": 44.9,
+      "muscle_strength": 88.6,
       "artistry": 76.4
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:30:55.443328+00:00",
-    "id": 344,
-    "created_at": "2026-07-28T15:30:55.444327"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:15:47.009053+00:00",
+    "id": 465,
+    "created_at": "2026-07-29T16:15:47.010052"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.0,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 67.5,
       "rhythm": 58.4,
       "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
+      "technique": 47.5,
+      "muscle_strength": 91.9,
       "artistry": 76.3
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:31:42.906220+00:00",
-    "id": 345,
-    "created_at": "2026-07-28T15:31:42.907219"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:16:30.322294+00:00",
+    "id": 466,
+    "created_at": "2026-07-29T16:16:30.324293"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 66.4,
       "rhythm": 5.2,
       "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
       "artistry": 74.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:32:18.281882+00:00",
-    "id": 346,
-    "created_at": "2026-07-28T15:32:18.281882"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:17:03.044647+00:00",
+    "id": 467,
+    "created_at": "2026-07-29T16:17:03.044647"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:33:21.835981+00:00",
-    "id": 347,
-    "created_at": "2026-07-28T15:33:21.835981"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:18:01.785629+00:00",
+    "id": 468,
+    "created_at": "2026-07-29T16:18:01.786628"
   },
   {
-    "total_score": 61.7,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 71.0,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 69.7,
       "rhythm": 42.2,
       "breath": 94.4,
-      "technique": 19.1,
-      "muscle_strength": 76.5,
+      "technique": 46.8,
+      "muscle_strength": 89.5,
       "artistry": 77.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:34:13.464896+00:00",
-    "id": 348,
-    "created_at": "2026-07-28T15:34:13.465895"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:18:50.981386+00:00",
+    "id": 469,
+    "created_at": "2026-07-29T16:18:50.982393"
   },
   {
-    "total_score": 65.7,
+    "total_score": 74.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 70.7,
       "rhythm": 71.2,
       "breath": 96.8,
-      "technique": 20.0,
-      "muscle_strength": 78.1,
+      "technique": 44.9,
+      "muscle_strength": 88.6,
       "artistry": 76.4
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:35:15.026986+00:00",
-    "id": 349,
-    "created_at": "2026-07-28T15:35:15.026986"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:19:45.665470+00:00",
+    "id": 470,
+    "created_at": "2026-07-29T16:19:45.666472"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.0,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 67.5,
       "rhythm": 58.4,
       "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
+      "technique": 47.5,
+      "muscle_strength": 91.9,
       "artistry": 76.3
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:36:02.897385+00:00",
-    "id": 350,
-    "created_at": "2026-07-28T15:36:02.900662"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:20:29.504855+00:00",
+    "id": 471,
+    "created_at": "2026-07-29T16:20:29.505856"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 66.4,
       "rhythm": 5.2,
       "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
       "artistry": 74.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:36:37.370303+00:00",
-    "id": 351,
-    "created_at": "2026-07-28T15:36:37.371418"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:21:02.933308+00:00",
+    "id": 472,
+    "created_at": "2026-07-29T16:21:02.934312"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:37:38.966818+00:00",
-    "id": 352,
-    "created_at": "2026-07-28T15:37:38.966818"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:22:03.372518+00:00",
+    "id": 473,
+    "created_at": "2026-07-29T16:22:03.376087"
   },
   {
-    "total_score": 61.7,
-    "level": "中等",
-    "grade": "C",
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 66.4,
+      "rhythm": 5.2,
+      "breath": 83.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
+      "artistry": 74.0
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:22:36.338448+00:00",
+    "id": 474,
+    "created_at": "2026-07-29T16:22:36.338448"
+  },
+  {
+    "total_score": 62.9,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 66.4,
+      "rhythm": 5.2,
+      "breath": 83.8,
+      "technique": 48.8,
+      "muscle_strength": 82.8,
+      "artistry": 74.0
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:23:09.430013+00:00",
+    "id": 475,
+    "created_at": "2026-07-29T16:23:09.430522"
+  },
+  {
+    "total_score": 72.5,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 66.6,
+      "rhythm": 66.3,
+      "breath": 92.4,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
+      "artistry": 75.8
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:24:09.221043+00:00",
+    "id": 476,
+    "created_at": "2026-07-29T16:24:09.222052"
+  },
+  {
+    "total_score": 71.0,
+    "level": "良好",
+    "grade": "B",
     "scores": {
       "pitch": 69.7,
       "rhythm": 42.2,
       "breath": 94.4,
-      "technique": 19.1,
-      "muscle_strength": 76.5,
+      "technique": 46.8,
+      "muscle_strength": 89.5,
       "artistry": 77.0
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:38:30.111660+00:00",
-    "id": 353,
-    "created_at": "2026-07-28T15:38:30.111660"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:24:56.434151+00:00",
+    "id": 477,
+    "created_at": "2026-07-29T16:24:56.435150"
   },
   {
-    "total_score": 65.7,
+    "total_score": 74.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 70.7,
       "rhythm": 71.2,
       "breath": 96.8,
-      "technique": 20.0,
-      "muscle_strength": 78.1,
+      "technique": 44.9,
+      "muscle_strength": 88.6,
       "artistry": 76.4
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:39:26.643458+00:00",
-    "id": 354,
-    "created_at": "2026-07-28T15:39:26.643458"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:25:48.638328+00:00",
+    "id": 478,
+    "created_at": "2026-07-29T16:25:48.639328"
   },
   {
-    "total_score": 65.7,
+    "total_score": 72.0,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 67.5,
       "rhythm": 58.4,
       "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
+      "technique": 47.5,
+      "muscle_strength": 91.9,
       "artistry": 76.3
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:40:11.789450+00:00",
-    "id": 355,
-    "created_at": "2026-07-28T15:40:11.790450"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:26:29.887905+00:00",
+    "id": 479,
+    "created_at": "2026-07-29T16:26:29.888904"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 5.2,
-      "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
-      "artistry": 74.0
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:40:47.695408+00:00",
-    "id": 356,
-    "created_at": "2026-07-28T15:40:47.695408"
-  },
-  {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:41:49.229969+00:00",
-    "id": 357,
-    "created_at": "2026-07-28T15:41:49.232967"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:27:25.429682+00:00",
+    "id": 480,
+    "created_at": "2026-07-29T16:27:25.430682"
   },
   {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 5.2,
-      "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
-      "artistry": 74.0
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:42:23.158335+00:00",
-    "id": 358,
-    "created_at": "2026-07-28T15:42:23.158335"
-  },
-  {
-    "total_score": 52.8,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 5.2,
-      "breath": 83.8,
-      "technique": 16.3,
-      "muscle_strength": 69.8,
-      "artistry": 74.0
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:42:57.309876+00:00",
-    "id": 359,
-    "created_at": "2026-07-28T15:42:57.310880"
-  },
-  {
-    "total_score": 65.7,
+    "total_score": 72.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
+      "technique": 45.3,
+      "muscle_strength": 89.1,
       "artistry": 75.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:43:58.543676+00:00",
-    "id": 360,
-    "created_at": "2026-07-28T15:43:58.543676"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:29:56.571686+00:00",
+    "id": 481,
+    "created_at": "2026-07-29T16:29:56.572688"
   },
   {
-    "total_score": 61.7,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 69.7,
-      "rhythm": 42.2,
-      "breath": 94.4,
-      "technique": 19.1,
-      "muscle_strength": 76.5,
-      "artistry": 77.0
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:44:48.698595+00:00",
-    "id": 361,
-    "created_at": "2026-07-28T15:44:48.698595"
-  },
-  {
-    "total_score": 65.7,
+    "total_score": 73.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 70.7,
       "rhythm": 71.2,
       "breath": 96.8,
-      "technique": 20.0,
-      "muscle_strength": 78.1,
-      "artistry": 76.4
+      "technique": 44.9,
+      "muscle_strength": 77.2,
+      "artistry": 81.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:45:44.367657+00:00",
-    "id": 362,
-    "created_at": "2026-07-28T15:45:44.367657"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:32:46.196670+00:00",
+    "id": 482,
+    "created_at": "2026-07-29T16:32:46.198174"
   },
   {
-    "total_score": 65.7,
+    "total_score": 73.5,
     "level": "良好",
     "grade": "B",
     "scores": {
-      "pitch": 67.5,
-      "rhythm": 58.4,
-      "breath": 89.3,
-      "technique": 29.9,
-      "muscle_strength": 80.4,
-      "artistry": 76.3
+      "pitch": 70.7,
+      "rhythm": 71.2,
+      "breath": 96.8,
+      "technique": 44.9,
+      "muscle_strength": 77.2,
+      "artistry": 81.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:46:30.124765+00:00",
-    "id": 363,
-    "created_at": "2026-07-28T15:46:30.125765"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:33:40.080678+00:00",
+    "id": 483,
+    "created_at": "2026-07-29T16:33:40.080678"
   },
   {
-    "total_score": 65.7,
+    "total_score": 73.5,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 70.7,
+      "rhythm": 71.2,
+      "breath": 96.8,
+      "technique": 44.9,
+      "muscle_strength": 77.2,
+      "artistry": 81.8
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:35:04.710305+00:00",
+    "id": 484,
+    "created_at": "2026-07-29T16:35:04.711307"
+  },
+  {
+    "total_score": 73.5,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 70.7,
+      "rhythm": 71.2,
+      "breath": 96.8,
+      "technique": 44.9,
+      "muscle_strength": 77.2,
+      "artistry": 81.8
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:36:35.621352+00:00",
+    "id": 485,
+    "created_at": "2026-07-29T16:36:35.622355"
+  },
+  {
+    "total_score": 71.5,
     "level": "良好",
     "grade": "B",
     "scores": {
       "pitch": 66.6,
       "rhythm": 66.3,
       "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
-      "artistry": 75.8
+      "technique": 45.3,
+      "muscle_strength": 77.9,
+      "artistry": 81.2
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:47:32.453722+00:00",
-    "id": 364,
-    "created_at": "2026-07-28T15:47:32.454721"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:38:27.536154+00:00",
+    "id": 486,
+    "created_at": "2026-07-29T16:38:27.536154"
   },
   {
-    "total_score": 65.7,
+    "total_score": 73.5,
     "level": "良好",
     "grade": "B",
     "scores": {
-      "pitch": 66.6,
-      "rhythm": 66.3,
-      "breath": 92.4,
-      "technique": 25.2,
-      "muscle_strength": 80.1,
-      "artistry": 75.8
+      "pitch": 70.7,
+      "rhythm": 71.2,
+      "breath": 96.8,
+      "technique": 44.9,
+      "muscle_strength": 77.2,
+      "artistry": 81.8
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-07-28T07:50:27.605543+00:00",
-    "id": 365,
-    "created_at": "2026-07-28T15:50:27.606543"
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:39:59.931881+00:00",
+    "id": 487,
+    "created_at": "2026-07-29T16:39:59.931881"
+  },
+  {
+    "total_score": 73.5,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 70.7,
+      "rhythm": 71.2,
+      "breath": 96.8,
+      "technique": 44.9,
+      "muscle_strength": 77.2,
+      "artistry": 81.8
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:41:26.362646+00:00",
+    "id": 488,
+    "created_at": "2026-07-29T16:41:26.363652"
+  },
+  {
+    "total_score": 73.5,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 70.7,
+      "rhythm": 71.2,
+      "breath": 96.8,
+      "technique": 44.9,
+      "muscle_strength": 77.2,
+      "artistry": 81.8
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T08:42:19.671063+00:00",
+    "id": 489,
+    "created_at": "2026-07-29T16:42:19.671063"
+  },
+  {
+    "total_score": 73.5,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 70.7,
+      "rhythm": 71.2,
+      "breath": 96.8,
+      "technique": 44.9,
+      "muscle_strength": 77.2,
+      "artistry": 81.8
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T09:38:52.089526+00:00",
+    "id": 490,
+    "created_at": "2026-07-29T17:38:52.090528"
+  },
+  {
+    "total_score": 62.5,
+    "level": "良好",
+    "grade": "B",
+    "scores": {
+      "pitch": 66.4,
+      "rhythm": 5.2,
+      "breath": 83.8,
+      "technique": 48.8,
+      "muscle_strength": 75.4,
+      "artistry": 79.4
+    },
+    "timbre_adjustment": 1.0,
+    "timestamp": "2026-07-29T09:39:24.439694+00:00",
+    "id": 491,
+    "created_at": "2026-07-29T17:39:24.440769"
   }
 ]

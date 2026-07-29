@@ -33,7 +33,11 @@ class ArtistryScorer:
     """艺术表现评分器 — 纯计算, 零副作用"""
 
     def calculate(self, features: ArtistryFeatures) -> ArtistryScore:
-        vibrato = self._calc_vibrato(features.vibrato_quality, features.vibrato_count)
+        vibrato = self._calc_vibrato(
+            features.vibrato_quality, features.vibrato_count,
+            features.pitch_cv,           # v7.4: fallback
+            features.dynamic_range,      # v7.4: fallback
+        )
         dynamic = self._calc_dynamic(features.dynamic_range, features.crescendo_quality)
         phrase = self._calc_phrase(
             features.phrase_coherence,
@@ -63,13 +67,42 @@ class ArtistryScorer:
         )
 
     @staticmethod
-    def _calc_vibrato(quality: float, count: int) -> float:
-        """颤音表现力 = vibrato_quality * 0.80 + count_bonus"""
-        if count == 0:
-            return 0.0
-        quality_score = quality * 0.80
-        count_bonus = min(20.0, count * 2.0)
-        return min(100.0, quality_score + count_bonus)
+    def _calc_vibrato(
+        quality: float, count: int,
+        pitch_cv: float = 0.0,          # v7.4: fallback 特征
+        dynamic_range: float = 15.0,    # v7.4: fallback 特征
+    ) -> float:
+        """颤音表现力 = vibrato_quality + 无颤音时的 fallback
+
+        文献: TECH_RESEARCH §2.6 — 无颤音歌手可能其他表现力强。
+        流行/R&B/说唱唱法不以颤音为主要表现手段。
+        """
+        if count > 0:
+            # 有颤音: 正常评分
+            quality_score = quality * 0.80
+            count_bonus = min(20.0, count * 2.0)
+            return min(100.0, quality_score + count_bonus)
+
+        # === 无颤音 fallback: 用音高变化 + 动态范围替代 ===
+        # 原理: 表现力也可以通过音高多样性和动态对比体现
+        # 上限 80 分 — 没有颤音的歌手不会得到颤音维度的满分
+
+        # 音高变化 (pitch_cv):
+        if pitch_cv <= 0:
+            pitch_score = 0.0
+        elif pitch_cv < 0.03:
+            pitch_score = pitch_cv / 0.03 * 20.0
+        elif pitch_cv < 0.10:
+            pitch_score = 20.0 + (pitch_cv - 0.03) / 0.07 * 30.0
+        elif pitch_cv < 0.20:
+            pitch_score = 50.0 + (pitch_cv - 0.10) / 0.10 * 10.0
+        else:
+            pitch_score = min(60.0, 60.0 - (pitch_cv - 0.20) * 50.0)
+
+        # 动态范围: 0→0, 15→20, 30→40
+        dynamic_score = min(40.0, dynamic_range * 1.33)
+
+        return min(80.0, pitch_score + dynamic_score)
 
     @staticmethod
     def _calc_dynamic(dynamic_range: float, crescendo_quality: float) -> float:

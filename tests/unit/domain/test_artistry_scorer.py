@@ -28,9 +28,12 @@ class TestArtistryScorer:
         assert result.vibrato_quality > 80
 
     def test_vibrato_none(self):
+        """无颤音 → v7.4 fallback 用 pitch_cv + dynamic_range, 不再归零"""
         f = make_features(vibrato_quality=0.0, vibrato_count=0)
         result = self.scorer.calculate(f)
-        assert result.vibrato_quality == 0.0
+        # v7.4: 无颤音不再得 0 分, fallback 使用 pitch_cv + dynamic_range
+        assert result.vibrato_quality > 0.0  # fallback score
+        assert result.vibrato_quality <= 80.0  # capped
 
     def test_dynamic_rich(self):
         f = make_features(dynamic_range=25.0, crescendo_quality=80.0)
@@ -57,7 +60,7 @@ class TestArtistryScorer:
     def test_weighted_method(self):
         f = make_features()
         result = self.scorer.calculate(f)
-        assert result.weighted() == result.raw_score * 0.10
+        assert result.weighted() == result.raw_score * 0.13  # v7.4: 10%→13%
 
     def test_combined_weighted(self):
         f = make_features(
@@ -69,3 +72,32 @@ class TestArtistryScorer:
         result = self.scorer.calculate(f)
         assert 0 <= result.raw_score <= 100
         assert isinstance(result.raw_score, float)
+
+    # ---- v7.4: 颤音 fallback ----
+
+    def test_vibrato_fallback_with_pitch_cv(self):
+        """无颤音但有音高变化 → fallback 评分 (上限 80)"""
+        f = make_features(vibrato_quality=0.0, vibrato_count=0,
+                          pitch_cv=0.08, dynamic_range=20.0)
+        result = self.scorer.calculate(f)
+        assert 30 <= result.vibrato_quality <= 80  # fallback, 不为零
+
+    def test_vibrato_fallback_poor(self):
+        """无颤音 + 无音高变化 + 无动态范围 → 低 fallback 分"""
+        f = make_features(vibrato_quality=0.0, vibrato_count=0,
+                          pitch_cv=0.0, dynamic_range=0.0)
+        result = self.scorer.calculate(f)
+        assert result.vibrato_quality < 30  # poor fallback
+
+    def test_vibrato_with_count_still_works(self):
+        """有颤音时正常评分 (不变)"""
+        f = make_features(vibrato_quality=90.0, vibrato_count=5)
+        result = self.scorer.calculate(f)
+        assert result.vibrato_quality > 60  # normal scoring
+
+    def test_vibrato_fallback_capped_at_80(self):
+        """Fallback 上限 80 分"""
+        f = make_features(vibrato_quality=0.0, vibrato_count=0,
+                          pitch_cv=0.15, dynamic_range=35.0)
+        result = self.scorer.calculate(f)
+        assert result.vibrato_quality <= 80

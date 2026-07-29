@@ -1,8 +1,8 @@
 # 声乐评估系统架构规划 v3.1
 
-> 🗄️ **归档文档 — v3.1 (2026-05)** | 当前版本: v5.17
-> 
-> 本文档为历史快照，描述的项目架构与当前实现有较大差异。
+> 🗄️ **归档文档 — v3.1 (2026-05)** | 当前版本: v7.3.1
+>
+> 历史快照。当前架构已迁移至 FastAPI + DDD 四层 + Vue 3 SPA。详见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)。
 > 当前架构见 **[../2-technical/ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)**。
 > 
 > 主要变化: Wav2Vec2 已移除 (v5.12) | WebSocket 未实现 | 三模式已替代双模式 | 前端已重构为 ES6 Modules

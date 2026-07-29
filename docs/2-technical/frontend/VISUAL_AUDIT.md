@@ -1,7 +1,8 @@
 # 前端真实页面视觉审计
 
-> 审计日期: 2026-06-06  
-> 审计范围: 静态 SPA 预览 `http://localhost:8000/` 的 Home、Compare、Settings，覆盖桌面 1280x720 与移动端 375x667 抽样。
+> ⚠️ **已过期**: 本审计基于 2026-06-06 的 v5.x Vanilla JS 前端 (`web/static/`)。当前 v7.3.1 前端已完全重建为 Vue 3 + Element Plus (`frontend/src/`)，不再使用 emoji 图标、内联样式、旧 CSS 布局。本文档中所有具体视觉问题（sidebar、top-nav、inline style 计数）不再适用于当前前端。设计原则部分仍具参考价值。
+>
+> 审计日期: 2026-06-06 | 审计范围: 旧版 `web/static/` (Vanilla JS SPA)
 
 ## 1. 总体结论
 

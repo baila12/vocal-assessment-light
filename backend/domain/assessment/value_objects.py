@@ -13,7 +13,7 @@ from backend.shared.domain_types import ScoreValue
 
 
 # ============================================================
-# 1. PitchScore — 音准评分 (10% 权重)
+# 1. PitchScore — 音准评分 (13% 权重, v7.4)
 # ============================================================
 @dataclass(frozen=True)
 class PitchScore:
@@ -31,11 +31,11 @@ class PitchScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.10
+        return self.raw_score * 0.13  # v7.4: 10%→13%
 
 
 # ============================================================
-# 2. RhythmScore — 节奏评分 (10% 权重)
+# 2. RhythmScore — 节奏评分 (12% 权重)
 # ============================================================
 @dataclass(frozen=True)
 class RhythmScore:
@@ -49,11 +49,11 @@ class RhythmScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.10
+        return self.raw_score * 0.12  # v7.4: 10%→12%
 
 
 # ============================================================
-# 3. BreathScore — 气息评分 (20% 权重)
+# 3. BreathScore — 气息评分 (22% 权重)
 # ============================================================
 @dataclass(frozen=True)
 class BreathScore:
@@ -70,7 +70,7 @@ class BreathScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.20
+        return self.raw_score * 0.22  # v7.4: 20%→22%
 
 
 # ============================================================
@@ -92,7 +92,7 @@ class TechniqueScore:
 
 
 # ============================================================
-# 5. MuscleStrengthScore — 肌肉力量评分 (NEW, 25% 权重)
+# 5. MuscleStrengthScore — 肌肉力量评分 (NEW, 15% 权重, v7.4)
 # ============================================================
 @dataclass(frozen=True)
 class MuscleStrengthScore:
@@ -109,11 +109,11 @@ class MuscleStrengthScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.25
+        return self.raw_score * 0.15  # v7.4: 25%→15%
 
 
 # ============================================================
-# 6. ArtistryScore — 艺术表现评分 (10% 权重)
+# 6. ArtistryScore — 艺术表现评分 (13% 权重)
 # ============================================================
 @dataclass(frozen=True)
 class ArtistryScore:
@@ -127,7 +127,7 @@ class ArtistryScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.10
+        return self.raw_score * 0.13  # v7.4: 10%→13%
 
 
 # ============================================================

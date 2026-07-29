@@ -94,7 +94,40 @@ class LibrosaTechniqueExtractor:
         spectral_flux = technique_score / 20.0
 
         consonant_clarity = max(0.0, min(100.0, hnr * 2.0))
-        hf_energy_ratio = max(0.0, min(1.0, cpp / 5.0))
+
+        # v7.5: 修复 CPPS→HF 非单调耦合
+        # 旧: hf_energy_ratio = cpp / 5.0 → CPPS=3.5 得分高于 CPPS=5.0
+        # 新: 从真实频谱计算 >5kHz 能量占比
+        hf_energy_ratio = 0.5  # default (中性)
+        try:
+            S = np.abs(librosa.stft(y, n_fft=2048, hop_length=512))
+            freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
+            hf_mask = freqs > 5000
+            total_energy = np.sum(S)
+            if total_energy > 0:
+                hf_energy_ratio = float(np.clip(np.sum(S[hf_mask]) / total_energy, 0.0, 1.0))
+        except Exception:
+            pass  # fallback to default 0.5
+
+        # v7.4: ZCR, spectral centroid, C-V energy ratio (Rathi & Hsu 2021)
+        zcr_mean = 0.0
+        spectral_centroid = 0.0
+        cv_energy_ratio = -15.0
+        try:
+            zcr = librosa.feature.zero_crossing_rate(y, frame_length=2048, hop_length=512)[0]
+            zcr_mean = float(np.mean(zcr))
+
+            centroid_raw = librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=512)[0]
+            spectral_centroid = float(np.mean(centroid_raw))
+
+            # C-V energy ratio: 质心峰-谷比 → 辅音/元音能量对比
+            if len(centroid_raw) > 10:
+                peaks = np.percentile(centroid_raw, 90)
+                valleys = np.percentile(centroid_raw, 10)
+                if valleys > 0:
+                    cv_energy_ratio = float(20 * np.log10(valleys / max(peaks, 1e-10)))
+        except Exception:
+            logger.debug("ZCR/centroid/C-V extraction failed, using defaults")
 
         return TechniqueFeatures(
             onset_density=round(onset_density, 2),
@@ -106,6 +139,9 @@ class LibrosaTechniqueExtractor:
             cpp_mean=round(cpp, 4),
             vibrato_quality=round(vibrato_quality, 2),
             vibrato_rate_avg=round(vibrato_rate, 4),
+            zcr_mean=round(zcr_mean, 6),
+            spectral_centroid=round(spectral_centroid, 2),
+            cv_energy_ratio=round(cv_energy_ratio, 4),
         )
 
     @staticmethod

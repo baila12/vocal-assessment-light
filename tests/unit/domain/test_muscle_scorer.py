@@ -48,9 +48,16 @@ class TestMuscleStrengthScorer:
         assert result.facial_muscle_strength < 40
 
     def test_facial_rich_overtone(self):
-        f = make_features(overtone_richness=12.0)
+        # v7.5: overtone_richness 现在是 0-100 评分 (controlled_breathiness)
+        f = make_features(overtone_richness=75.0)  # good breathiness control
         result = self.scorer.calculate(f)
         assert result.facial_muscle_strength > 50
+
+    def test_facial_low_overtone_penalized(self):
+        """v7.5: 低 overtone (<20) → 面部低分"""
+        f = make_features(overtone_richness=10.0)
+        result = self.scorer.calculate(f)
+        assert result.facial_muscle_strength < 50
 
     def test_combined_5050_weighting(self):
         f = make_features(
@@ -94,7 +101,89 @@ class TestMuscleStrengthScorer:
     def test_weighted_method(self):
         f = make_features()
         result = self.scorer.calculate(f)
-        assert result.weighted() == result.raw_score * 0.25
+        assert result.weighted() == result.raw_score * 0.15  # v7.4: 25%→15%
+
+    # ---- v7.4: 五维代理增强 ----
+
+    def test_mpt_excellent_boosts_body(self):
+        """MPT >= 15s → +10 body"""
+        f = make_features(mpt_seconds=16.0)
+        result = self.scorer.calculate(f)
+        f_base = make_features(mpt_seconds=0.0)
+        result_base = self.scorer.calculate(f_base)
+        assert result.body_muscle_strength > result_base.body_muscle_strength
+
+    def test_mpt_poor_penalizes_body(self):
+        """MPT < 5s → -15 body"""
+        f = make_features(mpt_seconds=3.0)
+        result = self.scorer.calculate(f)
+        f_base = make_features(mpt_seconds=0.0)
+        result_base = self.scorer.calculate(f_base)
+        assert result.body_muscle_strength < result_base.body_muscle_strength
+
+    def test_crest_factor_good_boosts(self):
+        """Crest Factor >= 14 → +8 body"""
+        f = make_features(crest_factor=15.0)
+        result = self.scorer.calculate(f)
+        f_base = make_features(crest_factor=0.0)
+        result_base = self.scorer.calculate(f_base)
+        assert result.body_muscle_strength > result_base.body_muscle_strength
+
+    def test_f1f2_large_area_boosts_facial(self):
+        """F1-F2 area >= 200k → +10 facial"""
+        f = make_features(f1f2_area=250000.0)
+        result = self.scorer.calculate(f)
+        f_base = make_features(f1f2_area=0.0)
+        result_base = self.scorer.calculate(f_base)
+        assert result.facial_muscle_strength > result_base.facial_muscle_strength
+
+    def test_f1f2_small_area_penalizes_facial(self):
+        """F1-F2 area < 50k → -8 facial"""
+        f = make_features(f1f2_area=30000.0)
+        result = self.scorer.calculate(f)
+        f_base = make_features(f1f2_area=0.0)
+        result_base = self.scorer.calculate(f_base)
+        assert result.facial_muscle_strength < result_base.facial_muscle_strength
+
+    def test_spr_high_boosts_body(self):
+        """SPR >= 1.2 → +5 body"""
+        f = make_features(spr_ratio=1.5)
+        result = self.scorer.calculate(f)
+        f_base = make_features(spr_ratio=1.0)  # default = no effect
+        result_base = self.scorer.calculate(f_base)
+        assert result.body_muscle_strength > result_base.body_muscle_strength
+
+    def test_spr_low_penalizes_body(self):
+        """SPR < 0.9 → -5 body"""
+        f = make_features(spr_ratio=0.5)
+        result = self.scorer.calculate(f)
+        f_base = make_features(spr_ratio=1.0)
+        result_base = self.scorer.calculate(f_base)
+        assert result.body_muscle_strength < result_base.body_muscle_strength
+
+    def test_alpha_ratio_high_effort_boosts_facial(self):
+        """Alpha Ratio > -15dB (较强发声努力) → +3 facial"""
+        f = make_features(alpha_ratio=-10.0)
+        result = self.scorer.calculate(f)
+        f_base = make_features(alpha_ratio=-15.0)  # default = no effect
+        result_base = self.scorer.calculate(f_base)
+        assert result.facial_muscle_strength > result_base.facial_muscle_strength
+
+    def test_alpha_ratio_low_effort_penalizes_facial(self):
+        """Alpha Ratio < -25dB (过弱) → -5 facial"""
+        f = make_features(alpha_ratio=-28.0)
+        result = self.scorer.calculate(f)
+        f_base = make_features(alpha_ratio=-15.0)
+        result_base = self.scorer.calculate(f_base)
+        assert result.facial_muscle_strength < result_base.facial_muscle_strength
+
+    def test_all_new_proxies_default_no_effect(self):
+        """所有新代理默认值 → 不影响评分"""
+        f = make_features(mpt_seconds=0.0, crest_factor=0.0, spr_ratio=1.0,
+                          f1f2_area=0.0, alpha_ratio=-15.0)
+        result = self.scorer.calculate(f)
+        assert 0 <= result.raw_score <= 100
+        assert result.is_heuristic is True
 
 
 # ================================================================

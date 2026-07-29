@@ -1,6 +1,8 @@
 # 前端与后端计划对齐
 
-> 目标: 前端重构不能只修当前页面外观，还要为后端 v5.18/v6.0 计划预留稳定页面、状态和接口边界。
+> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.3.1 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。
+>
+> 当前前后端状态见: [ARCHITECTURE.md](../ARCHITECTURE.md) | [ROUTES.md](ROUTES.md) | [README.md](README.md)
 
 ## 后端计划摘要
 

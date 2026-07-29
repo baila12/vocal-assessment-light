@@ -65,7 +65,7 @@ class TestScoringDomainService:
         a = ArtistryScore(raw_score=100, vibrato_quality=100, dynamic_control=100,
                           phrase_expression=100, pitch_variation=100)
         result = self.service.calculate_total(p, r, b, t, m, a)
-        assert result == 100.0  # 10+10+20+25+25+10 = 100
+        assert result == 100.0  # v7.4: 13+12+22+25+15+13 = 100
 
     # 3. Timbre bonus cap +3
     def test_timbre_bonus_capped_plus_3(self):

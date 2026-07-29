@@ -1,8 +1,8 @@
 # 声乐评估系统 - 前端设计方案 v2.0
 
-> 🗄️ **归档文档 — v2.0 (2026-05)** | 保留作为未来前端重构参考
+> 🗄️ **归档文档 — v2.0 (2026-05)** | 当前版本: v7.3.1
 >
-> 本文档描述的 UI 设计大部分未实现。当前前端为 ES6 Modules 单页面应用。
+> 历史设计参考。当前前端已迁移至 Vue 3 + Element Plus。详见 [frontend/README.md](../2-technical/frontend/README.md)。
 > 产品设计见 **[../1-product/GOALS.md](../1-product/GOALS.md)**。
 > 新架构见 **[../2-technical/ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)**。
 

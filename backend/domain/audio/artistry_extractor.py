@@ -50,10 +50,12 @@ class LibrosaArtistryExtractor:
         # long_note_count (与 adapter 一致)
         long_note_count = int(getattr(breath, 'long_note_count', 0) or 0)
 
-        # pitch_cv: 优先使用传入值 (来自 VocalTechniqueResult.vibrato_rate_avg)
-        # 回退: 从 technique onset_density 推导
-        if pitch_cv <= 0:
-            pitch_cv = max(0.01, float(technique.onset_density) * 0.3)
+        # v7.5: pitch_cv 应为 F0 变异系数 (0.01-0.20), 不是 vibrato_rate_avg (Hz)
+        # 优先使用传入值 (来自 orchestrator 中真实 F0 CV 计算)
+        # 回退: 从 technique onset_density 近似映射到 CV 范围
+        if pitch_cv <= 0 or pitch_cv > 1.0:  # >1.0 说明传入了 Hz 旧值
+            onset = float(technique.onset_density) if technique.onset_density > 0 else 2.0
+            pitch_cv = max(0.01, min(0.30, onset * 0.03))
 
         return ArtistryFeatures(
             vibrato_quality=round(vibrato_quality, 2),

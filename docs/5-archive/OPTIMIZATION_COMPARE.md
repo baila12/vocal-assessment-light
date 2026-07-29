@@ -1,8 +1,8 @@
 # 对比分析算法优化 v2.0
 
-> 🗄️ **归档文档 — v2.0 (2026-05-08)** | 保留作为 DTW 算法设计参考
-> 
-> DTW 三级对齐引擎已在 v5.8 实现，v5.15 默认化。当前 DTW 状态见 **[../2-technical/SCORING.md](../2-technical/SCORING.md)**。
+> 🗄️ **归档文档 — v2.0 (2026-05-08)** | 当前版本: v7.3.1
+>
+> DTW 三级对齐引擎已在 v5.8 实现，v7.3 完成 Comparison DDD 重构。当前 DTW 架构: [SCORING.md](../2-technical/SCORING.md)。
 
 > 本文档的状态标记已过时。保留作为 DTW 算法设计参考。
 > 当前 DTW 对比状态见 [SCORING.md](SCORING.md) 和 [PROJECT_STATUS.md](PROJECT_STATUS.md)。

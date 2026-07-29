@@ -39,8 +39,14 @@ class LibrosaTimbreExtractor:
         # mfcc_cluster_distance: HNR / 30 (与 adapter 一致)
         cluster_dist = _safe_clamp(hnr / 30.0)
 
-        # mfcc_cluster_purity: CPP / 6 (与 adapter 一致)
-        cluster_purity = _safe_clamp(cpp / 6.0)
+        # mfcc_cluster_purity: CPP / 6，但旧 CPP 在 [0.01, 0.05] 范围无区分度
+        # v7.4: 当旧 CPP 不可靠时，用 harmonic_stability 作为替代门控
+        cpp_val = float(getattr(acoustic, 'cpp', 1.0) or 1.0)
+        if 0.01 < cpp_val < 0.05:
+            # 旧 CPP 无区分度 → 用 harmonic_stability 替代
+            cluster_purity = _safe_clamp(harmonic_stability / 100.0)
+        else:
+            cluster_purity = _safe_clamp(cpp_val / 6.0)
 
         # harmonic_richness: harmonic_stability/100 + HNR/60 (与 adapter 一致)
         harmonic_richness = _safe_clamp(harmonic_stability / 100.0 + hnr / 60.0)
@@ -54,4 +60,5 @@ class LibrosaTimbreExtractor:
             mfcc_cluster_purity=round(cluster_purity, 4),
             harmonic_richness=round(harmonic_richness, 4),
             nasality_index=round(nasality, 4),
+            harmonic_stability=round(harmonic_stability, 2),  # v7.4: 传递替代置信度
         )

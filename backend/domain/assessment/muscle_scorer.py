@@ -31,6 +31,12 @@ class MuscleFeatures:
     formant_clustering_quality: float = 0.0  # 0-100
     overtone_richness: float = 0.0        # 泛音数量
     dynamic_range_db: float = 15.0
+    # v7.4: 五维代理增强 (文献驱动)
+    mpt_seconds: float = 0.0              # 最长发声时间 (s), <5=差, >15=优秀
+    crest_factor: float = 0.0             # 峰值/RMS 比, 典型人声 10-14dB
+    spr_ratio: float = 1.0                # 2-4kHz/0-2kHz 能量比, >1=歌手共振峰
+    f1f2_area: float = 0.0                # F1-F2 元音空间面积 (Hz²), MRI R²=0.96
+    alpha_ratio: float = -15.0            # 0-1kHz/1-5kHz 比 (dB), -10~-30
 
 
 class MuscleStrengthScorer:
@@ -64,6 +70,9 @@ class MuscleStrengthScorer:
             features.dynamic_range_db,
         )
 
+        # v7.4: 五维代理增强 — 附加到身体评分
+        body = self._apply_body_proxies(body, features)
+
         # 2. 面部肌肉力量 (50%)
         # HEURISTIC: Proxy metric from microphone audio — not direct physiological measurement
         facial = self._calc_facial_strength(
@@ -71,6 +80,9 @@ class MuscleStrengthScorer:
             features.formant_clustering_quality,
             features.overtone_richness,
         )
+
+        # v7.4: 五维代理增强 — 附加到面部评分
+        facial = self._apply_facial_proxies(facial, features)
 
         # 3. v7.3: audiofeat 增强
         if audiofeat is not None:
@@ -149,34 +161,114 @@ class MuscleStrengthScorer:
     ) -> float:
         # HEURISTIC: Proxy metric from microphone audio — not direct physiological measurement
 
-        # singers_formant_energy: >0.15→100, 0.08→60, 0.03→30
-        if formant_energy >= 0.15:
+        # v7.5: singers_formant_energy 校准修复
+        # adapter 产生 hnr/60 ∈ [0, 0.30], scorer 原阈值 0.15→100 太低
+        # (HNR >= 9dB 即满分, 几乎所有歌手都达到)
+        # 新阈值: 0.22→100 (HNR≥13.2dB, 清晰歌手), 0.12→60 (HNR≥7.2dB, 中等)
+        # 文献: Liu et al. 2025 — spectral tilt 是 strain 最佳判别器
+        if formant_energy >= 0.22:
             formant_score = 100.0
-        elif formant_energy >= 0.08:
-            formant_score = 60.0 + (formant_energy - 0.08) / 0.07 * 40
-        elif formant_energy >= 0.03:
-            formant_score = 30.0 + (formant_energy - 0.03) / 0.05 * 30
+        elif formant_energy >= 0.12:
+            formant_score = 60.0 + (formant_energy - 0.12) / 0.10 * 40
+        elif formant_energy >= 0.05:
+            formant_score = 30.0 + (formant_energy - 0.05) / 0.07 * 30
         else:
-            formant_score = max(10.0, formant_energy / 0.03 * 30)
+            formant_score = max(10.0, formant_energy / 0.05 * 30)
 
         # formant_clustering_quality: 0-100 direct
         cluster_score = max(0.0, min(100.0, formant_cluster))
 
-        # overtone_richness: >8→100, 5→60, 3→30, <1→10
-        if overtone >= 8:
+        # v7.5: overtone_richness 校准修复
+        # adapter 传入 controlled_breathiness (0-100 评分), 原阈值 8→100 太低
+        # (所有歌声 breathiness >= 8, 全部满分)
+        # 新阈值适配 0-100 评分范围
+        if overtone >= 80:
             overtone_score = 100.0
+        elif overtone >= 50:
+            overtone_score = 60.0 + (overtone - 50) / 30.0 * 40
+        elif overtone >= 20:
+            overtone_score = 30.0 + (overtone - 20) / 30.0 * 30
         elif overtone >= 5:
-            overtone_score = 60.0 + (overtone - 5) / 3.0 * 40
-        elif overtone >= 3:
-            overtone_score = 30.0 + (overtone - 3) / 2.0 * 30
-        elif overtone >= 1:
-            overtone_score = 10.0 + (overtone - 1) / 2.0 * 20
+            overtone_score = 10.0 + (overtone - 5) / 15.0 * 20
         else:
-            overtone_score = max(0.0, overtone * 10)
+            overtone_score = max(0.0, overtone * 2)
 
         return max(0.0, min(100.0,
             formant_score * 0.40 + cluster_score * 0.35 + overtone_score * 0.25
         ))
+
+    @staticmethod
+    def _apply_body_proxies(body: float, features: MuscleFeatures) -> float:
+        """v7.4: 身体肌肉代理增强 — MPT + Crest Factor + SPR
+
+        当新特征不可用 (默认值=0) 时不产生任何影响。
+        """
+        adjustment = 0.0
+
+        # === MPT (最大发声时间): 呼吸肌耐力 ===
+        # <5s: -15, 5-10s: 0, 10-15s: +5, >15s: +10
+        if features.mpt_seconds > 0:
+            if features.mpt_seconds >= 15.0:
+                adjustment += 10.0
+            elif features.mpt_seconds >= 10.0:
+                adjustment += 5.0
+            elif features.mpt_seconds >= 5.0:
+                adjustment += 0.0
+            else:
+                adjustment -= 15.0
+
+        # === Crest Factor (峰值/RMS): 声音投射力 ===
+        # 10-14dB 正常, >14 强投射, <8 弱
+        if features.crest_factor > 0:
+            if features.crest_factor >= 14.0:
+                adjustment += 8.0
+            elif features.crest_factor >= 10.0:
+                adjustment += 3.0
+            elif features.crest_factor < 8.0:
+                adjustment -= 8.0
+
+        # === SPR (2-4kHz/0-2kHz): 声门内收+投射 ===
+        if features.spr_ratio > 0 and features.spr_ratio != 1.0:
+            if features.spr_ratio >= 1.2:
+                adjustment += 5.0
+            elif features.spr_ratio >= 0.9:
+                adjustment += 0.0
+            else:
+                adjustment -= 5.0
+
+        return max(0.0, min(100.0, body + adjustment))
+
+    @staticmethod
+    def _apply_facial_proxies(facial: float, features: MuscleFeatures) -> float:
+        """v7.4: 面部肌肉代理增强 — F1-F2 元音空间面积 + Alpha Ratio
+
+        当新特征不可用 (默认值) 时不产生任何影响。
+        """
+        adjustment = 0.0
+
+        # === F1-F2 元音空间面积: 下颌+唇部运动范围 ===
+        # 文献: MRI R²=0.96 验证
+        # >200,000 Hz² = 大范围, <50,000 = 受限
+        if features.f1f2_area > 0:
+            if features.f1f2_area >= 200000.0:
+                adjustment += 10.0
+            elif features.f1f2_area >= 100000.0:
+                adjustment += 5.0
+            elif features.f1f2_area >= 50000.0:
+                adjustment += 0.0
+            else:
+                adjustment -= 8.0
+
+        # === Alpha Ratio (0-1kHz/1-5kHz): 发声努力程度 ===
+        # 文献: 面部肌肉代理 §2.1 — -10~-30dB, 流行 vs 歌剧差异大
+        # -10dB = 紧张, -30dB = 放松
+        if features.alpha_ratio < 0 and features.alpha_ratio != -15.0:
+            if features.alpha_ratio > -15.0:
+                adjustment += 3.0  # 较强发声努力
+            elif features.alpha_ratio < -25.0:
+                adjustment -= 5.0  # 过弱
+
+        return max(0.0, min(100.0, facial + adjustment))
 
     def _apply_audiofeat_enhancement(
         self,

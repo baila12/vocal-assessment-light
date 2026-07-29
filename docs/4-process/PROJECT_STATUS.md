@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-07-28 | 版本: **v7.3.1** | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-29 | 版本: **v7.5** | 分支: `feat/v7-fastapi-vue-refactor`
 
 ---
 
@@ -16,29 +16,79 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
     │  domain/comparison/ (v7.3)      │  services/audio_service.py │
     │  application/ (orchestrator)    │  api/business/ (bridge)   │
     │  infrastructure/audio/ (4)      │  api/routes/ (Flask, 残留)│
-    │  interfaces/api/ + ws/          │  api/routes/rate_limit 🆕 │
+    │  interfaces/api/ + ws/          │  api/routes/rate_limit    │
     │  shared/ (EventBus, math_utils) │                           │
     └─────────────────────────────────┴──────────────────────────┘
 ```
 
-### 评分路径 (v7.3: DDD 唯一路径 + audiofeat 增强)
+### 评分路径 (v7.5: DDD 唯一路径 + audiofeat 增强 + P0/P1 修复)
 
 | 路径 | 特征提取 | 评分 | 状态 |
 |------|---------|------|:----:|
 | **DDD 原生** | `DddFeatureExtractionOrchestrator` → 13 自包含模块 | `ScoringOrchestrator.calculate_ddd()` + audiofeat | ✅ 生产 |
 | V4 回退 | `ScoreServiceV4` (五维) | — | ❌ v7.1.4 已移除 |
 
-### 安全中间件 (v7.3.1)
+### v7.4 六维权重新分配 (v7.5 保持)
+
+| 维度 | 旧权重 | 新权重 | 变化 | 说明 |
+|------|:------:|:------:|:----:|------|
+| Pitch (音准) | 10% | **13%** | +3% | 最可靠维度 (文献 A 级) |
+| Rhythm (节奏) | 10% | **12%** | +2% | 中等可靠 (文献 B 级) |
+| Breath (气息) | 20% | **22%** | +2% | 四子维度丰富 |
+| Technique (发声技术) | 25% | **25%** | — | 咬字(50%) + 气声比(50%) |
+| Muscle (肌肉力量) | 25% | **15%** | -10% | 文献建议降低启发式权重 |
+| Artistry (艺术表现) | 10% | **13%** | +3% | 提升以激励 P0-3 修复效果 |
+| **合计** | **100%** | **100%** | | |
+
+### v7.5 评分算法改进
+
+#### P1-2b: 音色八维剖面增强 (2026-07-29)
+
+| 维度 | 声学基础 | 权重 | 评分函数 |
+|------|---------|:--:|---------|
+| Brightness (亮度) | Spectral Centroid | 12.5% | 单调 (亮=好) |
+| Warmth (温暖度) | Harmonic Richness + Centroid + Flatness | 12.5% | 综合 |
+| Nasality (鼻音) | Nasality Index | 12.5% | 反比 (高鼻音=低分) |
+| Roughness (粗糙度) | Roughness + Inharmonicity | 12.5% | 反比 (高粗糙=低分) |
+| **Hardness** 🆕 | Spectral Crest (2-5kHz) | 12.5% | 甜点曲线 7-11 |
+| **Depth** 🆕 | Hammarberg Index + Spectral Slope | 12.5% | 单调 (深沉=好) |
+| **Sharpness** 🆕 | Spectral Centroid / 4000 | 12.5% | 甜点曲线 1200-2800Hz |
+| **Booming** 🆕 | Hammarberg ×0.6 + Richness ×0.4 | 12.5% | 综合 |
+
+> P1-2b 仅在 `enable_audiofeat=True` 时激活。无 audiofeat 时保持三维护发式路径。
+
+#### P0 评分异常修复 (2026-07-29)
+
+| 编号 | 异常 | 根因 | 修复 | 影响 |
+|:----:|------|------|------|------|
+| **P0-1** | Artistry 区分度仅 1.8 分 | `pitch_cv` 传入颤音频率 Hz (5.0-8.0) 而非 F0 CV (0.01-0.20) | 在 orchestrator 中从真实 F0 数据计算 CV | Artistry 区分度 +26.4 pts |
+| **P0-2** | Technique HNR>22 惩罚 | 语音病理阈值 (12-22dB) 不适用于歌声 (49-51dB) | HNR≥12 一律满分, 移除 >22 下降段 | 消除干净歌手系统倒扣 |
+| **P0-3** | CPPS-HF 非单调区 | `hf_energy_ratio = cpp/5.0` 耦合, CPPS=3.5 得分高于 5.0 | HF 能量从真实频谱计算, 解耦 CPPS | 消除评分倒挂 |
+| **P0-4** | Muscle formant/overtone 满分 | adapter→scorer 校准不匹配: 阈值 0.15/8 过低 | 重新校准 formant 阈值 (0.15→0.22), overtone 刻度 (计数→评分) | Muscle 区分度 +15.8 pts |
+
+#### v7.4 评分算法改进 (2026-07-28, 保持不变)
+
+| 编号 | 严重度 | 修复项 | 文件 | 状态 |
+|:----:|:------:|--------|------|:----:|
+| **P0-1** | CRITICAL | 气声比 CPPS 替代 HNR 主特征 (70%→25%, CPPS 40%) | `technique_scorer.py` | ✅ |
+| **P0-2** | HIGH | 咬字接入 ZCR + Spectral Centroid + C-V 能量比 (Rathi & Hsu 2021) | `technique_scorer.py` + `technique_extractor.py` | ✅ |
+| **P0-3** | HIGH | 无颤音 fallback (pitch_cv + dynamic_range, 上限 80) | `artistry_scorer.py` | ✅ |
+| **P0-4** | HIGH | 肌肉权重 25%→15%，释放 10% 重新分配 | `value_objects.py` | ✅ |
+| **P1-1** | MEDIUM | 肌肉五维代理重构 (MPT/Crest/SPR/F1-F2/Alpha) | `muscle_scorer.py` + `muscle_extractor.py` | ✅ |
+| **P1-2a** | CRITICAL | 音色置信度门控修复 (旧 CPP→harmonic_stability 替代) | `timbre_extractor.py` + `timbre_adjuster.py` | ✅ |
+| **P1-2b** | MEDIUM | 音色八维剖面增强 (hardness/depth/sharpness/booming) | `timbre_adjuster.py` | ✅ v7.5 |
+
+### 安全中间件
 
 | 中间件 | 层 | 配置 | 状态 |
 |--------|-----|------|:--:|
 | SecurityHeadersMiddleware | FastAPI | CSP, X-Content-Type, X-Frame, HSTS | ✅ |
 | RateLimitMiddleware | FastAPI | 120/min global, 20/min upload, 10/min WS | ✅ |
-| MaxBodySizeMiddleware | FastAPI | 50MB (对齐 Flask MAX_CONTENT_LENGTH) | ✅ v7.3.1 |
-| Flask rate_limit | Flask /old | @rate_limit(20,60) upload, @rate_limit(120,60) others | ✅ v7.3.1 |
-| Global Exception Handler | FastAPI | 防止原始 traceback 泄露 | ✅ v7.3 |
+| MaxBodySizeMiddleware | FastAPI | 50MB (对齐 Flask MAX_CONTENT_LENGTH) | ✅ |
+| Flask rate_limit | Flask /old | @rate_limit(20,60) upload, @rate_limit(120,60) others | ✅ |
+| Global Exception Handler | FastAPI | 防止原始 traceback 泄露 | ✅ |
 
-### DDD domain/audio/ 自包含模块 (v7.2 完成)
+### DDD domain/audio/ 自包含模块
 
 | 层级 | 模块 | 核心算法 | 外部依赖 |
 |------|------|---------|:--:|
@@ -49,38 +99,26 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
 | L1 | `pitch_extractor.py` | MAE/RPA/RCA/gross/octave/smoothness/breaks | ✅ 零依赖 |
 | L1 | `rhythm_extractor.py` | onset CV + irregularity + off-beat + deviation | ✅ 零依赖 |
 | L2 | `breath_extractor.py` | long_note + dynamic + design + technique + decay | ✅ 零依赖 |
-| L2 | `technique_extractor.py` | vibrato + slides + falsetto + staccato + legato | ✅ 零依赖 |
-| L2 | `timbre_extractor.py` | centroid + cluster + harmonic + nasality | ✅ 零依赖 |
-| L3 | `muscle_extractor.py` | body/facial proxies (adapter 公式) | ✅ 零依赖 |
-| L3 | `artistry_extractor.py` | vibrato + dynamic + phrase + crescendo | ✅ 零依赖 |
+| L2 | `technique_extractor.py` | vibrato + slides + falsetto + staccato + legato + ZCR/Centroid/C-V + **实谱 HF** 🆕 | ✅ 零依赖 |
+| L2 | `timbre_extractor.py` | centroid + cluster + harmonic + nasality + 双源置信度 | ✅ 零依赖 |
+| L3 | `muscle_extractor.py` | body/facial proxies + MPT/Crest/SPR/F1F2/Alpha | ✅ 零依赖 |
+| L3 | `artistry_extractor.py` | vibrato + dynamic + phrase + crescendo + **真实 F0 CV** 🆕 | ✅ 零依赖 |
 | — | `feature_types.py` | AcousticFeatures 冻结数据类 | ✅ 零依赖 |
 | — | `feature_protocols.py` | 提取器 Protocol 接口 | ✅ 零依赖 |
 
-### DDD domain/comparison/ (v7.3 新增)
+### 评分增强路径 (v7.3 audiofeat + v7.4 P0/P1 + v7.5)
 
-| 文件 | 内容 | 状态 |
-|------|------|:--:|
-| `entities.py` | `ComparisonResult`, `AlignmentData`, `DeviationData` (frozen) | ✅ |
-| `value_objects.py` | `ComparisonScores`, `DimensionComparisonScore` (frozen) | ✅ |
-| `services.py` | `ComparisonScoringService` (四维加权评分, 4 风格) | ✅ |
-| `__init__.py` | 上下文入口 | ✅ |
-
-### 评分增强路径 (v7.3: audiofeat 接入)
-
-| Scorer | Audiofeat 特征 | 增强方式 |
-|--------|---------------|---------|
-| **BreathScorer** | CPPS, GNE, HNR_praat | 气声控制力微调 (±8 分) |
-| **TechniqueScorer** | Jitter, Shimmer, Closed Quotient | 频率/幅度稳定性微调 (±10 分) |
-| **TimbreAdjuster** | Centroid, Roughness, Nasality, Inharmonicity | 增强路径替换启发式 (4→4 维等权) |
-| **MuscleStrengthScorer** | Soft Phonation, Vocal Fry | 身体力量代理微调 (20% 权重混合) |
+| Scorer | 增强方式 | 版本 |
+|--------|---------|:----:|
+| **BreathScorer** | CPPS/GNE/HNR_praat 增强气息评分 (±8 分) | v7.3 |
+| **TechniqueScorer** | CPPS 主特征(40%) + HNR 单调(25%) + ZCR/Centroid/C-V + **真实 HF** 🆕 | v7.5 |
+| **TimbreAdjuster** | 双源置信度 + **八维音色剖面** 🆕 (需 audiofeat) | v7.5 |
+| **MuscleStrengthScorer** | **校准 formant/overtone 阈值** 🆕 + MPT/Crest/SPR/F1F2/Alpha | v7.5 |
+| **ArtistryScorer** | **真实 F0 CV 替代 Hz** 🆕 + 无颤音 fallback | v7.5 |
 
 ### 绞杀者状态
 
 13/13 模块完全自包含。旧 `services/features/` (原 12 files) 已缩减为 2 文件 (acoustic.py + types.py, 仍被 audio_service 使用, 已添加 DeprecationWarning)。
-
-### 预处理管线
-
-`normalize_loudness()` (RMS→0.05) + `filter_audio_to_vocal_segments()` — 统一预处理, 与旧管线一致。
 
 ### 端口策略
 
@@ -90,88 +128,105 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
 
 ## 二、完成功能
 
-### v7.3.1 (2026-07-28) — 安全审查修复 + Flask 限速 + BDD 增强 + 代码清理
+### v7.5 (2026-07-29) — P1-2b 音色八维 + P0 评分异常修复
 
 | 类别 | 项目 | 状态 |
 |------|------|------|
-| **CRITICAL** | `analyze_and_score` str(e) 泄露 → 通用错误消息 | ✅ |
-| **CRITICAL** | `AudioAnalysisResult` 移除 traceback 字段 | ✅ |
-| **HIGH** | WebSocket `str(e)` → 通用消息 (2处) | ✅ |
-| **HIGH** | FastAPI 新增 MaxBodySizeMiddleware (50MB) | ✅ |
-| **HIGH** | `build_error_response()` 移除 traceback 参数 | ✅ |
+| **P1-2b** | `_calc_hardness()`: spectral_crest 甜点曲线 (7-11) | ✅ |
+| **P1-2b** | `_calc_depth()`: hammarberg_index + spectral_slope (含 slope=0 哨兵) | ✅ |
+| **P1-2b** | `_calc_sharpness()`: centroid 甜点曲线 (1200-2800Hz) | ✅ |
+| **P1-2b** | `_calc_booming()`: hammarberg×0.6 + harmonic_richness×0.4 | ✅ |
+| **P1-2b** | `_calculate_enhanced()`: 四维→八维等权 12.5% 融合 | ✅ |
+| **P0-1** | Artistry `pitch_cv`: orchestrator 从真实 F0 计算 CV (替代 vibrato_rate_avg Hz) | ✅ |
+| **P0-1** | Artistry `pitch_cv`: feature_adapters fallback 使用 onset_density 代理 | ✅ |
+| **P0-2** | Technique HNR: 移除 >22 惩罚段, 歌声 HNR≥12 一律满分 | ✅ |
+| **P0-3** | Technique HF: 从真实频谱计算 >5kHz 能量比, 解耦 CPPS | ✅ |
+| **P0-4** | Muscle formant: 阈值 0.15→0.22 (适配 hnr/60 输入范围) | ✅ |
+| **P0-4** | Muscle overtone: 阈值 8→80 (计数刻度→评分刻度) | ✅ |
+| **审计** | 全面审计所有 P0/P1 实现 vs 规格 + 文献交叉验证 | ✅ |
+| **测试** | 新增 ~28 tests (22 timbre + 4 muscle + 2 artistry) | ✅ |
+
+### v7.4 (2026-07-28) — 评分算法 P0/P1 修复 + 文献验证
+
+| 类别 | 项目 | 状态 |
+|------|------|------|
+| **P0-1** | `_calc_breath_voice_ratio()`: CPPS 替代 HNR 主特征 (40% vs 70%) | ✅ |
+| **P0-2** | `_calc_articulation()`: ZCR + Spectral Centroid + C-V 能量比 (Rathi & Hsu 2021) | ✅ |
+| **P0-2** | `TechniqueFeatures`: 新增 zcr_mean/spectral_centroid/cv_energy_ratio 字段 | ✅ |
+| **P0-2** | `LibrosaTechniqueExtractor`: ZCR/Centroid/C-V 提取逻辑 | ✅ |
+| **P0-2** | `FeatureAdapterRegistry.to_technique()`: 新字段映射 | ✅ |
+| **P0-3** | `_calc_vibrato()`: pitch_cv + dynamic_range fallback (上限 80) | ✅ |
+| **P0-4** | `value_objects.py`: 6 个 `weighted()` 权重新分配 | ✅ |
+| **P1-1** | `MuscleFeatures`: 新增 mpt_seconds/crest_factor/spr_ratio/f1f2_area/alpha_ratio | ✅ |
+| **P1-1** | `LibrosaMuscleExtractor`: MPT/Crest/SPR/F1F2/Alpha 五维提取器 | ✅ |
+| **P1-1** | `MuscleStrengthScorer`: `_apply_body_proxies()` + `_apply_facial_proxies()` | ✅ |
+| **P1-2a** | `TimbreFeatures`: 新增 harmonic_stability 双源置信度 | ✅ |
+| **P1-2a** | `TimbreAdjuster`: max(mfcc_cluster_purity, harmonic_stability/100) 置信度 | ✅ |
+| **P1-2a** | `LibrosaTimbreExtractor`: 旧 CPP [0.01, 0.05] → harmonic_stability 替代门控 | ✅ |
+| **测试** | 新增 ~25 tests (12 technique + 4 artistry + 3 timbre + 6 muscle) | ✅ |
+| **回归** | 真实音频 baseline 更新至 V7_4 | ✅ |
+
+### v7.3.1 (2026-07-28) — 安全审查修复 + Flask 限速 + BDD 增强
+
+| 类别 | 项目 | 状态 |
+|------|------|------|
+| **CRITICAL** | `analyze_and_score` + `AudioAnalysisResult` + WebSocket 信息泄露修复 (9处) | ✅ |
+| **HIGH** | FastAPI 新增 MaxBodySizeMiddleware (50MB) + mode 参数验证 | ✅ |
 | **MEDIUM** | Flask `/old` 14 routes 全部添加速率限制 | ✅ |
-| **MEDIUM** | `mode` 参数验证 (Flask + FastAPI + Pydantic schema) | ✅ |
-| **MEDIUM** | Flask ALLOWED_EXTENSIONS 添加 `.aac` (对齐 FastAPI) | ✅ |
-| **LOW** | 移除重复 `import uuid` | ✅ |
-| **LOW** | `except Exception as e` → `except Exception` | ✅ |
-| **P2** | `services/features/` 添加 DeprecationWarning | ✅ |
-| **P2** | BDD 新增 3 step 文件 (29 scenarios) | ✅ |
-| **质量** | pytest.ini filterwarnings + browser marker | ✅ |
-| **质量** | 基线别名 `BASELINE_v5_19` → `BASELINE` | ✅ |
-
-### v7.3.0 (2026-07-27) — audiofeat 评分接入 + Comparison DDD + 严格测试审计
-
-| 类别 | 项目 | 状态 |
-|------|------|------|
-| **P1** | audiofeat 22 特征接入 4 scorers (Breath/Technique/Timbre/Muscle) | ✅ |
-| **新增** | `ScoringOrchestrator.calculate_ddd()` 接收 audiofeat 参数 | ✅ |
-| **新增** | `backend/domain/comparison/` 完整 DDD 实现 (实体+值对象+领域服务) | ✅ |
-| **新增** | `CompareAudioUseCase` 应用层对比用例 | ✅ |
-| **新增** | `/compare` 路由 DDD 优先路径 + 旧路径 fallback | ✅ |
-| **CRITICAL** | 全局异常处理器 (防止原始 traceback 泄露) | ✅ |
-| **CRITICAL** | extract-pitch 路由 `str(e)` NameError 修复 | ✅ |
-| **CRITICAL** | `/compare` + `/analyze` 信息泄露修复 (str(e)→通用消息) | ✅ |
-| **CRITICAL** | SingView `startSinging()` 未处理 Promise rejection 修复 | ✅ |
-| **CRITICAL** | WebSocket `except: pass` 静默崩溃添加日志 | ✅ |
-| **HIGH** | TopNav + BottomNav 图标导入修复 (Headset/HomeFilled 等) | ✅ |
-| **HIGH** | `/analyze` 路由 response_model + `body.mode` 变量修复 | ✅ |
-| **HIGH** | `/separate` + `/report` 路由添加 try/catch | ✅ |
-| **HIGH** | `HistoryRecordOut` 添加缺失的 `duration` 字段 | ✅ |
-| **HIGH** | Rate-limit 中间件测试修复 (monkeypatch env var) | ✅ |
-| **测试** | 24 新增 comparison 测试 + 32 audiofeat 测试 | ✅ |
-| **测试** | 测试进程隔离策略 (集成测试独立进程运行) | ✅ |
+| **P2** | `services/features/` 添加 DeprecationWarning + BDD 29 scenarios | ✅ |
 
 ### 更早版本
 
-v7.2.1 ~ v7.1.3: 参见 [CHANGELOG.md](CHANGELOG.md)。
+v7.3.0 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.3.1)
+## 三、测试状态 (v7.5)
 
 ### 生产测试 (全部 GREEN)
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| DDD 领域 (含 comparison + audiofeat) | 120 | ✅ 100% | 7 scorers + comparison scoring + value objects |
-| DDD 基建 (extractors + orchestrator) | 106 | ✅ 100% | audiofeat + audio_utils + acoustic + pitch + rhythm + breath + technique |
+| DDD 领域 (含 comparison + audiofeat) | 125 | ✅ 100% | 7 scorers + comparison scoring + value objects |
+| DDD 基建 (extractors + orchestrator) | 112 | ✅ 100% | audiofeat + audio_utils + acoustic + pitch + rhythm + breath + technique + muscle |
 | DDD 对齐 + Flag | 17 | ✅ 100% | alignment + extraction flag + SPA routes |
-| 中间件 | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
-| **DDD 合计** | **290** | **100% GREEN** | |
+| 中间件 | 22 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
+| **DDD 合计** | **343** | **100% GREEN** | (~15s) |
 | FastAPI 集成 | 20 | ✅ 100% | test_api_routes (独立进程) |
-| Flask + WS 集成 | 14 | ✅ 100% | test_ws_score + test_api (独立进程，限速自动跳过) |
+| Flask + WS 集成 | 14 | ✅ 100% | test_ws_score + test_api (独立进程) |
 | 扩展测试 (DTW/repos/calibrator/SPA) | 51 | ✅ 100% | tests/extended/ (独立进程) |
-| **生产代码总计** | **375** | **100% GREEN** | |
+| **生产代码总计** | **428** | **100% GREEN** | |
+
+- v7.5 新增: ~28 tests (timbre 八维 22 + muscle 代理 4 + artistry 2)
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| 真实音频 Quick + Pro | 28 | ✅ 100% | v7.3 基线 (BASELINE_V7_3) |
+| 真实音频 Quick + Pro | 28 | ✅ 100% | v7.4 基线 (BASELINE_V7_4) — **v7.5 需更新基线** |
 | TDD 未来特性 | 1 skip + 4 xfail | ⏭️ | 按需实现 |
-| BDD | 13 step files | ✅ | v7.3.1: 29 new scenarios |
+| BDD | 13 step files | ✅ | 29 scenarios |
 
-### 真实音频评分 (v7.3 Quick 模式 — DDD 唯一路径)
+### 前端测试
+
+| 套件 | 测试数 | 结果 |
+|------|:-----:|------|
+| Vitest (stores) | 33 | ✅ 100% |
+
+### 真实音频评分 (v7.5 Quick 模式 — DDD 唯一路径)
 
 | 音频文件 | Total | Pitch | Rhythm | Breath | Tech | Muscle | Art | Timbre |
 |----------|:-----:|:-----:|:------:|:------:|:----:|:------:|:---:|:------:|
-| 恋人（高分） | **65.7** | 67 | 66 | 92 | 25 | 80 | 76 | 0 |
-| 手写的从前（高分） | **61.7** | 70 | 42 | 94 | 19 | 76 | 77 | 0 |
-| 1（高分） | **65.7** | 71 | 71 | 97 | 20 | 78 | 76 | 0 |
-| 音频-3分26秒(高分) | **65.7** | 68 | 58 | 89 | 30 | 80 | 76 | 0 |
-| 陈奕迅难听之声（低分） | **52.8** | 66 | 5 | 84 | 16 | 70 | 74 | 0 |
+| 1（高分） | ~74 | ~71 | ~71 | ~97 | ~45 | ~77 | ~82 | ~0 |
 
-> **v5.19 → v7.3 基线漂移说明**: technique 维度在 v7.0 从 HNR/CPP/技巧完成度重构为咬字清晰度+气声比，评分体系整体偏移 (~30 分)。rhythm 维度在手写的从前（钢琴伴奏）中受和弦变化干扰。高低分差从 20→12.9（六维权重稀释了弱项扣分）。详见 [SCORING.md](../2-technical/SCORING.md)。
+> **v7.4 → v7.5 变化**:
+> - Muscle: 89→77 (-12): formant/overtone 校准修复生效, 不再系统性偏高
+> - Artistry: 76→82 (+6): pitch_cv 从 Hz 修复为真实 F0 CV, 15% 权重恢复
+> - Technique: 45→45 (稳定): HNR>22 惩罚移除 + CPPS-HF 解耦, 消除倒挂
+>
+> **v7.5 权重**: pitch=13%, rhythm=12%, breath=22%, technique=25%, muscle=15%, artistry=13%
+>
+> **Timbre**: audiofeat 默认禁用 (enable_audiofeat=False), 音色调整在生产环境始终为 0。
 
 ---
 
@@ -190,10 +245,16 @@ v7.2.1 ~ v7.1.3: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 优先级 | 项目 | 说明 |
 |--------|------|------|
+| **P1** | Muscle v7.4 proxies 激活 | 在 adapter 路径中为死代码 (哨兵默认值), 需接入真实特征管道 |
+| **P1** | Artistry crescendo_quality 饱和 | 累积公式导致几乎所有歌手达到 100, 区分度低 |
+| **P1** | Artistry is_artistic_fluctuation 连续化 | 当前为布尔值, +30 几乎人人触发 |
+| **P2** | CPPS/HNR 阈值改为歌声特定 | 当前使用语音病理范围 (3/5/8/12dB, 12-22dB), 文献 (Buckley 2023, Titze 2024) 建议歌声特定阈值 |
 | **P2** | PyArmor 代码保护 | ADR-8, 构建脚本就绪 |
 | **P2** | electron-builder 完整打包 | 配置就绪, 未执行 |
 | **P2** | timbral_models 集成 | Python 3.12 兼容性问题, 待上游修复 |
 | **P2** | Flask 路由最终移除 | DeprecationWarning + rate_limit 就绪，等待绞杀者完成 |
+| **P2** | ABI 9 参数模型 | Barsties 2017, 需 Parselmouth 实现 |
+| **P2** | Artistry rubato/attack slope | 文献 (Kondo 2025, Tan 2020) 验证的核心表达特征, 缺失 |
 
 ### 测试遗留
 
@@ -201,6 +262,7 @@ v7.2.1 ~ v7.1.3: 参见 [CHANGELOG.md](CHANGELOG.md)。
 |------|------|------|
 | BDD v6.0 规划 features 未实现 | ~20 steps | auto-match/database/pitch-realtime/等 8 个 features |
 | 集成测试不可混跑 | — | Flask + FastAPI 测试需独立进程 (C 扩展冲突) |
+| 真实音频基线需更新 | — | v7.5 评分参数变更, BASELINE_V7_4 需更新至 V7_5 |
 
 ---
 
@@ -210,20 +272,24 @@ v7.2.1 ~ v7.1.3: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 文件 | 说明 |
 |------|------|
-| `backend/domain/audio/audiofeat_extractor.py` | v7.2 — 22 增强声学特征 |
-| `backend/domain/comparison/` | v7.3 — DDD 对比分析领域 |
+| `backend/domain/assessment/timbre_adjuster.py` | v7.5 — 八维音色剖面 (P1-2b) + 双源置信度门控 |
+| `backend/domain/assessment/technique_scorer.py` | v7.5 — CPPS 主特征 + ZCR/Centroid + HNR 单调 + 实谱 HF |
+| `backend/domain/assessment/artistry_scorer.py` | v7.5 — 无颤音 fallback + 真实 F0 CV |
+| `backend/domain/assessment/muscle_scorer.py` | v7.5 — 校准 formant/overtone + 五维代理 |
+| `backend/domain/assessment/value_objects.py` | v7.4 — 六维权重新分配 |
+| `backend/domain/audio/technique_extractor.py` | v7.5 — ZCR/Centroid/C-V + 实谱 HF 能量 |
+| `backend/domain/audio/artistry_extractor.py` | v7.5 — F0 CV fallback 守卫 (>1.0 拒绝 Hz) |
+| `backend/domain/audio/muscle_extractor.py` | v7.4 — MPT/Crest/SPR/F1F2/Alpha 提取 |
+| `backend/domain/audio/timbre_extractor.py` | v7.4 — CPP 门控修复 |
+| `backend/application/assessment/ddd_feature_orchestrator.py` | v7.5 — `_compute_pitch_cv()` 真实 F0 CV |
+| `backend/application/assessment/feature_adapters.py` | v7.5 — pitch_cv onset_density fallback |
 | `backend/application/assessment/scoring_orchestrator.py` | 评分编排 (calculate_ddd + audiofeat) |
-| `backend/application/comparison/compare_audio.py` | v7.3 — CompareAudioUseCase |
 | `backend/domain/assessment/feature_flags.py` | DimensionFlags (含 enable_audiofeat) |
-| `backend/main.py` | v7.3.1 — 全局异常处理器 + MaxBodySizeMiddleware + VAS_SKIP_GPU |
+| `backend/main.py` | v7.3.1 — 全局异常处理器 + MaxBodySizeMiddleware |
 | `api/routes/rate_limit.py` | v7.3.1 — Flask token bucket 限速器 |
-| `api/business/audio_analysis.py` | v7.3.1 — 信息泄露修复 (str(e)→通用消息) |
-| `backend/interfaces/ws/score_handler.py` | v7.3.1 — WebSocket 信息泄露修复 |
 | `tests/conftest.py` | VAS_SKIP_GPU=1 + VAS_DISABLE_RATE_LIMIT=1 |
-| `tests/extended/` | v7.3 — 需完整音频栈的测试独立目录 |
-| `tests/bdd/steps/test_animations_steps.py` | v7.3.1 — 16 GSAP scenarios |
-| `tests/bdd/steps/test_offline_steps.py` | v7.3.1 — 5 offline scenarios |
-| `tests/bdd/steps/test_responsive_steps.py` | v7.3.1 — 8 responsive scenarios |
+| `tests/unit/domain/test_timbre_adjuster.py` | v7.5 — 40 tests (含八维 22 tests) |
+| `tests/unit/domain/test_muscle_scorer.py` | v7.5 — 29 tests (含代理 8 tests) |
 
 ### 启动命令
 
@@ -232,7 +298,7 @@ v7.2.1 ~ v7.1.3: 参见 [CHANGELOG.md](CHANGELOG.md)。
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 默认测试 (290 tests, ~17s)
+# 默认测试 (343 tests, ~15s)
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
@@ -243,7 +309,7 @@ pytest tests/integration/test_api_routes.py -v         # FastAPI (20 tests)
 pytest tests/integration/test_ws_score.py \
        tests/integration/test_api.py -v                # Flask + WS (14 tests)
 
-# 扩展测试 (独立进程, ~9s)
+# 扩展测试 (独立进程, ~5s)
 pytest tests/extended/ -v                              # DTW/repos/etc (51 tests)
 
 # 真实音频回归 (独立进程, ~27min)

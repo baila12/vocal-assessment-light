@@ -1,5 +1,7 @@
 # 前端 GSAP 动效系统 + 布局重构设计 v3.0
 
+> ⚠️ **已废弃**: 本文档描述 v5.x Vanilla JS 前端 (`web/static/js/`) 的动效设计。当前 v7.3.1 前端已迁移至 Vue 3 + Element Plus (`frontend/src/`)，动效通过 GSAP 3.15 npm 包 + `useGsap()` composable + `<Transition>` 组件实现。本文档保留作为历史参考，部分 GSAP 动画原则仍适用于 Vue 3 实现。
+>
 > 更新: 2026-06-11 | 基于 BDD/TDD/SDD 三驱动 + GSAP 系列技能官方规范
 
 ---

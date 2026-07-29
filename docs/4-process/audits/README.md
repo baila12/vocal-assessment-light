@@ -1,6 +1,8 @@
 # 审计与规划文档
 
-本目录存放项目状态审计、阶段性发现和规划过程记录。这里的文档用于回答“现在做到哪里、还有什么问题、下一步怎么排优先级”。
+> ⚠️ **历史记录**: 本目录为 v7.0 迁移前的项目审计文档 (2026-07 早期)。当前 v7.3.1 的项目状态见 [PROJECT_STATUS.md](../PROJECT_STATUS.md)，已知问题见 [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)。
+
+本目录存放项目状态审计、阶段性发现和规划过程记录。
 
 ## 文档
 

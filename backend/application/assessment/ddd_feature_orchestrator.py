@@ -122,18 +122,21 @@ class DddFeatureExtractionOrchestrator:
             harmonic_stability=breath.harmonic_stability,
         )
 
-        # Level 3: Muscle (依赖 Breath + Acoustic) + Artistry (依赖 Technique + Breath)
-        muscle = self._muscle.extract(breath, acoustic)
+        # Level 3: Muscle (依赖 Breath + Acoustic + raw audio for v7.4 proxies)
+        muscle = self._muscle.extract(breath, acoustic, y=y, sr=sr)
 
         # v7.1.3: vibrato 信息从 TechniqueFeatures 读取 (LibrosaTechniqueExtractor 已调用
         # TechniqueAnalyzer.detect_vocal_techniques, 避免重复计算)
         vibrato_q = technique.vibrato_quality
-        vibrato_rate = technique.vibrato_rate_avg
+
+        # v7.5: 计算真正的 F0 变异系数 (而非 vibrato_rate_avg Hz)
+        # _calc_pitch_variation() 期望 CV 范围 0.01-0.20, 而非颤音频率 4.5-8.0 Hz
+        pitch_cv = self._compute_pitch_cv(f0)
 
         artistry = self._artistry.extract(technique, breath,
                                           vibrato_quality=vibrato_q,
                                           vibrato_count=0,
-                                          pitch_cv=max(0.01, vibrato_rate))
+                                          pitch_cv=pitch_cv)
 
         # v7.2: audiofeat 增强特征 (flag 门控)
         audiofeat_features = AudiofeatFeatures()
@@ -154,3 +157,31 @@ class DddFeatureExtractionOrchestrator:
             timbre=timbre,
             audiofeat=audiofeat_features,
         )
+
+    @staticmethod
+    def _compute_pitch_cv(f0: np.ndarray) -> float:
+        """计算真正的 F0 变异系数 (CV) 用于 pitch_variation 评分。
+
+        文献: _calc_pitch_variation() 期望 pitch CV 范围 0.01-0.20。
+        v7.5 修复: 之前传递的是 vibrato_rate_avg (Hz, 4.5-8.0),
+        导致所有歌手都得到固定 30.0 分。
+
+        Args:
+            f0: F0 数组 (Hz), 0 = 无声音帧
+
+        Returns:
+            pitch_cv: F0 变异系数 std(f0_valid) / mean(f0_valid), 范围约 0.01-0.20
+        """
+        f0_valid = f0[f0 > 0] if len(f0) > 0 else np.array([])
+        if len(f0_valid) < 10:
+            return 0.02  # 数据不足时返回低 CV (中性偏低)
+
+        f0_mean = float(np.mean(f0_valid))
+        if f0_mean <= 0:
+            return 0.02
+
+        f0_std = float(np.std(f0_valid))
+        cv = f0_std / f0_mean
+
+        # clamp 到合理范围 [0.005, 0.50]
+        return float(np.clip(cv, 0.005, 0.50))

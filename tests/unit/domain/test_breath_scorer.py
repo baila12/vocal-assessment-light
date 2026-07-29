@@ -95,7 +95,7 @@ class TestBreathScorer:
     def test_weighted_method(self):
         f = make_features(professional_breath_score=80.0)
         result = self.scorer.calculate(f)
-        assert result.weighted() == 80.0 * 0.20
+        assert result.weighted() == 80.0 * 0.22  # v7.4: 20%→22%
 
     def test_score_clamped(self):
         f = make_features(rms_fluctuation=3.0, breath_breaks=50)

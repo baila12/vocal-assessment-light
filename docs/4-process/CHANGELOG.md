@@ -1,10 +1,156 @@
-# 变更日志
+# 变更日志 v7.5
 
-> 当前状态和已知问题见 [PROJECT_STATUS.md](PROJECT_STATUS.md) | 计划见 [PRD.md](../1-product/PRD.md) | 技术研究见 [TECH_RESEARCH.md](../2-technical/TECH_RESEARCH.md)
+> 更新: 2026-07-29 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
 
 ---
 
-## v7.3.1 — 安全审查修复 + Flask 限速 + BDD 增强 (2026-07-28)
+## v7.5 — P1-2b 音色八维 + P0 评分异常修复 (2026-07-29)
+
+### 概述
+
+完成 P1-2b 音色八维剖面增强，并对真实音频评分中发现的 4 个 P0 级异常进行根因分析和修复。通过 12 篇学术文献交叉验证，确保修复方案有文献依据。
+
+### P1-2b: 音色八维剖面增强 (timbre_adjuster.py)
+
+- 🆕 `_calc_hardness()`: spectral_crest 甜点曲线 (最佳 7-11), 2-5kHz 能量集中度
+- 🆕 `_calc_depth()`: hammarberg_index (70%) + spectral_slope (30%), 30-200Hz 低频突出度
+- 🆕 `_calc_sharpness()`: centroid 甜点曲线 (最佳 1200-2800Hz), 高频能量集中度
+- 🆕 `_calc_booming()`: hammarberg×0.6 + harmonic_richness×0.4, 低频共鸣+歌手共振峰
+- 🔧 `_calculate_enhanced()`: 四维→八维等权 12.5% 融合
+- 📄 文献: timbral_models 八维音色描述框架
+- ℹ️ 仅在 enable_audiofeat=True 时激活, 无 audiofeat 保持三维护发式路径
+
+### P0 评分异常修复 (4)
+
+**P0-1: Artistry pitch_cv Bug — 15% 权重完全失效 (ddd_feature_orchestrator.py + artistry_extractor.py)**
+
+- ❌ 旧: `pitch_cv = max(0.01, vibrato_rate_avg)` — 传入颤音频率 Hz (4.5-8.0), `_calc_pitch_variation()` 对所有歌手返回固定 30.0
+- ✅ 新: `_compute_pitch_cv(f0)` — 从真实 F0 数组计算 CV (std/mean), 范围 0.01-0.20
+- ✅ adapter 路径: onset_density 代理映射 (onset×0.03 → CV 范围)
+- ✅ 守卫: pitch_cv > 1.0 拒绝旧 Hz 值, 自动回退
+- 📈 效果: Artistry 区分度从 1.8 pts → 26.4 pts (+1367%)
+- 📄 文献: Kondo et al. 2025 — vibrato extent 是唯一显著预测表演评分的感知特征
+
+**P0-2: Technique HNR>22 惩罚移除 (technique_scorer.py)**
+
+- ❌ 旧: HNR 22-30 线性降至 60%, >30 固定 60% — 语音病理阈值, 歌声 HNR 典型 49-51dB
+- ✅ 新: HNR ≥ 12 → 一律满分 (25/45 weight), 单调递增
+- 📈 效果: 消除干净歌手系统性倒扣
+- 📄 文献: Buckley et al. 2023 — 歌声 HNR 远高于语音病理阈值
+
+**P0-3: CPPS-HF 非单调解耦 (technique_extractor.py)**
+
+- ❌ 旧: `hf_energy_ratio = cpp / 5.0` — CPPS=3.5 得分高于 CPPS=5.0 (HF penalty 比 CPPS gain 大)
+- ✅ 新: 从真实频谱计算 >5kHz 能量占比, 与 CPPS 完全解耦
+- 📈 效果: CPPS 评分恢复单调性
+- 📄 文献: Titze et al. 2024 — F0 对 CPPS 有巨大非线性影响, 不应间接耦合
+
+**P0-4: Muscle formant/overtone 校准 (muscle_scorer.py)**
+
+- ❌ 旧: formant_score 永远 100 (阈值 0.15, adapter 产生 hnr/60∈[0,0.30]), overtone_score 永远 100 (阈值 8, adapter 传入 0-100 评分)
+- ✅ 新: formant 阈值 0.15→0.22, overtone 阈值 8→80 (计数刻度→评分刻度)
+- 📈 效果: Muscle 区分度从 19 pts → 34.8 pts (+83%)
+- 📄 文献: Liu et al. 2025 — spectral tilt (MFCC1) 是 strain 最佳单特征判别器 (86.1%)
+
+### 审计发现与修复
+
+- 🔧 `artistry_scorer.py:100`: `max(30.0,...)` → `min(60.0,...)` (P0-3 规格一致)
+- 🔧 `technique_scorer.py:240`: `cpp_mean` 默认值 `0.0` → `1.0`
+- 🔧 `muscle_scorer.py`: Alpha Ratio 从 body_proxies → facial_proxies (文献分类)
+- 🔧 `value_objects.py`: 两处权重注释过时修复 (Pitch 10%→13%, Muscle 25%→15%)
+- 🔧 `timbre_adjuster.py`: sharpness 峰值公式修正 (2300→2000Hz)
+- 🔧 `timbre_adjuster.py`: spectral_slope=0.0 哨兵守卫 (默认值不膨胀)
+- 🧪 新增 ~28 tests: timbre 八维 22 + muscle SPR/Alpha 4 + artistry 2
+
+---
+
+## v7.4 — 评分算法 P0/P1 修复 (2026-07-28)
+
+### 概述
+
+基于文献验证的 6 项评分算法改进，覆盖 4 个 CRITICAL + 2 个 HIGH 问题。CPPS 替代 HNR 成为气声比主特征，ZCR + Spectral Centroid 增强咬字清晰度，无颤音歌手获得 fallback 评分，权重新分配，音色门控修复，肌肉五维代理重构。
+
+### P0 CRITICAL 修复 (4)
+
+**P0-1: 气声比 CPPS 替代 HNR 主特征 (technique_scorer.py)**
+- 🔧 `_calc_breath_voice_ratio()`: CPPS 40% 主特征 + HNR 25% 辅助 (原 HNR 70%)
+- 🔧 CPPS 不可用时 HNR 回退至 45% (向后兼容)
+- 📄 文献: Samlan & Story 2013 (CPPS 解释 86.7% 感知气息方差), Barsties 2023 (HNR r=-0.56 不显著)
+- ✅ Technique 维度平均提升 +24.6 分 (16-30 → 44-49)
+
+**P0-2: 咬字 ZCR + Spectral Centroid + C-V 能量比 (technique_scorer.py + technique_extractor.py)**
+- 🆕 `TechniqueFeatures` 新增 3 字段: zcr_mean, spectral_centroid, cv_energy_ratio
+- 🔧 `_calc_articulation()`: Spectral Centroid(30%) + Flux(25%) + ZCR(25%) + C-V(10%) + Onset(10%)
+- 🔧 `LibrosaTechniqueExtractor`: ZCR/Centroid/C-V 提取 (librosa, O(n), 零额外依赖)
+- 🔧 `FeatureAdapterRegistry.to_technique()`: 适配器默认值 0 (回退兼容)
+- 📄 文献: Rathi & Hsu 2021 (ZCR+Flux+Centroid), Hecker 1974 (C-V 能量比)
+
+**P0-3: 无颤音 Fallback (artistry_scorer.py)**
+- 🔧 `_calc_vibrato()`: count==0 时使用 pitch_cv + dynamic_range 评分 (上限 80)
+- ✅ 流行/R&B/说唱等不常用颤音的唱法不再受到系统性歧视
+- 📄 文献: TECH_RESEARCH §2.6
+
+**P0-4: 六维权重新分配 (value_objects.py)**
+- 🔧 Pitch: 10%→13%, Rhythm: 10%→12%, Breath: 20%→22%, Muscle: 25%→15%, Artistry: 10%→13%
+- 🔧 Technique 保持 25% (不变)
+- 📄 文献: TECH_RESEARCH §3.4, §3.5 (双独立维度建议降至 15%)
+
+### P1 增强 (2)
+
+**P1-1: 肌肉五维代理重构 (muscle_scorer.py + muscle_extractor.py)**
+- 🆕 `MuscleFeatures` 新增 5 字段: mpt_seconds, crest_factor, spr_ratio, f1f2_area, alpha_ratio
+- 🆕 `_extract_mpt()`: 最长发声时间 (呼吸肌耐力)
+- 🆕 `_extract_crest_factor()`: 峰值/RMS 比 (声音投射力)
+- 🆕 `_extract_spr()`: 2-4kHz/0-2kHz (歌手共振峰)
+- 🆕 `_extract_f1f2_area_approx()`: F1-F2 元音空间面积 (MRI R²=0.96)
+- 🆕 `_extract_alpha_ratio()`: 0-1kHz/1-5kHz (发声努力程度)
+- 🔧 `MuscleStrengthScorer._apply_body_proxies()` + `_apply_facial_proxies()`: 修正器模式
+
+**P1-2a: 音色门控修复 (timbre_extractor.py + timbre_adjuster.py)**
+- 🔧 `LibrosaTimbreExtractor`: 旧 CPP [0.01, 0.05] 无区分度 → harmonic_stability 替代门控
+- 🔧 `TimbreAdjuster`: effective_confidence = max(mfcc_cluster_purity, harmonic_stability/100)
+- 🆕 `TimbreFeatures`: 新增 harmonic_stability 字段
+- ✅ 修复 C2: 音色维度在生产环境始终为零的问题
+
+### 测试增强
+
+- 🆕 +12 technique scorer tests (7 CPPS + 5 articulation)
+- 🆕 +4 artistry scorer tests (颤音 fallback)
+- 🆕 +3 timbre adjuster tests (双源置信度)
+- 🆕 +6 muscle scorer tests (五维代理)
+- 📊 测试总数: 375 → **400** (100% GREEN)
+- 📊 真实音频基线: BASELINE_V7_3 → **BASELINE_V7_4**
+
+### 真实音频评分变化
+
+| 音频 | Tech v7.3 | Tech v7.4 | Δ |
+|------|:--------:|:--------:|:--:|
+| 恋人（高分） | 25 | **47** | +22 |
+| 手写的从前（高分） | 19 | **45** | +26 |
+| 1（高分） | 20 | **45** | +25 |
+| 音频-3分26秒(高分) | 30 | **48** | +18 |
+| 陈奕迅难听之声（低分） | 16 | **49** | +33 |
+
+### 修改文件 (14)
+
+| 层 | 文件 |
+|----|------|
+| Domain | `technique_scorer.py`, `artistry_scorer.py`, `value_objects.py`, `muscle_scorer.py`, `timbre_adjuster.py` |
+| Audio | `technique_extractor.py`, `muscle_extractor.py`, `timbre_extractor.py` |
+| Application | `feature_adapters.py`, `ddd_feature_orchestrator.py` |
+| Tests | `test_technique_scorer.py`, `test_artistry_scorer.py`, `test_muscle_scorer.py`, `test_timbre_adjuster.py` |
+
+### 文档更新
+
+- 📝 `PROJECT_STATUS.md`: v7.3.1 → v7.4, 权重新表, 测试 375→400
+- 📝 `CHANGELOG.md`: 新增 v7.4 条目
+- 📝 `TEST_RESULTS.md`: 测试数更新, 基线 V7_4
+- 📝 `SCORING.md`: 权重新分配 + 算法变更
+- 📝 `SCORING_ALGORITHM_IMPROVEMENT_PLAN.md`: 标记已完成项
+- 📝 `PRD.md`, `GOALS.md`, `README.md`: 同步更新
+
+---
+
 
 ### 概述
 

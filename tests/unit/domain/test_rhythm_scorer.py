@@ -96,7 +96,7 @@ class TestRhythmScorer:
     def test_weighted_method(self):
         f = make_features()
         result = self.scorer.calculate(f)
-        assert result.weighted() == result.raw_score * 0.10
+        assert result.weighted() == result.raw_score * 0.12  # v7.4: 10%→12%
 
     # 12. Score clamped
     def test_score_clamped(self):

@@ -1,8 +1,8 @@
 # 核心算法审计报告
 
-> 🗄️ **归档文档 — v5.9 (2026-05-26)** | 保留作为算法设计参考
-> 
-> 以下 P0 问题已在 v5.11-v5.17 全部修复。当前算法状态见 **[../2-technical/SCORING.md](../2-technical/SCORING.md)**。
+> 🗄️ **归档文档 — v5.9 (2026-05-26)** | 当前版本: v7.3.1
+>
+> P0 问题已在 v5.11-v5.17 修复。当前算法: [SCORING.md](../2-technical/SCORING.md) | 已知问题: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
 
 > - "未先做人声分离就分析混合音频" → v5.11 Demucs 已接入评分主流程 ✅
 > - "DTW 参考评分未默认化" → v5.15 DTW 自动搜索已默认化 ✅
