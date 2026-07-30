@@ -18,9 +18,9 @@ class TestTechniqueFeatureExtractor:
         from backend.domain.audio.technique_extractor import LibrosaTechniqueExtractor
         from backend.domain.audio.feature_types import AcousticFeatures
         self.extractor = LibrosaTechniqueExtractor()
-        # Good acoustic features
+        # Good acoustic features (v7.6: cpp raw value ~0.04, ×100 rescaling → 4.0)
         self.acoustic = AcousticFeatures(
-            hnr=25.0, cpp=4.0, spectral_tilt=-5.0,
+            hnr=25.0, cpp=0.04, spectral_tilt=-5.0,
             hpss_harmonic_ratio=0.40,
         )
 
@@ -41,7 +41,7 @@ class TestTechniqueFeatureExtractor:
     def test_low_hnr_reduced_clarity(self):
         """低 HNR → 低 consonant_clarity"""
         from backend.domain.audio.feature_types import AcousticFeatures
-        low_acoustic = AcousticFeatures(hnr=5.0, cpp=1.0, spectral_tilt=-15.0)
+        low_acoustic = AcousticFeatures(hnr=5.0, cpp=0.02, spectral_tilt=-15.0)
         y = np.zeros(22050, dtype=np.float32)
 
         result_high = self.extractor.extract(y, 22050, self.acoustic)

@@ -74,16 +74,16 @@ class TestTechniqueScorer:
     # ---- v7.4: CPPS primary breath-voice ratio ----
 
     def test_breath_voice_cpps_optimal(self):
-        """CPPS>=12 → 气声比满分段，CPPS 贡献 ~40 分"""
+        """v7.6: CPPS≥9 → 满分 40 + HNR 18→70%×25=17.5 ≈ 57.5+"""
         f = make_features(hnr_mean=18.0, cpp_mean=14.0, spectral_tilt=0.0, hf_energy_ratio=0.4)
         result = self.scorer.calculate(f)
-        assert result.breath_voice_ratio >= 60  # CPPS 40% + HNR 25% ≈ 65
+        assert result.breath_voice_ratio >= 55  # v7.6: HNR graduated, 18→70%
 
     def test_breath_voice_cpps_unavailable_fallback(self):
-        """CPPS=0 → HNR 回退权重 45%"""
+        """v7.6: CPPS=0 → HNR fallback 45%, HNR 18→70%×45=31.5"""
         f = make_features(hnr_mean=18.0, cpp_mean=0.0, spectral_tilt=0.0, hf_energy_ratio=0.4)
         result = self.scorer.calculate(f)
-        assert result.breath_voice_ratio >= 40  # HNR fallback 45%
+        assert result.breath_voice_ratio >= 30  # v7.6: HNR graduated fallback
 
     def test_breath_voice_cpps_low(self):
         """CPPS<3 → 极气息感，低分"""

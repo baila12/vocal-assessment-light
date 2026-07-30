@@ -39,7 +39,10 @@ class LibrosaTechniqueExtractor:
         import librosa
 
         hnr = float(getattr(acoustic, 'hnr', 15.0) or 15.0)
-        cpp = float(getattr(acoustic, 'cpp', 1.0) or 1.0)
+        # v7.6: 声学 CPP (cepstral peak) 原始范围 ~0.04-0.10, 缩放 ×100 至 4-10 范围
+        # 以便评分器使用有意义的阈值 (文献 Buckley 2023: 歌声 CPPS 持续元音 13-18dB)
+        cpp_raw = float(getattr(acoustic, 'cpp', 1.0) or 1.0)
+        cpp = cpp_raw * 100.0
         tilt = float(getattr(acoustic, 'spectral_tilt', 0.0) or 0.0)
 
         vibrato_quality = 0.0

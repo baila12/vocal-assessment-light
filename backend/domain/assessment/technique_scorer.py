@@ -249,35 +249,39 @@ class TechniqueScorer:
         score = 0.0
 
         # === 1. CPPS (40%) — 主特征 ===
-        # 文献: 连续语音 CPPS > 8.37 dB = 正常, < 3.0 dB = 严重气息
-        #       歌声阈值略低 (F0 范围更宽、强度变化大)
+        # v7.6: 阈值重标定 — 声学 CPP ×100 后范围 ~3-10 (原始 0.04-0.10)
+        # 文献: Buckley et al. 2023 — 歌声 CPPS 持续元音 13-18dB
+        #       (acoustic CPP ×100 ≈ 4-10 对应基本音质, 不同于 audiofeat CPPS dB)
         if cpp_mean > 0:
-            if cpp_mean >= 12.0:
-                score += 40.0
-            elif cpp_mean >= 8.0:
-                score += 30.0 + (cpp_mean - 8.0) / 4.0 * 10.0   # 8→30, 12→40
+            if cpp_mean >= 9.0:
+                score += 40.0                                          # 优秀
+            elif cpp_mean >= 7.0:
+                score += 30.0 + (cpp_mean - 7.0) / 2.0 * 10.0         # 7→30, 9→40
             elif cpp_mean >= 5.0:
-                score += 15.0 + (cpp_mean - 5.0) / 3.0 * 15.0   # 5→15, 8→30
+                score += 15.0 + (cpp_mean - 5.0) / 2.0 * 15.0         # 5→15, 7→30
             elif cpp_mean >= 3.0:
-                score += 5.0 + (cpp_mean - 3.0) / 2.0 * 10.0    # 3→5, 5→15
+                score += 5.0 + (cpp_mean - 3.0) / 2.0 * 10.0          # 3→5, 5→15
             else:
-                score += max(0.0, cpp_mean / 3.0 * 5.0)          # 0→0, 3→5
+                score += max(0.0, cpp_mean / 3.0 * 5.0)               # 0→0, 3→5
 
         # === 2. HNR (25% CPPS 可用时 / 45% fallback) — 辅助验证 ===
-        # v7.5: 移除 HNR>22 的惩罚 (歌声 HNR 典型 49-51dB, 远高于语音)
-        # 文献: Buckley et al. 2023 — 歌声 HNR 远高于语音病理阈值
-        #       当前阈值 12-22dB 来自语音病理学, 对歌声无区分度
+        # v7.6: 歌声特定 HNR 阈值 (文献 Buckley 2023: 歌声 HNR 典型 25-35dB)
+        #       声学 HNR 范围 ~10-32, 旧阈值 ≥12→满分 对歌声无区分度
         if cpp_mean > 0:
             hnr_weight = 25.0  # CPPS 可用时，HNR 为辅助
         else:
             hnr_weight = 45.0  # CPPS 不可用时，HNR 提升为 fallback
 
-        if hnr_mean >= 12:
-            score += hnr_weight  # 干净声音 → 满分 (歌声 HNR 天然 >22)
-        elif hnr_mean < 5:
-            score += hnr_weight * 0.20    # 极低 HNR → 20%
-        else:  # 5-12
-            score += hnr_weight * (0.20 + (hnr_mean - 5) / 7.0 * 0.80)  # 线性过渡
+        if hnr_mean >= 25.0:
+            score += hnr_weight                                        # 干净 → 满分
+        elif hnr_mean >= 18.0:
+            score += hnr_weight * (0.70 + (hnr_mean - 18.0) / 7.0 * 0.30)  # 18→70%, 25→100%
+        elif hnr_mean >= 10.0:
+            score += hnr_weight * (0.30 + (hnr_mean - 10.0) / 8.0 * 0.40)  # 10→30%, 18→70%
+        elif hnr_mean >= 5.0:
+            score += hnr_weight * (0.10 + (hnr_mean - 5.0) / 5.0 * 0.20)   # 5→10%, 10→30%
+        else:
+            score += hnr_weight * max(0.0, hnr_mean / 5.0 * 0.10)           # 0→0%, 5→10%
 
         # === 3. Spectral tilt (20%) — 区分艺术气声 vs 漏气 ===
         # 文献: 气息音 H1-H2 = +2.08dB, 正常 = -0.60dB, 紧压 = -1.63dB

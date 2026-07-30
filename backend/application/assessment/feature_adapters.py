@@ -116,7 +116,8 @@ class FeatureAdapterRegistry:
         # spectral_flux: 近似值, 基于声学特征
         # hnr / cpp 从 AudioFeaturesResult 直接读取
         hnr = _safe_float(getattr(features, 'hnr', 15.0), default=15.0)
-        cpp = _safe_float(getattr(features, 'cpp', 1.0), default=1.0)
+        cpp_raw = _safe_float(getattr(features, 'cpp', 1.0), default=1.0)
+        cpp = cpp_raw * 100.0  # v7.6: rescale acoustic CPP to meaningful range
         spectral_tilt = _safe_float(getattr(features, 'spectral_tilt', 0.0))
 
         # vibrato info (传递给 Artistry 提取器)
@@ -129,8 +130,8 @@ class FeatureAdapterRegistry:
             consonant_clarity=_safe_clamp(hnr * 2.0, 0, 100),  # HNR → 辅音清晰度
             hnr_mean=hnr,
             spectral_tilt=spectral_tilt,
-            hf_energy_ratio=_safe_clamp(cpp / 5.0, 0, 1.0),  # CPP → 高频能量比
-            cpp_mean=cpp,
+            hf_energy_ratio=_safe_clamp(cpp_raw / 5.0, 0, 1.0),  # raw CPP → HF energy
+            cpp_mean=cpp,  # v7.6: rescaled (×100)
             vibrato_quality=vibrato_quality,
             vibrato_rate_avg=vibrato_rate_avg,
             # v7.4: 新特征在回退路径中不可用
@@ -241,7 +242,8 @@ class FeatureAdapterRegistry:
         from backend.domain.assessment.timbre_adjuster import TimbreFeatures
 
         hnr = _safe_float(getattr(features, 'hnr', 15.0), default=15.0)
-        cpp = _safe_float(getattr(features, 'cpp', 1.0), default=1.0)
+        cpp_raw = _safe_float(getattr(features, 'cpp', 1.0), default=1.0)
+        cpp = cpp_raw * 100.0  # v7.6: rescale acoustic CPP to meaningful range
 
         # 从音频特征推导音色代理指标
         # spectral_centroid_deviation: 从 spectral_tilt 推导
@@ -250,7 +252,7 @@ class FeatureAdapterRegistry:
 
         # mfcc_cluster: 从 HNR 和 CPP 综合推导
         cluster_dist = _safe_clamp(hnr / 30.0, 0, 1.0)
-        cluster_purity = _safe_clamp(cpp / 6.0, 0, 1.0)
+        cluster_purity = _safe_clamp(cpp_raw / 6.0, 0, 1.0)  # v7.6: use raw CPP
 
         # harmonic_richness: 从 harmonic_stability + HNR 推导
         bs = getattr(features, 'breath_stability', None)
