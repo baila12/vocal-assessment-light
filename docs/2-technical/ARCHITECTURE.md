@@ -1,6 +1,6 @@
-# 系统架构 v7.5
+# 系统架构 v7.6
 
-> 更新: 2026-07-29 | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-31 | 分支: `feat/v7-fastapi-vue-refactor` | Flask /old 已移除
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md)
 

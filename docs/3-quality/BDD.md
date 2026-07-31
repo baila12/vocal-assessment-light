@@ -1,6 +1,6 @@
-# 行为驱动开发 (BDD) 规范 v7.5
+# 行为驱动开发 (BDD) 规范 v7.6
 
-> 更新: 2026-07-28 | 13 step files | 21 feature files | v7.3.1: 29 new scenarios
+> 更新: 2026-07-31 | 13 step files | 21 feature files | 29 scenarios
 
 ---
 

@@ -1,12 +1,27 @@
-# 测试结果记录 v7.5
+# 测试结果记录 v7.6
 
-> 更新: 2026-07-29 | 428 tests 100% GREEN | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-07-31 | 413 tests 100% GREEN | 分支: `feat/v7-fastapi-vue-refactor`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
 ---
 
-## v7.5 测试统计
+## v7.6 测试统计
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| DDD 领域 (scorers + value objects + comparison) | 127 | ✅ 100% | 7 scorers + comparison + domain services |
+| DDD 基建 (extractors + orchestrator + ABI) | 136 | ✅ 100% | 10 extractors + audio_utils + ABI |
+| DDD 对齐 + Flag | 17 | ✅ 100% | alignment + extraction flags |
+| 中间件 | 22 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
+| **DDD 合计** | **359** | **100% GREEN** | (~15s) |
+| FastAPI 集成 | 20 | ✅ 100% | test_api_routes |
+| 扩展测试 (DTW/repos/calibrator) | 34 | ✅ 100% | tests/extended/ |
+| **生产代码总计** | **413** | **100% GREEN** | |
+| 真实音频回归 | 28 | ✅ 100% | BASELINE_V7_6 |
+| 前端 Vitest | 33 | ✅ 100% | stores |
+
+## v7.5 测试统计 (历史)
 
 ### 生产测试 (全部 GREEN)
 

@@ -1,6 +1,6 @@
-# 测试驱动开发 (TDD) 规范 v7.5
+# 测试驱动开发 (TDD) 规范 v7.6
 
-> 更新: 2026-07-28 | 375 tests 100% GREEN | pytest + Vitest
+> 更新: 2026-07-31 | 413 tests 100% GREEN | pytest + Vitest
 
 ---
 

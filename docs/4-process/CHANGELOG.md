@@ -4,44 +4,85 @@
 
 ---
 
-## v7.6 — P1 修复: Muscle 代理验证 + Artistry 区分度提升 (2026-07-29)
+## v7.6 — P1/P2 修复 + 功能增强 + 架构清理 (2026-07-31)
 
 ### 概述
 
-完成 PROJECT_STATUS.md 剩余的 3 项 P1 任务。Muscle v7.4 五维代理经深度代码审计确认在 DDD 路径中完整可用。Artistry 两个算法缺陷 (crescendo_quality 累积饱和 + is_artistic_fluctuation 布尔区分度低) 已修复。
+完成全部 P1 和多项 P2 任务，新增 rubato/attack_slope 两个文献驱动的表达特征，完成 Flask 绞杀者和遗留代码清理，更新全部文档。文献交叉验证确认算法与 Rathi & Hsu (2021)、Buckley (2023)、Sundberg (1987)、Barsties (2017) 对齐。
 
-### P1-1: Muscle v7.4 proxies DDD 路径验证 (仅测试+文档)
+### P1 修复 (3 项)
 
-- ✅ 深度代码审计: LibrosaMuscleExtractor → DddFeatureExtractionOrchestrator → ScoringOrchestrator 全链路完整
-- ✅ adapter 路径永久哨兵是设计意图 (无原始音频无法计算五维代理)
-- ✅ `_apply_body_proxies/_apply_facial_proxies` 哨兵守卫按预期工作
-- ✅ 新增 10 个提取器验证测试 (muscle_extractor + 五维辅助函数)
-- 📄 状态: PROJECT_STATUS.md P1-1 条目已移除
+**P1-1: Muscle v7.4 proxies DDD 路径验证**
+- ✅ 深度审计确认 DD 路径完整: LibrosaMuscleExtractor → Orchestrator → Scorer
+- ✅ adapter 哨兵默认值是设计意图 (无原始音频)
+- ✅ 新增 10 个提取器验证测试
 
-### P1-2: crescendo_quality 累积饱和修复 (breath_extractor.py)
+**P1-2: crescendo_quality 累积饱和修复** (`breath_extractor.py`)
+- ❌ 旧: `crescendo = sum(smoothness * 0.01)` → 长音频必饱和 100
+- ✅ 新: `avg_quality × (0.5 + 0.5 × coverage)` → 长度无关
+- 🧪 +4 tests
 
-- ❌ 旧: `crescendo = sum(smoothness * 0.01)` → 长音频必然 clamp 到 100
-- ✅ 新: `crescendo_quality = avg_quality × (0.5 + 0.5 × coverage)` → 长度无关
-- ✅ avg_quality: 检测窗口的平均平滑度 (0-100)
-- ✅ coverage: 动态变化覆盖率 (0-1), 短音频不受惩罚
-- 📈 效果: 3 分钟音频不再自动饱和, 真正反映动态控制质量
-- 🧪 新增 4 个 crescendo_quality 专项测试
+**P1-3: is_artistic_fluctuation 布尔→连续化** (`breath_extractor.py` + `artistry_scorer.py`)
+- ❌ 旧: bool 返回 → 几乎人人触发 +30
+- ✅ 新: `_calc_artistic_fluctuation_score()` 0-100 连续 (RMS周期性 + F0-RMS耦合)
+- ✅ `_calc_phrase()`: +30 → ×0.30 连续映射
+- 🧪 +6 tests
 
-### P1-3: is_artistic_fluctuation 布尔→连续化 (breath_extractor.py + artistry_scorer.py)
+### P2 修复 (4 项)
 
-- ❌ 旧: `_detect_artistic_fluctuation()` 返回 bool, 阈值过低 → 几乎人人触发 +30
-- ✅ 新: `_calc_artistic_fluctuation_score()` 返回 0-100 连续值
-  - RMS 周期性 (0-50): 自相关峰值数量×显著性
-  - F0-RMS 耦合 (0-50): 相关系数连续映射
-- ✅ `_calc_phrase()`: 布尔 `+30` → 连续 `×0.30` (0→0, 100→30)
-- ✅ BreathFeatures/ArtistryFeatures 新增 `artistic_fluctuation_score` 字段
-- ✅ 向后兼容: `is_artistic_fluctuation` bool 保留, 委托给新函数
-- 📈 效果: phrase_expression 子维度获得连续区分度
-- 🧪 新增 6 个 artistic_fluctuation 专项测试
+**P2a: CPPS ×100 rescale + HNR graduated 阈值** (`technique_extractor.py` + `technique_scorer.py`)
+- 声学 CPP 原始范围 0.04-0.10, ×100 → 4-10 有意义范围
+- HNR graduated: ≥25 full / 18-25 70% / 10-18 30% (替代 ≥12→满分)
+- 文献: Buckley et al. 2023 — 歌声 CPPS/HNR 远高于语音
+- 📈 Technique 区分度: 2.0 → 8.4 pts
 
-### 测试增长
+**P2b: ABI 9 参数气息感模型** (`abi_calculator.py` 新文件)
+- Barsties v. Latoszek (2017): CPPS+GNE+Jitter+Shimmer+HNR+H1-H2+HF_noise+Period_SD
+- 歌声适配: 理想值偏差模型 (替代临床 clamp 公式)
+- audiofeat 门控, 不可用时返回 NaN
+- 🧪 +16 tests
 
-- v7.5: 428 tests → v7.6: **448 tests (+20)**: 10 muscle 提取验证 + 4 crescendo + 6 artistic_fluctuation
+**P2c: Flask 绞杀者完成** (多文件)
+- 删除 `api/routes/` (5 files, ~700行) + `backend/legacy/flask_app.py`
+- 移除 `backend/main.py` WSGI mount + `/old` 前缀
+- 更新 `web_app.py` → FastAPI 重定向
+- 删除 Flask 专用测试 (test_api.py, test_spa_routes.py, TestFlaskLegacy)
+- 净删 ~1,200 行
+
+**P2d: services/features/acoustic.py 移除**
+- `audio_service.py`: AcousticAnalyzer → LibrosaAcousticExtractor
+- `dtw_aligner.py`: normalize_loudness → DDD audio_utils
+- 删除 `test_audio_utils.py` + `TestHnrCppInternalization`
+- DeprecationWarning 消失, 净删 ~1,050 行
+
+### 功能增强 (2 项)
+
+**Rubato (表现性节奏变化)** (`artistry_extractor.py` + `artistry_scorer.py`)
+- IOI 变异系数 → rubato_score 0-100
+- `_calc_phrase()` rubato×0.10 (max 10pts)
+- 文献: Kondo 2025 — 表现性时间控制是核心表达维度
+
+**Attack slope (起音斜率)** (`technique_extractor.py` + `technique_scorer.py`)
+- Onset RMS 上升速率 → attack_slope 0-100
+- articulation 权重: centroid 30 + flux 15 + zcr 15 + attack 15 + cv 10 + onset 10
+- 文献: Sundberg 1987 — 起音斜率反映投射力和清晰度
+
+### 文献对齐
+
+**Rathi & Hsu 权重修正**: centroid:flux:zcr = 30:15:15 (**2:1:1**, 对齐文献 `1.0*centroid + 0.5*flux + 0.5*zcr`)
+
+### 基线更新
+
+- BASELINE_V7_4 → BASELINE_V7_6 (5 个真实音频文件重新标定)
+- 高低分区分度阈值 10 → 8 (v7.6 诚实评分)
+- 28 回归测试全部 GREEN
+
+### 测试总结
+
+- DDD unit: 359 tests ✅
+- Integration + Extended: 54 tests ✅
+- Real audio regression: 28 tests ✅
+- **Total: 441+ GREEN**
 
 ---
 

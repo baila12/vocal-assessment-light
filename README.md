@@ -1,6 +1,6 @@
 # 声乐评估系统 - 淡色版
 
-基于 Flask 的本地 Web 应用，提供音频评估、实时录音、比对分析等功能。
+基于 FastAPI + Vue 3 的本地 Web 应用，提供六维声乐评分、实时录音、对比分析等功能。
 
 ## 功能特性
 
@@ -66,58 +66,48 @@
 ### 启动服务
 ```bash
 cd "C:\Users\jack\Desktop\临时文件\声乐\vocal_assessment_light"
-C:/Users/jack/anaconda3/envs/pytorch2/python.exe web_app.py
+python backend/main.py              # FastAPI :8000
+# 或: python web_app.py            # 自动重定向到 FastAPI
 ```
 
 ### 访问地址
-- 本地: http://localhost:5000
-- 局域网: http://<your-ip>:5000
-- 对比分析: http://localhost:5000/compare.html
+- 本地: http://localhost:8000
+- API 文档: http://localhost:8000/docs
+- 对比分析: http://localhost:8000 (Vue 3 SPA)
 
 ## 项目结构
 
 ```
 vocal_assessment_light/
-├── api/                  # API 层 (Flask 蓝图)
-│   ├── routes/           # 路由定义
-│   └── business/         # 业务逻辑
-│       └── audio_comparison.py  # 对比分析 + 相对评分
-├── services/             # 服务层 (业务逻辑)
-│   └── dl_services/      # 深度学习服务
-│       └── model_manager/  # 模型管理模块
-├── repositories/         # 数据层 (仓储模式)
-├── config/               # 配置管理
-├── core/                 # 核心算法
-│   └── workers/          # 后台任务模块
-│       ├── signals.py    # Qt 信号定义
-│       ├── cache.py      # 音频缓存
-│       ├── audio_loader.py   # 音频加载任务
-│       ├── assessment_task.py # 评估任务
-│       ├── emotion_analyzer.py # 情绪分析
-│       └── manager.py    # 线程管理器
-├── web/static/           # 前端资源
-│   ├── compare.html      # 对比分析页面
-│   └── js/
-│       ├── compare.js    # 对比页面主逻辑
-│       └── modules/
-│           ├── pitch-detector.js      # YIN 音高检测
-│           └── realtime-compare.js    # 实时录音对比
-├── tests/                # 测试代码
-├── web_app.py            # 应用入口
-└── PROJECT_STATUS.md     # 项目状态文档
+├── backend/              # FastAPI DDD 后端
+│   ├── domain/           # 领域层
+│   │   ├── assessment/   # 7 scorers (六维+音色)
+│   │   └── audio/        # 14 特征提取模块
+│   ├── application/      # 编排层
+│   ├── infrastructure/   # 基础设施
+│   ├── interfaces/       # API + WebSocket
+│   └── main.py           # 应用入口 (:8000)
+├── frontend/             # Vue 3 + Element Plus SPA
+│   └── src/views/        # 5 页面 (Home/Report/History/Compare/Sing)
+├── api/business/         # 共享业务逻辑 (audio_analysis)
+├── services/             # 服务层
+│   └── dl_services/      # 深度学习 (style/VAD/DTW)
+├── docs/                 # 文档 (产品/技术/质量/流程)
+├── tests/                # 413 tests (unit + integration + extended)
+└── web_app.py            # 入口 (→ FastAPI 重定向)
 ```
 
 ## API 接口
 
 | 接口 | 方法 | 描述 |
 |------|------|------|
-| `/api/upload` | POST | 上传并分析音频，支持 `mode` 参数: `quick`(快速) / `professional`(专业) |
-| `/api/analyze` | POST | 分析已存在音频 |
-| `/api/compare` | POST | 对比分析两个音频，支持 JSON 和 FormData |
-| `/api/separate` | POST | 人声分离 |
-| `/api/report` | POST | 生成报告 |
-| `/api/history` | GET | 获取历史记录 |
-| `/api/audio` | GET | 获取音频文件 |
+| `/api/v1/upload` | POST | 上传并分析音频，支持 `mode`: `quick` / `professional` |
+| `/api/v1/analyze` | POST | 分析已存在音频 |
+| `/api/v1/compare` | POST | DTW 对比分析两个音频 |
+| `/api/v1/separate` | POST | Demucs 人声分离 |
+| `/api/v1/report` | POST | 生成评估报告 |
+| `/api/v1/history` | GET | 获取历史记录 |
+| `/api/v1/audio` | GET | 流式传输音频文件 |
 
 ### 上传接口参数
 
@@ -170,9 +160,10 @@ pytest tests/unit/ -v
 
 ## 版本历史
 
-- **v7.5** - P1-2b 音色八维剖面 + P0 评分异常修复 (Artistry F0 CV / Technique HNR 单调 / CPPS-HF 解耦 / Muscle 校准)
-- **v7.4** - 评分算法 P0/P1 修复：CPPS 主特征 + ZCR/Centroid 咬字 + 颤音 fallback + 权重新分配 + 音色门控修复 + 肌肉五维代理
-- **v7.3** - audiofeat 评分闭环 + Comparison DDD + 安全修复 + BDD 增强
+- **v7.6** - P1/P2 修复 + Rubato/AttackSlope + Flask 绞杀者完成 + ABI 9参数模型 + 文献权重对齐
+- **v7.5** - P1-2b 音色八维剖面 + P0 评分异常修复
+- **v7.4** - 评分算法 P0/P1 修复：CPPS + ZCR/Centroid + 颤音 fallback + 肌肉五维代理
+- **v7.3** - audiofeat 评分闭环 + Comparison DDD + 安全修复
 - **v7.2** - audiofeat 增强特征提取 (22 特征)
 - **v7.1** - DDD 绞杀者内移完成 (13/13 模块自包含)
 - **v7.0** - FastAPI + Vue 3 + Element Plus 全栈重构

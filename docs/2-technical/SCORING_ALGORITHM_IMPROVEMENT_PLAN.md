@@ -4,7 +4,7 @@
 >
 > **关联文档**: [TECH_RESEARCH.md](TECH_RESEARCH.md) | [SCORING.md](SCORING.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 >
-> **实施状态**: P0 ✅ 已完成 | P1 ✅ 全部完成 (v7.6 收尾) | P2 ⏭️ 未开始
+> **实施状态**: P0 ✅ v7.4-v7.5 | P1 ✅ v7.6 | P2 ✅ v7.6 (CPPS/HNR + ABI + Flask + Legacy)
 
 ---
 
