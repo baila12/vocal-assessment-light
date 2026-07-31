@@ -163,12 +163,12 @@ class TechniqueScorer:
         - Hecker (1974): C-V 能量比与可理解度的因果关系
         - Sundberg (1987): 起音斜率反映投射力和清晰度
 
-        权重设计 (v7.6):
-        - Spectral Centroid (25%): Rathi & Hsu 最重要特征
-        - Spectral Flux (20%): 频谱变化速率
-        - ZCR (20%): 辅音噪声检测
-        - Attack slope (15%): 起音质量 (v7.6 新增)
-        - C-V 能量比 (10%): 经典可理解度指标
+        权重设计 (v7.6, 文献对齐 Rathi & Hsu 2021):
+        - Spectral Centroid (30%): 文献权重 1.0 (2× flux/zcr)
+        - Spectral Flux (15%): 文献权重 0.5
+        - ZCR (15%): 文献权重 0.5
+        - Attack slope (15%): 起音质量 (Sundberg 1987)
+        - C-V 能量比 (10%): 经典可理解度指标 (Hecker 1974)
         - Onset density (10%): 降权保留
         - Consonant clarity (fallback): 新特征缺失时回退
         """
@@ -178,29 +178,29 @@ class TechniqueScorer:
         if has_new_features:
             score = 0.0
 
-            # === 1. Spectral Centroid (25%) — 最重要特征 ===
+            # === 1. Spectral Centroid (30%) — 文献权重 1.0, 最重要 ===
             if spectral_centroid > 0:
                 centroid_norm = min(1.0, spectral_centroid / 3500.0)
-                score += centroid_norm * 25.0
+                score += centroid_norm * 30.0
 
-            # === 2. Spectral Flux (20%) — 频谱变化速率 ===
+            # === 2. Spectral Flux (15%) — 文献权重 0.5 ===
             if spectral_flux > 0:
                 if spectral_flux <= 4.0:
-                    flux_score = spectral_flux / 4.0 * 20.0
+                    flux_score = spectral_flux / 4.0 * 15.0
                 elif spectral_flux <= 8.0:
-                    flux_score = 20.0 - (spectral_flux - 4.0) * 2.0
+                    flux_score = 15.0 - (spectral_flux - 4.0) * 2.0
                 else:
-                    flux_score = max(10.0, 12.0 - (spectral_flux - 8.0))
+                    flux_score = max(7.0, 7.0 - (spectral_flux - 8.0))
                 score += flux_score
 
-            # === 3. ZCR (20%) — 辅音噪声检测 ===
+            # === 3. ZCR (15%) — 文献权重 0.5 ===
             if zcr_mean > 0:
                 if zcr_mean >= 0.15:
-                    zcr_score = 20.0
+                    zcr_score = 15.0
                 elif zcr_mean >= 0.08:
-                    zcr_score = 12.0 + (zcr_mean - 0.08) / 0.07 * 8.0
+                    zcr_score = 9.0 + (zcr_mean - 0.08) / 0.07 * 6.0
                 else:
-                    zcr_score = zcr_mean / 0.08 * 12.0
+                    zcr_score = zcr_mean / 0.08 * 9.0
                 score += zcr_score
 
             # === 4. Attack slope (15%) — v7.6: 起音质量 ===
