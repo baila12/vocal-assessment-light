@@ -98,6 +98,9 @@ class LibrosaTechniqueExtractor:
 
         consonant_clarity = max(0.0, min(100.0, hnr * 2.0))
 
+        # v7.6: 起音斜率 (attack slope)
+        attack_slope = _extract_attack_slope(y, sr)
+
         # v7.5: 修复 CPPS→HF 非单调耦合
         # 旧: hf_energy_ratio = cpp / 5.0 → CPPS=3.5 得分高于 CPPS=5.0
         # 新: 从真实频谱计算 >5kHz 能量占比
@@ -145,6 +148,7 @@ class LibrosaTechniqueExtractor:
             zcr_mean=round(zcr_mean, 6),
             spectral_centroid=round(spectral_centroid, 2),
             cv_energy_ratio=round(cv_energy_ratio, 4),
+            attack_slope=round(attack_slope, 2),  # v7.6: 起音斜率
         )
 
     @staticmethod
@@ -347,4 +351,84 @@ def _detect_legato(
 
         return max(0.0, min(100.0, silence_score * 0.60 + pitch_score * 0.40))
     except Exception:
+        return 0.0
+
+
+# ================================================================
+# v7.6: Attack slope extraction (起音斜率)
+# ================================================================
+
+def _extract_attack_slope(y: np.ndarray, sr: int) -> float:
+    """提取起音斜率分数 0-100 (越高 = 越清晰/有投射力)。
+
+    算法:
+    1. 检测音符起始点
+    2. 对每个起始点，测量从起始到峰值的 RMS 上升速率
+    3. 平均斜率 → 归一化评分
+
+    文献: 干净起音 = 更好的投射力和清晰度 (Sundberg 1987).
+    陡峭起音 (≥8 dB/50ms) → 高投射力
+    平缓起音 (<2 dB/50ms) → 气息式/模糊
+    """
+    try:
+        import librosa
+        onset_frames = librosa.onset.onset_detect(
+            y=y, sr=sr, hop_length=512,
+            backtrack=True, units='frames',
+        )
+        if len(onset_frames) < 2:
+            return 0.0
+
+        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=512)[0]
+        rms_db = 20 * np.log10(rms + 1e-10)
+
+        attack_rates = []
+        search_window = 10  # frames (~115ms at hop=512/sr=22050)
+
+        for onset in onset_frames:
+            if onset >= len(rms_db) - 2:
+                continue
+
+            # 从起始点向后搜索局部峰值
+            end = min(onset + search_window, len(rms_db))
+            peak_idx = onset + np.argmax(rms_db[onset:end])
+
+            if peak_idx > onset:
+                # 计算上升速率 (dB/frame)
+                rise_db = rms_db[peak_idx] - rms_db[onset]
+                rise_frames = peak_idx - onset
+                if rise_frames > 0:
+                    rate = rise_db / rise_frames  # dB per frame
+                    attack_rates.append(max(0.0, rate))
+
+        if not attack_rates:
+            return 0.0
+
+        # 平均起音斜率 → 0-100 映射
+        avg_rate = float(np.mean(attack_rates))
+
+        # 典型起音斜率: 0.1-1.5 dB/frame
+        # <0.2 → 极平缓 (气息式) → 0-15
+        # 0.2-0.5 → 正常 → 15-50
+        # 0.5-1.0 → 清晰投射 → 50-80
+        # >1.0 → 极具攻击性 → 80-100
+        if avg_rate < 0.1:
+            score = avg_rate / 0.1 * 15.0
+        elif avg_rate < 0.3:
+            score = 15.0 + (avg_rate - 0.1) / 0.2 * 35.0   # 0.1→15, 0.3→50
+        elif avg_rate < 0.7:
+            score = 50.0 + (avg_rate - 0.3) / 0.4 * 30.0   # 0.3→50, 0.7→80
+        elif avg_rate < 1.5:
+            score = 80.0 + (avg_rate - 0.7) / 0.8 * 20.0   # 0.7→80, 1.5→100
+        else:
+            score = 100.0
+
+        # 起始点密度加成: 更多清晰的起始点 → 更好的咬字
+        onset_density = len(onset_frames) / max(1.0, len(y) / sr)
+        if onset_density > 2.0:
+            score = min(100.0, score * 1.15)
+
+        return round(max(0.0, min(100.0, score)), 2)
+    except Exception:
+        logger.debug("Attack slope extraction failed", exc_info=True)
         return 0.0

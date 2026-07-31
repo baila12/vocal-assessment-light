@@ -32,6 +32,8 @@ class TechniqueFeatures:
     zcr_mean: float = 0.0            # 过零率均值 (0.02-0.08 元音, 0.15-0.40 擦音)
     spectral_centroid: float = 0.0   # 频谱质心 Hz (500-3500 典型歌声)
     cv_energy_ratio: float = -15.0   # C-V 能量比 dB (典型 -15dB, Hecker 1974)
+    # v7.6: 起音斜率
+    attack_slope: float = 0.0         # 起音速率 0-100 (越高越清晰/有投射力)
 
 
 class TechniqueScorer:
@@ -72,6 +74,7 @@ class TechniqueScorer:
             features.zcr_mean,            # v7.4: Rathi & Hsu 2021
             features.spectral_centroid,    # v7.4: Rathi & Hsu 2021
             features.cv_energy_ratio,      # v7.4: Hecker 1974
+            features.attack_slope,         # v7.6: 起音斜率
         )
 
         # 2. 气声比 (50%)
@@ -151,19 +154,22 @@ class TechniqueScorer:
         zcr_mean: float = 0.0,            # v7.4: Rathi & Hsu 2021
         spectral_centroid: float = 0.0,    # v7.4: Rathi & Hsu 2021
         cv_energy_ratio: float = -15.0,    # v7.4: Hecker 1974
+        attack_slope: float = 0.0,         # v7.6: 起音斜率
     ) -> float:
         """咬字清晰度 = 文献驱动加权融合
 
         文献依据:
         - Rathi & Hsu (2021): 0.5*Flux + 1.0*Centroid + 0.5*ZCR
         - Hecker (1974): C-V 能量比与可理解度的因果关系
+        - Sundberg (1987): 起音斜率反映投射力和清晰度
 
-        权重设计 (v7.4):
-        - Spectral Centroid (30%): Rathi & Hsu 最重要特征
-        - Spectral Flux (25%): Rathi & Hsu 权重 0.5 → 归一化后 25%
-        - ZCR (25%): Rathi & Hsu 权重 0.5 → 归一化后 25%
+        权重设计 (v7.6):
+        - Spectral Centroid (25%): Rathi & Hsu 最重要特征
+        - Spectral Flux (20%): 频谱变化速率
+        - ZCR (20%): 辅音噪声检测
+        - Attack slope (15%): 起音质量 (v7.6 新增)
         - C-V 能量比 (10%): 经典可理解度指标
-        - Onset density (10%): 降权 (无文献特异性依据)
+        - Onset density (10%): 降权保留
         - Consonant clarity (fallback): 新特征缺失时回退
         """
         # 检查新特征是否可用
@@ -172,38 +178,42 @@ class TechniqueScorer:
         if has_new_features:
             score = 0.0
 
-            # === 1. Spectral Centroid (30%) — 最重要特征 ===
+            # === 1. Spectral Centroid (25%) — 最重要特征 ===
             if spectral_centroid > 0:
                 centroid_norm = min(1.0, spectral_centroid / 3500.0)
-                score += centroid_norm * 30.0
+                score += centroid_norm * 25.0
 
-            # === 2. Spectral Flux (25%) — 频谱变化速率 ===
+            # === 2. Spectral Flux (20%) — 频谱变化速率 ===
             if spectral_flux > 0:
                 if spectral_flux <= 4.0:
-                    flux_score = spectral_flux / 4.0 * 25.0
+                    flux_score = spectral_flux / 4.0 * 20.0
                 elif spectral_flux <= 8.0:
-                    flux_score = 25.0 - (spectral_flux - 4.0) * 2.0
+                    flux_score = 20.0 - (spectral_flux - 4.0) * 2.0
                 else:
-                    flux_score = max(10.0, 17.0 - (spectral_flux - 8.0))
+                    flux_score = max(10.0, 12.0 - (spectral_flux - 8.0))
                 score += flux_score
 
-            # === 3. ZCR (25%) — 辅音噪声检测 ===
+            # === 3. ZCR (20%) — 辅音噪声检测 ===
             if zcr_mean > 0:
                 if zcr_mean >= 0.15:
-                    zcr_score = 25.0
+                    zcr_score = 20.0
                 elif zcr_mean >= 0.08:
-                    zcr_score = 15.0 + (zcr_mean - 0.08) / 0.07 * 10.0
+                    zcr_score = 12.0 + (zcr_mean - 0.08) / 0.07 * 8.0
                 else:
-                    zcr_score = zcr_mean / 0.08 * 15.0
+                    zcr_score = zcr_mean / 0.08 * 12.0
                 score += zcr_score
 
-            # === 4. C-V 能量比 (10%) ===
+            # === 4. Attack slope (15%) — v7.6: 起音质量 ===
+            if attack_slope > 0:
+                score += attack_slope * 0.15
+
+            # === 5. C-V 能量比 (10%) ===
             if cv_energy_ratio < 0:
                 deviation = abs(cv_energy_ratio - (-15.0))
                 cv_score = max(0.0, 10.0 - deviation * 0.5)
                 score += cv_score
 
-            # === 5. Onset density (10%) — 降权保留 ===
+            # === 6. Onset density (10%) — 降权保留 ===
             if 1.5 <= onset_density <= 5.0:
                 score += 10.0
             elif onset_density > 0:

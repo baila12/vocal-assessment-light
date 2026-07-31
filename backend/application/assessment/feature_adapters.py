@@ -138,6 +138,7 @@ class FeatureAdapterRegistry:
             zcr_mean=0.0,
             spectral_centroid=0.0,
             cv_energy_ratio=-15.0,
+            attack_slope=0.0,  # v7.6: adapter 路径无原始音频
         )
 
     # ================================================================
