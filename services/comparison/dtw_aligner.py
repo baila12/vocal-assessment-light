@@ -603,15 +603,16 @@ class DTWAligner:
         # 加载音频
         y, sr = librosa.load(audio_path, sr=self.sample_rate, mono=True)
 
-        # v5.10 预处理：响度归一化
-        from services.features.acoustic import AcousticAnalyzer
-        y = AcousticAnalyzer.normalize_loudness(y)
+        # v5.10 预处理：响度归一化 (v7.6: DDD audio_utils)
+        from backend.domain.audio.audio_utils import normalize_loudness
+        y = normalize_loudness(y)
 
-        # v5.10 预处理：检测混合音频并按需分离
+        # v5.10 预处理：检测混合音频并按需分离 (v7.6: DDD extractor)
         try:
-            is_mixed, confidence, _ = AcousticAnalyzer(
-                sr, self.hop_length
-            ).detect_mixed_audio(y)
+            from backend.domain.audio.acoustic_feature_extractor import LibrosaAcousticExtractor
+            ac_dtw = LibrosaAcousticExtractor(sr).extract(y, sr)
+            is_mixed = ac_dtw.is_mixed_audio
+            confidence = ac_dtw.mixed_audio_confidence
 
             if is_mixed and confidence > 0.5:
                 logger.info(f"[DTW] 检测到混合音频 (confidence={confidence:.2f})，尝试分离...")

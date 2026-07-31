@@ -17,7 +17,7 @@ import numpy as np
 from scipy import signal
 
 from config import Config
-from services.features.acoustic import AcousticAnalyzer
+from backend.domain.audio.acoustic_feature_extractor import LibrosaAcousticExtractor
 from services.feature_flags import FeatureFlags
 
 # v5.18 DL 辅助方法 (从本文件提取以控制文件大小; 原 DL imports 已移入 AudioDLHelpers)
@@ -754,9 +754,9 @@ class AudioService:
         # 检测是否为混合音频
         # 使用已加载的音频数据 (16kHz) 进行检测, 避免额外 I/O
         try:
-            is_mixed, confidence, _ = AcousticAnalyzer(
-                sample_rate, self._hop_length
-            ).detect_mixed_audio(audio_data)
+            ac_result = LibrosaAcousticExtractor(sample_rate).extract(audio_data, sample_rate)
+            is_mixed = ac_result.is_mixed_audio
+            confidence = ac_result.mixed_audio_confidence
         except Exception:
             logger.warning("Mixed audio detection failed, skipping separation", exc_info=True)
             return audio_data, sample_rate, None, False, False, 0.0
