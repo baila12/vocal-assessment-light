@@ -1,10 +1,9 @@
-"""Legacy 层 — 旧 Flask 代码包装, Phase 4 后删除"""
+"""Legacy 层 — v7.6 Flask 绞杀者已完成, Flask 路由已移除。
 
-from .flask_app import get_flask_app, create_legacy_flask_app
+仅保留 models.py (HistoryRecordV6) 供历史数据迁移使用。
+"""
 from .models import HistoryRecordV6
 
 __all__ = [
-    "get_flask_app",
-    "create_legacy_flask_app",
     "HistoryRecordV6",
 ]

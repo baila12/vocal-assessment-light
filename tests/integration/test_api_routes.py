@@ -43,19 +43,6 @@ class TestHealthEndpoint:
         assert any("/api/v1/audio" in p for p in paths)
 
 
-class TestFlaskLegacy:
-    def test_old_flask_root(self, client):
-        """绞杀者模式: 旧 Flask SPA 在 /old/ 下可访问"""
-        resp = client.get("/old/")
-        assert resp.status_code == 200
-
-    def test_old_flask_health(self, client):
-        resp = client.get("/old/health")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] in ("healthy", "degraded")
-
-
 class TestHistoryEndpoints:
     def test_list_history(self, client):
         resp = client.get("/api/v1/history")

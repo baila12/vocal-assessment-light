@@ -10,7 +10,6 @@ from typing import Optional
 import numpy as np
 
 from config import Config
-from .routes import upload_bp, history_bp, audio_bp
 from .errors import register_error_handlers
 
 # 项目根目录
@@ -80,9 +79,6 @@ def create_app(config: Optional[Config] = None) -> Flask:
     app.config['UPLOAD_FOLDER'] = str(config.UPLOAD_FOLDER)
 
     CORS(app)
-    app.register_blueprint(upload_bp, url_prefix='/api')
-    app.register_blueprint(history_bp, url_prefix='/api')
-    app.register_blueprint(audio_bp, url_prefix='/api')
     register_error_handlers(app)
 
     # SPA 入口 — 唯一 HTML 入口

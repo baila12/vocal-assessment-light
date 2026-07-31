@@ -7,7 +7,7 @@
 ## 一、架构
 
 ```
-Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
+Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)
                                       │
     ┌─────────────────────────────────┼──────────────────────────┐
     │  backend/ (DDD 四层)            │  旧服务层 (残留)           │
@@ -15,8 +15,8 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)  ←  Flask /old (绞杀者)
     │  domain/audio/ (13 模块自包含)   │  services/dl_services/ (11)│
     │  domain/comparison/ (v7.3)      │  services/audio_service.py │
     │  application/ (orchestrator)    │  api/business/ (bridge)   │
-    │  infrastructure/audio/ (4)      │  api/routes/ (Flask, 残留)│
-    │  interfaces/api/ + ws/          │  api/routes/rate_limit    │
+    │  infrastructure/audio/ (4)      │                           │
+    │  interfaces/api/ + ws/          │  (Flask /old 已移除 v7.6) │
     │  shared/ (EventBus, math_utils) │                           │
     └─────────────────────────────────┴──────────────────────────┘
 ```
@@ -249,7 +249,6 @@ v7.3.0 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | **P2** | `services/features/acoustic.py` | ⚠ 已添加 DeprecationWarning，仍被 audio_service 使用 |
 | **P2** | `services/features/types.py` | ⚠ 已添加 DeprecationWarning，仍被测试引用 |
 | **P2** | `services/dl_services/` (11 files) | style classifier, VAD, DTW 仍在使用 |
-| **P2** | `api/routes/` (Flask, ~700 行) | ✅ 已添加限速，仍与 FastAPI 端点重复 |
 
 ### 功能未完成
 
@@ -260,8 +259,7 @@ v7.3.0 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | **P2** | PyArmor 代码保护 | ADR-8, 构建脚本就绪 |
 | **P2** | electron-builder 完整打包 | 配置就绪, 未执行 |
 | **P2** | timbral_models 集成 | Python 3.12 兼容性问题, 待上游修复 |
-| **P2** | Flask 路由最终移除 | DeprecationWarning + rate_limit 就绪，等待绞杀者完成 |
-| **P2** | ABI 9 参数模型 | Barsties 2017, 需 Parselmouth 实现 |
+| **P2** | ABI 9 参数模型 | Barsties 2017, ✅ v7.6 已实现 (audiofeat 可选增强) |
 
 ### 测试遗留
 

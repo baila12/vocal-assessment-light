@@ -25,9 +25,6 @@ multiprocessing.freeze_support()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.wsgi import WSGIMiddleware
-
-
 def _detect_gpu() -> dict:
     """检测 GPU 加速可用性
 
@@ -162,11 +159,6 @@ def create_app() -> FastAPI:
     from backend.interfaces.ws import router as ws_router
     app.include_router(ws_router)
 
-    # ===== 绞杀者模式: 挂载旧 Flask =====
-    from backend.legacy.flask_app import get_flask_app
-    flask_app = get_flask_app()
-    app.mount("/old", WSGIMiddleware(flask_app))
-
     # ===== v7.1: 挂载 Vue 3 生产构建 =====
     from fastapi.staticfiles import StaticFiles
     from starlette.responses import FileResponse
@@ -176,7 +168,7 @@ def create_app() -> FastAPI:
     if _os.path.isdir(_frontend_dist):
         app.mount("/assets", StaticFiles(directory=_os.path.join(_frontend_dist, "assets")), name="assets")
         # SPA fallback: Vue Router history mode — 非 API/WS 路径返回 index.html
-        _SPA_SKIP_PREFIXES = ("api/", "ws/", "old/", "health", "docs", "redoc", "openapi.json", "assets/")
+        _SPA_SKIP_PREFIXES = ("api/", "ws/", "health", "docs", "redoc", "openapi.json", "assets/")
 
         @app.get("/{full_path:path}")
         async def serve_spa(full_path: str):
