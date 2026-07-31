@@ -13,6 +13,8 @@ def make_features(**kwargs) -> ArtistryFeatures:
         "dynamic_range": 15.0, "crescendo_quality": 50.0,
         "phrase_coherence": 50.0, "is_artistic_fluctuation": False,
         "long_note_count": 2, "pitch_cv": 0.06,
+        "artistic_fluctuation_score": 0.0,  # v7.6
+        "rubato_score": 0.0,                # v7.6
     }
     defaults.update(kwargs)
     return ArtistryFeatures(**defaults)
@@ -101,3 +103,20 @@ class TestArtistryScorer:
                           pitch_cv=0.15, dynamic_range=35.0)
         result = self.scorer.calculate(f)
         assert result.vibrato_quality <= 80
+
+    def test_rubato_boosts_phrase(self):
+        """v7.6: rubato_score > 0 → phrase_expression 提升"""
+        f_base = make_features(phrase_coherence=50.0, is_artistic_fluctuation=False,
+                               long_note_count=0, artistic_fluctuation_score=0.0)
+        f_rubato = make_features(phrase_coherence=50.0, is_artistic_fluctuation=False,
+                                 long_note_count=0, artistic_fluctuation_score=0.0,
+                                 rubato_score=60.0)
+        base = self.scorer.calculate(f_base)
+        rubato = self.scorer.calculate(f_rubato)
+        assert rubato.phrase_expression > base.phrase_expression
+
+    def test_rubato_zero_no_effect(self):
+        """v7.6: rubato_score=0 → 不影响 phrase"""
+        f = make_features(phrase_coherence=50.0, rubato_score=0.0)
+        result = self.scorer.calculate(f)
+        assert 0 <= result.phrase_expression <= 100

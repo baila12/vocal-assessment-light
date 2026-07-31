@@ -28,6 +28,7 @@ class ArtistryFeatures:
     artistic_fluctuation_score: float = 0.0 # v7.6: 连续化 0-100
     long_note_count: int = 0
     pitch_cv: float = 0.0            # coefficient of variation
+    rubato_score: float = 0.0        # v7.6: 表现性节奏变化 0-100
 
 
 class ArtistryScorer:
@@ -45,6 +46,7 @@ class ArtistryScorer:
             features.is_artistic_fluctuation,
             features.long_note_count,
             features.artistic_fluctuation_score,  # v7.6: 连续化
+            features.rubato_score,                # v7.6: 表现性节奏变化
         )
         pitch_var = self._calc_pitch_variation(features.pitch_cv)
 
@@ -119,17 +121,21 @@ class ArtistryScorer:
         is_artistic: bool,
         long_note_count: int,
         artistic_fluctuation_score: float = 0.0,  # v7.6: 连续化
+        rubato_score: float = 0.0,                # v7.6: 表现性节奏变化
     ) -> float:
-        """乐句处理 = coherence * 0.70 + artistic_fluctuation * 0.30 + long_note_bonus
+        """乐句处理 = coherence*0.55 + fluctuation*0.25 + rubato*0.10 + long_note
 
-        v7.6: 用连续 float 替代布尔 +30, 提升区分度。
+        v7.6: 用连续 float 替代布尔 +30, 新增 rubato 维度 (0-10 分贡献)。
         """
-        score = coherence * 0.70
-        # v7.6: 优先使用连续分数 (0→0, 100→30), fallback 到旧布尔
+        score = coherence * 0.55
+        # v7.6: 优先使用连续分数 (0→0, 100→25), fallback 到旧布尔
         if artistic_fluctuation_score > 0:
-            score += artistic_fluctuation_score * 0.30
+            score += artistic_fluctuation_score * 0.25
         elif is_artistic:
-            score += 30.0  # backward compat
+            score += 25.0  # backward compat
+        # v7.6: rubato 贡献 (最多 10 分), 仅在检测到 onset 变化时激活
+        if rubato_score > 0:
+            score += min(10.0, rubato_score * 0.10)
         if long_note_count > 0:
             score += min(10.0, long_note_count * 2.0)
         return min(100.0, score)

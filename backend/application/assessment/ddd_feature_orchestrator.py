@@ -136,7 +136,8 @@ class DddFeatureExtractionOrchestrator:
         artistry = self._artistry.extract(technique, breath,
                                           vibrato_quality=vibrato_q,
                                           vibrato_count=0,
-                                          pitch_cv=pitch_cv)
+                                          pitch_cv=pitch_cv,
+                                          y=y, sr=sr)  # v7.6: rubato 需要原始音频
 
         # v7.2: audiofeat 增强特征 (flag 门控)
         audiofeat_features = AudiofeatFeatures()

@@ -232,6 +232,7 @@ class FeatureAdapterRegistry:
             artistic_fluctuation_score=float(_safe_float(getattr(bs, 'artistic_fluctuation_score', 0.0))),  # v7.6
             long_note_count=long_note_count,
             pitch_cv=round(pitch_cv_adapter, 4),
+            rubato_score=0.0,  # v7.6: adapter 路径无原始音频, rubato 默认 0
         )
 
     # ================================================================
