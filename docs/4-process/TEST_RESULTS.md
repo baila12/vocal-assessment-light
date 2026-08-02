@@ -1,25 +1,25 @@
-# 测试结果记录 v7.8
+# 测试结果记录 v7.9
 
-> 更新: 2026-08-02 | 422 tests 100% GREEN | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-08-02 | 473 tests 100% GREEN | 分支: `feat/v7-fastapi-vue-refactor`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
 ---
 
-## v7.8 测试统计
+## v7.9 测试统计
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| DDD 领域 (scorers + value objects + comparison) | 127 | ✅ 100% | 7 scorers + comparison + domain services |
-| DDD 基建 (extractors + orchestrator + ABI) | 136 | ✅ 100% | 10 extractors + audio_utils + ABI |
-| DDD 对齐 + Flag bridge + GNE | 22 | ✅ 100% | alignment + extraction flag + flag bridge + GNE (v7.8: +5) |
+| DDD 领域 (scorers + value objects + comparison + songs) | 154 | ✅ 100% | 7 scorers + comparison + songs 领域 (v7.9: +27) |
+| DDD 基建 (extractors + orchestrator + ABI + sqlite) | 149 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 (v7.9: +13) |
+| DDD 对齐 + Flag bridge + GNE | 22 | ✅ 100% | alignment + extraction flag + flag bridge + GNE |
 | 中间件 | 22 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
-| **DDD 合计** | **369** | **100% GREEN** | (~15s) |
-| FastAPI 集成 | 19 | ✅ 100% | test_api_routes (含 v7.8 新增 /flags 回归测试) |
+| **DDD 合计** | **406** | **100% GREEN** | (~16s) |
+| FastAPI 集成 | 33 | ✅ 100% | test_api_routes (19) + test_songs_api (14, v7.9) |
 | 扩展测试 (DTW/repos/calibrator) | 34 | ✅ 100% | tests/extended/ |
-| **生产代码总计** | **422** | **100% GREEN** | |
+| **生产代码总计** | **473** | **100% GREEN** | |
 | 真实音频回归 | 28 | ✅ 100% | BASELINE_V7_6 |
-| BDD (15 step files) | 61 scenarios | ✅ 3PASS+29XFALL+29OK | v7.8: +2 step files |
+| BDD (16 step files) | 71 scenarios | ✅ 7PASS+35XFALL+29OK | v7.9: +1 step file (database) |
 | 前端 Vitest | 33 | ✅ 100% | stores |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | 8.5s | ✅ | 生产构建 |

@@ -1,6 +1,6 @@
 # 行为驱动开发 (BDD) 规范 v7.8
 
-> 更新: 2026-08-01 | 15 step files | 23 feature files | 61 scenarios (3 PASSED + 29 XFAIL + 29 original)
+> 更新: 2026-08-02 | 16 step files | 23 feature files | 71 scenarios (7 PASSED + 35 XFAIL + 29 original)
 
 ---
 
@@ -85,7 +85,8 @@ tests/bdd/
 │   ├── test_offline_steps.py         # v7.3.1: 5 offline scenarios
 │   ├── test_responsive_steps.py      # v7.3.1: 8 responsive scenarios
 │   ├── test_dtw_demotion_steps.py    # 🆕 v7.8: 18 DTW scenarios (3PASS+15XFALL)
-│   └── test_scoring_config_steps.py  # 🆕 v7.8: 14 评分配置 scenarios (14XFALL)
+│   ├── test_scoring_config_steps.py  # 🆕 v7.8: 14 评分配置 scenarios (14XFALL)
+│   └── test_database_steps.py        # 🆕 v7.9: 10 歌曲库 scenarios (4PASS+6XFALL)
 │
 ├── conftest.py                       # BDD fixtures + Playwright
 └── __init__.py

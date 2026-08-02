@@ -80,8 +80,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app() -> FastAPI:
     """FastAPI 应用工厂 — 绞杀者模式主入口"""
     app = FastAPI(
-        title="VAS v7.8",
-        version="7.8.0",
+        title="VAS v7.9",
+        version="7.9.0",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",

@@ -1,3 +1,56 @@
+# 变更日志 v7.9
+
+> 更新: 2026-08-02 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.9 — 标准歌曲库后端 (DDD + TDD + BDD) (2026-08-02)
+
+### 概述
+
+新增标准歌曲库后端能力 — v6.0 规划的基础功能 (曲库浏览/搜索/筛选/重复检测)，为自动匹配与对比分析提供参考歌曲数据源。采用 DDD 四层 + TDD 驱动 + BDD 验收。
+
+### 领域层 (backend/domain/songs/)
+
+- 🆕 `value_objects.py`: SongMetadata (frozen) + duplicate_key + 运行时难度/风格校验
+- 🆕 `entities.py`: Song 聚合根 (frozen) + SongListPage + SongFeatureStatus 类型
+- 🆕 `repository.py`: SongRepository Protocol (仓储模式抽象)
+
+### 基础设施 (backend/infrastructure/persistence/)
+
+- 🔧 `sqlite_song_repo.py`: 桩 → SQLite 仓储 (stdlib sqlite3, 零新依赖)
+  - CRUD + 分页 + 风格/难度筛选 + 歌名/歌手模糊搜索 + 重复检测
+  - 参数化查询防注入 + threading.Lock 串行化并发写
+
+### 应用层 (backend/application/songs/)
+
+- 🆕 `song_library_service.py`: SongLibraryService (add 去重/分页搜索/get/delete) + SongNotFoundError/DuplicateSongError
+
+### 接口层
+
+- 🆕 `schemas/songs.py`: SongOut + 4 响应 schema
+- 🔧 `routes/songs.py`: 桩 → 完整实现 (POST/GET list/GET id/DELETE `/api/v1/songs`)
+  - 文件上传保存 + 重复时清理孤立文件 + 写入失败友好错误 (500)
+  - difficulty/style 边界校验 (400) + 扩展名复用 settings.allowed_extensions
+- 🔧 `config.py`: `songs_db`/`songs_dir` 设置 (VAS_SONGS_DB/VAS_SONGS_DIR 可覆盖)
+- 🔧 `deps.py`: `get_song_repo`/`get_song_service` DI 接线
+
+### BDD
+
+- 🆕 `test_database_steps.py`: database.feature 10 场景 (4 PASSED + 6 XFAIL)
+  - 通过: 重复检测 / 分页浏览 / 风格筛选 / 难度筛选
+  - XFAIL: 特征预提取 / 批量导入 / 评分配置 UI (未来功能)
+- 🔧 `tests/bdd/conftest.py`: `fastapi_client` fixture (每场景独立临时 DB + DI 缓存重置)
+
+### 测试总结
+
+- 单元: **406 tests GREEN** (+37 歌库: 实体/服务/SQLite 仓储)
+- 集成: **33 tests GREEN** (+14 歌库 API, 含无效输入 400 + 孤立文件清理)
+- BDD: database.feature 4P+6XF
+- 版本: 7.8.0 → **7.9.0**
+
+---
+
 # 变更日志 v7.8
 
 > 更新: 2026-08-01 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)

@@ -68,3 +68,16 @@ def get_flask_config():
     """旧 Flask 配置 — 兼容现有业务逻辑"""
     from config import config as flask_config
     return flask_config
+
+
+def get_song_repo():
+    """歌曲仓储 — SQLite 实现 (VAS_SONGS_DB 环境变量可覆盖)"""
+    from backend.infrastructure.persistence.sqlite_song_repo import SqliteSongRepository
+    return SqliteSongRepository(db_path=get_settings().songs_db)
+
+
+@lru_cache()
+def get_song_service():
+    """标准曲库应用服务单例"""
+    from backend.application.songs.song_library_service import SongLibraryService
+    return SongLibraryService(get_song_repo())

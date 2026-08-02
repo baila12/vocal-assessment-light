@@ -24,8 +24,10 @@
 | DELETE | `/api/v1/history/all` | 清空全部 | ✅ | ✅ |
 | GET | `/api/v1/test-files` | 测试音频列表 | ✅ | ✅ |
 | GET | `/api/v1/audio?file=...` | 音频文件流 (路径安全校验) | ✅ | ✅ |
-| GET | `/api/v1/songs` | 曲库列表 | ✅ | ✅ |
-| GET | `/api/v1/songs/{id}` | 歌曲详情 | ✅ | ✅ |
+| POST | `/api/v1/songs` | 添加歌曲 (multipart 文件+元数据) | ✅ | ✅ v7.9 |
+| GET | `/api/v1/songs` | 曲库列表 (page/limit/style/difficulty/search) | ✅ | ✅ v7.9 |
+| GET | `/api/v1/songs/{id}` | 歌曲详情 | ✅ | ✅ v7.9 |
+| DELETE | `/api/v1/songs/{id}` | 删除歌曲 | ✅ | ✅ v7.9 |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | ✅ | ✅ |
 | WS | `/ws/v1/score` | 实时流式评分 | — | — |
 

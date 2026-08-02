@@ -24,7 +24,7 @@ class TestHealthEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "healthy"
-        assert data["version"] == "7.8.0"
+        assert data["version"] == "7.9.0"
         assert "gpu" in data
 
     def test_docs_accessible(self, client):
@@ -35,7 +35,7 @@ class TestHealthEndpoint:
         resp = client.get("/openapi.json")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["info"]["title"] == "VAS v7.8"
+        assert data["info"]["title"] == "VAS v7.9"
         # 验证路由已注册
         paths = list(data["paths"].keys())
         assert any("/api/v1/upload" in p for p in paths)

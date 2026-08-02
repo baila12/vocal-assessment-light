@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-01 | 版本: **v7.8** | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-08-02 | 版本: **v7.9** | 分支: `feat/v7-fastapi-vue-refactor`
 
 ---
 
@@ -14,6 +14,7 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)
     │  domain/assessment/ (7 scorers) │  services/dl_services/ (11)│
     │  domain/audio/ (14 模块自包含)   │  services/audio_service.py │
     │  domain/comparison/ (v7.3)      │  api/business/ (bridge)   │
+    │  domain/songs/ (v7.9)           │                           │
     │  application/ (orchestrator)    │  services/features/types.py│
     │  infrastructure/audio/ (4)      │                           │
     │  interfaces/api/ + ws/          │  (Flask /old 已移除 v7.6) │
@@ -82,6 +83,20 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 ---
 
 ## 二、完成功能
+
+### v7.9 (2026-08-02) — 标准歌曲库后端 (DDD+TDD+BDD)
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **领域** | `backend/domain/songs/`: SongMetadata/Song/SongListPage/SongRepository Protocol | ✅ |
+| **基建** | `sqlite_song_repo.py` 桩→SQLite 仓储 (CRUD/分页/筛选/搜索/重复检测) | ✅ |
+| **应用** | `song_library_service.py`: 去重 add/分页搜索/get/delete + 领域异常 | ✅ |
+| **API** | `/api/v1/songs`: POST/GET list/GET id/DELETE 完整实现 | ✅ |
+| **API** | 文件上传保存 + 重复清理孤立文件 + 写入失败友好错误 | ✅ |
+| **API** | difficulty/style 边界校验 (400) + 扩展名复用 settings | ✅ |
+| **配置** | `songs_db`/`songs_dir` 设置 (VAS_SONGS_DB/VAS_SONGS_DIR 覆盖) + DI 接线 | ✅ |
+| **BDD** | `test_database_steps.py`: database.feature 10 场景 (4 PASSED + 6 XFAIL) | ✅ |
+| **测试** | +37 单元 +14 集成; 版本 7.8.0 → 7.9.0 | ✅ |
 
 ### v7.7 (2026-07-31) — audiofeat 生产启用 + Flag 系统修复 + 前端收束
 
@@ -168,10 +183,11 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | DDD 基建 (extractors + orchestrator + ABI) | 136 | ✅ |
 | DDD 对齐 + Flag bridge + GNE | 22 | ✅ |
 | 中间件 | 22 | ✅ |
-| **DDD 合计** | **369** | **100% GREEN** |
-| FastAPI 集成 | 19 | ✅ |
+| **DDD 合计** | **406** | **100% GREEN** |
+| 歌曲库 (领域+仓储, v7.9) | 37 | ✅ |
+| FastAPI 集成 | 33 | ✅ |
 | 扩展测试 (DTW/repos/calibrator) | 34 | ✅ |
-| **生产代码总计** | **422** | **100% GREEN** |
+| **生产代码总计** | **473** | **100% GREEN** |
 
 ### 真实音频回归
 

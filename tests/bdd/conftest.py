@@ -43,6 +43,32 @@ def project_root():
     return Path(__file__).parent.parent.parent
 
 
+@pytest.fixture(scope='function')
+def fastapi_client():
+    """FastAPI 测试客户端 — 每个 BDD 场景独立临时 DB, 完全隔离.
+
+    歌曲库场景 (database.feature) 共享 DB 会导致跨场景数据冲突,
+    故每场景新建临时 songs.db + 音频目录, 并重置 DI 缓存让其重新读取。
+    """
+    import os
+    import tempfile
+    tmp = tempfile.mkdtemp(prefix='vas_bdd_songs_')
+    os.environ['VAS_SONGS_DB'] = str(Path(tmp) / 'songs.db')
+    os.environ['VAS_SONGS_DIR'] = str(Path(tmp) / 'audio')
+
+    # 重置 DI 缓存 — 让仓储/设置重新读取新的 DB 路径
+    from backend.interfaces.api import deps
+    deps.get_settings.cache_clear()
+    deps.get_song_service.cache_clear()
+
+    from backend.main import create_app
+    from fastapi.testclient import TestClient
+
+    app = create_app()
+    with TestClient(app) as client:
+        yield client
+
+
 # ============================================================================
 # Playwright fixtures — for browser-based BDD scenarios
 # (navigation, animations, responsive, offline features)

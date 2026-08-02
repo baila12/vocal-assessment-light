@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     )
     history_max_records: int = 50
 
+    # ========== 标准歌曲库配置 ==========
+    # env 覆盖: VAS_SONGS_DB / VAS_SONGS_DIR
+    songs_db: Path = (
+        Path(__file__).parent.parent.parent / "data" / "songs.db"
+    )
+    songs_dir: Path = (
+        Path(__file__).parent.parent.parent / "data" / "songs"
+    )
+
     # ========== 人声分离配置 ==========
     separated_dir: Path = (
         Path(__file__).parent.parent.parent / "web" / "static" / "separated"
