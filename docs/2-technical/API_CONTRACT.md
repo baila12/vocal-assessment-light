@@ -1,6 +1,6 @@
-# API 契约文档 v7.5
+# API 契约文档 v7.8
 
-> 更新: 2026-07-28 | 绞杀者模式: FastAPI `/api/v1/` + Flask `/old/api/` 共存
+> 更新: 2026-08-01 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 423 测试 GREEN
 
 ---
 
@@ -26,9 +26,8 @@
 | GET | `/api/v1/audio?file=...` | 音频文件流 (路径安全校验) | ✅ | ✅ |
 | GET | `/api/v1/songs` | 曲库列表 | ✅ | ✅ |
 | GET | `/api/v1/songs/{id}` | 歌曲详情 | ✅ | ✅ |
+| GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | ✅ | ✅ |
 | WS | `/ws/v1/score` | 实时流式评分 | — | — |
-
-Flask `/old/` 挂载点提供相同端点 (前缀 `/old/api/`)，已添加速率限制。
 
 ---
 

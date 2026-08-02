@@ -39,4 +39,18 @@ import TopNav from './TopNav.vue'
   padding: 24px 16px;
   min-height: calc(100vh - 56px);
 }
+
+/* ---- 页面过渡动画 ---- */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
 </style>

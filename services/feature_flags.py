@@ -55,8 +55,8 @@ class FeatureFlags:
     enable_ddd_feature_extraction: bool = True
     # v7.1 P0: FCPE 替换 YIN 基频检测 (精度 96.79% RPA, ~77x faster on GPU)
     enable_fcpe: bool = False
-    # v7.1 P0: audiofeat 130+ 特征 (CPPS/GNE/HNR/ABI)
-    enable_audiofeat: bool = False
+    # v7.7: audiofeat 130+ 特征 (CPPS/GNE/HNR/ABI) — 默认启用
+    enable_audiofeat: bool = True
     # v7.1 P0: timbral_models 8维音色 (替换手工 brightness/warmth)
     enable_timbral_models: bool = False
 
@@ -73,6 +73,7 @@ class FeatureFlags:
             enable_praat_voice_quality=True,  # v6.2: 已截断到 60s, 可接受
             enable_ddd_scoring=True,  # v7.1: DDD 六维度评分
             enable_ddd_feature_extraction=True,  # v7.1.2: DDD 原生提取 (已验证)
+            enable_audiofeat=True,  # v7.7: 启用 audiofeat CPPS/GNE/HNR_praat 增强
         )
 
     @classmethod
@@ -88,6 +89,7 @@ class FeatureFlags:
             enable_praat_voice_quality=True,
             enable_ddd_scoring=True,  # v7.1: DDD 六维度评分
             enable_ddd_feature_extraction=True,  # v7.1.2: DDD 原生提取 (已验证)
+            enable_audiofeat=True,  # v7.7: 启用 audiofeat CPPS/GNE/HNR_praat 增强
         )
 
     @classmethod
@@ -103,4 +105,5 @@ class FeatureFlags:
             enable_praat_voice_quality=False,
             enable_ddd_scoring=False,  # 安全基线不启用 DDD
             enable_ddd_feature_extraction=False,
+            enable_audiofeat=False,  # v7.7: 安全基线禁用 audiofeat
         )

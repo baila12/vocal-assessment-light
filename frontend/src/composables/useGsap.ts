@@ -1,94 +1,214 @@
 /**
- * useGsap — GSAP 动画 composable
+ * useGsap — GSAP 动画 composable (Vue 3)
  *
- * 使用 gsap.context() 自动清理所有动画
- * 尊重 prefers-reduced-motion
+ * 遵循 GSAP 官方 Vue 3 最佳实践:
+ * - gsap.context(scope) 隔离选择器 + 自动清理
+ * - gsap.matchMedia() 响应 reduced-motion + 响应式断点
+ * - compositor-only 属性 (autoAlpha, x, y, scale, rotation)
+ *
+ * 用法:
+ *   const { tl, enterFrom } = useGsap(container)
+ *   onMounted(() => {
+ *     enterFrom('.card', { y: 24, stagger: 0.08 })
+ *   })
  */
-
 import { ref, onBeforeUnmount, type Ref } from 'vue'
-import gsap from 'gsap'
+import { gsap } from 'gsap'
 
-export function useGsap(scope?: Ref<HTMLElement | null>) {
+export interface UseGsapOptions {
+  /** 自定义动画时长 (默认 0.4s) */
+  duration?: number
+  /** 自定义 ease (默认 power2.out) */
+  ease?: string
+}
+
+export function useGsap(
+  scope?: Ref<HTMLElement | null>,
+  opts: UseGsapOptions = {},
+) {
+  const { duration = 0.4, ease = 'power2.out' } = opts
+
+  // ---- reduced-motion 检测 ----
   const prefersReducedMotion = ref(false)
-  let ctx: gsap.Context | null = null
+  let mm: gsap.MatchMedia | null = null
 
-  // 检测 reduced motion 偏好
   if (typeof window !== 'undefined') {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     prefersReducedMotion.value = mq.matches
-    mq.addEventListener('change', (e) => {
-      prefersReducedMotion.value = e.matches
+
+    mm = gsap.matchMedia()
+    mm.add('(prefers-reduced-motion: reduce)', () => {
+      prefersReducedMotion.value = true
+    })
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      prefersReducedMotion.value = false
     })
   }
 
-  function createContext(): gsap.Context {
-    ctx = gsap.context(() => {}, scope?.value || undefined)
-    return ctx
-  }
+  // ---- gsap.context 隔离 ----
+  let ctx: gsap.Context | null = null
 
-  function getContext(): gsap.Context {
+  function getCtx(): gsap.Context {
     if (!ctx) {
-      ctx = createContext()
+      ctx = gsap.context(() => {}, scope?.value || undefined)
     }
     return ctx
   }
 
-  /** 安全地创建动画 — 尊重 reduced motion */
-  function animate(
-    target: gsap.TweenTarget,
-    vars: gsap.TweenVars,
-  ): gsap.core.Tween {
-    const context = getContext()
+  // ---- 安全动画 (尊重 reduced-motion) ----
+  function safeVars(vars: gsap.TweenVars): gsap.TweenVars {
     if (prefersReducedMotion.value) {
-      return gsap.set(target, vars)
+      return { ...vars, duration: 0, stagger: 0, delay: 0 }
     }
-    return context.add(() => gsap.to(target, vars))
+    return vars
+  }
+
+  // ---- 核心方法 ----
+
+  /** 创建 Timeline (自动注册到 context) */
+  function tl(defaults?: gsap.TimelineVars): gsap.core.Timeline {
+    const timeline = gsap.timeline({
+      defaults: { ease, duration, ...defaults },
+    })
+    getCtx().add(() => timeline)
+    return timeline
+  }
+
+  /** 从隐藏状态入场 (gsap.from) */
+  function enterFrom(
+    target: gsap.TweenTarget,
+    vars: gsap.TweenVars = {},
+  ): gsap.core.Tween {
+    const tween = gsap.from(target, safeVars({
+      autoAlpha: 0,
+      y: 20,
+      duration,
+      ease,
+      ...vars,
+    }))
+    getCtx().add(() => tween)
+    return tween
+  }
+
+  /** 交错入场 */
+  function staggerIn(
+    target: gsap.TweenTarget,
+    vars: gsap.TweenVars = {},
+  ): gsap.core.Tween {
+    const tween = gsap.from(target, safeVars({
+      autoAlpha: 0,
+      y: 20,
+      duration: 0.4,
+      stagger: 0.08,
+      ease,
+      ...vars,
+    }))
+    getCtx().add(() => tween)
+    return tween
+  }
+
+  /** 从左侧滑入 */
+  function slideInLeft(
+    target: gsap.TweenTarget,
+    vars: gsap.TweenVars = {},
+  ): gsap.core.Tween {
+    const tween = gsap.from(target, safeVars({
+      autoAlpha: 0,
+      x: -30,
+      duration,
+      ease,
+      ...vars,
+    }))
+    getCtx().add(() => tween)
+    return tween
+  }
+
+  /** 从右侧滑入 */
+  function slideInRight(
+    target: gsap.TweenTarget,
+    vars: gsap.TweenVars = {},
+  ): gsap.core.Tween {
+    const tween = gsap.from(target, safeVars({
+      autoAlpha: 0,
+      x: 30,
+      duration,
+      ease,
+      ...vars,
+    }))
+    getCtx().add(() => tween)
+    return tween
+  }
+
+  /** 缩放弹入 */
+  function scaleIn(
+    target: gsap.TweenTarget,
+    vars: gsap.TweenVars = {},
+  ): gsap.core.Tween {
+    const tween = gsap.from(target, safeVars({
+      autoAlpha: 0,
+      scale: 0.9,
+      duration,
+      ease: 'back.out(1.7)',
+      ...vars,
+    }))
+    getCtx().add(() => tween)
+    return tween
   }
 
   /** 数字滚动动画 (countUp) */
   function countUp(
     target: Ref<number>,
     endValue: number,
-    duration = 1.2,
+    animDuration = 1.2,
   ): gsap.core.Tween {
     const obj = { val: target.value }
-    return animate(obj, {
+    const tween = gsap.to(obj, safeVars({
       val: endValue,
-      duration: prefersReducedMotion.value ? 0 : duration,
-      ease: 'power2.out',
+      duration: animDuration,
+      ease: 'power3.out',
       onUpdate: () => {
         target.value = Math.round(obj.val * 10) / 10
       },
-    })
+    }))
+    getCtx().add(() => tween)
+    return tween
   }
 
-  /** 交错入场动画 */
-  function staggerIn(
-    elements: string | Element[],
-    vars?: gsap.TweenVars,
+  /** 脉冲动画 (repeat) */
+  function pulse(
+    target: gsap.TweenTarget,
+    vars: gsap.TweenVars = {},
   ): gsap.core.Tween {
-    return animate(elements, {
-      opacity: 0,
-      y: 20,
-      duration: 0.4,
-      stagger: 0.08,
+    const tween = gsap.to(target, safeVars({
+      scale: 1.05,
+      duration: 0.6,
+      repeat: -1,
+      yoyo: true,
+      ease: 'sine.inOut',
       ...vars,
-    })
+    }))
+    getCtx().add(() => tween)
+    return tween
   }
 
+  // ---- 生命周期清理 ----
   onBeforeUnmount(() => {
-    if (ctx) {
-      ctx.revert()
-      ctx = null
-    }
+    ctx?.revert()
+    ctx = null
+    mm?.revert()
+    mm = null
   })
 
   return {
     prefersReducedMotion,
-    createContext,
-    getContext,
-    animate,
-    countUp,
+    getCtx,
+    tl,
+    enterFrom,
     staggerIn,
+    slideInLeft,
+    slideInRight,
+    scaleIn,
+    countUp,
+    pulse,
   }
 }

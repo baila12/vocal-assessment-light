@@ -6,15 +6,30 @@
  * v7.0: UTF-8 重写，修复 v6.3 GBK 乱码问题
  */
 
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Delete } from '@element-plus/icons-vue'
-import { useHistoryStore } from '@/stores/history.store'
+import { useGsap } from '@/composables/useGsap'
+import { useHistoryStore, type HistoryFilter } from '@/stores/history.store'
 import type { HistoryRecord } from '@/types/api'
 
 const router = useRouter()
 const store = useHistoryStore()
+
+// ---- GSAP 入场动画 ----
+const historyContainer = ref<HTMLElement | null>(null)
+const { enterFrom } = useGsap(historyContainer)
+
+onMounted(() => {
+  // 容器淡入 (不触碰 el-table 内部 DOM)
+  enterFrom('.page-header', { y: -8, duration: 0.35 })
+  enterFrom('.history-table', { y: 12, duration: 0.4, delay: 0.1 })
+})
+
+onBeforeUnmount(() => {
+  // ctx.revert() handled by useGsap
+})
 
 const searchInput = ref('')
 
@@ -128,7 +143,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="history-view">
+  <div ref="historyContainer" class="history-view">
     <!-- 页面标题 -->
     <div class="page-header">
       <h2 class="page-title">历史记录</h2>
@@ -151,7 +166,7 @@ onMounted(() => {
         <el-radio-group
           :model-value="store.filter"
           size="small"
-          @change="(val: string) => store.setFilter(val as any)"
+          @change="(val: HistoryFilter) => store.setFilter(val)"
         >
           <el-radio-button
             v-for="opt in filterOptions"

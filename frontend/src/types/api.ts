@@ -1,16 +1,5 @@
 /** API 响应类型 — 手动维护，openapi-typescript 自动生成为补充 */
 
-export interface ApiResponse<T> {
-  success: boolean
-  data: T
-}
-
-export interface ErrorResponse {
-  success: false
-  error: string
-  detail?: string
-}
-
 /** Phase 4: 完整六维评分响应类型 */
 export interface AssessmentResult {
   analysis_id: string
@@ -47,10 +36,17 @@ export interface HistoryRecord {
   grade: string
   created_at: string
   duration: number
+  /** v7.8: 后端详细字段 (列表端点可能不返回) */
+  filepath?: string | null
+  advice?: string[]
+  scores?: Record<string, number>
 }
 
 export interface HistoryListResponse {
   history: HistoryRecord[]
   total: number
   page: number
+  /** v7.8: 后端分页元数据 (GET /api/v1/history 始终返回) */
+  total_pages: number
+  limit: number
 }

@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-07-31 | 版本: **v7.6** | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-08-01 | 版本: **v7.8** | 分支: `feat/v7-fastapi-vue-refactor`
 
 ---
 
@@ -21,11 +21,21 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)
     └─────────────────────────────────┴──────────────────────────┘
 ```
 
-### 评分路径 (v7.6: DDD 唯一路径 + P0/P1/P2 全部修复)
+### 评分路径 (v7.7: DDD + audiofeat 增强 + Flag 桥接)
 
 | 路径 | 特征提取 | 评分 | 状态 |
 |------|---------|------|:----:|
-| **DDD 原生** | `DddFeatureExtractionOrchestrator` → 14 自包含模块 | `ScoringOrchestrator.calculate_ddd()` | ✅ 生产 |
+| **DDD 原生** | `DddFeatureExtractionOrchestrator` → 14 自包含模块 + AudiofeatExtractor (20+ 特征) | `ScoringOrchestrator.calculate_ddd(audiofeat=...)` | ✅ 生产 |
+
+**Flag 系统 (v7.7)**:
+```
+API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_flags.py]
+  → to_dimension_flags() [backend/shared/flag_bridge.py] ← 桥接层
+    → DimensionFlags(enable_audiofeat=True) [backend/domain/assessment/feature_flags.py]
+      → DddFeatureExtractionOrchestrator(flags=DimensionFlags)
+        → AudiofeatExtractor → AudiofeatFeatures (CPPS/GNE/HNR_praat/Jitter/Shimmer...)
+          → ScoringOrchestrator → BreathScorer/TechniqueScorer/MuscleScorer/TimbreAdjuster
+```
 
 ### 六维权重 (v7.4+, v7.6 保持)
 
@@ -73,6 +83,48 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)
 
 ## 二、完成功能
 
+### v7.7 (2026-07-31) — audiofeat 生产启用 + Flag 系统修复 + 前端收束
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **Flag** | FeatureFlags ↔ DimensionFlags 桥接 (to_dimension_flags) | ✅ |
+| **Flag** | audiofeat 默认启用 (FeatureFlags + DimensionFlags + 工厂方法) | ✅ |
+| **Flag** | audiofeat 1.1.1 安装 + 验证 | ✅ |
+| **Flag** | `GET /api/v1/flags` 端点 (GPU/模型/权重/开关状态) | ✅ |
+| **修复** | breath_scorer.py 重复 _score_from_fluctuation 方法删除 | ✅ |
+| **修复** | ReportView 六维权重修正: 10/10/20/25/25/10 → 13/12/22/25/15/13 | ✅ |
+| **前端** | WaveformCanvas ⚠️ emoji → Element Plus WarningFilled 图标 | ✅ |
+| **前端** | web/static/index.html 🎤 emoji 移除 | ✅ |
+| **前端** | 无效路由 ElMessage.warning toast (替代 console.warn) | ✅ |
+| **前端** | Settings 抽屉新增 "算法与模型" 状态面板 | ✅ |
+| **前端** | flags.store.ts (Pinia, /api/v1/flags 数据获取) | ✅ |
+| **清理** | 5 个 legacy E2E 测试文件删除 (test_analysis/test_upload/test_real_audio/test_e2e/test_e2e_v2) | ✅ |
+| **测试** | test_flag_bridge.py (6 tests) | ✅ |
+| **测试** | 249 tests GREEN (unit 228 + extended 21) | ✅ |
+
+### v7.8 (2026-08-01) — GNE 接入 + GSAP 动效美化 + 前后端对齐
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **评分** | GNE (AROC=0.886) 接入 TechniqueScorer._apply_audiofeat_enhancement() — 气声比增强 | ✅ |
+| **评分** | GNE 阈值: <0.4 不可控漏气惩罚, >0.8 优秀声门控制加分 (与 BreathScorer 一致) | ✅ |
+| **动效** | useGsap.ts 重写: 9 动画方法 + gsap.matchMedia() reduced-motion 检测 | ✅ |
+| **动效** | AppLayout 页面过渡 CSS (opacity + translateY, 0.3s) | ✅ |
+| **动效** | ReportView score-reveal GSAP Timeline: 总分弹入→雷达图缩放→六维卡片 stagger→建议滑入 | ✅ |
+| **动效** | HomeView/CompareView/HistoryView 入场动画 (enterFrom/slideIn/staggerIn) | ✅ |
+| **动效** | SingView 录音按钮 CSS pulse → GSAP repeat: -1 脉冲 | ✅ |
+| **动效** | prefers-reduced-motion 双重保护 (CSS @media + GSAP matchMedia) | ✅ |
+| **对齐** | flags.store.ts: 原始 fetch() → apiClient + FlagsResponse 强类型 | ✅ |
+| **对齐** | flags 路由: 硬编码 /api/v1/flags → prefix="/api/v1" + @router.get("/flags") | ✅ |
+| **对齐** | client.ts: (import.meta as any) → import.meta.env?.DEV | ✅ |
+| **对齐** | HistoryRecord 补充 filepath/advice/scores 字段; history.store 捕获 total_pages/limit | ✅ |
+| **对齐** | ScoreRadar chartOptions as any → ChartOptions<'radar'>; HistoryView val as any → HistoryFilter | ✅ |
+| **对齐** | ApiResponse<T> 死代码删除; backend HistoryListResponse list[dict] → list[HistoryRecordOut] | ✅ |
+| **清理** | services/features/types.py 外部引用清零 (仅剩 DeprecationWarning) | ✅ |
+| **清理** | test_orchestrator.py 移除 legacy adapter 对比测试 (AudioFeaturesResult 导入已删) | ✅ |
+| **BDD** | dtw-demotion.feature (18 scenarios) + scoring-config.feature (14 scenarios) step defs 实现 | ✅ |
+| **测试** | +5 GNE tests (test_technique_scorer.py); 369 unit + 32 BDD scenarios GREEN | ✅ |
+
 ### v7.6 (2026-07-31) — P1/P2 修复 + 功能增强 + 架构清理
 
 | 类别 | 项目 | 状态 |
@@ -106,7 +158,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.6)
+## 三、测试状态 (v7.8)
 
 ### 生产测试 (全部 GREEN)
 
@@ -114,25 +166,39 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 |------|:-----:|------|
 | DDD 领域 (scorers + value objects + comparison) | 127 | ✅ |
 | DDD 基建 (extractors + orchestrator + ABI) | 136 | ✅ |
-| DDD 对齐 + Flag | 17 | ✅ |
+| DDD 对齐 + Flag bridge + GNE | 22 | ✅ |
 | 中间件 | 22 | ✅ |
-| **DDD 合计** | **359** | **100% GREEN** |
-| FastAPI 集成 | 20 | ✅ |
+| **DDD 合计** | **369** | **100% GREEN** |
+| FastAPI 集成 | 19 | ✅ |
 | 扩展测试 (DTW/repos/calibrator) | 34 | ✅ |
-| **生产代码总计** | **413** | **100% GREEN** |
+| **生产代码总计** | **422** | **100% GREEN** |
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
 | 真实音频 Quick + Pro | 28 | ✅ 100% | BASELINE_V7_6 |
-| BDD | 13 step files | ✅ | 29 scenarios |
+| BDD | 15 step files | ✅ | 29 scenarios + dtw-demotion(18) + scoring-config(14) |
 
 ### 前端测试
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
 | Vitest (stores) | 33 | ✅ 100% |
+| vue-tsc type check | 0 errors | ✅ |
+| Vite build | 8.5s | ✅ |
+
+### 前端 GSAP 动效 (v7.8 新增)
+
+| 页面 | 动效 | 方法 |
+|------|------|------|
+| AppLayout | 页面过渡 | CSS opacity + translateY 0.3s |
+| ReportView | score-reveal Timeline | enterFrom + scaleIn + staggerIn |
+| HomeView | 入场序列 | enterFrom (5 阶段) |
+| CompareView | 双面板入场 | slideInLeft + slideInRight |
+| HistoryView | 容器淡入 | enterFrom |
+| SingView | 录音脉冲光环 | GSAP pulse repeat:-1 |
+| 全局 | prefers-reduced-motion | CSS @media + GSAP matchMedia |
 
 ### 真实音频评分 (v7.6 Quick 模式)
 
@@ -148,29 +214,46 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 四、已知问题
 
+> 更新: 2026-08-01 | v7.8
+
 ### 架构残留
 
 | 优先级 | 残留 | 说明 |
 |--------|------|------|
-| **P2** | `services/features/types.py` | AudioFeaturesResult 仍被旧 adapter 评分路径引用 |
+| ~~P2~~ | ~~`services/features/types.py`~~ | ✅ v7.8: 外部引用已清理 |
+| ~~P2~~ | ~~前后端对齐: flags.store.ts 绕过 apiClient~~ | ✅ v7.8: 已修复 (apiClient + FlagsResponse 强类型) |
+| ~~P2~~ | ~~前后端对齐: flags 路由硬编码 /api/v1/flags~~ | ✅ v7.8: 已修复 (prefix 约定一致) |
+| ~~P2~~ | ~~前后端对齐: ScoreRadar/HistoryView as any 类型~~ | ✅ v7.8: 已修复 (ChartOptions/HistoryFilter 类型) |
+| ~~P2~~ | ~~前后端对齐: ApiResponse<T> 死代码 + HistoryListResponse list[dict]~~ | ✅ v7.8: 已清理 |
 | **P2** | `services/dl_services/` (11 files) | style classifier, VAD, DTW 仍在使用 |
 
 ### 文献差距
 
 | 优先级 | 项目 | 说明 |
 |:--:|------|------|
-| **P1** | audiofeat 默认禁用 | CPPS/GNE/HNR_praat 等核心特征在生产中不可用 |
-| **P2** | GNE 未接入气声比评分 | AROC=0.886 的强指标未被 TechniqueScorer 使用 |
+| ~~P1~~ | ~~audiofeat 默认禁用~~ | ✅ v7.7 |
+| ~~P2~~ | ~~GNE 未接入气声比评分~~ | ✅ v7.8: AROC=0.886 接入 TechniqueScorer |
 | **P2** | timbral_models 集成 | Python 3.12 兼容性问题, 待上游修复 |
 | **P2** | PyArmor 代码保护 | ADR-8, 构建脚本就绪 |
 | **P2** | electron-builder 完整打包 | 配置就绪, 未执行 |
+
+### GSAP 动效
+
+| 优先级 | 项目 | 说明 |
+|:--:|------|------|
+| ~~P0~~ | ~~页面切换无过渡动画~~ | ✅ v7.8: AppLayout CSS 过渡 |
+| ~~P0~~ | ~~ReportView 评分无 reveal 动画~~ | ✅ v7.8: GSAP Timeline score-reveal |
+| ~~P0~~ | ~~HomeView 无入场动画~~ | ✅ v7.8: 5 阶段 enterFrom 序列 |
+| ~~P0~~ | ~~prefers-reduced-motion 未处理~~ | ✅ v7.8: CSS + GSAP matchMedia 双重保护 |
+| ~~P1~~ | ~~useGsap.ts 死代码 (零引用)~~ | ✅ v7.8: 5 组件引用 |
+| **P1** | BDD animations.feature 针对旧架构 | 15 scenarios 需迁移到 Vue 3 DOM 选择器 |
 
 ### 测试遗留
 
 | 问题 | 说明 |
 |------|------|
-| BDD v6.0 规划 features 未实现 | ~20 steps (auto-match/database/pitch-realtime 等) |
-| 集成测试不可混跑 | Flask + FastAPI C 扩展冲突 (已移除 Flask, 此问题已解决) |
+| BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; 6 features 仍待实现 |
+| BDD animations.feature 旧架构 | 15 scenarios 针对已废弃的 Vanilla JS 架构, 需迁移 |
 
 ---
 
@@ -209,7 +292,7 @@ pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_ddd_extraction_flag.py
 
 # 集成测试 (独立进程, ~5s)
-pytest tests/integration/test_api_routes.py -v         # FastAPI (20 tests)
+pytest tests/integration/test_api_routes.py -v         # FastAPI (19 tests)
 
 # 扩展测试 (独立进程, ~5s)
 pytest tests/extended/ -v                              # DTW/repos/etc (34 tests)

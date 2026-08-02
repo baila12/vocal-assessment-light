@@ -1,8 +1,8 @@
-# 评分算法文档 v7.5
+# 评分算法文档 v7.8
 
-> 更新: 2026-07-29 | DDD 唯一评分路径 | 428 测试 100% GREEN
+> 更新: 2026-08-01 | DDD 唯一评分路径 | 423 测试 100% GREEN
 >
-> **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md) | [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | [性能分析](PERFORMANCE_ANALYSIS_AND_OPTIMIZATION.md)
+> **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md) | [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 
 ---
 
@@ -132,29 +132,40 @@ Raw Audio (y, sr)
 
 ### 3.4 发声技术 (Technique) — 咬字 + 气声比
 
-**文献**: Rathi & Hsu (2021), Hecker (1974), Barsties v. Latoszek (2023)
+**文献**: Rathi & Hsu (2021), Hecker (1974), Barsties v. Latoszek (2023), Michaelis et al. (1997), Samlan & Story (2013), Buckley et al. (2023)
 
-**咬字清晰度** (50%):
+**咬字清晰度** (50%, v7.4 文献对齐):
 ```
-score = consonant_clarity × 0.50
-      + onset_density_bonus (≤25, density 1.5-5.0)
-      − spectral_flux_penalty (flux > 3.0 时扣分)
+score = SpectralCentroid(30%) + SpectralFlux(15%) + ZCR(15%)
+      + AttackSlope(15%) + C-V能量比(10%) + OnsetDensity(10%)
 ```
+- Rathi & Hsu 2:1:1 比例: Centroid:Flux:ZCR = 1.0:0.5:0.5
+- Attack slope (v7.6): 起音 RMS 上升速率 → 投射力和清晰度
+- Fallback: ZCR=0 且 Centroid=0 时回退到旧 consonant_clarity 路径
 
-**气声比** (50%):
+**气声比** (50%, v7.4 CPPS 主特征):
 ```
-score = HNR映射(70%) + spectral_tilt惩罚 + hf_energy惩罚
+score = CPPS(40%) + HNR(25%) + SpectralTilt(20%) + HF_Energy(15%)
 ```
-- HNR 12-22 dB → +70, HNR < 5 → +20, HNR > 30 → +50
+- CPPS ≥ 9.0 → +40 (v7.6: 声学 CPP ×100 校准), 歌声阈值 (Buckley 2023)
+- HNR graduated: ≥25→满分, 18-25→70%, 10-18→30% (v7.6: 歌声特定)
+- CPPS=0 时 HNR fallback 至 45%
 - Spectral tilt < -5 → `penalty = min(20, abs(tilt+5)×4)`
-- HF energy > 0.7 → `penalty = min(10, (ratio−0.7)×30)`
 
-> ⚠️ **已知问题**: HNR 占气声比 70% 权重, 但文献显示 HNR 与气声感知相关度 r=-0.56 不显著。CPPS (解释 86.7% 方差) 仅通过 audiofeat 可选参与。详见 [P0 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#三p0-1-气声比-hnr-权重修正)。
-
-**v7.3 audiofeat 增强**:
-- Jitter < 0.5% → 咬字 +5
-- Shimmer < 0.1 dB → 气声比 +3
-- Closed Quotient 0.4-0.6 → 气声比 +3
+**v7.3-v7.8 audiofeat 增强** (在 `_apply_audiofeat_enhancement()` 中):
+| 特征 | 条件 | 效果 | 影响维度 | 版本 |
+|------|------|------|---------|:--:|
+| Jitter | < 0.5% | +5 | 咬字 | v7.3 |
+| Jitter | > 3.0% | -10 | 咬字 | v7.3 |
+| Shimmer | < 0.1 dB | +3 | 气声比 | v7.3 |
+| Shimmer | > 0.5 dB | -5 | 气声比 | v7.3 |
+| Closed Quotient | 0.4-0.6 | +3 | 气声比 | v7.3 |
+| Closed Quotient | < 0.2 | -5 | 气声比 | v7.3 |
+| **GNE** | **> 0.8** | **+5** | **气声比** | **v7.8** |
+| **GNE** | **< 0.4** | **-8** | **气声比** | **v7.8** |
+- GNE (AROC=0.886, Michaelis 1997): 声门-噪声激励比，最强气声单一判别指标
+- GNE 阈值与 BreathScorer 一致 (0.4/0.8)，确保评分体系一致性
+- 所有值为 0 (audiofeat 不可用) → 跳过所有增强
 
 ### 3.5 肌肉力量 (Muscle) — 启发式代理 ⚠️
 

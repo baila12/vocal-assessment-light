@@ -1,6 +1,157 @@
-# 变更日志 v7.6
+# 变更日志 v7.8
 
-> 更新: 2026-07-29 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+> 更新: 2026-08-01 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.8 — GNE 接入 + GSAP 动效美化 + 前后端对齐 (2026-08-01)
+
+### 概述
+
+v7.8 完成三个 P2 文献差距修复、全站 GSAP 动效系统重建、以及前后端 API 对齐审计修复。GNE (AROC=0.886) 正式接入 TechniqueScorer 气声比增强，GSAP 从死代码状态恢复为全站统一动效系统 (6 页面覆盖)，前后端类型安全与路由约定达到一致。
+
+### 评分增强: GNE 接入 (1 项)
+
+**GNE 接入 TechniqueScorer** (`technique_scorer.py`)
+- 🆕 4 个 GNE 阈值常量: `GNE_QUALITY_THRESHOLD=0.8`, `GNE_LEAK_THRESHOLD=0.4`
+- 🆕 `_apply_audiofeat_enhancement()` 新增 GNE 处理逻辑:
+  - GNE < 0.4 → 不可控漏气线性惩罚 (max -8)
+  - GNE > 0.8 → 优秀声门控制线性加分 (max +5)
+  - 0.4 ≤ GNE ≤ 0.8 → 中性无影响
+  - GNE = 0 (audiofeat 不可用) → 无影响
+- 阈值与 BreathScorer 保持一致 (0.4/0.8)，确保评分体系一致性
+- 📄 文献: Michaelis et al. 1997 — GNE AROC=0.886 为最强气声判别指标
+- 🧪 +5 GNE tests (test_technique_scorer.py), 36/36 GREEN
+
+### GSAP 动效系统 (10 项)
+
+**基础框架:**
+- 🔧 `useGsap.ts` 重写: 9 动画方法 (`tl`, `enterFrom`, `staggerIn`, `slideInLeft/Right`, `scaleIn`, `countUp`, `pulse`)
+- 🆕 `gsap.matchMedia()` reduced-motion 检测 + CSS `@media` 双重保护
+- 🔧 `main.ts`: GSAP 全局默认配置 (`duration: 0.4`, `ease: power2.out`, `overwrite: auto`)
+- 🔧 `AppLayout.vue`: 新增 `.page-enter/leave` CSS 过渡 (opacity+translateY, 0.3s)
+- 🔧 `global.css`: 新增 `@media (prefers-reduced-motion: reduce)` 全局规则
+
+**页面动画覆盖:**
+| 页面 | 动画 | 方法 |
+|------|------|------|
+| ReportView | 总分弹入 → 雷达图缩放 → 六维卡片 stagger → 建议滑入 | GSAP Timeline |
+| HomeView | 标题区 → 上传区 → 模式选择 → 操作按钮 → 模式说明 | enterFrom 5 阶段 |
+| CompareView | 左面板 slideInLeft + 右面板 slideInRight | slideInLeft/Right |
+| HistoryView | 容器淡入 (不触碰 el-table 内部 DOM) | enterFrom |
+| SingView | 录音按钮 CSS pulse → GSAP repeat:-1 脉冲 | GSAP pulse |
+
+**技术保障:**
+- Compositor-only 属性 (autoAlpha, x, y, scale, rotation)，零 layout 触发
+- gsap.context(scope) 选择器隔离，onBeforeUnmount → ctx.revert() 自动清理
+- Element Plus 零侵入: 仅动画自定义 wrapper div，不触碰 el-* 内部 DOM
+- useGsap.ts 从死代码 (0 引用) → 5 组件引用
+
+### 前后端对齐 (9 项)
+
+**HIGH 修复 (3):**
+- 🔧 `flags.store.ts`: 原始 `fetch()` → `apiClient.get<FlagsResponse>()` (统一超时+ApiError 包装)
+- 🔧 `flags.store.ts`: `json.data as FlagsData` 强制断言 → 定义 `FlagsResponse` 接口
+- 🔧 `client.ts`: `(import.meta as any).env?.DEV` → `import.meta.env?.DEV`
+
+**MEDIUM 修复 (6):**
+- 🔧 `types/api.ts`: 删除未使用的 `ApiResponse<T>` + `ErrorResponse` 死代码
+- 🔧 `types/api.ts`: `HistoryRecord` 补充 `filepath`/`advice`/`scores` 可选字段
+- 🔧 `history.store.ts`: 捕获后端返回的 `total_pages`/`limit` 字段
+- 🔧 `flags.py` + `main.py`: Flags 路由改为 `prefix="/api/v1"` + `@router.get("/flags")` 约定
+- 🔧 `ScoreRadar.vue`: `chartOptions as any` → `ChartOptions<'radar'>`
+- 🔧 `HistoryView.vue`: `store.setFilter(val as any)` → `HistoryFilter` 类型
+
+### 架构清理 (2 项)
+
+- 🔧 `services/features/types.py`: 外部引用清零 (仅剩自身 DeprecationWarning)，更新弃用时间线至 v7.9
+- 🔧 `test_orchestrator.py`: 移除 `test_ddd_vs_legacy_consistent` (旧 adapter 对比测试)，`AudioFeaturesResult` 导入已删除
+
+### BDD 扩展 (2 项)
+
+- 🆕 `test_dtw_demotion_steps.py`: 18 scenarios (3 PASSED 验证当前架构不变性, 15 XFAIL 标记架构目标)
+- 🆕 `test_scoring_config_steps.py`: 14 scenarios (全部 XFAIL，权重配置为未来功能)
+
+### 提交前复核修复 (2026-08-02)
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **修复** | flags.py: 通过 flag_bridge 反映运行时 FeatureFlags (audiofeat 不再误报 False) | ✅ |
+| **修复** | CompareView/HistoryView: GSAP 选择器匹配真实类名 (动画不再静默 no-op) | ✅ |
+| **修复** | router: 无效路由 toast 真正触发 (redirect 移入 beforeEach 守卫) | ✅ |
+| **修复** | 版本号 v7.7 → v7.8 (main.py/health.py) | ✅ |
+| **修复** | technique_scorer: GNE 注释澄清 (与 BreathScorer 条件差异) | ✅ |
+| **测试** | test_api_routes: +1 /flags 回归测试 + 版本断言更新 (19 tests) | ✅ |
+| **测试** | test_scoring_config_steps: 移除 pytest 私有属性依赖 | ✅ |
+
+### 测试总结
+
+- DDD unit: **369 tests GREEN** (5 new GNE + 1 orchestrator net change)
+- FastAPI 集成: **19 tests GREEN** (含新增 /flags 回归测试)
+- BDD: 15 step files, 61 scenarios (29 existing + 32 new)
+- Frontend Vitest: **33/33 GREEN**
+- Frontend vue-tsc: **0 errors**
+- Frontend Vite build: **8.5s**
+
+---
+
+## v7.7 — audiofeat 生产启用 + Flag 系统修复 + 前端收束 (2026-07-31)
+
+### 概述
+
+v7.7 解锁了 v7.4-v7.6 中已实现但被 Feature Flag 门控的全部评分算法增强。核心变更是修复双重 Flag 系统脱节：`FeatureFlags` (API 层) 与 `DimensionFlags` (领域层) 之间新增桥接层，同时将 `enable_audiofeat` 全面默认启用。
+
+### Flag 系统修复 (3 项)
+
+**Flag 桥接层** (`backend/shared/flag_bridge.py` 新文件)
+- 新增 `to_dimension_flags()`: 9 个同名字段直接映射 (enable_audiofeat, enable_multiscale_hnr, 等)
+- DimensionFlags 独有字段 (维度开关 13 个) 保持默认值 True
+- 🧪 +6 tests
+
+**audiofeat 默认启用** (3 文件)
+- `services/feature_flags.py`: 类默认值 `False → True`, `for_quick()` + `for_professional()` 显式启用
+- `api/business/audio_analysis.py`: Orchestrator 单例传入 `DimensionFlags(enable_audiofeat=True)`
+- `safe_baseline()`: 显式 `enable_audiofeat=False` (保持安全基线语义)
+
+**audiofeat 包安装**
+- `audiofeat==1.1.1` 安装到 pytorch2 conda 环境
+- `AudiofeatExtractor.available == True` (220+ 行提取代码激活)
+
+### 前端修复 (6 项)
+
+**权重对齐** (`ReportView.vue`)
+- 六维显示权重: 10/10/20/25/25/10 → 13/12/22/25/15/13
+- 与 `value_objects.py` 实际加权系数一致
+
+**emoji 清理**
+- `WaveformCanvas.vue`: ⚠️ → `<WarningFilled />` (Element Plus Icons)
+- `web/static/index.html`: 🎤 emoji 移除
+
+**路由体验** (`router/index.ts`)
+- 无效路由 catch-all `/:pathMatch(.*)*` → 重定向首页
+- `router.beforeEach` 守卫: `ElMessage.warning("页面不存在，已返回首页")`
+
+**Settings 面板扩展** (`HomeView.vue`)
+- 新增 "算法与模型" 卡片: GPU 状态 + audiofeat 可用性 + DL 模型列表 + 六维权重
+- `flags.store.ts` (Pinia): `/api/v1/flags` 数据获取
+
+**Flag API** (`backend/interfaces/api/routes/flags.py` 新文件)
+- `GET /api/v1/flags`: 返回 dimensions/enhancements/experimental/gpu/models/weights
+- 注册到 FastAPI router
+
+### 代码清理 (2 项)
+
+**重复方法删除** (`breath_scorer.py`)
+- 删除 `_score_from_fluctuation` 重复定义 (lines 172-182, 与 160-170 完全相同)
+
+**Legacy E2E 清理**
+- 删除 5 个 legacy 测试文件: test_analysis.py, test_upload.py, test_real_audio.py, test_e2e.py, test_e2e_v2.py
+
+### 测试总结
+- **249 tests GREEN**: 228 unit + 21 extended
+- **6 新增**: test_flag_bridge.py (Flag 桥接 TDD)
+- **33 frontend**: Vitest Pinia stores GREEN
+- **前端构建**: Vite build ✅ (8.5s)
 
 ---
 

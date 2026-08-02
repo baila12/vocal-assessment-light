@@ -24,7 +24,7 @@ class TestHealthEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "healthy"
-        assert data["version"] == "7.0.0"
+        assert data["version"] == "7.8.0"
         assert "gpu" in data
 
     def test_docs_accessible(self, client):
@@ -35,12 +35,34 @@ class TestHealthEndpoint:
         resp = client.get("/openapi.json")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["info"]["title"] == "VAS v7.0"
+        assert data["info"]["title"] == "VAS v7.8"
         # 验证路由已注册
         paths = list(data["paths"].keys())
         assert any("/api/v1/upload" in p for p in paths)
         assert any("/api/v1/history" in p for p in paths)
         assert any("/api/v1/audio" in p for p in paths)
+        assert any("/api/v1/flags" in p for p in paths)
+
+
+class TestFlagsEndpoint:
+    """v7.8: GET /api/v1/flags 反映运行时配置"""
+
+    def test_flags_returns_audiofeat_enabled(self, client):
+        """audiofeat 通过桥接层应显示为启用 (修复返回类默认值 False 的问题)"""
+        resp = client.get("/api/v1/flags")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        payload = data["data"]
+        # 运行时维度开关 + audiofeat 增强 (v7.7 默认启用)
+        assert payload["enhancements"]["audiofeat"] is True
+        assert payload["enhancements"]["praat_voice_quality"] is True
+        assert "pitch" in payload["dimensions"]
+        # 设备/模型状态字段齐全
+        assert "gpu" in payload
+        assert "models" in payload
+        assert "dimension_weights" in payload
+        assert payload["dimension_weights"]["technique"] == 25
 
 
 class TestHistoryEndpoints:

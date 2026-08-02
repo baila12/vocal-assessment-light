@@ -22,9 +22,9 @@ class HistoryRecordOut(BaseModel):
 
 
 class HistoryListResponse(BaseModel):
-    """历史记录列表响应"""
+    """历史记录列表响应 — v7.8: history 使用强类型"""
     success: bool = True
-    history: list[dict] = Field(default_factory=list)
+    history: list[HistoryRecordOut] = Field(default_factory=list)
     total: int = 0
     page: int = 1
     total_pages: int = 0

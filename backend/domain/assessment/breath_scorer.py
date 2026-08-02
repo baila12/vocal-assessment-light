@@ -168,15 +168,3 @@ class BreathScorer:
             return 62.5 - (fluctuation - 0.35) * 250   # 62.5→25
         else:
             return max(10.0, 25.0 - (fluctuation - 0.50) * 100)
-
-    @staticmethod
-    def _score_from_fluctuation(fluctuation: float) -> float:
-        """从 RMS 波动率计算基础分 (fallback)"""
-        if fluctuation <= 0.20:
-            return 100.0
-        elif fluctuation <= 0.35:
-            return 100.0 - (fluctuation - 0.20) * 250  # 100→62.5
-        elif fluctuation <= 0.50:
-            return 62.5 - (fluctuation - 0.35) * 250   # 62.5→25
-        else:
-            return max(10.0, 25.0 - (fluctuation - 0.50) * 100)

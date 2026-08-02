@@ -13,6 +13,11 @@ def pytest_configure(config):
     """pytest 启动最早时机 — 在任何测试模块 import 前设置环境变量"""
     os.environ.setdefault("VAS_SKIP_GPU", "1")
     os.environ.setdefault("VAS_DISABLE_RATE_LIMIT", "1")
+    # v7.7: 防止 numpy MKL + librosa + torch 线程冲突导致 Fatal Python error
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 
 # ---- Playwright E2E fixtures (lazy import 避免单元测试加载 playwright) ----

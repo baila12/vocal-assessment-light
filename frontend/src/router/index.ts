@@ -1,10 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-
-// Phase 4: 懒加载页面组件
-// const HomeView = () => import('@/views/HomeView.vue')
-// const ReportView = () => import('@/views/ReportView.vue')
-// ...
+import { h } from 'vue'
+import { ElMessage } from 'element-plus'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -32,12 +29,29 @@ const routes: RouteRecordRaw[] = [
     name: 'sing',
     component: () => import('@/views/SingView.vue'),
   },
+  // v7.7: 无效路由捕获 — beforeEach 中显示 Toast 后重定向到首页
+  // (redirect 会在 beforeEach 之前解析, 故此处用占位组件 + 守卫内重定向)
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: { render: () => h('div') },
+  },
 ]
 
 const router = createRouter({
   // Electron 生产模式使用 hash history (file:// 协议兼容)
   history: createWebHashHistory(),
   routes,
+})
+
+// v7.7: 无效路由全局守卫 — 显示 Toast 并重定向到首页
+router.beforeEach((to, _from, next) => {
+  if (to.name === 'not-found') {
+    ElMessage.warning('页面不存在，已返回首页')
+    next({ name: 'home' })
+  } else {
+    next()
+  }
 })
 
 export default router

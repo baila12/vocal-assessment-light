@@ -22,9 +22,14 @@ from backend.application.assessment.scoring_orchestrator import ScoringOrchestra
 from backend.application.assessment.ddd_feature_orchestrator import (
     DddFeatureExtractionOrchestrator,
 )
+from backend.domain.assessment.feature_flags import DimensionFlags
+
 _event_bus = EventBus()
 ddd_orchestrator = ScoringOrchestrator(event_bus=_event_bus)
-_ddd_feature_extractor = DddFeatureExtractionOrchestrator()
+# v7.7: 启用 audiofeat CPPS/GNE/HNR_praat 增强 (所有消费者有安全零值回退)
+_ddd_feature_extractor = DddFeatureExtractionOrchestrator(
+    flags=DimensionFlags(enable_audiofeat=True)
+)
 
 # 注册历史记录自动保存
 from repositories.history_repository import JsonHistoryRepository

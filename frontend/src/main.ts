@@ -1,11 +1,19 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { gsap } from 'gsap'
 import ElementPlus from 'element-plus'
 import 'element-plus/theme-chalk/src/index.scss'
 import App from './App.vue'
 import router from './router'
 import './styles/global.css'
 import './styles/element-override.scss'
+
+// ---- GSAP 全局默认配置 ----
+gsap.defaults({
+  duration: 0.4,
+  ease: 'power2.out',
+  overwrite: 'auto',
+})
 
 // ---- 全局错误捕获 ----
 if (typeof window !== 'undefined') {

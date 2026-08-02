@@ -64,6 +64,8 @@ export const useHistoryStore = defineStore('history', () => {
         history: HistoryRecord[]
         total: number
         page: number
+        total_pages: number
+        limit: number
       }>(`/api/v1/history${dateParam}`)
 
       if (response.success && response.history) {

@@ -6,9 +6,10 @@
  * v7.0: 修复 v6.3 无法两侧都上传、字段名不匹配等已知问题
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Aim, Microphone, CircleCheckFilled, InfoFilled } from '@element-plus/icons-vue'
+import { useGsap } from '@/composables/useGsap'
 import { apiClient } from '@/api/client'
 import { matchColor } from '@/utils/colors'
 import FileUploader from '@/components/FileUploader.vue'
@@ -19,6 +20,24 @@ const userFile = ref<File | null>(null)
 const isComparing = ref(false)
 const compareResult = ref<any>(null)
 const errorMsg = ref<string | null>(null)
+
+// ---- GSAP 入场动画 ----
+const compareContainer = ref<HTMLElement | null>(null)
+const { slideInLeft, slideInRight, enterFrom } = useGsap(compareContainer)
+
+onMounted(() => {
+  if (!compareContainer.value) return
+  // 左面板 (标准音频) 从左侧滑入
+  slideInLeft('.upload-panel:first-child', { delay: 0.1 })
+  // 右面板 (用户音频) 从右侧滑入
+  slideInRight('.upload-panel:last-child', { delay: 0.2 })
+  // 操作按钮区域
+  enterFrom('.action-bar', { y: 16, delay: 0.3 })
+})
+
+onBeforeUnmount(() => {
+  // ctx.revert() handled by useGsap
+})
 
 // ---- 计算属性 ----
 const canCompare = computed(
@@ -92,7 +111,7 @@ async function startCompare(): Promise<void> {
 </script>
 
 <template>
-  <div class="compare-view">
+  <div ref="compareContainer" class="compare-view">
     <!-- 页面标题 -->
     <div class="page-header">
       <h2 class="page-title">对比分析</h2>

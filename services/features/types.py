@@ -1,9 +1,9 @@
 """
 音频特征数据传输对象 (DTOs)
 
-DEPRECATED: Use backend.domain.audio.audio_features.AudioFeaturesResult and related
-domain types instead. These DTOs are retained for backward compatibility only
-and will be removed in a future version.
+DEPRECATED since v7.6. Scheduled for removal in v7.9.
+All production code migrated to DDD domain types (backend/domain/audio/).
+Zero active import references in non-deprecated code as of v7.8.
 
 从 __init__.py 分离，消除与子模块的循环导入
 """
@@ -13,8 +13,8 @@ from typing import Optional
 import warnings
 
 warnings.warn(
-    "services.features.types is deprecated. "
-    "Use backend.domain.audio.audio_features.AudioFeaturesResult instead.",
+    "services.features.types is deprecated since v7.6 (will be removed in v7.9). "
+    "Use backend.domain.audio domain types instead.",
     DeprecationWarning,
     stacklevel=2,
 )

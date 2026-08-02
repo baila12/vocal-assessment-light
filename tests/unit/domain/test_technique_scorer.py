@@ -253,3 +253,55 @@ class TestTechniqueScorerAudiofeat:
         af = _make_audiofeat(jitter_local=0.1, shimmer_db=0.02, closed_quotient=0.55)
         result = self.scorer.calculate(f, audiofeat=af)
         assert 0.0 <= result.raw_score <= 100.0
+
+    # ---- GNE (Glottal-to-Noise Excitation) — v7.8 ----
+
+    def test_gne_high_boosts_breath_voice(self):
+        """GNE > 0.8 → 优秀声门控制, 气声比加分 (AROC=0.886, Michaelis 1997)"""
+        f = make_features(hnr_mean=18.0, cpp_mean=10.0)
+        af = _make_audiofeat(gne_mean=0.90)
+        result = self.scorer.calculate(f, audiofeat=af)
+        result_no_af = self.scorer.calculate(f)
+        assert result.breath_voice_ratio > result_no_af.breath_voice_ratio
+
+    def test_gne_low_penalizes_breath_voice(self):
+        """GNE < 0.4 → 不可控漏气, 气声比扣分"""
+        f = make_features(hnr_mean=18.0, cpp_mean=10.0)
+        af = _make_audiofeat(gne_mean=0.30)
+        result = self.scorer.calculate(f, audiofeat=af)
+        result_no_af = self.scorer.calculate(f)
+        assert result.breath_voice_ratio < result_no_af.breath_voice_ratio
+
+    def test_gne_moderate_no_effect(self):
+        """GNE 0.4-0.8 → 中性范围, 不影响气声比"""
+        f = make_features(hnr_mean=18.0, cpp_mean=10.0)
+        af = _make_audiofeat(gne_mean=0.60)
+        result = self.scorer.calculate(f, audiofeat=af)
+        result_no_af = self.scorer.calculate(f)
+        assert result.breath_voice_ratio == result_no_af.breath_voice_ratio
+
+    def test_gne_zero_no_effect(self):
+        """GNE=0 (audiofeat 不可用) → 不影响评分"""
+        f = make_features(hnr_mean=18.0, cpp_mean=10.0)
+        af = _make_audiofeat(gne_mean=0.0)
+        result = self.scorer.calculate(f, audiofeat=af)
+        result_no_af = self.scorer.calculate(f)
+        assert result.raw_score == result_no_af.raw_score
+
+    def test_gne_combined_with_existing_audiofeat(self):
+        """GNE + Jitter/Shimmer/CQ 联合作用, 分数仍在 [0, 100]"""
+        f = make_features(consonant_clarity=70.0, hnr_mean=25.0, cpp_mean=10.0)
+        af = _make_audiofeat(
+            gne_mean=0.90,       # 优秀声门控制 → 气声比加分
+            jitter_local=0.3,    # 极稳定 → 咬字加分
+            shimmer_db=0.05,     # 极稳定 → 气声比加分
+            closed_quotient=0.5, # 高效发声 → 气声比加分
+        )
+        result = self.scorer.calculate(f, audiofeat=af)
+        result_no_af = self.scorer.calculate(f)
+        # 多项增强应该提升总分 (GNE + Jitter + Shimmer + CQ)
+        assert result.raw_score > result_no_af.raw_score
+        # 分数仍在有效范围
+        assert 0.0 <= result.raw_score <= 100.0
+        # 气声比应有明显提升 (GNE + Shimmer + CQ 都影响 breath_voice)
+        assert result.breath_voice_ratio > result_no_af.breath_voice_ratio

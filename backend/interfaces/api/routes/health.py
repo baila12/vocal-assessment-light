@@ -14,7 +14,7 @@ async def health_check():
     gpu_info = _detect_gpu()
     return {
         "status": "healthy",
-        "version": "7.0.0",
+        "version": "7.8.0",
         "timestamp": time.time(),
         "gpu": gpu_info,
     }

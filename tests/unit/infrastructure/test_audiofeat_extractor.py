@@ -202,8 +202,8 @@ class TestAudiofeatFeatureFlag:
         flags = FeatureFlags()
         assert hasattr(flags, 'enable_audiofeat')
 
-    def test_flag_default_is_false(self):
-        """audiofeat 默认关闭 (可选增强, 不影响现有评分)"""
+    def test_flag_default_is_true(self):
+        """v7.7: audiofeat 默认启用 (CPPS/GNE/HNR_praat 生产就绪)"""
         from services.feature_flags import FeatureFlags
         flags = FeatureFlags()
-        assert flags.enable_audiofeat is False
+        assert flags.enable_audiofeat is True

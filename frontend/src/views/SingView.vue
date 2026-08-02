@@ -16,6 +16,7 @@
 import { ref, onBeforeUnmount, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Microphone, VideoPause } from '@element-plus/icons-vue'
+import { useGsap } from '@/composables/useGsap'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useAudioContext } from '@/composables/useAudioContext'
 import { scoreColor } from '@/utils/colors'
@@ -25,9 +26,36 @@ import type { WsEvent } from '@/composables/useWebSocket'
 const wsManager = useWebSocket()
 const audioManager = useAudioContext()
 
+// ---- GSAP 录音脉冲动画 ----
+const singContainer = ref<HTMLElement | null>(null)
+const recordBtn = ref<HTMLElement | null>(null)
+const { pulse } = useGsap(singContainer)
+let pulseTween: gsap.core.Tween | null = null
+
 // ---- 状态 ----
 const isConnected = ref(false)
 const isSinging = ref(false)
+
+// ---- GSAP 录音脉冲 (watch 必须在 isSinging 声明之后) ----
+watch(isSinging, (singing) => {
+  if (singing && recordBtn.value) {
+    pulseTween = pulse(recordBtn.value, {
+      scale: 1.05,
+      duration: 0.6,
+      repeat: -1,
+      yoyo: true,
+      ease: 'sine.inOut',
+    })
+  } else {
+    pulseTween?.kill()
+    pulseTween = null
+    if (recordBtn.value) {
+      import('gsap').then(({ gsap }) => {
+        gsap.set(recordBtn.value!, { scale: 1 })
+      })
+    }
+  }
+})
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const pitchHistory = ref<Array<{ time: number; freq: number; conf: number }>>([])
 const partialScore = ref<{ pitch?: number; rhythm?: number; progress: number } | null>(null)
@@ -281,7 +309,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="sing-view">
+  <div ref="singContainer" class="sing-view">
     <!-- 页面标题 -->
     <div class="page-header">
       <h2 class="page-title">实时演唱</h2>
@@ -311,6 +339,7 @@ onBeforeUnmount(() => {
         :icon="Microphone"
         :disabled="!isConnected"
         circle
+        ref="recordBtn"
         class="record-btn"
         @click="startSinging"
         aria-label="开始演唱"

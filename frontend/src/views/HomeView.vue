@@ -6,12 +6,14 @@
  * 设计原则: 首页是工作台入口，不是产品介绍页
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Setting, Folder, Delete, VideoPlay, Microphone, DataAnalysis, Lightning, Aim, Document, Moon, Sunny, Headset } from '@element-plus/icons-vue'
 import { useAssessmentStore } from '@/stores/assessment.store'
 import { usePreferencesStore } from '@/stores/preferences.store'
+import { useFlagsStore } from '@/stores/flags.store'
+import { useGsap } from '@/composables/useGsap'
 import { apiClient } from '@/api/client'
 import FileUploader from '@/components/FileUploader.vue'
 import ProgressOverlay from '@/components/ProgressOverlay.vue'
@@ -19,6 +21,29 @@ import ProgressOverlay from '@/components/ProgressOverlay.vue'
 const router = useRouter()
 const assessment = useAssessmentStore()
 const preferences = usePreferencesStore()
+const flagsStore = useFlagsStore()
+
+// ---- GSAP 入场动画 ----
+const homeContainer = ref<HTMLElement | null>(null)
+const { enterFrom } = useGsap(homeContainer)
+
+onMounted(() => {
+  if (!homeContainer.value) return
+  // 标题区
+  enterFrom('.hero-section', { y: -8, duration: 0.4 })
+  // 上传区延迟入场
+  enterFrom('.upload-section', { y: 16, duration: 0.4, delay: 0.1 })
+  // 模式选择
+  enterFrom('.mode-section', { y: 12, duration: 0.35, delay: 0.2 })
+  // 操作按钮
+  enterFrom('.action-section', { y: 12, duration: 0.35, delay: 0.3 })
+  // 模式说明
+  enterFrom('.mode-info', { autoAlpha: 0, duration: 0.3, delay: 0.4 })
+})
+
+onBeforeUnmount(() => {
+  // ctx.revert() handled by useGsap
+})
 
 // ---- 状态 ----
 const selectedFile = ref<File | null>(null)
@@ -90,7 +115,7 @@ function goToSing(): void {
 </script>
 
 <template>
-  <div class="home-view">
+  <div ref="homeContainer" class="home-view">
     <ProgressOverlay
       :visible="assessment.isAnalyzing"
       :percent="assessment.progress.percent"
@@ -290,6 +315,50 @@ function goToSing(): void {
           管理历史记录
         </el-button>
       </div>
+
+      <el-divider />
+
+      <!-- v7.7: 算法与模型状态 -->
+      <div class="drawer-section">
+        <h3 class="drawer-section-title">算法与模型</h3>
+        <el-button text :loading="flagsStore.loading" @click="flagsStore.fetchFlags()">
+          刷新状态
+        </el-button>
+        <div v-if="flagsStore.data" class="flags-info">
+          <div class="flags-row">
+            <span class="flags-label">GPU</span>
+            <el-tag :type="flagsStore.data.gpu.available ? 'success' : 'info'" size="small">
+              {{ flagsStore.gpuLabel }}
+            </el-tag>
+          </div>
+          <div class="flags-row">
+            <span class="flags-label">audiofeat</span>
+            <el-tag :type="flagsStore.data.experimental.audiofeat_installed ? 'success' : 'danger'" size="small">
+              {{ flagsStore.data.experimental.audiofeat_installed ? '已安装' : '未安装' }}
+            </el-tag>
+          </div>
+          <div class="flags-row">
+            <span class="flags-label">DL 模型</span>
+            <div class="flags-tags">
+              <el-tag v-for="(ok, name) in flagsStore.data.models" :key="name"
+                :type="ok ? 'success' : 'warning'" size="small" class="model-tag">
+                {{ name }}
+              </el-tag>
+            </div>
+          </div>
+          <div class="flags-row">
+            <span class="flags-label">六维权重</span>
+            <span class="flags-weights">
+              <template v-for="(w, dim) in flagsStore.data.dimension_weights" :key="dim">
+                <el-tag size="small" class="weight-tag">{{ dim }}= {{ w }}%</el-tag>
+              </template>
+            </span>
+          </div>
+        </div>
+        <div v-else-if="flagsStore.error" class="flags-error">
+          {{ flagsStore.error }}
+        </div>
+      </div>
     </el-drawer>
 
     <!-- ====== 曲库抽屉 ====== -->
@@ -463,5 +532,45 @@ function goToSing(): void {
   .home-view {
     padding-bottom: 72px; /* bottom nav spacing */
   }
+}
+
+/* v7.7: 算法与模型状态 */
+.flags-info {
+  margin-top: 8px;
+}
+.flags-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  gap: 8px;
+}
+.flags-label {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  flex-shrink: 0;
+}
+.flags-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.model-tag {
+  font-size: 11px;
+}
+.flags-weights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: flex-end;
+}
+.weight-tag {
+  font-size: 10px;
+}
+.flags-error {
+  color: var(--el-color-danger);
+  font-size: 13px;
+  margin-top: 8px;
 }
 </style>

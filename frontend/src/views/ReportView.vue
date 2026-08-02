@@ -6,7 +6,7 @@
  * 路由: /report/:id — 支持从历史记录恢复
  */
 
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { WarningFilled, CircleCheck, Plus, Document } from '@element-plus/icons-vue'
@@ -15,6 +15,7 @@ import { usePreferencesStore } from '@/stores/preferences.store'
 import { useApi } from '@/composables/useApi'
 import { apiClient, ApiError } from '@/api/client'
 import { scoreColor } from '@/utils/colors'
+import { useGsap } from '@/composables/useGsap'
 import ScoreCard from '@/components/ScoreCard.vue'
 import ScoreRadar from '@/components/ScoreRadar.vue'
 import AudioPlayer from '@/components/AudioPlayer.vue'
@@ -52,18 +53,18 @@ const scoreCards = computed(() => {
   const s = scores.value
   const h = heuristicDims.value
   return [
-    { key: 'pitch', label: '音准', score: s.pitch, weight: 10, isHeuristic: false,
+    { key: 'pitch', label: '音准', score: s.pitch, weight: 13, isHeuristic: false,
       subScores: {} },
-    { key: 'rhythm', label: '节奏', score: s.rhythm, weight: 10, isHeuristic: false,
+    { key: 'rhythm', label: '节奏', score: s.rhythm, weight: 12, isHeuristic: false,
       subScores: {} },
-    { key: 'breath', label: '气息', score: s.breath, weight: 20, isHeuristic: false,
+    { key: 'breath', label: '气息', score: s.breath, weight: 22, isHeuristic: false,
       subScores: {} },
     { key: 'technique', label: '发声技术', score: s.technique, weight: 25, isHeuristic: false,
       subScores: {} },
-    { key: 'muscle_strength', label: '肌肉力量', score: s.muscle_strength, weight: 25,
+    { key: 'muscle_strength', label: '肌肉力量', score: s.muscle_strength, weight: 15,
       isHeuristic: h.includes('muscle_strength'),
       subScores: {} },
-    { key: 'artistry', label: '艺术表现', score: s.artistry, weight: 10, isHeuristic: false,
+    { key: 'artistry', label: '艺术表现', score: s.artistry, weight: 13, isHeuristic: false,
       subScores: {} },
   ]
 })
@@ -93,11 +94,39 @@ async function loadFromHistory(id: string): Promise<void> {
   }
 }
 
+// ---- GSAP 动画 ----
+const reportContainer = ref<HTMLElement | null>(null)
+const { enterFrom, staggerIn, scaleIn } = useGsap(reportContainer)
+let animPlayed = false
+
+function playScoreReveal(): void {
+  if (animPlayed || !reportContainer.value) return
+  animPlayed = true
+
+  // 等待 DOM 更新后播放动画
+  nextTick(() => {
+    if (!reportContainer.value) return
+    // 总分区域弹入
+    enterFrom('.score-hero', { y: 20, duration: 0.5 })
+    // 雷达图缩放入场 (延迟 0.1s)
+    scaleIn('.radar-section', { delay: 0.15 })
+    // 六维卡片依次淡入
+    staggerIn('.score-card-wrap', { y: 24, stagger: 0.08, delay: 0.2 })
+    // 改进建议列表逐条滑入
+    staggerIn('.advice-item', { x: -12, stagger: 0.06, delay: 0.4 })
+    // 底部按钮区域
+    enterFrom('.report-footer', { y: 16, delay: 0.6 })
+  })
+}
+
+onBeforeUnmount(() => {
+  animPlayed = false
+})
+
 // ---- 初始化 ----
 onMounted(() => {
   const id = route.params.id as string | undefined
   if (id && !hasResult.value) {
-    // 从历史记录恢复 (例如 /report/25)
     loadFromHistory(id)
   } else if (!hasResult.value) {
     ElMessage.warning('暂无分析结果，请先上传音频进行评估')
@@ -105,6 +134,10 @@ onMounted(() => {
   // 构建音频 URL
   if (result.value?.filepath) {
     audioUrl.value = getAudioUrl(result.value.filepath)
+  }
+  // 已有结果则播放动画
+  if (hasResult.value) {
+    playScoreReveal()
   }
 })
 
@@ -116,6 +149,11 @@ watch(
     }
   },
 )
+
+// 数据从历史加载完成后触发动画
+watch(hasResult, (now) => {
+  if (now) playScoreReveal()
+})
 
 // ---- 导出报告 ----
 const isExporting = ref(false)
@@ -147,7 +185,7 @@ function onTimeUpdate(time: number): void {
 </script>
 
 <template>
-  <div class="report-view">
+  <div ref="reportContainer" class="report-view">
     <!-- 空状态 -->
     <div v-if="!hasResult" class="empty-state">
       <el-result icon="warning" title="暂无分析结果" sub-title="请先上传音频进行评估">
@@ -216,15 +254,15 @@ function onTimeUpdate(time: number): void {
       <div class="cards-section">
         <h3 class="section-title">各维度详情</h3>
         <div class="cards-grid">
-          <ScoreCard
-            v-for="card in scoreCards"
-            :key="card.key"
-            :label="card.label"
-            :score="card.score"
-            :weight="card.weight"
-            :is-heuristic="card.isHeuristic"
-            :sub-scores="card.subScores"
-          />
+          <div v-for="card in scoreCards" :key="card.key" class="score-card-wrap">
+            <ScoreCard
+              :label="card.label"
+              :score="card.score"
+              :weight="card.weight"
+              :is-heuristic="card.isHeuristic"
+              :sub-scores="card.subScores"
+            />
+          </div>
         </div>
       </div>
 

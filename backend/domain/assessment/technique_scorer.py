@@ -61,6 +61,13 @@ class TechniqueScorer:
     CQ_BONUS = 3.0              # 高效发声加分
     CQ_PENALTY = 5.0            # 闭合不足扣分
 
+    # ---- GNE 阈值 (v7.8) ----
+    # GNE: 声门-噪声激励比, AROC=0.886 为最强气声判别指标 (Michaelis 1997)
+    GNE_QUALITY_THRESHOLD = 0.8  # > 0.8 = 优秀声门控制, 气声极少
+    GNE_LEAK_THRESHOLD = 0.4     # < 0.4 = 噪声主导, 不可控漏气
+    GNE_QUALITY_BONUS = 5.0      # 优秀声门控制最大加分
+    GNE_LEAK_PENALTY = 8.0       # 不可控漏气最大扣分
+
     def calculate(
         self,
         features: TechniqueFeatures,
@@ -116,13 +123,17 @@ class TechniqueScorer:
         breath_voice: float,
         af: 'AudiofeatFeatures',
     ) -> tuple[float, float]:
-        """v7.3: audiofeat 增强 — Jitter/Shimmer/CQ 微调子维度分数"""
+        """v7.3: audiofeat 增强 — Jitter/Shimmer/CQ/GNE 微调子维度分数
+
+        v7.8: 新增 GNE (声门-噪声激励比) 增强, AROC=0.886 为最强气声判别指标
+        """
         jitter = af.jitter_local
         shimmer = af.shimmer_db
         cq = af.closed_quotient
+        gne = af.gne_mean
 
         # 所有值为 0 (默认/不可用) → 无增强
-        if jitter == 0.0 and shimmer == 0.0 and cq == 0.0:
+        if jitter == 0.0 and shimmer == 0.0 and cq == 0.0 and gne == 0.0:
             return articulation, breath_voice
 
         # Jitter: 频率稳定性 → 影响咬字清晰度
@@ -143,6 +154,19 @@ class TechniqueScorer:
                 breath_voice = min(100.0, breath_voice + self.CQ_BONUS)
             elif cq < self.CQ_LOW:
                 breath_voice = max(0.0, breath_voice - self.CQ_PENALTY)
+
+        # GNE: 声门-噪声激励比 → 影响气声比 (AROC=0.886, Michaelis 1997)
+        # 阈值沿用 BreathScorer (0.4/0.8); 条件略宽: 气声比子维度对 GNE 单指标即可
+        # 触发 (BreathScorer 需 GNE+HNR 双确认, 见 breath_scorer.py)
+        if gne > 0:
+            if gne < self.GNE_LEAK_THRESHOLD:
+                # 不可控漏气: 线性惩罚, GNE 越低扣分越多
+                leak_factor = (self.GNE_LEAK_THRESHOLD - gne) / self.GNE_LEAK_THRESHOLD
+                breath_voice = max(0.0, breath_voice - leak_factor * self.GNE_LEAK_PENALTY)
+            elif gne > self.GNE_QUALITY_THRESHOLD:
+                # 优秀声门控制: 线性加分, GNE 越高加分越多
+                quality_factor = (gne - self.GNE_QUALITY_THRESHOLD) / (1.0 - self.GNE_QUALITY_THRESHOLD)
+                breath_voice = min(100.0, breath_voice + quality_factor * self.GNE_QUALITY_BONUS)
 
         return articulation, breath_voice
 

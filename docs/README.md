@@ -1,8 +1,7 @@
 # 声乐评估系统文档索引
 
-> **v7.3.1 | 2026-07-28** | 分支: `feat/v7-fastapi-vue-refactor`
-> 安全审查修复 (9 info leaks) + Flask 限速 (14 routes) + BDD 步骤定义 (29 scenarios) + 废弃标记
-> 375 生产测试 GREEN | 120 domain | 106 infrastructure | 23 middleware | 51 extended | 75 integration
+> **v7.8 | 2026-08-01** | 分支: `feat/v7-fastapi-vue-refactor`
+> GNE 接入 + GSAP 动效美化 + 前后端对齐 | 423 测试 GREEN + 33 前端 GREEN
 
 本目录按产品、技术、质量、过程和归档五类组织。
 
@@ -19,53 +18,45 @@
 
 | 文档 | 说明 |
 |------|------|
-| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.3 DDD 四层架构 + Comparison 领域 + audiofeat 增强 + 安全中间件 |
-| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | API 契约 (16 paths + WebSocket + normalization) |
-| [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分 + audiofeat 增强 + v7.3 真实音频基线 |
-| [2-technical/TECH_RESEARCH.md](2-technical/TECH_RESEARCH.md) | v7.1 技术研究: 五维度算法验证 + 开源工具评级 + 实施路线 |
-| [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 (Vue 3 + Element Plus) |
-
-### 外部研究资源
-
-| 路径 | 说明 |
-|------|------|
-| `参考论文/` | 论文PDF + 六维研究总结 + 综合评估报告 (项目外部目录) |
-
-> 参考论文位于项目目录外的独立路径
+| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.8 DDD 四层架构 + GSAP 动效 + 安全中间件 |
+| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | API 契约 (19 paths + WebSocket) |
+| [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分 + audiofeat + GNE 增强 + v7.8 真实音频基线 |
+| [2-technical/TECH_RESEARCH.md](2-technical/TECH_RESEARCH.md) | v7.1 技术研究: 五维度算法验证 + 开源工具评级 |
+| [2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | 评分算法改进计划 (P0/P1 ✅, P2 ✅) |
+| [2-technical/frontend/README.md](2-technical/frontend/README.md) | 前端技术文档入口 (Vue 3 + Element Plus + GSAP) |
 
 ## 3. 质量文档
 
 | 文档 | 说明 |
 |------|------|
 | [3-quality/TDD.md](3-quality/TDD.md) | TDD 规范 |
-| [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景 (21 Feature files, 13 step files) |
+| [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景 (23 Feature files, 15 step files, 61 scenarios) |
 
-### 测试体系状态 (v7.3.1)
+### 测试体系状态 (v7.8)
 
 | 层级 | 测试数 | 通过率 | 说明 |
 |------|:-----:|--------|------|
-| DDD 领域测试 (含 comparison + audiofeat) | 120 | ✅ 100% | 7 scorers + comparison scoring + value objects |
-| DDD 基建测试 (extractors + orchestrator) | 106 | ✅ 100% | audiofeat + audio_utils + pitch + rhythm + breath + technique |
-| DDD 对齐 + Flag 测试 | 17 | ✅ 100% | alignment + extraction flag + SPA routes |
-| 中间件测试 | 23 | ✅ 100% | SecurityHeaders + RateLimit (含 monkeypatch 修复) |
-| **DDD 合计** | **290** | **100% GREEN** | |
+| DDD 领域 (scorers + value objects) | 127 | ✅ 100% | 7 scorers + comparison + domain services |
+| DDD 基建 (extractors + orchestrator + ABI) | 136 | ✅ 100% | 10 extractors + audio_utils + ABI |
+| DDD 对齐 + Flag bridge + GNE | 22 | ✅ 100% | alignment + flag + GNE tests (v7.8: +5) |
+| 中间件测试 | 22 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
+| **DDD 合计** | **369** | **100% GREEN** | |
 | FastAPI 集成测试 | 20 | ✅ 100% | test_api_routes (独立进程) |
-| Flask + WS 集成测试 | 14 | ✅ 100% | test_ws_score + test_api (独立进程，含限速) |
-| 扩展测试 (DTW/repos/calibrator/SPA) | 51 | ✅ 100% | tests/extended/ (独立进程) |
-| **生产代码总计** | **375** | **100% GREEN** | |
-| Vue 3 前端 (Vitest) | 33 | ✅ 100% | stores + composables |
-| 真实音频回归 | 28 | ✅ 100% | v7.3 基线 (5文件 × 5+ 维度) |
-| TDD 未来特性 | 1 skip + 4 xfail | ⏭️ | 按需实现 |
-| BDD | 13 step files | ✅ | v7.3.1: +3 新 step 文件 (29 scenarios) |
-| BDD 未实现 | ~20 steps | ⏭️ | v6.0 规划 features (auto-match/database/等) |
+| 扩展测试 (DTW/repos/calibrator) | 34 | ✅ 100% | tests/extended/ (独立进程) |
+| **生产代码总计** | **423** | **100% GREEN** | |
+| Vue 3 前端 (Vitest) | 33 | ✅ 100% | stores |
+| 前端 vue-tsc | 0 errors | ✅ | TypeScript 类型检查 |
+| 真实音频回归 | 28 | ✅ 100% | BASELINE_V7_6 |
+| BDD | 15 step files, 61 scenarios | ✅ | +dtw-demotion +scoring-config (v7.8) |
 
 ## 4. 过程文档
 
 | 文档 | 说明 |
 |------|------|
-| [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.3.1 进度、已知问题、测试详情 |
-| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (v5.0 → v7.3.1) |
-| [4-process/V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md) | v7.0 全栈重构计划 (六阶段, 8 ADR) |
+| [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.8 进度、已知问题、测试详情 |
+| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (v5.0 → v7.8) |
+| [4-process/TEST_RESULTS.md](4-process/TEST_RESULTS.md) | 测试结果记录 (v7.8: 423 tests) |
+| [4-process/V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md) | v7.0 全栈重构计划 (历史参考) |
 
 ## 5. 归档文档
 
@@ -73,12 +64,13 @@
 
 ---
 
-### v7.3.1 安全增强总览
+### v7.8 改进总览
 
-| 类别 | 修复项 | 涉及文件 |
+| 类别 | 改进项 | 涉及文件 |
 |------|:-----:|------|
-| 信息泄露 (9处) | `str(e)`→通用消息、traceback DTO 移除、WebSocket 安全 | audio_analysis, audio_service, score_handler, upload.py, response_builder |
-| 速率限制 | Flask 14 routes + FastAPI 50MB 限制 | rate_limit.py (new), main.py |
-| 输入验证 | mode 参数 (quick/professional)、.aac 扩展名 | upload.py, assessment.py, schemas, config |
-| 代码质量 | pytest filterwarnings、基线别名清理、重复 import | pytest.ini, test_real_audio_regression.py, assessment.py |
-| 架构演进 | services/features/ 废弃警告、BDD 29 scenarios | acoustic.py, types.py, test_*_steps.py |
+| 评分增强 | GNE (AROC=0.886) 接入 TechniqueScorer | technique_scorer.py, test_technique_scorer.py |
+| GSAP 动效 | 全站 6 页面 GSAP 动画 + reduced-motion | useGsap.ts, main.ts, AppLayout.vue, 5 views |
+| 前后端对齐 | 3 HIGH + 6 MEDIUM 修复 | flags.store.ts, client.ts, types/api.ts, flags.py, ScoreRadar.vue, HistoryView.vue |
+| 架构清理 | types.py 引用清零, orchestrator 测试清理 | types.py, test_orchestrator.py |
+| BDD 扩展 | +2 step files (32 scenarios) | test_dtw_demotion_steps.py, test_scoring_config_steps.py |
+| 文档更新 | 全量文档同步至 v7.8 | 9 个文档文件 |

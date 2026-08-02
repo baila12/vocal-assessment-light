@@ -1,6 +1,6 @@
-# 行为驱动开发 (BDD) 规范 v7.6
+# 行为驱动开发 (BDD) 规范 v7.8
 
-> 更新: 2026-07-31 | 13 step files | 21 feature files | 29 scenarios
+> 更新: 2026-08-01 | 15 step files | 23 feature files | 61 scenarios (3 PASSED + 29 XFAIL + 29 original)
 
 ---
 
@@ -41,7 +41,7 @@
 
 ```
 tests/bdd/
-├── features/                         # Gherkin .feature 文件 (21 个)
+├── features/                         # Gherkin .feature 文件 (23 个)
 │   │
 │   │  === 已实现 (有 Step Defs) ===
 │   ├── upload.feature                # 上传与六维评分
@@ -53,22 +53,24 @@ tests/bdd/
 │   ├── mode-select.feature           # 模式选择
 │   ├── sing-song-select.feature      # 演唱选歌
 │   ├── song-library.feature          # 标准曲库
-│   ├── animations.feature            # GSAP 动画 (v7.3.1)
+│   ├── animations.feature            # GSAP 动画 (v7.3.1, ⚠️ 旧架构)
 │   ├── offline.feature               # 离线/本地库 (v7.3.1)
 │   ├── responsive.feature            # 响应式布局 (v7.3.1)
 │   └── spa.feature                   # SPA 通用
+│   │
+│   │  === v7.8 新增 (25 PASSED + 29 XFAIL) ===
+│   ├── dtw-demotion.feature          # DTW 降级为特征提供者 (18 scenarios)
+│   └── scoring-config.feature        # 评分配置可定制 (14 scenarios)
 │   │
 │   │  === 规划中 (无 Step Defs) ===
 │   ├── database.feature              # 标准歌曲数据库
 │   ├── auto-match.feature            # 上传自动匹配
 │   ├── song-select.feature           # 选歌录音完整流程
-│   ├── dtw-demotion.feature          # DTW 降级为特征提供者
-│   ├── scoring-config.feature        # 评分配置可定制
 │   ├── nonblocking-analysis.feature  # 非阻塞分析 (SSE)
 │   ├── pitch-realtime.feature        # 实时音准对比
 │   └── realtime-analysis.feature     # 录音实时后台分析
 │
-├── steps/                            # Step 实现 (13 files)
+├── steps/                            # Step 实现 (15 files)
 │   ├── test_upload_steps.py          # 上传 + 评分
 │   ├── test_compare_steps.py         # DTW 对比
 │   ├── test_compare_ui_steps.py      # 对比 UI
@@ -79,9 +81,11 @@ tests/bdd/
 │   ├── test_sing_song_select_steps.py # 演唱选歌
 │   ├── test_song_library_steps.py    # 曲库管理
 │   ├── test_spa_steps.py             # SPA 通用步骤
-│   ├── test_animations_steps.py      # 🆕 v7.3.1: 16 GSAP scenarios
-│   ├── test_offline_steps.py         # 🆕 v7.3.1: 5 offline scenarios
-│   └── test_responsive_steps.py      # 🆕 v7.3.1: 8 responsive scenarios
+│   ├── test_animations_steps.py      # v7.3.1: 16 GSAP scenarios (⚠️ 旧架构)
+│   ├── test_offline_steps.py         # v7.3.1: 5 offline scenarios
+│   ├── test_responsive_steps.py      # v7.3.1: 8 responsive scenarios
+│   ├── test_dtw_demotion_steps.py    # 🆕 v7.8: 18 DTW scenarios (3PASS+15XFALL)
+│   └── test_scoring_config_steps.py  # 🆕 v7.8: 14 评分配置 scenarios (14XFALL)
 │
 ├── conftest.py                       # BDD fixtures + Playwright
 └── __init__.py

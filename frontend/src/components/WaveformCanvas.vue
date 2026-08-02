@@ -7,6 +7,7 @@
  */
 
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { WarningFilled } from '@element-plus/icons-vue'
 
 const props = withDefaults(
   defineProps<{
@@ -148,7 +149,7 @@ watch(() => props.currentTime, () => {
 <template>
   <div class="waveform-container">
     <div v-if="isLoading" class="waveform-loading">加载波形中...</div>
-    <div v-else-if="hasError" class="waveform-error">⚠️ 波形加载失败</div>
+    <div v-else-if="hasError" class="waveform-error"><el-icon><WarningFilled /></el-icon> 波形加载失败</div>
     <canvas
       ref="canvasRef"
       class="waveform-canvas"

@@ -17,7 +17,7 @@ function getBaseUrl(): string {
     if ((window as unknown as Record<string, unknown>).electronAPI) return ''
   }
   // 开发模式 (Vite): 相对路径走 Vite 代理, 避免 CORS
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV) {
+  if (import.meta.env?.DEV) {
     return ''
   }
   // 生产回退

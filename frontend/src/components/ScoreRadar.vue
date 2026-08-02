@@ -18,7 +18,7 @@ import {
   Legend,
 } from 'chart.js'
 import type { SixDimensionScores } from '@/types/score'
-import type { TooltipItem } from 'chart.js'
+import type { TooltipItem, ChartOptions } from 'chart.js'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
@@ -66,7 +66,7 @@ const chartData = computed(() => ({
   ],
 }))
 
-const chartOptions = {
+const chartOptions: ChartOptions<'radar'> = {
   responsive: true,
   maintainAspectRatio: true,
   scales: {
@@ -124,7 +124,7 @@ watch(
 
 <template>
   <div class="score-radar">
-    <Radar ref="chartRef" :data="chartData" :options="chartOptions as any" />
+    <Radar ref="chartRef" :data="chartData" :options="chartOptions" />
   </div>
 </template>
 
