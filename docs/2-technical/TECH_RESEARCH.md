@@ -1,6 +1,8 @@
 # 技术研究文档 — 五维声乐特征检测
 
-> 日期: 2026-07-23 | 版本: v7.1-alpha | 状态: 研究阶段 (已完成)
+> 日期: 2026-07-23 | 版本: v7.1-alpha (审计更新: 2026-08-02) | 状态: 研究阶段 (已完成)
+>
+> **架构演进说明**: v7.6 起旧版 ScoreServiceV4 + `services/scoring/` 已移除, Flask 已移除。当前评分仅使用 DDD `backend/domain/assessment/` 六维体系。
 >
 > **研究结论已转化为实施计划**: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
 >
@@ -35,28 +37,25 @@
 
 ### 2.1 双轨架构
 
-系统采用"绞杀者模式"逐步从旧版五维评分迁移到新版六维评分：
+系统原采用"绞杀者模式"从旧版五维评分迁移到新版六维评分。v7.6 起旧版已完全移除, 当前仅使用新版 DDD 六维体系:
 
 | 轨道 | 路径 | 维度 | 状态 |
 |------|------|------|------|
-| 旧版 | `services/score_service.py` (ScoreServiceV4) | 5维 (音准28%/节奏20%/气息20%/技术18%/艺术14%) | 生产使用 |
-| 新版 | `backend/domain/assessment/services.py` | 6维 (音准10%/节奏10%/气息20%/技术25%/肌肉25%/艺术10%) + 音色±3~-5 | 开发中 |
+| 旧版 | `services/score_service.py` (ScoreServiceV4) | 5维 (音准28%/节奏20%/气息20%/技术18%/艺术14%) | ❌ 已移除 (v7.6) |
+| 新版 | `backend/domain/assessment/value_objects.py` | 6维 (音准13%/节奏12%/气息22%/技术25%/肌肉15%/艺术13%) + 音色±3~-5 | ✅ 生产使用 (v7.9) |
 
-### 2.2 管道模式
+### 2.2 管道模式 (v7.9)
 
 ```
-Audio → AudioFeaturesService (特征提取)
-     → ScoreServiceV4 / ScoringDomainService (评分)
-     → 跨维度修正 + 底线规则 + DL融合
+Audio → DddFeatureExtractionOrchestrator (特征提取)
+     → ScoringDomainService (评分)
+     → 跨维度加权 + timbre apply + 底线规则
      → ScoreLevel.from_score() (等级判定)
 ```
 
-### 2.3 扩展接口
+### 2.3 扩展接口 (v7.6 后仅 DDD 路径)
 
-两个轨道均支持新维度接入：
-
-**旧版**: 创建 `services/scoring/newdim_scorer.py` → 注册到 ScoreServiceV4 → 添加权重
-**新版**: 创建 `backend/domain/assessment/newdim_scorer.py` → 定义 ValueObject → 接入 ScoringDomainService.calculate_total()
+新维度接入路径: 创建 `backend/domain/assessment/newdim_scorer.py` → 定义 ValueObject → 接入 ScoringDomainService.calculate_total()。旧版 `services/scoring/` 目录已随 Flask 移除 (v7.6)。
 
 ---
 
@@ -78,9 +77,9 @@ Audio → AudioFeaturesService (特征提取)
 - 所有黄金标准验证在**病理语音**上完成，歌声验证几乎空白
 
 **现有代码契合度**: ⭐⭐⭐⭐⭐
-- 旧版 BreathScorer: 通过 HNR+harmonic_ratio 间接评估
-- 新版 TechniqueScorer._calc_breath_voice_ratio(): 使用 HNR+spectral_tilt+hf_energy_ratio
-- 已预留接口，仅需替换特征来源 (接入 audiofeat CPPS/GNE)
+- (旧版 BreathScorer 已随 v7.6 移除)
+- TechniqueScorer._calc_breath_voice_ratio(): 已通过 P0-1 重构为 CPPS(40%) + HNR(25%) + spectral_tilt(20%) + HF(15%) 四特征融合 (v7.4)
+- audiofeat CPPS/GNE 已接入为默认增强
 
 **可接入工具**: `audiofeat` (A级, pip install), `Praat-VQ-Measurements` (A级, 逻辑可翻译)
 

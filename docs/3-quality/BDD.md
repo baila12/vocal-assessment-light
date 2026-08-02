@@ -1,6 +1,6 @@
-# 行为驱动开发 (BDD) 规范 v7.8
+# 行为驱动开发 (BDD) 规范 v7.9
 
-> 更新: 2026-08-02 | 16 step files | 23 feature files | 71 scenarios (7 PASSED + 35 XFAIL + 29 original)
+> 更新: 2026-08-02 | 16 step files | 21 feature files (15 已实现 + 6 规划中) | database.feature v7.9 新增 (4 PASSED + 6 XFAIL)
 
 ---
 
@@ -21,7 +21,8 @@
                    │
 ┌──────────────────▼───────────────────────────┐
 │  Fixtures (conftest.py)                       │
-│  pytest fixtures: Flask client, test data     │
+│  pytest fixtures: api_client (Flask 兼容旧步) + │
+│  fastapi_client (v7 API) + test data          │
 └──────────────────────────────────────────────┘
 ```
 
@@ -37,13 +38,13 @@
 
 ---
 
-## 2. 目录结构 (v7.3.1 实际)
+## 2. 目录结构 (v7.9 实际)
 
 ```
 tests/bdd/
-├── features/                         # Gherkin .feature 文件 (23 个)
+├── features/                         # Gherkin .feature 文件 (21 个)
 │   │
-│   │  === 已实现 (有 Step Defs) ===
+│   │  === 已实现 (有 Step Defs, 15 个) ===
 │   ├── upload.feature                # 上传与六维评分
 │   ├── compare.feature               # DTW 对比分析
 │   ├── differentiation.feature       # 评分区分度验证
@@ -56,21 +57,19 @@ tests/bdd/
 │   ├── animations.feature            # GSAP 动画 (v7.3.1, ⚠️ 旧架构)
 │   ├── offline.feature               # 离线/本地库 (v7.3.1)
 │   ├── responsive.feature            # 响应式布局 (v7.3.1)
-│   └── spa.feature                   # SPA 通用
+│   ├── dtw-demotion.feature          # v7.8: DTW 降级为特征提供者 (18 scenarios)
+│   ├── scoring-config.feature        # v7.8: 评分配置可定制 (14 scenarios)
+│   └── database.feature              # 🆕 v7.9: 标准歌曲数据库 (10 scenarios, 4P+6XF)
 │   │
-│   │  === v7.8 新增 (25 PASSED + 29 XFAIL) ===
-│   ├── dtw-demotion.feature          # DTW 降级为特征提供者 (18 scenarios)
-│   └── scoring-config.feature        # 评分配置可定制 (14 scenarios)
-│   │
-│   │  === 规划中 (无 Step Defs) ===
-│   ├── database.feature              # 标准歌曲数据库
+│   │  === 规划中 (无 Step Defs, 6 个) ===
 │   ├── auto-match.feature            # 上传自动匹配
 │   ├── song-select.feature           # 选歌录音完整流程
 │   ├── nonblocking-analysis.feature  # 非阻塞分析 (SSE)
 │   ├── pitch-realtime.feature        # 实时音准对比
-│   └── realtime-analysis.feature     # 录音实时后台分析
+│   ├── realtime-analysis.feature     # 录音实时后台分析
+│   └── multi-dim-analysis.feature    # 多维度对比分析
 │
-├── steps/                            # Step 实现 (15 files)
+├── steps/                            # Step 实现 (16 files)
 │   ├── test_upload_steps.py          # 上传 + 评分
 │   ├── test_compare_steps.py         # DTW 对比
 │   ├── test_compare_ui_steps.py      # 对比 UI
@@ -84,8 +83,8 @@ tests/bdd/
 │   ├── test_animations_steps.py      # v7.3.1: 16 GSAP scenarios (⚠️ 旧架构)
 │   ├── test_offline_steps.py         # v7.3.1: 5 offline scenarios
 │   ├── test_responsive_steps.py      # v7.3.1: 8 responsive scenarios
-│   ├── test_dtw_demotion_steps.py    # 🆕 v7.8: 18 DTW scenarios (3PASS+15XFALL)
-│   ├── test_scoring_config_steps.py  # 🆕 v7.8: 14 评分配置 scenarios (14XFALL)
+│   ├── test_dtw_demotion_steps.py    # v7.8: 18 DTW scenarios
+│   ├── test_scoring_config_steps.py  # v7.8: 14 评分配置 scenarios
 │   └── test_database_steps.py        # 🆕 v7.9: 10 歌曲库 scenarios (4PASS+6XFALL)
 │
 ├── conftest.py                       # BDD fixtures + Playwright
@@ -189,7 +188,9 @@ def check_total_score_range(upload_with_mode):
 
 ---
 
-## 5. v7.3.1 新增 Step Defs
+## 5. 版本演进: Step Defs 新增记录
+
+### v7.3.1
 
 | 文件 | Scenarios | 内容 |
 |------|:--:|------|
@@ -198,7 +199,21 @@ def check_total_score_range(upload_with_mode):
 | `test_responsive_steps.py` | 8 | 响应式布局验收 (33 step defs) |
 | **合计** | **29** | **119 step defs** |
 
-标记: 新增 scenarios 使用 `@pytest.mark.browser` (需要 Playwright)
+### v7.8
+
+| 文件 | Scenarios | 内容 |
+|------|:--:|------|
+| `test_dtw_demotion_steps.py` | 18 | DTW 降级为特征提供者 |
+| `test_scoring_config_steps.py` | 14 | 评分配置可定制 |
+| **合计** | **32** | |
+
+### v7.9
+
+| 文件 | Scenarios | 内容 |
+|------|:--:|------|
+| `test_database_steps.py` | 10 | 标准歌曲数据库 (4 PASSED + 6 XFAIL) |
+
+标记: v7.3.1 animations/offline/responsive scenarios 使用 `@pytest.mark.browser` (需要 Playwright)
 
 ---
 

@@ -1,6 +1,6 @@
 # 前端页面功能设计 v1.0 — 标准曲库 / 模式选择 / 对比分析 / 选歌录音
 
-> ⚠️ **已废弃**: 本文档描述 v6.0 计划时期的 Vanilla JS 页面设计。当前 v7.3.1 已迁移至 Vue 3 + Element Plus (`frontend/src/views/`)。本文档中描述的标准曲库、选歌演唱等页面尚未在 Vue 3 中实现，保留作为未来功能参考。
+> ⚠️ **已废弃**: 本文档描述 v6.0 计划时期的 Vanilla JS 页面设计。当前 v7.9 已迁移至 Vue 3 + Element Plus (`frontend/src/views/`)。本文档中描述的标准曲库、选歌演唱等前端页面尚未在 Vue 3 中实现（后端歌曲 CRUD API 已于 v7.9 实现），保留作为未来功能参考。
 >
 > 当前页面状态见: [README.md](README.md) | [ROUTES.md](ROUTES.md)
 
@@ -179,7 +179,7 @@ Currently ComparePage 只有左右双栏框架，只能从历史记录选取，�
 ### 5.4 评分参数面板
 
 - 风格选择器（pop/jazz/classical/folk）
-- 五维权重展示（只读显示当前风格预设）
+- 六维权重展示（只读显示当前风格预设；v7.9 已从五维改为六维: Pitch/Rhythm/Breath/Technique/Muscle/Artistry）
 - 「应用并开始分析」按钮
 
 ### 5.5 边界条件

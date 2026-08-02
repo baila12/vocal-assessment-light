@@ -1,6 +1,6 @@
-# API 接口文档 v7.5
+# API 接口文档 v7.9
 
-> 绞杀者模式: FastAPI (主) + Flask /old (遗留)
+> FastAPI 为主 (Flask 已移除 v7.6)
 
 ---
 
@@ -23,8 +23,11 @@
 | DELETE | `/api/v1/history/all` | 清空全部 | < 500ms |
 | GET | `/api/v1/test-files` | 测试音频列表 | < 50ms |
 | GET | `/api/v1/audio?file=...` | 音频流 + 路径安全 | < 200ms |
-| GET | `/api/v1/songs` | 曲库列表 | < 100ms |
+| GET | `/api/v1/songs` | 曲库列表 (page/limit/search) | < 100ms |
 | GET | `/api/v1/songs/{id}` | 歌曲详情 | < 50ms |
+| POST | `/api/v1/songs` | 添加歌曲 (multipart) | < 200ms |
+| DELETE | `/api/v1/songs/{id}` | 删除歌曲 | < 100ms |
+| GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | < 50ms |
 
 ## WebSocket
 
@@ -40,6 +43,6 @@
 | GET | `/docs` | Swagger UI |
 | GET | `/redoc` | ReDoc |
 
-## Flask 遗留 (`/old/api/`)
+## Flask 遗留 (`/old/api/`) — 已移除 (v7.6)
 
-通过 WSGI 挂载到 `/old`，提供与 FastAPI 相同的 14 个端点。所有端点已添加 token bucket 速率限制。详见 [API_CONTRACT.md](API_CONTRACT.md)。
+Flask 路由已于 v7.6 全部移除。旧 `api/` 目录仅保留 `business/` 桥梁层 + `schemas.py`。所有 API 端点现在统一由 FastAPI `/api/v1/` 提供服务。详见 [API_CONTRACT.md](API_CONTRACT.md)。

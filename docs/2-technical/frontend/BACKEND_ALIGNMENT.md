@@ -1,6 +1,6 @@
 # 前端与后端计划对齐
 
-> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.3.1 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。
+> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.9 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。
 >
 > 当前前后端状态见: [ARCHITECTURE.md](../ARCHITECTURE.md) | [ROUTES.md](ROUTES.md) | [README.md](README.md)
 
@@ -13,46 +13,45 @@
 | 轨道 B | v6.0 | 校准数据集、评分参数校准、可配置评分系统 | 需要评分参数设置、权重预设、自定义预设导入导出 |
 | 通用体验 | v6.0 | 非阻塞分析、SSE 进度、实时录音后台分析 | 需要分析任务状态、顶部进度条、跨页面任务通知 |
 
-## 当前后端稳定接口
+## v5.17 时期后端接口 (历史记录；v7.9 路径已改为 `/api/v1/*`)
 
-| API | 前端用途 |
-|-----|----------|
-| `POST /api/upload` | Quick/Professional 上传分析 |
-| `POST /api/compare` | 手动标准音频与用户音频对比 |
-| `POST /api/extract-pitch` | 标准音频或用户音频音高曲线提取 |
-| `GET /api/history` | 历史记录和报告恢复基础 |
-| `POST /api/report` | 导出 PDF/图片 |
-| `GET /health` | GPU、目录、模型健康状态 |
+| v5.17 API | 前端用途 | v7.9 对应路径 |
+|-----------|----------|---------------|
+| `POST /api/upload` | Quick/Professional 上传分析 | `POST /api/v1/upload` |
+| `POST /api/compare` | 手动标准音频与用户音频对比 | `POST /api/v1/compare` |
+| `POST /api/extract-pitch` | 标准音频或用户音频音高曲线提取 | `POST /api/v1/extract-pitch` |
+| `GET /api/history` | 历史记录和报告恢复基础 | `GET /api/v1/history` |
+| `POST /api/report` | 导出 PDF/图片 | `POST /api/v1/report` |
+| `GET /health` | GPU、目录、模型健康状态 | `GET /health` (未变) |
 
 ## 后端计划接口占位
 
-这些接口尚未在 v5.17 API 文档中稳定落地，前端应先以页面和 schema 预留，而不是写死临时逻辑。
+这些接口在 v5.17 时尚未稳定落地。其中标准曲库 API 已在 v7.9 实现 (`backend/interfaces/api/routes/songs.py`)，其余仍为计划状态。前端应先以页面和 schema 预留，而不是写死临时逻辑。
 
-| 计划 API | 来源 | 前端页面 |
-|----------|------|----------|
-| `GET /api/songs` | `database.feature` | `#/library` |
-| `POST /api/songs` | `database.feature` | `#/library/new` |
-| `POST /api/songs/import` | `database.feature` | `#/library/import` |
-| `GET /api/songs/:songId` | `database.feature` | `#/library/:songId` |
-| `DELETE /api/songs/:songId` | `database.feature` | 曲库管理 |
-| `POST /api/match` | `auto-match.feature` | 上传后匹配、分析任务 |
-| `POST /api/scoring/recommend` | `scoring-config.feature` | 评分参数设置 |
-| `GET /api/scoring/presets` | `scoring-config.feature` | 设置页、添加歌曲页 |
-| `POST /api/analysis/start` | `nonblocking-analysis.feature` | 非阻塞分析任务 |
-| `GET /api/analysis/progress?task_id=...` | `nonblocking-analysis.feature` | SSE 进度 |
+| 计划 API | 来源 | 前端页面 | v7.9 状态 |
+|----------|------|----------|-----------|
+| `GET /api/v1/songs` | `database.feature` | `#/library` | **已实现** |
+| `POST /api/v1/songs` | `database.feature` | `#/library/new` | **已实现** |
+| `GET /api/v1/songs/{id}` | `database.feature` | `#/library/:songId` | **已实现** |
+| `DELETE /api/v1/songs/{id}` | `database.feature` | 曲库管理 | **已实现** |
+| `POST /api/match` | `auto-match.feature` | 上传后匹配、分析任务 | 计划中 |
+| `POST /api/scoring/recommend` | `scoring-config.feature` | 评分参数设置 | 计划中 |
+| `GET /api/scoring/presets` | `scoring-config.feature` | 设置页、添加歌曲页 | 计划中 |
+| `POST /api/analysis/start` | `nonblocking-analysis.feature` | 非阻塞分析任务 | 计划中 |
+| `GET /api/analysis/progress?task_id=...` | `nonblocking-analysis.feature` | SSE 进度 | 计划中 |
 
 ## 页面预留计划
 
-| 页面 | 当前是否存在 | 前端应预留的状态 |
-|------|--------------|------------------|
+| 页面 | 当前是否存在 | v7.9 状态 |
+|------|--------------|-----------|
 | Home | 已存在 | 上传、录音、手动对比、曲库练习入口；不展示静态评分样例 |
-| Library | 不存在 | 空曲库、加载中、搜索/筛选、分页、导入入口 |
-| AddSong | 不存在 | 上传标准音频、元数据表单、评分参数折叠面板、特征预计算状态 |
-| SongDetail | 不存在 | 歌曲信息、预览播放器、难度/风格、选择练习、默认评分配置 |
+| Library | 前端: 不存在 | 后端歌曲 CRUD API 已实现 (v7.9)；前端曲库页面待构建 |
+| AddSong | 前端: 不存在 | 后端 `POST /api/v1/songs` 已实现 (v7.9)；前端导入表单待构建 |
+| SongDetail | 前端: 不存在 | 后端 `GET /api/v1/songs/{id}` 已实现 (v7.9)；前端详情页待构建 |
 | Practice | 部分由 Sing 承担 | 选歌后录音准备、倒计时、标准曲线预加载、伴奏模式 |
 | Compare | 已存在但需重做 | 手动双音频对比、参数设置、匹配/未匹配结果 |
 | Report | 已存在但需重做 | 匹配歌曲信息、fallback_reason、权重来源、问题段落 |
-| Settings/Scoring | 不存在 | 风格预设、五维权重、自动归一化、自定义预设导入导出 |
+| Settings/Scoring | 不存在 | 风格预设、六维权重、自动归一化、自定义预设导入导出 |
 | Settings/Models | 不存在 | Feature Flag、GPU 状态、模型可用性、实验性算法说明 |
 | AnalysisTask | 不存在 | SSE 阶段进度、已到达特征、跨页面任务恢复 |
 
@@ -90,7 +89,7 @@
 }
 ```
 
-### ScoringPreset
+### ScoringPreset (v6.0 历史设计；v7.9 已改为六维评分)
 
 ```json
 {
@@ -98,15 +97,17 @@
   "name": "流行默认",
   "style": "pop",
   "weights": {
-    "pitch": 30,
-    "rhythm": 20,
-    "breath": 20,
-    "technique": 20,
-    "artistry": 10
+    "pitch": 13,
+    "rhythm": 12,
+    "breath": 22,
+    "technique": 25,
+    "muscle_strength": 15,
+    "artistry": 13
   },
   "source": "style_preset"
 }
 ```
+> **注意**: 以上权重为 v7.9 当前六维评分体系 (Pitch/Rhythm/Breath/Technique/Muscle/Artistry)，与 v6.0 时期的五维设计不同。前端评分页面应展示全部六个维度。
 
 ### AnalysisTask
 

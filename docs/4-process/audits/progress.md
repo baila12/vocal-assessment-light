@@ -1,5 +1,7 @@
 # Progress
 
+> ⚠️ **历史文档 (2026-06-06)** — 本文档 pre-date v7.0 重构，记录的是 v6 时代审计工作的活动日志。当前状态见 [PROJECT_STATUS.md](../PROJECT_STATUS.md)。
+
 ## 2026-06-06
 - Read active project status and changelog from `docs/4-process`.
 - Scanned frontend routes, SPA entry, GSAP references, BDD features, old E2E expectations, and emoji usage.

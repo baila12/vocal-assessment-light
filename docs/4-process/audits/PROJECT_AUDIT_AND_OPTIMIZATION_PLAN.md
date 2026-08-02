@@ -1,5 +1,7 @@
 # 项目审计与后续优化计划
 
+> ⚠️ **历史文档 (2026-06-06)** — 本文档 pre-date v7.0 FastAPI+Vue 重构，描述的是 v5.17 ~ v6.3 (Flask + Vanilla JS SPA) 时代的项目状态。许多下文列出的"问题"已在 v7.0~v7.9 重构中解决（Flask 阻塞→FastAPI、emoji UI→Element Plus、内联样式→scoped CSS、旧 HTML 页面→Vue 3 SPA、缺失曲库 API→Songs CRUD 等）。当前 v7.9 状态见 [PROJECT_STATUS.md](../PROJECT_STATUS.md)。本文件保留作为项目演进的历史记录。
+>
 > 日期: 2026-06-06
 > 目标: 明确已完成能力、当前问题和下一阶段优化路线，重点收束前端体验、BDD 跳转逻辑、GSAP 动效、文档体系，以及前端与后端 v5.18/v6.0 计划的对齐。
 

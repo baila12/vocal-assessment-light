@@ -1,4 +1,4 @@
-# 前端技术文档 v7.8
+# 前端技术文档 v7.9
 
 > Vue 3.5 + Element Plus 2.14 + Pinia 2.3 + GSAP 3.15 + Chart.js 4.5 + Electron 28
 
@@ -9,8 +9,8 @@
 | 层 | 文件 | 框架 |
 |------|------|------|
 | 页面 | `views/` (5 pages) | Vue 3 Composition API + Element Plus + GSAP |
-| 布局 | `components/layout/` (2 components) | Element Plus |
-| 共享组件 | `components/` (6 components) | Element Plus + Chart.js + Canvas |
+| 布局 | `components/layout/` (3 components) | Element Plus |
+| 共享组件 | `components/` (7 components) | Element Plus + Chart.js + Canvas |
 | 状态管理 | `stores/` (4 stores) | Pinia setup stores |
 | 组合函数 | `composables/` (5 composables) | Vue Composition API + GSAP |
 | API 层 | `api/` (1 client) | Fetch API + 零硬编码 URL |
@@ -24,7 +24,7 @@
 
 | 路由 | 页面 | GSAP 动效 | 核心组件 |
 |------|------|-----------|---------|
-| `#/` | HomeView | ✅ 5阶段入场序列 | ElUpload + ElRadioGroup + ElDrawer |
+| `#/` | HomeView | ✅ 5阶段入场序列 | FileUploader + el-radio-group + ElDrawer |
 | `#/report/:id?` | ReportView | ✅ score-reveal Timeline | ScoreRadar + ScoreCard + AudioPlayer + WaveformCanvas |
 | `#/history` | HistoryView | ✅ 容器淡入 | ElTable + ElPagination + ElPopconfirm |
 | `#/compare` | CompareView | ✅ 双面板滑入 | FileUploader × 2 + DTW 结果卡片 |
@@ -32,7 +32,7 @@
 
 ---
 
-## GSAP 动效系统 (v7.8)
+## GSAP 动效系统 (v7.9)
 
 ### Composable: `useGsap.ts`
 

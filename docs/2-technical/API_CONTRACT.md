@@ -1,6 +1,6 @@
-# API 契约文档 v7.8
+# API 契约文档 v7.9
 
-> 更新: 2026-08-01 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 423 测试 GREEN
+> 更新: 2026-08-02 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 475 测试 GREEN
 
 ---
 
@@ -24,10 +24,10 @@
 | DELETE | `/api/v1/history/all` | 清空全部 | ✅ | ✅ |
 | GET | `/api/v1/test-files` | 测试音频列表 | ✅ | ✅ |
 | GET | `/api/v1/audio?file=...` | 音频文件流 (路径安全校验) | ✅ | ✅ |
-| POST | `/api/v1/songs` | 添加歌曲 (multipart 文件+元数据) | ✅ | ✅ v7.9 |
-| GET | `/api/v1/songs` | 曲库列表 (page/limit/style/difficulty/search) | ✅ | ✅ v7.9 |
-| GET | `/api/v1/songs/{id}` | 歌曲详情 | ✅ | ✅ v7.9 |
-| DELETE | `/api/v1/songs/{id}` | 删除歌曲 | ✅ | ✅ v7.9 |
+| POST | `/api/v1/songs` | 添加歌曲 (multipart 文件+元数据) [v7.9] | ✅ | ✅ |
+| GET | `/api/v1/songs` | 曲库列表 (page/limit/style/difficulty/search) [v7.9] | ✅ | ✅ |
+| GET | `/api/v1/songs/{id}` | 歌曲详情 [v7.9] | ✅ | ✅ |
+| DELETE | `/api/v1/songs/{id}` | 删除歌曲 [v7.9] | ✅ | ✅ |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | ✅ | ✅ |
 | WS | `/ws/v1/score` | 实时流式评分 | — | — |
 
@@ -68,7 +68,6 @@
 |------|------|
 | Security Headers | CSP, X-Content-Type, X-Frame, HSTS, Referrer-Policy |
 | Rate Limit (FastAPI) | 120/min global, 20/min upload, 10/min WebSocket |
-| Rate Limit (Flask) | Token bucket: 20/60s upload + 120/60s others |
 | Max Body Size | 50MB (413 Payload Too Large) |
 | Path Traversal | 文件名白名单 + resolved path 校验 |
 | Error Response | 通用错误消息, 无原始 traceback 泄露 |

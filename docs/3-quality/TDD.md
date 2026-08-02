@@ -1,6 +1,6 @@
-# 测试驱动开发 (TDD) 规范 v7.8
+# 测试驱动开发 (TDD) 规范 v7.9
 
-> 更新: 2026-08-01 | 423 tests 100% GREEN | pytest + Vitest
+> 更新: 2026-08-02 | 475 tests 100% GREEN | pytest + Vitest
 
 ---
 
@@ -34,39 +34,40 @@
 
 ---
 
-## 2. 测试金字塔 (v7.3.1 实际)
+## 2. 测试金字塔 (v7.9 实际)
 
 ```
-         ╱   E2E   ╲         Playwright, ~22 files, 按需
+         ╱   E2E   ╲         Playwright, ~19 files, 按需
         ╱────────────╲
-       ╱   BDD        ╲       pytest-bdd, 13 step files, 29 scenarios
+       ╱   BDD        ╲       pytest-bdd, 16 step files, 21 feature files
       ╱──────────────────╲
-     ╱   Integration       ╲   FastAPI + Flask/WS, 34 tests
-    ╱────────────────────────╲
-   ╱   Extended                ╲  DTW/repos/calibrator/SPA, 51 tests
-  ╱──────────────────────────────╲
- ╱   Unit (DDD domain + infra)    ╲  290 tests — 核心, 最快
-╱────────────────────────────────────╲
+     ╱   Integration +       ╲   FastAPI routes + Songs, 33 tests (不含回归)
+    ╱    Extended              ╲  DTW/repos/calibrator, 36 tests
+   ╱──────────────────────────────╲
+  ╱   Unit (DDD domain + infra     ╲  406 tests — 核心, 最快
+ ╱    + middleware + alignment)      ╲
+╱──────────────────────────────────────╲
 ```
 
 | 层级 | 测试数 | 速度 | 通过率 |
 |------|:-----:|------|:---:|
-| Unit (DDD 领域: 7 scorers + comparison + audiofeat) | 120 | < 10s | 100% |
-| Unit (DDD 基建: 10 extractors + orchestrator + audio_utils) | 106 | < 5s | 100% |
-| Unit (DDD 对齐 + extraction flag) | 17 | < 1s | 100% |
+| Unit (DDD 领域: 7 scorers + comparison + audiofeat) | 228 | < 12s | 100% |
+| Unit (DDD 基建: 10 extractors + orchestrator + audio_utils) | 132 | < 8s | 100% |
 | Unit (中间件: SecurityHeaders + RateLimit + MaxBodySize) | 23 | < 1s | 100% |
-| Integration (FastAPI routes) | 20 | ~10s | 100% |
-| Integration (Flask + WebSocket) | 14 | ~10s | 100% |
-| Extended (DTW/repos/calibrator/SPA) | 51 | ~9s | 100% |
+| Unit (DDD 对齐 + extraction flag + flag bridge) | 23 | < 1s | 100% |
+| Integration (FastAPI routes) | 19 | ~8s | 100% |
+| Integration (Songs API) | 14 | ~6s | 100% |
+| Integration (WebSocket) | 8 | ~5s | 100% |
+| Extended (DTW/repos/calibrator) | 36 | ~9s | 100% |
 | Real Audio Regression | 28 | ~27min | 100% |
-| **生产代码合计** | **375** | **~37s (不含回归)** | **100% GREEN** |
+| **生产代码合计** | **475** | **~50s (不含回归/WS)** | **100% GREEN** |
 | TDD (future features) | 1 skip + 4 xfail | < 1s | ⏭️ |
-| BDD | 13 step files | < 60s | ✅ |
+| BDD | 16 step files | < 60s | ✅ |
 | Frontend (Vitest) | 33 | < 5s | 100% |
 
 ---
 
-## 3. 测试文件组织 (v7.3.1 实际)
+## 3. 测试文件组织 (v7.9 实际)
 
 ```
 tests/
@@ -94,35 +95,36 @@ tests/
 │   │   ├── test_orchestrator.py          # DDD 编排器
 │   │   └── test_batch4_extractors.py
 │   │
-│   ├── test_middleware.py                # SecurityHeaders + RateLimit
+│   ├── test_middleware.py                # SecurityHeaders + RateLimit + MaxBodySize
 │   ├── test_ddd_alignment.py             # DDD vs Legacy 对齐
-│   └── test_ddd_extraction_flag.py       # Feature Flag 切换
+│   ├── test_ddd_extraction_flag.py       # Feature Flag 切换
+│   └── test_flag_bridge.py              # 🆕 v7.7 Flag 桥接
 │
 ├── integration/
-│   ├── test_api_routes.py                # FastAPI endpoints (20 tests)
-│   ├── test_api.py                       # Flask legacy endpoints
-│   ├── test_ws_score.py                  # WebSocket 实时评分
+│   ├── test_api_routes.py                # FastAPI endpoints (19 tests)
+│   ├── test_songs_api.py                 # 🆕 v7.9 歌曲库 API (14 tests)
+│   ├── test_ws_score.py                  # WebSocket 实时评分 (8 tests)
 │   └── test_real_audio_regression.py     # 真实音频基线 (28 tests)
 │
 ├── extended/                             # 需完整音频栈
 │   ├── test_comparison_dtw.py
 │   ├── test_repositories.py
-│   ├── test_score_calibrator.py
-│   └── test_spa_routes.py
+│   └── test_score_calibrator.py
 │
 ├── bdd/                                  # BDD (见 BDD.md)
 │   ├── conftest.py
-│   └── steps/ (13 files, 29 scenarios)
+│   ├── features/ (21 .feature 文件)
+│   └── steps/ (16 step files)
 │
 ├── tdd/                                  # 未来特性 (按需实现)
 │   ├── conftest.py
 │   └── test_future_features.py           # 1 skip + 4 xfail
 │
-├── e2e/                                  # Playwright 浏览器
+├── e2e/                                  # Playwright 浏览器 (~19 files)
 │   ├── test_spa_e2e.py
 │   ├── test_spa_navigation.py
 │   ├── test_visual_verify.py
-│   └── ... (22 files)
+│   └── ... (16 more files)
 │
 ├── tools/                                # 辅助测试脚本
 │   ├── test_real_audio.py
@@ -160,45 +162,51 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 
 ---
 
-## 5. 覆盖率矩阵 (v7.3.1 实际)
+## 5. 覆盖率矩阵 (v7.9 实际)
 
 | 模块 | 测试文件 | 测试数 |
 |------|---------|:-----:|
-| PitchScorer | `test_pitch_scorer.py` | ~10 |
-| RhythmScorer | `test_rhythm_scorer.py` | ~8 |
-| BreathScorer | `test_breath_scorer.py` | ~10 |
-| TechniqueScorer | `test_technique_scorer.py` | ~10 |
-| MuscleStrengthScorer | `test_muscle_scorer.py` | ~10 |
-| ArtistryScorer | `test_artistry_scorer.py` | ~8 |
-| TimbreAdjuster | `test_timbre_adjuster.py` | ~10 |
-| ScoringDomainService | `test_scoring_domain_service.py` | ~5 |
-| Comparison (DDD) | `test_comparison_scoring.py` + `test_comparison_value_objects.py` | ~24 |
-| Audiofeat enhancement | `test_audiofeat_extractor.py` + scorer audiofeat tests | ~32 |
-| 10 Extractors | `test_*_extractor.py` (7 files) + `test_orchestrator.py` | ~106 |
+| PitchScorer | `test_pitch_scorer.py` | ~12 |
+| RhythmScorer | `test_rhythm_scorer.py` | ~10 |
+| BreathScorer | `test_breath_scorer.py` | ~14 |
+| TechniqueScorer | `test_technique_scorer.py` | ~14 |
+| MuscleStrengthScorer | `test_muscle_scorer.py` | ~14 |
+| ArtistryScorer | `test_artistry_scorer.py` | ~12 |
+| TimbreAdjuster | `test_timbre_adjuster.py` | ~12 |
+| ScoringDomainService | `test_scoring_domain_service.py` | ~8 |
+| Comparison (DDD) | `test_comparison_scoring.py` + `test_comparison_value_objects.py` | ~30 |
+| Audiofeat enhancement | `test_audiofeat_extractor.py` + scorer audiofeat tests | ~40 |
+| 10 Extractors | `test_*_extractor.py` (7 files) + `test_orchestrator.py` + `test_audio_utils.py` + `test_batch4_extractors.py` | ~132 |
 | Middleware | `test_middleware.py` | 23 |
-| DDD Alignment | `test_ddd_alignment.py` + `test_ddd_extraction_flag.py` | 17 |
-| **DDD 合计** | | **~290** |
-| FastAPI Integration | `test_api_routes.py` | 20 |
-| Flask + WS Integration | `test_api.py` + `test_ws_score.py` | 14 |
-| Extended | `test_*` (4 files) | 51 |
-| **生产代码合计** | | **375** |
+| DDD Alignment + Flag | `test_ddd_alignment.py` + `test_ddd_extraction_flag.py` + `test_flag_bridge.py` | 23 |
+| **DDD Unit 合计** | | **~406** |
+| FastAPI Integration | `test_api_routes.py` | 19 |
+| Songs API Integration | `test_songs_api.py` | 14 |
+| WebSocket Integration | `test_ws_score.py` | 8 |
+| Extended | `test_comparison_dtw.py` + `test_repositories.py` + `test_score_calibrator.py` | 36 |
+| Real Audio Regression | `test_real_audio_regression.py` | 28 |
+| **生产代码合计** | | **475** (unit 406 + FastAPI 33 + extended 36; 不含 WS 8 / 真实音频回归 28) |
 
 ---
 
 ## 6. 运行命令
 
 ```bash
-# DDD 核心 (290 tests, ~17s)
+# DDD 核心 (406 tests, ~22s) — 默认单元测试命令
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
-       tests/unit/test_ddd_extraction_flag.py
+       tests/unit/test_ddd_extraction_flag.py \
+       tests/unit/test_flag_bridge.py
 
-# FastAPI 集成 (独立进程, ~20s)
+# FastAPI 集成 (独立进程, ~8s)
 pytest tests/integration/test_api_routes.py -v
 
-# Flask + WS 集成 (独立进程)
-pytest tests/integration/test_ws_score.py tests/integration/test_api.py -v
+# Songs API 集成 (独立进程, ~6s)
+pytest tests/integration/test_songs_api.py -v
+
+# WebSocket 集成 (独立进程)
+pytest tests/integration/test_ws_score.py -v
 
 # 扩展测试 (独立进程, ~9s)
 pytest tests/extended/ -v

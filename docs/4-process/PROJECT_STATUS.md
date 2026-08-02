@@ -173,28 +173,29 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.8)
+## 三、测试状态 (v7.9)
 
 ### 生产测试 (全部 GREEN)
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| DDD 领域 (scorers + value objects + comparison) | 127 | ✅ |
-| DDD 基建 (extractors + orchestrator + ABI) | 136 | ✅ |
+| DDD 领域 (scorers + value objects + comparison + songs) | 154 | ✅ |
+| DDD 基建 (extractors + orchestrator + ABI + sqlite) | 149 | ✅ |
 | DDD 对齐 + Flag bridge + GNE | 22 | ✅ |
 | 中间件 | 22 | ✅ |
 | **DDD 合计** | **406** | **100% GREEN** |
-| 歌曲库 (领域+仓储, v7.9) | 37 | ✅ |
 | FastAPI 集成 | 33 | ✅ |
-| 扩展测试 (DTW/repos/calibrator) | 34 | ✅ |
-| **生产代码总计** | **473** | **100% GREEN** |
+| 扩展测试 (DTW/repos/calibrator) | 36 | ✅ |
+| **生产代码总计** | **475** | **100% GREEN** |
+
+> 注: DDD 子项 (领域/基建/对齐/中间件) 为近似归类, 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` = 406 为准。
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
 | 真实音频 Quick + Pro | 28 | ✅ 100% | BASELINE_V7_6 |
-| BDD | 15 step files | ✅ | 29 scenarios + dtw-demotion(18) + scoring-config(14) |
+| BDD | 16 step files | ✅ | 162 scenarios collected + 6 features pending step defs |
 
 ### 前端测试
 
@@ -230,7 +231,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 四、已知问题
 
-> 更新: 2026-08-01 | v7.8
+> 更新: 2026-08-02 | v7.9
 
 ### 架构残留
 
@@ -291,7 +292,12 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | `backend/domain/audio/breath_extractor.py` | v7.6 — crescendo avg×coverage |
 | `backend/application/assessment/ddd_feature_orchestrator.py` | 特征提取编排 + pitch_cv |
 | `backend/application/assessment/scoring_orchestrator.py` | 评分编排 |
-| `backend/domain/assessment/feature_flags.py` | DimensionFlags (enable_audiofeat=False) |
+| `backend/domain/assessment/feature_flags.py` | DimensionFlags (类默认 audiofeat=False; 运行时经 flag_bridge 由 FeatureFlags 设为 True) |
+| `backend/domain/songs/entities.py` | v7.9 — Song/SongMetadata 领域实体 |
+| `backend/domain/songs/repository.py` | v7.9 — SongRepository Protocol |
+| `backend/infrastructure/persistence/sqlite_song_repo.py` | v7.9 — SQLite 仓储 (CRUD/分页/筛选/去重) |
+| `backend/application/songs/song_library_service.py` | v7.9 — 应用层服务 |
+| `backend/interfaces/api/routes/songs.py` | v7.9 — /api/v1/songs POST/GET/DELETE |
 | `backend/main.py` | FastAPI 入口 (Flask 已移除) |
 
 ### 启动命令
@@ -301,11 +307,12 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 默认测试 (359 tests, ~15s)
+# 默认测试 (406 tests, ~16s)
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
-       tests/unit/test_ddd_extraction_flag.py
+       tests/unit/test_ddd_extraction_flag.py \
+       tests/unit/test_flag_bridge.py
 
 # 集成测试 (独立进程, ~5s)
 pytest tests/integration/test_api_routes.py -v         # FastAPI (19 tests)

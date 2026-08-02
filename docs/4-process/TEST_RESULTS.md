@@ -1,6 +1,6 @@
 # 测试结果记录 v7.9
 
-> 更新: 2026-08-02 | 473 tests 100% GREEN | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-08-02 | 475 tests 100% GREEN | 分支: `feat/v7-fastapi-vue-refactor`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
@@ -16,10 +16,10 @@
 | 中间件 | 22 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
 | **DDD 合计** | **406** | **100% GREEN** | (~16s) |
 | FastAPI 集成 | 33 | ✅ 100% | test_api_routes (19) + test_songs_api (14, v7.9) |
-| 扩展测试 (DTW/repos/calibrator) | 34 | ✅ 100% | tests/extended/ |
-| **生产代码总计** | **473** | **100% GREEN** | |
+| 扩展测试 (DTW/repos/calibrator) | 36 | ✅ 100% | tests/extended/ |
+| **生产代码总计** | **475** | **100% GREEN** | |
 | 真实音频回归 | 28 | ✅ 100% | BASELINE_V7_6 |
-| BDD (16 step files) | 71 scenarios | ✅ 7PASS+35XFALL+29OK | v7.9: +1 step file (database) |
+| BDD (16 step files) | 162 scenarios collected | ✅ | v7.9: +1 step file (database) |
 | 前端 Vitest | 33 | ✅ 100% | stores |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | 8.5s | ✅ | 生产构建 |
@@ -59,13 +59,11 @@
 ---
 
 ## v7.4 测试统计 (历史参考)
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
 | BDD | 13 step files (29 scenarios) | ✅ | |
-
-### 前端测试
-
-| 套件 | 测试数 | 结果 |
-|------|:-----:|------|
-| Vitest (stores) | 33 | ✅ 100% |
+| 前端 Vitest (stores) | 33 | ✅ 100% | |
 
 ---
 
@@ -112,19 +110,19 @@
 ## 运行命令
 
 ```bash
-# DDD 核心 (315 tests, ~14s)
+# DDD 核心 (406 tests, ~16s)
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
-       tests/unit/test_ddd_extraction_flag.py
+       tests/unit/test_ddd_extraction_flag.py \
+       tests/unit/test_flag_bridge.py
 
 # 集成测试 (独立进程)
 pytest tests/integration/test_api_routes.py -v     # FastAPI (19 tests)
-pytest tests/integration/test_ws_score.py \
-       tests/integration/test_api.py -v            # Flask + WS (14 tests)
+pytest tests/integration/test_songs_api.py -v      # Songs API (14 tests, v7.9)
 
 # 扩展测试 (独立进程, ~5s)
-pytest tests/extended/ -v                           # 51 tests
+pytest tests/extended/ -v                           # 34 tests (DTW/repos/calibrator)
 
 # 真实音频回归 (独立进程, ~27min)
 pytest tests/integration/test_real_audio_regression.py -v

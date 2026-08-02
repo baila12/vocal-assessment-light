@@ -1,6 +1,6 @@
-# 系统架构 v7.8
+# 系统架构 v7.9
 
-> 更新: 2026-08-01 | 分支: `feat/v7-fastapi-vue-refactor` | Flask 已移除 | GSAP 动效系统
+> 更新: 2026-08-02 | 分支: `feat/v7-fastapi-vue-refactor` | Flask 已移除 (v7.6) | GSAP 动效系统
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 
@@ -16,12 +16,12 @@
                            │ HTTP + WebSocket
 ┌──────────────────────────▼───────────────────────────────────┐
 │                     FastAPI :8000                              │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │ /api/v1/*   │  │ /ws/v1/score │  │ /old (Flask WSGI)    │ │
-│  │ REST routes │  │ WebSocket    │  │ legacy API 绞杀者     │ │
-│  └──────┬──────┘  └──────┬───────┘  └──────────┬───────────┘ │
-│         │                │                      │             │
-│  ┌──────▼────────────────▼──────────────────────▼───────────┐ │
+│  ┌─────────────┐  ┌──────────────┐                            │
+│  │ /api/v1/*   │  │ /ws/v1/score │                            │
+│  │ REST routes │  │ WebSocket    │                            │
+│  └──────┬──────┘  └──────┬───────┘                            │
+│         │                │                                    │
+│  ┌──────▼────────────────▼───────────────────────────────────┐ │
 │  │              backend/ (DDD 四层)                           │ │
 │  │                                                           │ │
 │  │  interfaces/          application/                        │ │
@@ -46,10 +46,10 @@
                                │
 ┌──────────────────────────────▼──────────────────────────────────┐
 │              旧服务层 (逐步废弃)                                   │
-│  services/features/ (2 files, DeprecationWarning)                │
+│  services/features/ (1 file: types.py, DeprecationWarning)       │
 │  services/dl_services/ (11 files, DL 模型仍在用)                  │
 │  services/ (audio, separation, phrase, visualization...)         │
-│  api/ (Flask routes + business bridge)                           │
+│  api/ (business/ 桥梁 + schemas, Flask routes 已移除 v7.6)       │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -83,16 +83,16 @@ Raw Audio (y, sr)
        └─ L3: Muscle + Artistry
 ```
 
-### 评分权重
+### 评分权重 (v7.9 当前生效)
 
 | 维度 | 权重 | 子维度 | 文献级别 |
 |------|:---:|------|:------:|
-| Pitch (音准) | 10% | MAE(40%) + RPA(25%) + RCA(10%) + Gross(15%) + Smooth(5%) + Octave(5%) | A |
-| Rhythm (节奏) | 10% | Onset CV + irregularity penalty + is_clean_vocal recalibration | B |
-| Breath (气息) | 20% | 长音支撑(40%) + 动态控制(25%) + 气口设计(20%) + 气声技巧(15%) | B |
+| Pitch (音准) | 13% | MAE(40%) + RPA(25%) + RCA(10%) + Gross(15%) + Smooth(5%) + Octave(5%) | A |
+| Rhythm (节奏) | 12% | Onset CV + irregularity penalty + is_clean_vocal recalibration | B |
+| Breath (气息) | 22% | 长音支撑(40%) + 动态控制(25%) + 气口设计(20%) + 气声技巧(15%) | B |
 | Technique (技术) | 25% | 咬字清晰度(50%) + 气声比(50%) | C |
-| Muscle (肌肉) ⚠️ | 25% | 身体力量(50%) + 面部力量(50%) — HEURISTIC | C |
-| Artistry (艺术) | 10% | 颤音(30%) + 动态(30%) + 乐句(25%) + 音高变化(15%) | D |
+| Muscle (肌肉) ⚠️ | 15% | 身体力量(50%) + 面部力量(50%) — HEURISTIC | C |
+| Artistry (艺术) | 13% | 颤音(30%) + 动态(30%) + 乐句(25%) + 音高变化(15%) | D |
 | **Total** | **100%** | | |
 | Timbre (音色) ⚠️ | ±3~-5 | 加减分项, 不占权重, clamp[0,100] | B |
 
@@ -106,7 +106,7 @@ Raw Audio (y, sr)
 | 咬字缺失 ZCR + Spectral Centroid (Rathi & Hsu 2021) | 咬字算法偏离文献 | [P0 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#四p0-2-咬字清晰度接入-zcr--spectral-centroid) |
 | 无颤音 → 艺术表现 0 分 | 流行/R&B 受系统性歧视 | [P0 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#五p0-3-艺术表现无颤音-fallback) |
 | 音色置信度门控在生产中始终归零 | 音色维度完全失效 | [P1 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#八p1-2-音色八维剖面增强) |
-| 肌肉权重 25%，文献建议 15% | 启发式维度影响过大 | [P0 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#六p0-4-肌肉权重-调整) |
+| ~~肌肉权重 25%，文献建议 15%~~ | ✅ v7.4 已修复 (25%→15%) | 已解决 |
 
 ---
 
@@ -144,10 +144,15 @@ domain/
 │   ├── artistry_extractor.py       # L3: Vibrato/Dynamic/Phrase/Crescendo
 │   └── audiofeat_extractor.py      # 可选: 130+ 谱特征 (CPPS/GNE/Jitter/…)
 │
-└── comparison/                      # v7.3: DDD 对比领域
+├── comparison/                      # v7.3: DDD 对比领域
     ├── entities.py                  # ComparisonResult, AlignmentData (frozen)
     ├── value_objects.py             # ComparisonScores, DimensionComparisonScore (frozen)
     └── services.py                  # ComparisonScoringService (四维加权)
+
+└── songs/                           # v7.9: 曲库领域
+    ├── entities.py                  # Song (frozen dataclass)
+    ├── value_objects.py             # SongFilter, SongList (frozen)
+    └── repository.py                # SongRepository 抽象接口
 ```
 
 ### application/ — 应用层 (编排, 无领域逻辑)
@@ -192,7 +197,7 @@ interfaces/
 │   │   ├── assessment.py            # POST upload/analyze/extract-pitch/separate/compare/report
 │   │   ├── history.py               # GET/DELETE history
 │   │   ├── audio.py                 # GET audio streaming
-│   │   ├── songs.py                 # GET songs library
+│   │   ├── songs.py                 # POST/GET/GET:id/DELETE songs (v7.9 CRUD)
 │   │   └── health.py                # GET /health (GPU status)
 │   ├── schemas/
 │   │   ├── assessment.py            # AnalyzeRequest/UploadResponse
@@ -225,7 +230,6 @@ shared/
 | SecurityHeadersMiddleware | FastAPI | CSP, X-Content-Type-Options, X-Frame-Options, HSTS |
 | RateLimitMiddleware | FastAPI | 120/min global, 20/min upload, 10/min WebSocket |
 | MaxBodySizeMiddleware | FastAPI | 50MB (413 Payload Too Large) |
-| Rate Limiter (token bucket) | Flask /old | 20/60s upload + 120/60s others |
 
 ---
 
@@ -283,10 +287,10 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
 | DDD domain/audio/ | ✅ 13/13 模块自包含 | 零 `services/features/` 依赖 |
 | DDD domain/assessment/ | ✅ 7 scorers | DDD 唯一评分路径 |
 | DDD domain/comparison/ | ✅ v7.3 完成 | 实体 + 值对象 + 领域服务 |
-| `services/features/` | ⚠️ 2 files | DeprecationWarning, 仍被 audio_service 引用 |
+| `services/features/` | ⚠️ 1 file (types.py) | DeprecationWarning, 仍被 audio_service 引用 |
 | `services/dl_services/` | ⚠️ 11 files | Style/VAD/DTW 仍在 Pro 模式使用 |
-| `api/routes/` (Flask) | ⚠️ ~700 lines | 已加限速, 与 FastAPI 端点重复 |
-| `web/static/index.html` | 📄 redirect | 引导用户到 :8000 Vue 3 SPA |
+| `api/routes/` (Flask) | ✅ 已移除 (v7.6) | Flask 路由文件已删除 |
+| `web/static/js/` + `web/static/app.js` | ✅ 已移除 (v7.1.4) | 旧 vanilla JS 前端 |
 
 ---
 
@@ -316,17 +320,17 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
 
 ---
 
-## 九、目录结构 (v7.3.1 实际)
+## 九、目录结构 (v7.9 实际)
 
 ```
 vocal_assessment_light/
 ├── backend/                         # DDD 四层架构 ★主代码
 │   ├── main.py                      # FastAPI 入口 + GPU 检测 + 中间件
-│   ├── domain/                      # 领域层 (纯逻辑)
+│   ├── domain/                      # 领域层 (纯逻辑): assessment/audio/comparison/songs
 │   ├── application/                 # 应用层 (编排)
 │   ├── infrastructure/              # 基础设施层 (librosa/Demucs/DB)
 │   ├── interfaces/                  # 接口层 (REST + WebSocket)
-│   ├── legacy/                      # Flask 绞杀者桥接
+│   ├── legacy/                      # V6 历史数据迁移模型 (Flask 已移除 v7.6)
 │   ├── migrations/                  # Alembic (预留)
 │   └── shared/                      # 共享内核
 │
@@ -342,24 +346,23 @@ vocal_assessment_light/
 │   ├── electron/                    # Electron 主进程 + preload
 │   └── dist/                        # 生产构建
 │
-├── api/                             # Flask 遗留 API (绞杀者)
-│   ├── routes/                      # upload/history/audio + rate_limit
-│   ├── business/                    # analyze_and_score 桥梁
-│   ├── schemas.py                   # Pydantic 请求/响应
+├── api/                             # Flask 遗留 (v7.6 路由已移除, 仅 business 桥梁)
+│   ├── business/                    # analyze_and_score 桥梁 (legacy)
+│   ├── schemas.py                   # Pydantic 请求/响应 (legacy)
 │   └── errors.py + response_builder.py
 │
 ├── services/                        # 旧服务层 (部分仍在使用)
 │   ├── audio_service.py             # 音频分析主管线
 │   ├── separation_service.py        # Demucs 分离 (subprocess)
-│   ├── features/                    # ⚠️ 2 files (DeprecationWarning)
-│   ├── dl_services/                 # DL 模型 (VAD/Style/DTW)
-│   └── (phrase/visualization/timbre...)
+│   ├── features/                    # ⚠️ 1 file (types.py, DeprecationWarning)
+│   ├── dl_services/                 # DL 模型 (11 files: VAD/Style/DTW)
+│   └── (phrase/visualization...)
 │
 ├── config/                          # 配置 (Flask legacy + styles.yaml)
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
-├── web/static/                      # 旧前端 (仅 index.html 重定向)
+├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 375 tests (unit/integration/e2e/bdd)
+├── tests/                           # 475 tests (unit 406 + integration 33 + extended 36 + e2e/bdd/tools)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)
@@ -373,7 +376,7 @@ vocal_assessment_light/
 | 层 | 技术 |
 |------|------|
 | 后端框架 | FastAPI (uvicorn, workers=1) |
-| 遗留框架 | Flask 3.0 (WSGI mount → /old) |
+| ~~遗留框架~~ | ~~Flask 3.0~~ — 已于 v7.6 完全移除 |
 | 前端框架 | Vue 3.5 + TypeScript + Vite 5 |
 | UI 组件 | Element Plus 2.14 |
 | 状态管理 | Pinia 2.3 |
@@ -386,5 +389,5 @@ vocal_assessment_light/
 | 特征提取 | audiofeat 1.1.1 (可选) |
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
-| 配置 | Pydantic Settings (FastAPI) + frozen dataclass (Flask) |
-| 测试 | pytest 375 tests + Vitest 33 tests |
+| 配置 | Pydantic Settings (FastAPI) |
+| 测试 | pytest 475 tests (unit 406 + int 33 + ext 36) + Vitest 33 tests |

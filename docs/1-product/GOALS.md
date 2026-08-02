@@ -1,6 +1,6 @@
-# 产品目标与设计原则 v7.5
+# 产品目标与设计原则 v7.9
 
-> 更新: 2026-07-28 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
+> 更新: 2026-08-02 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
 
 ---
 
@@ -22,7 +22,7 @@
 ## 二、功能全景
 
 ```
-离线声乐评估系统 v7.4
+离线声乐评估系统 v7.9
 │
 ├── 模块1: 音频采集
 │   ├── 多格式上传 (WAV/MP3/FLAC/OGG/M4A/AAC, 拖拽)
@@ -40,24 +40,28 @@
 │   ├── 逐句评分 (Pro 模式)
 │   ├── 跨维度修正 (5 项因果链)
 │   ├── 底线规则 (连续跑调/脱离节拍/严重漏气)
-│   └── Feature Flag 机制 (7 个高级算法 + 维度独立开关)
+│   └── Feature Flag 机制 (9 个高级算法 + 维度独立开关)
 │
 ├── 模块3: 可视化
 │   ├── 频谱图 + 基音轨迹 + 能量曲线
 │   ├── 六维雷达图 (Chart.js)
 │   └── 音高曲线对比 (DTW 叠加)
 │
-├── 模块4: 历史与导出
+├── 模块4: 曲库管理 (v7.9 后端)
+│   ├── 标准曲库 CRUD (POST/GET/GET id/DELETE, SQLite)
+│   └── 前端界面待实现
+│
+├── 模块5: 历史与导出
 │   ├── 历史记录 (分页/筛选/批量删除, JSON 存储)
 │   ├── 成长曲线 (评分趋势)
 │   └── 报告导出 (PDF/图片)
 │
-├── 模块5: 实时流式评分
+├── 模块6: 实时流式评分
 │   ├── WebSocket 二进制帧 (Float32Array → numpy.frombuffer 零拷贝)
 │   ├── 每 2s incremental score
 │   └── 录音完成 → <1s 轻量评分
 │
-└── 模块6: 安全
+└── 模块7: 安全
     ├── Security Headers (CSP, X-Content-Type, X-Frame, HSTS)
     ├── Rate Limit (120/min global, 20/min upload, 10/min WS)
     ├── Max Body Size (50MB)
@@ -74,7 +78,7 @@
 |------|------|
 | **离线优先** | 零外网依赖，所有计算本地完成 |
 | **DDD 分层** | domain → application → infrastructure → interfaces，单向依赖 |
-| **绞杀者模式** | FastAPI (新) + Flask /old (旧)，渐进替换 |
+| **绞杀者模式 (v7.6 完成)** | 纯 FastAPI 架构，Flask 已全部移除 |
 | **单一职责** | 每个 scorer/extractor 独立可测，互不依赖 |
 | **零硬编码** | 所有阈值/路径/端口从配置注入，不设硬编码兜底 |
 | **不可变数据** | 所有 Features 和 Value Objects 使用 frozen dataclass |
@@ -113,15 +117,13 @@
 
 | 层级 | 方法 | 当前 |
 |------|------|:---:|
-| 单元测试 (DDD 领域) | pytest, 7 scorers | 120 tests ✅ |
-| 单元测试 (DDD 基建) | pytest, extractors + orchestrator | 106 tests ✅ |
-| 单元测试 (中间件) | pytest, SecurityHeaders + RateLimit + MaxBodySize | 23 tests ✅ |
-| 集成测试 | pytest, FastAPI routes + Flask/WS | 34 tests ✅ |
-| 扩展测试 | pytest, DTW/repos/calibrator | 51 tests ✅ |
-| BDD | pytest-bdd, 13 step files, 29 scenarios | ✅ |
+| 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag | 406 tests ✅ |
+| 集成测试 | pytest, FastAPI routes (assessment + songs) | 33 tests ✅ |
+| 扩展测试 | pytest, DTW/repos/calibrator/real_audio | 36 tests ✅ |
+| BDD | pytest-bdd, 16 step files, 21 .feature files, 162 scenarios collected | ✅ |
 | 真实音频回归 | pytest, 5 基准文件, 28 tests | ✅ |
-| **生产合计** | | **375 tests 100% GREEN** |
-| 前端测试 | Vitest, 3 stores | 33 tests ✅ |
+| **生产合计** | | **475 tests 100% GREEN** |
+| 前端测试 | Vitest, 33 tests, vue-tsc 0 errors | ✅ |
 
 ---
 
@@ -129,7 +131,7 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 | FastAPI + Flask /old + uvicorn |
+| 后端 | FastAPI + uvicorn |
 | 音频处理 | librosa + parselmouth + pyworld |
 | DL 框架 | PyTorch + ONNX Runtime + Demucs |
 | 前端 | Vue 3.5 + TypeScript + Vite 5 |
@@ -137,7 +139,7 @@
 | 状态管理 | Pinia 2.3 |
 | 桌面 | Electron 28 (配置就绪) |
 | 数据 | JSON + SQLite |
-| 测试 | pytest 375 + Vitest 33 |
+| 测试 | pytest 475 + Vitest 33 |
 
 ---
 

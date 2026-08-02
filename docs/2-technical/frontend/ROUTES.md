@@ -1,4 +1,4 @@
-# 前端路由 v7.3.1
+# 前端路由 v7.9
 
 > Vue 3 SPA, Vue Router 4.6, hash history (Electron 兼容)
 
@@ -25,11 +25,10 @@
 | Main chunk (Element Plus + Vue + Chart.js) | ~346 KB gzip |
 | ReportView (含 Chart.js radar) | ~65 KB gzip |
 | 其他页面 (lazy loaded) | 2-4 KB gzip each |
-| Vite build 耗时 | ~9.5s |
+| Vite build 耗时 | ~8.6s |
 
 ---
 
 ## 旧页面重定向
 
-Flask `web/static/index.html` 显示重定向页面，引导用户到 `http://localhost:8000` (Vue 3 SPA)。
-旧 HTML 页面 (`/analysis.html`, `/compare.html`, `/settings.html`) 已废弃。
+Flask 旧前端 (`web/static/`) 已于 v7.6 移除。旧 HTML 页面 (`/analysis.html`, `/compare.html`, `/settings.html`) 均已废弃。当前所有访问由 FastAPI serve `frontend/dist/` (Vue 3 SPA) 处理。

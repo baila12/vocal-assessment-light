@@ -45,8 +45,11 @@
 ### 测试总结
 
 - 单元: **406 tests GREEN** (+37 歌库: 实体/服务/SQLite 仓储)
-- 集成: **33 tests GREEN** (+14 歌库 API, 含无效输入 400 + 孤立文件清理)
-- BDD: database.feature 4P+6XF
+- 集成: **33 tests GREEN** (test_api_routes 19 + test_songs_api 14)
+- 扩展: **36 tests GREEN** (DTW/repos/calibrator)
+- **总计: 475 tests GREEN**
+- 前端 Vitest: **33/33 GREEN** | vue-tsc: **0 errors** | Vite build: **~8.6s**
+- BDD: 16 step files, 21 feature files (database.feature 4P+6XF 新增)
 - 版本: 7.8.0 → **7.9.0**
 
 ---

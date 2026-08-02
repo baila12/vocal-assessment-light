@@ -1,5 +1,7 @@
 # Findings
 
+> ⚠️ **历史文档 (2026-06-06)** — 本文档 pre-date v7.0 FastAPI+Vue 重构，记录的是 v5.17 ~ v6.3 (Flask + Vanilla JS SPA) 时代的审计发现。其中描述的"Flask 应用工厂""Vanilla JS SPA""emoji UI""旧 HTML 页面""pytest 启动慢"等问题已在 v7.0~v7.9 重构中解决。本文件保留作为项目演进的历史记录。当前状态见 [PROJECT_STATUS.md](../PROJECT_STATUS.md)。
+
 ## Completed Capabilities
 - 项目文档显示当前版本目标为 v5.17，核心后端能力包括 Quick、Professional、Compare 三模式。
 - 后端已有 Flask 应用工厂、API 蓝图、分层服务、历史记录仓储、Demucs 分离、DTW 对比、报告生成。

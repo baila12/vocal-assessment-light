@@ -1,6 +1,6 @@
-# 声乐评估系统 (VAS) — 产品需求文档 v7.5
+# 声乐评估系统 (VAS) — 产品需求文档 v7.9
 
-> 版本: v7.5 | 日期: 2026-07-29 | 状态: 活跃开发
+> 版本: v7.9 | 日期: 2026-08-02 | 状态: 活跃开发
 >
 > **关联文档**: [GOALS.md](GOALS.md) | [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | [SCORING.md](../2-technical/SCORING.md)
 
@@ -59,7 +59,7 @@
 | 功能 | 说明 |
 |------|------|
 | 多格式音频上传 | WAV/MP3/FLAC/OGG/M4A/AAC，支持拖拽 |
-| 六维评分 | 音准 10% / 节奏 10% / 气息 20% / 发声技术(咬字+气声比) 25% / 肌肉力量 25% / 艺术 10% + 音色加减分(+3~-5) |
+| 六维评分 | 音准 13% / 节奏 12% / 气息 22% / 发声技术(咬字+气声比) 25% / 肌肉力量 15% / 艺术 13% + 音色加减分(+3~-5) |
 | Quick 模式 | 跳过 Demucs 和 DL 模型，直接在原始音频上评分 (~20s) |
 | Professional 模式 | Demucs 分离 → 纯净人声评分 + 逐句 + 可视化 (~155s CPU / ~55s GPU) |
 | 非人声检测 | 白噪声/纯音乐/合成语音 → `is_voice=false` → score=0 |
@@ -101,11 +101,17 @@
 - 每 2s 计算 incremental score
 - 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL)
 
-### 3.5 计划中 (未实现)
+### 3.5 近期新增 (v7.9 后端已实现，前端待跟进)
 
 | 功能 | 说明 |
 |------|------|
-| 标准曲库 | SQLite 存储歌曲元数据 + 预提取特征，自动匹配用户翻唱 |
+| 标准曲库管理 | 后端 CRUD (POST/GET/GET id/DELETE, SQLite)，前端界面待开发 |
+| 自动曲库匹配 (auto-match) | 计划中：SQLite 预提取特征 + 自动匹配用户翻唱 |
+
+### 3.6 计划中 (未实现)
+
+| 功能 | 说明 |
+|------|------|
 | 选歌录音 | 浏览曲库 → 选歌 → 录音 (实时音高对比) → DTW 评分 |
 | 实时音准对比 | 类似全民K歌：双曲线叠加，偏差绿/橙/红着色 |
 | 非阻塞分析 | SSE 进度推送，分析中可播放音频，跨页面不中断 |
@@ -140,7 +146,7 @@
 | 指标 | 当前 |
 |------|:---:|
 | 非人声归零率 | 10/10 (100%) |
-| 单元测试通过率 | 375/375 (100%) |
+| 单元测试通过率 | 475/475 (100%) |
 | Quick/Pro 同音频分差 | < 10% |
 
 ### 4.3 兼容性
@@ -164,9 +170,9 @@
 
 ## 5. 技术栈
 
-| 层 | 当前 (v7.3.1) |
+| 层 | 当前 (v7.9) |
 |------|------|
-| 后端框架 | FastAPI (uvicorn, workers=1) + Flask /old (绞杀者) |
+| 后端框架 | FastAPI (uvicorn, workers=1) |
 | 音频处理 | librosa + parselmouth + pyworld |
 | 深度学习 | PyTorch + ONNX Runtime + Demucs (htdemucs_ft) |
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
@@ -178,8 +184,8 @@
 | 动画 | GSAP 3.15 |
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
-| 配置 | Pydantic Settings (FastAPI) + frozen dataclass (Flask) |
-| 测试 | pytest 375 tests + Vitest 33 tests |
+| 配置 | Pydantic Settings |
+| 测试 | pytest 475 tests + Vitest 33 tests |
 
 ---
 
@@ -192,7 +198,13 @@
 | v7.1 | 2026-07-23 | 绞杀者内部化 (13/13 提取器自包含) + FCPE 集成 |
 | v7.2 | 2026-07-25 | audiofeat 增强特征 (22 特征) + 代码审查 |
 | v7.3 | 2026-07-27 | audiofeat 评分闭环 + Comparison DDD + 安全加固 |
-| **v7.3.1** | **2026-07-28** | **信息泄露修复 (9处) + Flask 限速 + BDD 29 scenarios** |
+| v7.3.1 | 2026-07-28 | 信息泄露修复 (9处) + Flask 限速 + BDD 29 scenarios |
+| v7.4 | 2026-07-29 | 六维权重重校准 (13/12/22/25/15/13) + 肌肉降权 + 气声 HNR 修复 + 咬字修复 |
+| v7.5 | 2026-07-30 | 音色 8 维特征 + Muscle + Timbre HEURISTIC 标注 |
+| v7.6 | 2026-07-31 | ABI + rubato + attack_slope + Flask 绞杀者完成 + 旧前端移除 |
+| v7.7 | 2026-08-01 | Feature Flag 系统 + 维度独立开关 |
+| v7.8 | 2026-08-01 | GNE 接入 + GSAP 动效系统 + 前后端对齐 |
+| **v7.9** | **2026-08-02** | **歌曲库后端 CRUD + API 文档对齐** |
 
 ---
 

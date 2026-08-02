@@ -1,6 +1,6 @@
-# 评分算法文档 v7.8
+# 评分算法文档 v7.9
 
-> 更新: 2026-08-01 | DDD 唯一评分路径 | 423 测试 100% GREEN
+> 更新: 2026-08-02 | DDD 唯一评分路径 | 475 测试 GREEN (unit 406 + int 33 + ext 36)
 >
 > **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md) | [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 
@@ -55,7 +55,7 @@ Raw Audio (y, sr)
   │
   ├─ L3: Muscle + Artistry         # 依赖 L1+L2
   │
-  └─ [Optional] Audiofeat          # 130+ 特征, flag 门控 (默认关闭)
+  └─ [Optional] Audiofeat          # 130+ 特征, flag 门控 (生产默认启用, services/feature_flags.enable_audiofeat=True)
 ```
 
 ### 提取器清单 (13/13 自包含)
@@ -152,7 +152,7 @@ score = CPPS(40%) + HNR(25%) + SpectralTilt(20%) + HF_Energy(15%)
 - CPPS=0 时 HNR fallback 至 45%
 - Spectral tilt < -5 → `penalty = min(20, abs(tilt+5)×4)`
 
-**v7.3-v7.8 audiofeat 增强** (在 `_apply_audiofeat_enhancement()` 中):
+**v7.3-v7.9 audiofeat 增强** (在 `_apply_audiofeat_enhancement()` 中, v7.7 起生产默认启用):
 | 特征 | 条件 | 效果 | 影响维度 | 版本 |
 |------|------|------|---------|:--:|
 | Jitter | < 0.5% | +5 | 咬字 | v7.3 |
@@ -187,7 +187,7 @@ facial = singers_formant(40%) + formant_cluster(35%) + overtone(25%)
 - formant_cluster: 0-100 直接映射
 - overtone: >8→100, 分段线性
 
-> ⚠️ **已知问题**: 权重 25% vs 文献建议 15%。缺失最可靠代理指标 (MPT, SPR, Crest Factor, F1/F2 元音空间)。详见 [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#七p1-1-肌肉力量五维代理重构)。
+> ⚠️ **已知问题**: ✅ 权重已修正 (v7.4: 25%→15%)。仍需五维代理增强 (MPT, SPR, Crest Factor, F1/F2 元音空间)。详见 [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#七p1-1-肌肉力量五维代理重构)。
 
 ### 3.6 艺术表现 (Artistry) — 四子维度
 
@@ -311,7 +311,7 @@ Compare 流程:
 | `enable_muscle_strength` | True | 中性分 0 |
 | `enable_artistry` | True | 中性分 0 |
 | `enable_timbre_adjustment` | True | adjustment = 0 |
-| `enable_audiofeat` | **False** | 跳过 130+ 特征提取 |
+| `enable_audiofeat` | **True*** | 生产默认启用 130+ 特征 (CPPS/GNE/ABI/Jitter/Shimmer); 领域层默认 False, 由 services/feature_flags.py 桥接覆盖为 True |
 | `enable_ddd_feature_extraction` | True | 回退旧 AudioFeaturesService |
 
 ---

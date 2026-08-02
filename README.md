@@ -1,6 +1,6 @@
-# 声乐评估系统 - 淡色版
+# 声乐评估系统 v7.9
 
-基于 FastAPI + Vue 3 的本地 Web 应用，提供六维声乐评分、实时录音、对比分析等功能。
+基于 FastAPI + Vue 3 的本地 Web 应用，提供六维声乐评分、实时录音、对比分析、歌曲库管理等功能。
 
 ## 功能特性
 
@@ -9,19 +9,19 @@
 - **双评估模式** - 快速评估(~30秒) / 专业评估(~2-5分钟)
 - **实时可视化** - 波形、频谱、音量实时显示
 - **人声质量检测** - 自动识别非人声音频
-- **三特征可视化** - 频谱图、基音轨迹、能量曲线
-- **音色分析** - 明亮度、厚度、鼻音、气声分析
+- **音色分析** - 明亮度、厚度、鼻音、气声八维分析
 - **逐句评分** - 按乐句分段评分（专业模式）
 - **人声分离** - Demucs 模型分离伴奏与人声
-- **对比分析** - 独立页面，支持上传模式和实时录音模式
-- **实时音高检测** - YIN 算法前端实时音高检测
+- **对比分析** - DTW 对齐对比，支持上传模式和实时录音模式
+- **实时音高检测** - 前端实时音高检测
 - **录音功能** - 实时录音并分析
 - **成长曲线** - 历史评分趋势图
+- **标准歌曲库** - 上传/浏览/搜索/筛选参考歌曲，支持重复检测 (v7.9)
 - **导出报告** - PDF/图片格式报告
 
 ### 对比分析功能
 
-独立对比分析页面 (`/compare.html`)，提供两种评估模式：
+独立对比分析页面 (Vue SPA `/compare`)，提供两种评估模式：
 
 | 模式 | 说明 | 特点 |
 |------|------|------|
@@ -40,22 +40,22 @@
 | 特性 | 快速评估 | 专业评估 |
 |------|---------|---------|
 | 总耗时 | ~30-40秒 | ~3-5分钟 |
-| 基础评分 | ✓ 五维评分 | ✓ 五维评分 |
+| 基础评分 | ✓ 六维评分 | ✓ 六维评分 |
 | 评分配置 | 宽松阈值 | 标准阈值 |
 | 分数范围 | 60-90分(平滑) | 0-100分 |
 | 逐句评分 | ✗ | ✓ |
 | 音色分析 | ✗ | ✓ |
 | 可视化图表 | ✗ | ✓ |
-| DL质量评估 | ✗ | ✓ |
+| DL质量评估 | ✗ | ✗ (已移除) |
 | 音乐风格分析 | ✗ | ✓ |
 | 适用场景 | 快速练习反馈 | 详细问题诊断 |
 
 ### 技术特点
 - **纯离线运行** - 无需联网，保护隐私
-- **安全加固** - 路径遍历防护、XSS防护
-- **大文件支持** - 10MB+ 音频文件处理
+- **安全加固** - 路径遍历防护、XSS防护、速率限制
+- **大文件支持** - 50MB+ 音频文件处理
 - **中文支持** - 完整的中文文件名支持
-- **前端音高检测** - YIN 算法实时检测，无需后端
+- **前端音高检测** - 实时检测，无需后端
 
 ## 快速开始
 
@@ -67,13 +67,12 @@
 ```bash
 cd "C:\Users\jack\Desktop\临时文件\声乐\vocal_assessment_light"
 python backend/main.py              # FastAPI :8000
-# 或: python web_app.py            # 自动重定向到 FastAPI
 ```
 
 ### 访问地址
 - 本地: http://localhost:8000
 - API 文档: http://localhost:8000/docs
-- 对比分析: http://localhost:8000 (Vue 3 SPA)
+- 对比分析: http://localhost:8000 (Vue 3 SPA, 导航到 /compare)
 
 ## 项目结构
 
@@ -82,9 +81,11 @@ vocal_assessment_light/
 ├── backend/              # FastAPI DDD 后端
 │   ├── domain/           # 领域层
 │   │   ├── assessment/   # 7 scorers (六维+音色)
-│   │   └── audio/        # 14 特征提取模块
+│   │   ├── audio/        # 10 特征提取模块
+│   │   ├── comparison/   # 对比分析领域
+│   │   └── songs/        # 歌曲库领域 (v7.9)
 │   ├── application/      # 编排层
-│   ├── infrastructure/   # 基础设施
+│   ├── infrastructure/   # 基础设施 (SQLite 仓储)
 │   ├── interfaces/       # API + WebSocket
 │   └── main.py           # 应用入口 (:8000)
 ├── frontend/             # Vue 3 + Element Plus SPA
@@ -93,8 +94,8 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-├── tests/                # 413 tests (unit + integration + extended)
-└── web_app.py            # 入口 (→ FastAPI 重定向)
+├── tests/                # 475 tests (unit 406 + integration 33 + extended 36)
+└── web_app.py            # 入口重定向 (→ FastAPI)
 ```
 
 ## API 接口
@@ -105,14 +106,18 @@ vocal_assessment_light/
 | `/api/v1/analyze` | POST | 分析已存在音频 |
 | `/api/v1/compare` | POST | DTW 对比分析两个音频 |
 | `/api/v1/separate` | POST | Demucs 人声分离 |
+| `/api/v1/extract-pitch` | POST | 基频提取 |
 | `/api/v1/report` | POST | 生成评估报告 |
-| `/api/v1/history` | GET | 获取历史记录 |
+| `/api/v1/flags` | GET | Feature Flags 状态 |
+| `/api/v1/history` | GET/POST/DELETE | 历史记录 CRUD |
+| `/api/v1/songs` | POST/GET/GET/DELETE | 歌曲库管理 (v7.9) |
 | `/api/v1/audio` | GET | 流式传输音频文件 |
+| `/ws/v1/score` | WebSocket | 实时评分推送 |
 
 ### 上传接口参数
 
 ```
-POST /api/upload
+POST /api/v1/upload
 Content-Type: multipart/form-data
 
 参数:
@@ -125,7 +130,7 @@ Content-Type: multipart/form-data
 ### 对比分析接口
 
 ```
-POST /api/compare
+POST /api/v1/compare
 Content-Type: multipart/form-data
 
 参数:
@@ -148,42 +153,33 @@ Content-Type: multipart/form-data
 
 ## 测试
 
-### E2E 测试
 ```bash
-pytest tests/e2e/ -v
-```
+# 单元测试
+pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/test_middleware.py tests/unit/test_ddd_alignment.py tests/unit/test_ddd_extraction_flag.py tests/unit/test_flag_bridge.py -v
 
-### 单元测试
-```bash
-pytest tests/unit/ -v
+# 集成测试
+pytest tests/integration/ -v
+
+# 扩展测试
+pytest tests/extended/ -v
+
+# 前端测试
+cd frontend && npx vitest run
 ```
 
 ## 版本历史
 
-- **v7.6** - P1/P2 修复 + Rubato/AttackSlope + Flask 绞杀者完成 + ABI 9参数模型 + 文献权重对齐
-- **v7.5** - P1-2b 音色八维剖面 + P0 评分异常修复
-- **v7.4** - 评分算法 P0/P1 修复：CPPS + ZCR/Centroid + 颤音 fallback + 肌肉五维代理
-- **v7.3** - audiofeat 评分闭环 + Comparison DDD + 安全修复
-- **v7.2** - audiofeat 增强特征提取 (22 特征)
-- **v7.1** - DDD 绞杀者内移完成 (13/13 模块自包含)
-- **v7.0** - FastAPI + Vue 3 + Element Plus 全栈重构
-- **v5.9** - 逐句评分大幅优化：阈值放宽、最低分提升、音准+13.8分
-- **v5.8** - P0问题修复：API 415错误、录音功能、DTW对齐引擎
-- **v5.4.1** - 代码架构重构：模块化拆分 workers/model_manager，修复索引越界bug
-- **v5.4** - 对比分析页面重构：双音频并排布局、E2E测试完善
-- **v5.3.1** - Flask 3.x JSON序列化修复，NumPy类型支持
-- **v5.3** - 对比分析重构：独立页面、实时录音模式、YIN 音高检测
-- **v5.2** - 快速模式性能优化(~33秒)，评分公正性改进
-- **v5.1** - 风格自适应评分系统
-- **v5.0** - 深度学习集成 + 快速/专业评估模式
-- **v4.0** - 评分系统 V4（自适应评分）
-- **v3.6** - 安全加固与稳定性修复
-- **v3.5** - 前端页面分离重构
-- **v3.4** - 评分系统重构（扣分制）
-- **v3.3** - 专业评估增强
-- **v3.2** - 人声分离
-- **v3.1** - 架构重构 + 功能增强
-- **v3.0** - 离线版完整实现
+- **v7.9** — 标准歌曲库后端 (DDD + TDD + BDD): songs 领域 + 4 CRUD API + database BDD (2026-08-02)
+- **v7.8** — GNE 接入 (AROC=0.886) + GSAP 全站动效 + 前后端对齐 (2026-08-01)
+- **v7.7** — audiofeat 生产启用 + Flag 系统桥接修复 + 前端收束 (2026-07-31)
+- **v7.6** — P1/P2 修复 + Rubato/AttackSlope + Flask 绞杀者完成 + ABI 9参数模型 + 文献权重对齐 (2026-07-31)
+- **v7.5** — P1-2b 音色八维剖面 + P0 评分异常修复 (2026-07-29)
+- **v7.4** — 评分算法 P0/P1 修复：CPPS + ZCR/Centroid + 颤音 fallback + 肌肉五维代理 (2026-07-28)
+- **v7.3** — audiofeat 评分闭环 + Comparison DDD + 安全修复 (2026-07-27)
+- **v7.2** — audiofeat 增强特征提取 (22 特征) (2026-07-26)
+- **v7.1** — DDD 绞杀者内移完成 + 前后端对齐 (2026-07-24)
+- **v7.0** — FastAPI + Vue 3 + Element Plus 全栈重构 (2026-07-22)
+- **v5.x** — 旧版 (Flask + Vanilla JS + PyQt5), 详见 [CHANGELOG](docs/4-process/CHANGELOG.md)
 
 ## 许可证
 

@@ -1,10 +1,10 @@
 # 声乐评分算法 — 文献验证 & 完善计划
 
-> 版本: v1.2 | 日期: 2026-07-29 | 基于 v7.5 源码 + 十二篇新增文献交叉验证
+> 版本: v1.3 | 日期: 2026-08-02 | 基于 v7.5 源码 + 十二篇新增文献交叉验证
 >
 > **关联文档**: [TECH_RESEARCH.md](TECH_RESEARCH.md) | [SCORING.md](SCORING.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 >
-> **实施状态**: P0 ✅ v7.4-v7.5 | P1 ✅ v7.6 | P2 ✅ v7.6 (CPPS/HNR + ABI + Flask + Legacy)
+> **实施状态**: P0 ✅ v7.4-v7.5 | P1 ✅ v7.6 | P2 ⏭️ 按需 (ABI 9参数 + 艺术表现重构; Flask + Legacy 代码清理已于 v7.6 完成)
 
 ---
 
