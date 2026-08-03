@@ -97,6 +97,13 @@ models/
 node_modules/
 frontend/dist/
 frontend/electron-dist/
+dist-electron/
+
+# Build artifacts (embedded Python runtime, PyInstaller legacy)
+python-embed.zip
+get-pip.py
+build/python/
+build/pyinstaller/
 
 # Audio files (user data)
 uploads/*.mp3

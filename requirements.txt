@@ -1,5 +1,5 @@
 # ============================================================
-# 声乐评估系统 — v7.7 依赖 (FastAPI + Vue 3)
+# 声乐评估系统 — v7.9 依赖 (FastAPI + Vue 3)
 # ============================================================
 # 安装: pip install -r requirements.txt
 # 注意: torch 和 torchaudio 建议先用 conda 安装，见下文说明
@@ -8,12 +8,13 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 
-# ---- 旧 Flask (BDD 测试仍使用, 待迁移至 FastAPI TestClient) ----
-Flask>=3.0
-flask-cors>=4.0
-
 # ---- 数据验证 ----
 pydantic>=2.0
+pydantic-settings>=2.0     # backend/infrastructure/config.py (Settings)
+
+# ---- Flask (旧 api/ 工厂, 仅 BDD 兼容测试使用; 待迁移至 FastAPI TestClient) ----
+Flask>=3.0
+flask-cors>=4.0
 
 # ---- 科学计算 ----
 numpy>=1.21.0
@@ -21,7 +22,7 @@ scipy>=1.7.0
 
 # ---- 音频处理 ----
 librosa>=0.10.0
-soundfile>=0.12.0
+soundfile>=0.12.0          # librosa 音频 I/O 后端
 pyyaml>=6.0
 
 # ---- 可视化 ----
@@ -33,10 +34,10 @@ matplotlib>=3.5.0
 # 或者 CPU 版 pip:
 #   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 torch>=2.0.0
-torchaudio>=2.0.0
+torchaudio>=2.0.0          # demucs 依赖
+torchfcpe>=0.0.6           # FCPE 基频检测 (backend/infrastructure/audio/fcpe_extractor.py)
 torchcrepe>=0.0.19
 transformers>=4.30.0
-speechbrain>=0.5.14
 onnxruntime>=1.15.0
 
 # ---- 人声分离 ----
@@ -44,18 +45,16 @@ demucs>=4.0
 
 # ---- 声学分析 ----
 praat-parselmouth>=0.4.0
-audiofeat>=1.1.1       # v7.7: CPPS/GNE/HNR_praat/Jitter/Shimmer (22 特征)
+audiofeat>=1.1.1           # v7.9: CPPS/GNE/HNR_praat/Jitter/Shimmer (22 特征)
 
-# ---- 桌面应用 (desktop_app.py) ----
-pywebview>=5.0
+# ---- 数据库迁移 (可选, 仅 backend/migrations/ 使用) ----
+sqlalchemy>=2.0
+alembic>=1.13
 
 # ---- 测试 ----
 pytest>=7.0
 pytest-bdd>=8.0
 pytest-cov>=4.0
-httpx>=0.27.0          # FastAPI TestClient
-
-# ---- 桌面GUI (main.py) 额外依赖 (可选) ----
-# PySide6>=6.4.0
-# pyqtgraph>=0.13.0
-# sounddevice>=0.4.0
+httpx>=0.27.0              # FastAPI TestClient
+requests>=2.31             # E2E 测试 HTTP
+playwright>=1.40           # E2E/BDD 浏览器测试
