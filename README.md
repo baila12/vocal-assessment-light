@@ -68,12 +68,6 @@
 cd "C:\Users\jack\Desktop\临时文件\声乐\vocal_assessment_light"
 python backend/main.py              # FastAPI :8000
 ```
-
-### 访问地址
-- 本地: http://localhost:8000
-- API 文档: http://localhost:8000/docs
-- 对比分析: http://localhost:8000 (Vue 3 SPA, 导航到 /compare)
-
 ## 项目结构
 
 ```
