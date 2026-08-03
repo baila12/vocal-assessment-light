@@ -97,6 +97,7 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **配置** | `songs_db`/`songs_dir` 设置 (VAS_SONGS_DB/VAS_SONGS_DIR 覆盖) + DI 接线 | ✅ |
 | **BDD** | `test_database_steps.py`: database.feature 10 场景 (4 PASSED + 6 XFAIL) | ✅ |
 | **测试** | +37 单元 +14 集成; 版本 7.8.0 → 7.9.0 | ✅ |
+| **清理** | 删除 PyInstaller 打包 (build.bat) + api/schemas.py + web_app.py; 更新 requirements/start.bat/.gitignore | ✅ |
 
 ### v7.7 (2026-07-31) — audiofeat 生产启用 + Flag 系统修复 + 前端收束
 

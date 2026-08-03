@@ -94,8 +94,7 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-├── tests/                # 475 tests (unit 406 + integration 33 + extended 36)
-└── web_app.py            # 入口重定向 (→ FastAPI)
+└── tests/                # 475 tests (unit 406 + integration 33 + extended 36)
 ```
 
 ## API 接口

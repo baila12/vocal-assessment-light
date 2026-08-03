@@ -52,6 +52,15 @@
 - BDD: 16 step files, 21 feature files (database.feature 4P+6XF 新增)
 - 版本: 7.8.0 → **7.9.0**
 
+### 补充: 工作区清理 (2026-08-02)
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **清理** | 删除 `build.bat` (死 PyInstaller 脚本, 引用已删 vocal_assessment.spec; PyInstaller 已由嵌入式 Python + Electron 替代) | ✅ |
+| **清理** | 删除 `api/schemas.py` (0 引用) + `web_app.py` (纯重定向壳) | ✅ |
+| **构建** | `start.bat` 移除 Flask v6.3 legacy 模式, 版本 → v7.9, 选项收敛为 [1]/[2] | ✅ |
+| **依赖** | `requirements.txt` 补 pydantic-settings/torchfcpe/sqlalchemy/alembic/requests/playwright, 删 pywebview/speechbrain | ✅ |
+
 ---
 
 # 变更日志 v7.8
