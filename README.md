@@ -16,7 +16,7 @@
 - **实时音高检测** - 前端实时音高检测
 - **录音功能** - 实时录音并分析
 - **成长曲线** - 历史评分趋势图
-- **标准歌曲库** - 上传/浏览/搜索/筛选参考歌曲，支持重复检测 (v7.9)
+- **标准歌曲库** - 上传/浏览/搜索/筛选/试听参考歌曲，卡片网格前端页面 (v7.9 后端 + v7.10 前端)
 - **导出报告** - PDF/图片格式报告
 
 ### 对比分析功能
@@ -89,12 +89,12 @@ vocal_assessment_light/
 │   ├── interfaces/       # API + WebSocket
 │   └── main.py           # 应用入口 (:8000)
 ├── frontend/             # Vue 3 + Element Plus SPA
-│   └── src/views/        # 5 页面 (Home/Report/History/Compare/Sing)
+│   └── src/views/        # 6 页面 (Home/Report/History/Compare/Sing/Songs)
 ├── api/business/         # 共享业务逻辑 (audio_analysis)
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 475 tests (unit 406 + integration 33 + extended 36)
+└── tests/                # 478 tests (unit 406 + integration 36 + extended 36)
 ```
 
 ## API 接口
@@ -168,6 +168,7 @@ cd frontend && npx vitest run
 
 ## 版本历史
 
+- **v7.10** — 标准歌曲库前端页面: 卡片网格 + 搜索/筛选 + 上传 + 删除 + 试听; 音频播放修复 (songs_dir) (2026-08-04)
 - **v7.9** — 标准歌曲库后端 (DDD + TDD + BDD): songs 领域 + 4 CRUD API + database BDD (2026-08-02)
 - **v7.8** — GNE 接入 (AROC=0.886) + GSAP 全站动效 + 前后端对齐 (2026-08-01)
 - **v7.7** — audiofeat 生产启用 + Flag 系统桥接修复 + 前端收束 (2026-07-31)

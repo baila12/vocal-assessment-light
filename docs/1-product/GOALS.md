@@ -1,6 +1,6 @@
-# 产品目标与设计原则 v7.9
+# 产品目标与设计原则 v7.10
 
-> 更新: 2026-08-02 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
+> 更新: 2026-08-04 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
 
 ---
 
@@ -22,7 +22,7 @@
 ## 二、功能全景
 
 ```
-离线声乐评估系统 v7.9
+离线声乐评估系统 v7.10
 │
 ├── 模块1: 音频采集
 │   ├── 多格式上传 (WAV/MP3/FLAC/OGG/M4A/AAC, 拖拽)
@@ -47,9 +47,9 @@
 │   ├── 六维雷达图 (Chart.js)
 │   └── 音高曲线对比 (DTW 叠加)
 │
-├── 模块4: 曲库管理 (v7.9 后端)
+├── 模块4: 曲库管理 (v7.9 后端 + v7.10 前端)
 │   ├── 标准曲库 CRUD (POST/GET/GET id/DELETE, SQLite)
-│   └── 前端界面待实现
+│   └── 前端卡片网格页 (SongsView, #/songs, v7.10)
 │
 ├── 模块5: 历史与导出
 │   ├── 历史记录 (分页/筛选/批量删除, JSON 存储)
@@ -118,12 +118,12 @@
 | 层级 | 方法 | 当前 |
 |------|------|:---:|
 | 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag | 406 tests ✅ |
-| 集成测试 | pytest, FastAPI routes (assessment + songs) | 33 tests ✅ |
+| 集成测试 | pytest, FastAPI routes (assessment + songs) | 36 tests ✅ |
 | 扩展测试 | pytest, DTW/repos/calibrator/real_audio | 36 tests ✅ |
 | BDD | pytest-bdd, 16 step files, 21 .feature files, 162 scenarios collected | ✅ |
 | 真实音频回归 | pytest, 5 基准文件, 28 tests | ✅ |
-| **生产合计** | | **475 tests 100% GREEN** |
-| 前端测试 | Vitest, 33 tests, vue-tsc 0 errors | ✅ |
+| **生产合计** | | **478 tests 100% GREEN** |
+| 前端测试 | Vitest, 57 tests, vue-tsc 0 errors | ✅ |
 
 ---
 
@@ -139,7 +139,7 @@
 | 状态管理 | Pinia 2.3 |
 | 桌面 | Electron 28 (配置就绪) |
 | 数据 | JSON + SQLite |
-| 测试 | pytest 475 + Vitest 33 |
+| 测试 | pytest 478 + Vitest 57 |
 
 ---
 

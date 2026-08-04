@@ -1,6 +1,6 @@
 # 前端与后端计划对齐
 
-> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.9 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。
+> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.10 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。
 >
 > 当前前后端状态见: [ARCHITECTURE.md](../ARCHITECTURE.md) | [ROUTES.md](ROUTES.md) | [README.md](README.md)
 
@@ -45,9 +45,9 @@
 | 页面 | 当前是否存在 | v7.9 状态 |
 |------|--------------|-----------|
 | Home | 已存在 | 上传、录音、手动对比、曲库练习入口；不展示静态评分样例 |
-| Library | 前端: 不存在 | 后端歌曲 CRUD API 已实现 (v7.9)；前端曲库页面待构建 |
-| AddSong | 前端: 不存在 | 后端 `POST /api/v1/songs` 已实现 (v7.9)；前端导入表单待构建 |
-| SongDetail | 前端: 不存在 | 后端 `GET /api/v1/songs/{id}` 已实现 (v7.9)；前端详情页待构建 |
+| Library | 前端: 已实现 (SongsView, v7.10) | 后端歌曲 CRUD API (v7.9) + 前端卡片网格页 (v7.10) |
+| AddSong | 前端: 已实现 (SongsView, v7.10) | 后端 `POST /api/v1/songs` (v7.9) + 前端卡片网格页 (v7.10) |
+| SongDetail | 前端: 已实现 (SongsView, v7.10) | 后端 `GET /api/v1/songs/{id}` (v7.9) + 前端卡片网格页 (v7.10) |
 | Practice | 部分由 Sing 承担 | 选歌后录音准备、倒计时、标准曲线预加载、伴奏模式 |
 | Compare | 已存在但需重做 | 手动双音频对比、参数设置、匹配/未匹配结果 |
 | Report | 已存在但需重做 | 匹配歌曲信息、fallback_reason、权重来源、问题段落 |

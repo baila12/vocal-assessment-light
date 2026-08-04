@@ -8,7 +8,8 @@ import re
 from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import FileResponse
 
-from backend.interfaces.api.deps import get_flask_config
+from backend.interfaces.api.deps import get_flask_config, get_settings
+from backend.infrastructure.config import Settings
 
 router = APIRouter()
 
@@ -26,6 +27,7 @@ MIME_TYPES = {
 async def serve_audio(
     file: str = Query(..., description="音频文件路径"),
     config=Depends(get_flask_config),
+    settings: Settings = Depends(get_settings),
 ):
     """安全地流式传输音频文件"""
     filepath_raw = unquote(file)
@@ -48,14 +50,16 @@ async def serve_audio(
     except Exception:
         raise HTTPException(status_code=403, detail="无效的文件路径")
 
-    # 目录锁: 仅允许 uploads/ 和 test_data/audio/
+    # 目录锁: 仅允许 uploads/、test_data/audio/ 和 songs_dir/ (v7.10 歌曲库)
+    # 用 is_relative_to() 而非 startswith — 避免同名前缀兄弟目录 (如 songs_evil/) 越界
     upload_dir = config.UPLOAD_FOLDER.resolve()
     test_dir = (config.PROJECT_ROOT / "tests" / "test_data" / "audio").resolve()
-    filepath_str = str(filepath_obj)
+    songs_dir = settings.songs_dir.resolve()
 
     if not (
-        filepath_str.startswith(str(upload_dir))
-        or filepath_str.startswith(str(test_dir))
+        filepath_obj.is_relative_to(upload_dir)
+        or filepath_obj.is_relative_to(test_dir)
+        or filepath_obj.is_relative_to(songs_dir)
     ):
         raise HTTPException(status_code=403, detail="无权访问此文件")
 

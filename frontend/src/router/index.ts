@@ -29,6 +29,11 @@ const routes: RouteRecordRaw[] = [
     name: 'sing',
     component: () => import('@/views/SingView.vue'),
   },
+  {
+    path: '/songs',
+    name: 'songs',
+    component: () => import('@/views/SongsView.vue'),
+  },
   // v7.7: 无效路由捕获 — beforeEach 中显示 Toast 后重定向到首页
   // (redirect 会在 beforeEach 之前解析, 故此处用占位组件 + 守卫内重定向)
   {

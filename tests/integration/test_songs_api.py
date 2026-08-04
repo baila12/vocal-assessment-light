@@ -7,6 +7,7 @@
 import io
 import os
 import tempfile
+import urllib.parse
 from pathlib import Path
 
 # ── 隔离歌曲库 DB + 音频目录 — 必须在 create_app() 首次调用前设置 ──
@@ -150,3 +151,36 @@ class TestGetAndDeleteSong:
 
     def test_delete_missing_returns_404(self, client):
         assert client.delete('/api/v1/songs/not-exist').status_code == 404
+
+
+class TestAudioPlayback:
+    """v7.10: 歌曲音频可通过 /api/v1/audio 流式播放 (RED: 当前 songs_dir 不在白名单)"""
+
+    def test_song_audio_playback_returns_200(self, client):
+        """POST 歌曲(带音频) → GET /api/v1/audio?file=<song.filepath> → 200"""
+        resp = _post(client, title='音频播放测试', artist='测试歌手')
+        assert resp.status_code == 200
+        song = resp.json()['song']
+        assert song['filepath'], '创建带音频的歌曲应返回非空 filepath'
+        encoded = urllib.parse.quote(song['filepath'], safe='')
+        audio = client.get(f'/api/v1/audio?file={encoded}')
+        assert audio.status_code == 200, (
+            f'歌曲音频播放返回 {audio.status_code}: {audio.text[:200]}'
+        )
+        assert audio.headers.get('content-type', '').startswith('audio/')
+
+    def test_song_audio_invalid_path_returns_403(self, client):
+        """路径遍历/白名单外路径仍应被拒绝 (安全回归)"""
+        audio = client.get('/api/v1/audio?file=../../etc/passwd')
+        assert audio.status_code == 403
+
+    def test_audio_rejects_sibling_prefix_dir(self, client):
+        """目录锁: 同名前缀兄弟目录不应通过白名单 (startswith 边界修复)"""
+        songs_dir = Path(os.environ['VAS_SONGS_DIR'])
+        evil_dir = songs_dir.parent / f'{songs_dir.name}_evil'
+        evil_dir.mkdir(parents=True, exist_ok=True)
+        target = evil_dir / 'fake.wav'
+        target.write_bytes(_fake_wav())
+        encoded = urllib.parse.quote(str(target), safe='')
+        audio = client.get(f'/api/v1/audio?file={encoded}')
+        assert audio.status_code == 403

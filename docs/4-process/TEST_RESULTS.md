@@ -1,12 +1,12 @@
-# 测试结果记录 v7.9
+# 测试结果记录 v7.10
 
-> 更新: 2026-08-02 | 475 tests 100% GREEN | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-08-04 | 478 tests 100% GREEN | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
 ---
 
-## v7.9 测试统计
+## v7.10 测试统计
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
@@ -15,12 +15,12 @@
 | DDD 对齐 + Flag bridge + GNE | 22 | ✅ 100% | alignment + extraction flag + flag bridge + GNE |
 | 中间件 | 22 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
 | **DDD 合计** | **406** | **100% GREEN** | (~16s) |
-| FastAPI 集成 | 33 | ✅ 100% | test_api_routes (19) + test_songs_api (14, v7.9) |
+| FastAPI 集成 | 36 | ✅ 100% | test_api_routes (19) + test_songs_api (17, v7.10: +TestAudioPlayback 3) |
 | 扩展测试 (DTW/repos/calibrator) | 36 | ✅ 100% | tests/extended/ |
-| **生产代码总计** | **475** | **100% GREEN** | |
+| **生产代码总计** | **478** | **100% GREEN** | |
 | 真实音频回归 | 28 | ✅ 100% | BASELINE_V7_6 |
 | BDD (16 step files) | 162 scenarios collected | ✅ | v7.9: +1 step file (database) |
-| 前端 Vitest | 33 | ✅ 100% | stores |
+| 前端 Vitest | 57 | ✅ 100% | stores |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | 8.5s | ✅ | 生产构建 |
 
@@ -119,7 +119,7 @@ pytest tests/unit/domain/ tests/unit/infrastructure/ \
 
 # 集成测试 (独立进程)
 pytest tests/integration/test_api_routes.py -v     # FastAPI (19 tests)
-pytest tests/integration/test_songs_api.py -v      # Songs API (14 tests, v7.9)
+pytest tests/integration/test_songs_api.py -v      # Songs API (17 tests, v7.10)
 
 # 扩展测试 (独立进程, ~5s)
 pytest tests/extended/ -v                           # 34 tests (DTW/repos/calibrator)

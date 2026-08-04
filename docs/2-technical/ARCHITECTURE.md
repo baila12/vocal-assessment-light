@@ -1,6 +1,6 @@
-# 系统架构 v7.9
+# 系统架构 v7.10
 
-> 更新: 2026-08-02 | 分支: `feat/v7-fastapi-vue-refactor` | Flask 已移除 (v7.6) | GSAP 动效系统
+> 更新: 2026-08-04 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.10 前端曲库页
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 
@@ -320,7 +320,7 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
 
 ---
 
-## 九、目录结构 (v7.9 实际)
+## 九、目录结构 (v7.10 实际)
 
 ```
 vocal_assessment_light/
@@ -336,9 +336,11 @@ vocal_assessment_light/
 │
 ├── frontend/                        # Vue 3 SPA ★当前前端
 │   ├── src/
-│   │   ├── views/                   # 5 页面 (Home/Report/History/Compare/Sing)
+│   │   ├── views/                   # 6 页面 (Home/Report/History/Compare/Sing/Songs)
+│   │   │   └── SongsView.vue        #   v7.10 曲库卡片网格页
 │   │   ├── components/              # 6 共享 + 3 布局组件
-│   │   ├── stores/                  # 3 Pinia stores
+│   │   ├── stores/                  # 5 Pinia stores
+│   │   │   └── songs.store.ts       #   v7.10 曲库状态管理
 │   │   ├── composables/             # 5 composables
 │   │   ├── api/                     # API 客户端 (零硬编码 URL)
 │   │   ├── router/                  # Vue Router (hash history)
@@ -362,7 +364,7 @@ vocal_assessment_light/
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
 ├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 475 tests (unit 406 + integration 33 + extended 36 + e2e/bdd/tools)
+├── tests/                           # 478 tests (unit 406 + integration 36 + extended 36 + e2e/bdd/tools)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)
@@ -390,4 +392,4 @@ vocal_assessment_light/
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings (FastAPI) |
-| 测试 | pytest 475 tests (unit 406 + int 33 + ext 36) + Vitest 33 tests |
+| 测试 | pytest 478 tests (unit 406 + int 36 + ext 36) + Vitest 57 tests |

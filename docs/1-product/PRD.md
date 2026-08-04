@@ -1,6 +1,6 @@
-# 声乐评估系统 (VAS) — 产品需求文档 v7.9
+# 声乐评估系统 (VAS) — 产品需求文档 v7.10
 
-> 版本: v7.9 | 日期: 2026-08-02 | 状态: 活跃开发
+> 版本: v7.10 | 日期: 2026-08-04 | 状态: 活跃开发
 >
 > **关联文档**: [GOALS.md](GOALS.md) | [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | [SCORING.md](../2-technical/SCORING.md)
 
@@ -101,11 +101,11 @@
 - 每 2s 计算 incremental score
 - 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL)
 
-### 3.5 近期新增 (v7.9 后端已实现，前端待跟进)
+### 3.5 近期新增 (v7.10 后端+前端均完成)
 
 | 功能 | 说明 |
 |------|------|
-| 标准曲库管理 | 后端 CRUD (POST/GET/GET id/DELETE, SQLite)，前端界面待开发 |
+| 标准曲库管理 | 后端 CRUD (POST/GET/GET id/DELETE, SQLite)，前端卡片网格页已实现 (v7.10) |
 | 自动曲库匹配 (auto-match) | 计划中：SQLite 预提取特征 + 自动匹配用户翻唱 |
 
 ### 3.6 计划中 (未实现)
@@ -170,7 +170,7 @@
 
 ## 5. 技术栈
 
-| 层 | 当前 (v7.9) |
+| 层 | 当前 (v7.10) |
 |------|------|
 | 后端框架 | FastAPI (uvicorn, workers=1) |
 | 音频处理 | librosa + parselmouth + pyworld |
@@ -185,7 +185,7 @@
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings |
-| 测试 | pytest 475 tests + Vitest 33 tests |
+| 测试 | pytest 478 + Vitest 57 |
 
 ---
 
@@ -204,6 +204,7 @@
 | v7.6 | 2026-07-31 | ABI + rubato + attack_slope + Flask 绞杀者完成 + 旧前端移除 |
 | v7.7 | 2026-08-01 | Feature Flag 系统 + 维度独立开关 |
 | v7.8 | 2026-08-01 | GNE 接入 + GSAP 动效系统 + 前后端对齐 |
+| v7.10 | 2026-08-04 | 歌曲库前端页面 (卡片网格+搜索/筛选+上传/删除/试听) + 音频播放修复 |
 | **v7.9** | **2026-08-02** | **歌曲库后端 CRUD + API 文档对齐** |
 
 ---

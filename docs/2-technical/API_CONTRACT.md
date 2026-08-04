@@ -1,6 +1,6 @@
-# API 契约文档 v7.9
+# API 契约文档 v7.10
 
-> 更新: 2026-08-02 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 475 测试 GREEN
+> 更新: 2026-08-04 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 478 测试 GREEN
 
 ---
 
@@ -23,7 +23,7 @@
 | POST | `/api/v1/history/batch-delete` | 批量删除 (POST) | ✅ | ✅ |
 | DELETE | `/api/v1/history/all` | 清空全部 | ✅ | ✅ |
 | GET | `/api/v1/test-files` | 测试音频列表 | ✅ | ✅ |
-| GET | `/api/v1/audio?file=...` | 音频文件流 (路径安全校验) | ✅ | ✅ |
+| GET | `/api/v1/audio?file=...` | 音频文件流 (路径安全校验; v7.10: 白名单新增 songs_dir，支持歌曲库音频播放) | ✅ | ✅ |
 | POST | `/api/v1/songs` | 添加歌曲 (multipart 文件+元数据) [v7.9] | ✅ | ✅ |
 | GET | `/api/v1/songs` | 曲库列表 (page/limit/style/difficulty/search) [v7.9] | ✅ | ✅ |
 | GET | `/api/v1/songs/{id}` | 歌曲详情 [v7.9] | ✅ | ✅ |

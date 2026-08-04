@@ -50,3 +50,58 @@ export interface HistoryListResponse {
   total_pages: number
   limit: number
 }
+
+/** v7.10: 标准歌曲库 — 歌曲难度 (后端枚举) */
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
+
+/** v7.10: 标准歌曲库 — 歌曲风格 (后端枚举) */
+export type SongStyle = 'pop' | 'classical' | 'folk' | 'rap'
+
+/** v7.10: 歌曲元数据 (嵌套在 SongRecord 内) */
+export interface SongMetadata {
+  title: string
+  artist: string
+  key: string
+  bpm: number
+  difficulty: Difficulty
+  style: SongStyle
+}
+
+/** v7.10: 歌曲记录 (对齐后端 SongOut) */
+export interface SongRecord {
+  id: string
+  metadata: SongMetadata
+  /** 绝对文件系统路径; 无音频时为空字符串 */
+  filepath: string
+  duration_seconds: number
+  feature_status: 'pending' | 'preparing' | 'ready' | 'failed'
+  scoring_config: Record<string, unknown>
+  created_at: string
+}
+
+/** v7.10: 创建歌曲响应 */
+export interface SongCreateResponse {
+  success: boolean
+  song: SongRecord
+}
+
+/** v7.10: 歌曲列表响应 — 后端不返回 total_pages, 需前端 Math.ceil(total/limit) */
+export interface SongListResponse {
+  success: boolean
+  songs: SongRecord[]
+  total: number
+  page: number
+  limit: number
+}
+
+/** v7.10: 歌曲详情响应 */
+export interface SongDetailResponse {
+  success: boolean
+  song: SongRecord
+}
+
+/** v7.10: 删除歌曲响应 */
+export interface SongDeleteResponse {
+  success: boolean
+  deleted: boolean
+}

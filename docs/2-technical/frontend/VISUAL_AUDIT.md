@@ -1,8 +1,8 @@
 # 前端真实页面视觉审计
 
-> ⚠️ **历史证据 (2026-06-06)**: 本审计基于 2026-06-06 的 v5.x Vanilla JS 前端 (`web/static/`)。当前 v7.9 前端已完全重建为 Vue 3 + Element Plus (`frontend/src/`)，不再使用 emoji 图标、内联样式、旧 CSS 布局。本文档中所有具体视觉问题（sidebar、top-nav、inline style 计数）不再适用于当前前端。设计原则部分仍具参考价值。
+> ⚠️ **历史证据 (2026-06-06)**: 本审计基于 2026-06-06 的 v5.x Vanilla JS 前端 (`web/static/`)。当前 v7.10 前端已完全重建为 Vue 3 + Element Plus (`frontend/src/`)，不再使用 emoji 图标、内联样式、旧 CSS 布局。本文档中所有具体视觉问题（sidebar、top-nav、inline style 计数）不再适用于当前前端。设计原则部分仍具参考价值。
 >
-> 审计日期: 2026-06-06 | 审计范围: 旧版 `web/static/` (Vanilla JS SPA) | 文档版本: v7.9 (此文档反映的是 2026-06-06 时的旧前端状态)
+> 审计日期: 2026-06-06 | 审计范围: 旧版 `web/static/` (Vanilla JS SPA) | 文档版本: v7.10 (此文档反映的是 2026-06-06 时的旧前端状态)
 
 ## 1. 总体结论
 

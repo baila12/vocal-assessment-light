@@ -4,7 +4,7 @@
  * 仅在 viewport < 768px 时显示
  */
 import { useRouter, useRoute } from 'vue-router'
-import { HomeFilled, Microphone, Document, DataAnalysis } from '@element-plus/icons-vue'
+import { HomeFilled, Microphone, Document, DataAnalysis, Folder } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -12,6 +12,7 @@ const route = useRoute()
 const navItems = [
   { path: '/', label: '首页', icon: HomeFilled },
   { path: '/sing', label: '演唱', icon: Microphone },
+  { path: '/songs', label: '曲库', icon: Folder },
   { path: '/history', label: '历史', icon: Document },
   { path: '/compare', label: '对比', icon: DataAnalysis },
 ]

@@ -1,6 +1,6 @@
-# 评分算法文档 v7.9
+# 评分算法文档 v7.10
 
-> 更新: 2026-08-02 | DDD 唯一评分路径 | 475 测试 GREEN (unit 406 + int 33 + ext 36)
+> 更新: 2026-08-04 | DDD 唯一评分路径 | 478 测试 GREEN (unit 406 + int 36 + ext 36)
 >
 > **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md) | [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 

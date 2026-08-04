@@ -1,6 +1,41 @@
-# 变更日志 v7.9
+# 变更日志 v7.10
 
-> 更新: 2026-08-02 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+> 更新: 2026-08-04 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.10 — 标准歌曲库前端页面 + 音频播放修复 (2026-08-04)
+
+### 概述
+
+补齐 v7.9 歌曲库后端的**前端界面** — GOALS/PRD 标注的"前端界面待实现"完成。卡片网格浏览 + 搜索/风格/难度筛选 + 上传 + 删除 + 音频试听，对齐 `song-library.feature` BDD 契约选择器。同时修复歌曲音频播放缺口 (`/api/v1/audio` 白名单未含 `songs_dir` 导致 403)。
+
+### 前端 (frontend/)
+
+- 🆕 `views/SongsView.vue`: 卡片网格 (`#page-songs`/`.song-card`)、搜索 (`#songSearch` + 高亮 `.search-highlight`)、难度按钮组 (`.filter-btn[data-filter]`) + 风格筛选 (`#styleFilter`)、统计 (`#songStats`)、空态 (`#songsEmpty`/`#importFirstSongBtn`) 与搜索无结果态 (`.search-empty`/`#clearSearchBtn`)、分页 (`#pageIndicator`)、上传对话框 (el-form + FileUploader)、卡片点击展开详情 + `AudioPlayer` 试听 + 删除确认、GSAP 入场动画
+- 🆕 `stores/songs.store.ts`: Pinia setup store — 服务端分页 + 服务端搜索/筛选 (300ms 防抖) + createSong/deleteSong + 本地删除 `removeSongLocally`
+- 🆕 `tests/unit/stores/songs.test.ts`: 24 条同步状态/计算属性/筛选/分页/对话框用例 (TDD RED→GREEN)
+- 🔧 `types/api.ts`: +SongMetadata/SongRecord/Difficulty/SongStyle/SongListResponse 等 7 类型
+- 🔧 `router/index.ts`: +`/songs` 懒加载路由; `layout/TopNav.vue` + `BottomNav.vue`: +"曲库"导航 (Folder 图标)
+
+### 后端 (backend/)
+
+- 🔧 `routes/audio.py`: 注入 `get_settings`, 目录白名单增加 `settings.songs_dir` — 修复歌曲文件流式播放 403
+- 🛡️ `routes/audio.py`: 目录锁 `startswith` → `Path.is_relative_to()` — 修复同名前缀兄弟目录 (`songs_evil/`) 越界 (安全审查 HIGH)
+- 🔧 `tests/integration/test_songs_api.py`: +`TestAudioPlayback` 3 测试 (歌曲音频 200 / 路径遍历 403 / 兄弟前缀目录 403)
+
+### 测试总结
+
+- 集成: 33 → **36 tests GREEN** (songs 14 + TestAudioPlayback 3)
+- 前端 Vitest: 33 → **57 tests GREEN** (songs.store +24)
+- vue-tsc: **0 errors** | Vite build: **~9.6s**
+- BDD: `database.feature` API 级回归 GREEN (4P+6XF)
+- 版本: 7.9.0 → **7.10.0**
+
+### 后续项 (记入 PROJECT_STATUS 已知问题)
+
+- 浏览器 BDD 基建修复: `tests/bdd/conftest.py` base_url 需 Flask :5000 → FastAPI :8000 + 前端 `window.__store` 测试钩子; 此后 song-library.feature 12 场景可运行
+- 选歌录音 (`#/sing/:songId`): 依赖 SingView 扩展 + 后端 metadata 增加 音域/原唱调 字段
 
 ---
 

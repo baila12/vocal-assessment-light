@@ -1,4 +1,4 @@
-# 前端路由 v7.9
+# 前端路由 v7.10
 
 > Vue 3 SPA, Vue Router 4.6, hash history (Electron 兼容)
 
@@ -13,6 +13,7 @@
 | `#/history` | `HistoryView.vue` | 历史记录: 分页列表 + 搜索 + 批量删除 |
 | `#/compare` | `CompareView.vue` | 对比分析: 双文件上传 + DTW 结果 |
 | `#/sing` | `SingView.vue` | 实时演唱: Canvas + AudioWorklet + WebSocket 流式评分 |
+| `#/songs` | `SongsView.vue` | 标准曲库: 卡片网格 + 搜索/筛选 + 上传/删除/试听 (v7.10) |
 
 全部懒加载 (`() => import(...)`), hash history (`createWebHashHistory`).
 

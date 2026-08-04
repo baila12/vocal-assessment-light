@@ -1,4 +1,4 @@
-# 前端技术文档 v7.9
+# 前端技术文档 v7.10
 
 > Vue 3.5 + Element Plus 2.14 + Pinia 2.3 + GSAP 3.15 + Chart.js 4.5 + Electron 28
 
@@ -8,10 +8,10 @@
 
 | 层 | 文件 | 框架 |
 |------|------|------|
-| 页面 | `views/` (5 pages) | Vue 3 Composition API + Element Plus + GSAP |
+| 页面 | `views/` (6 pages) | Vue 3 Composition API + Element Plus + GSAP |
 | 布局 | `components/layout/` (3 components) | Element Plus |
 | 共享组件 | `components/` (7 components) | Element Plus + Chart.js + Canvas |
-| 状态管理 | `stores/` (4 stores) | Pinia setup stores |
+| 状态管理 | `stores/` (5 stores) | Pinia setup stores |
 | 组合函数 | `composables/` (5 composables) | Vue Composition API + GSAP |
 | API 层 | `api/` (1 client) | Fetch API + 零硬编码 URL |
 | 路由 | `router/` (1 file) | Vue Router 4.6 (hash history) |
@@ -29,10 +29,11 @@
 | `#/history` | HistoryView | ✅ 容器淡入 | ElTable + ElPagination + ElPopconfirm |
 | `#/compare` | CompareView | ✅ 双面板滑入 | FileUploader × 2 + DTW 结果卡片 |
 | `#/sing` | SingView | ✅ 录音按钮 GSAP 脉冲 | Canvas + AudioWorklet + WebSocket |
+| `#/songs` | SongsView | ✅ 卡片网格入场 | AudioPlayer + FileUploader + el-select |
 
 ---
 
-## GSAP 动效系统 (v7.9)
+## GSAP 动效系统 (v7.10)
 
 ### Composable: `useGsap.ts`
 
@@ -63,6 +64,7 @@
 | `history.store.ts` | 历史记录 (records, filter, pagination, batch select) |
 | `preferences.store.ts` | 用户偏好 (theme, evalMode, autoPlay) — localStorage 持久化 |
 | `flags.store.ts` | 算法状态 (GPU, audiofeat, DL models, weights) — v7.7 |
+| `songs.store.ts` | 标准歌曲库 (songs, pagination, filters, CRUD) — v7.10 |
 
 ---
 
@@ -78,7 +80,7 @@
 ## 构建基准
 
 ```
-Vitest: 33/33 tests passed (3 suites)
+Vitest: 57/57 tests passed (4 suites)
 TypeScript: Zero errors (vue-tsc --noEmit)
 Vite build: ~8.5s
 ```

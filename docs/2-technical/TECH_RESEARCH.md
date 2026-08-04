@@ -1,6 +1,6 @@
 # 技术研究文档 — 五维声乐特征检测
 
-> 日期: 2026-07-23 | 版本: v7.1-alpha (审计更新: 2026-08-02) | 状态: 研究阶段 (已完成)
+> 日期: 2026-07-23 | 版本: v7.1-alpha (审计更新: 2026-08-04) | 状态: 研究阶段 (已完成)
 >
 > **架构演进说明**: v7.6 起旧版 ScoreServiceV4 + `services/scoring/` 已移除, Flask 已移除。当前评分仅使用 DDD `backend/domain/assessment/` 六维体系。
 >
@@ -42,9 +42,9 @@
 | 轨道 | 路径 | 维度 | 状态 |
 |------|------|------|------|
 | 旧版 | `services/score_service.py` (ScoreServiceV4) | 5维 (音准28%/节奏20%/气息20%/技术18%/艺术14%) | ❌ 已移除 (v7.6) |
-| 新版 | `backend/domain/assessment/value_objects.py` | 6维 (音准13%/节奏12%/气息22%/技术25%/肌肉15%/艺术13%) + 音色±3~-5 | ✅ 生产使用 (v7.9) |
+| 新版 | `backend/domain/assessment/value_objects.py` | 6维 (音准13%/节奏12%/气息22%/技术25%/肌肉15%/艺术13%) + 音色±3~-5 | ✅ 生产使用 (v7.10) |
 
-### 2.2 管道模式 (v7.9)
+### 2.2 管道模式 (v7.10)
 
 ```
 Audio → DddFeatureExtractionOrchestrator (特征提取)

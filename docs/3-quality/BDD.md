@@ -1,6 +1,6 @@
-# 行为驱动开发 (BDD) 规范 v7.9
+# 行为驱动开发 (BDD) 规范 v7.10
 
-> 更新: 2026-08-02 | 16 step files | 21 feature files (15 已实现 + 6 规划中) | database.feature v7.9 新增 (4 PASSED + 6 XFAIL)
+> 更新: 2026-08-04 | 16 step files | 21 feature files (15 已实现 + 6 规划中) | database.feature v7.9 新增 (4 PASSED + 6 XFAIL) | song-library.feature (12 场景, UI 选择器 v7.10 已实现, 浏览器 BDD 基建待修复)
 
 ---
 
@@ -38,7 +38,7 @@
 
 ---
 
-## 2. 目录结构 (v7.9 实际)
+## 2. 目录结构 (v7.10 实际)
 
 ```
 tests/bdd/
@@ -53,7 +53,7 @@ tests/bdd/
 │   ├── compare-ui.feature            # 对比 UI 交互
 │   ├── mode-select.feature           # 模式选择
 │   ├── sing-song-select.feature      # 演唱选歌
-│   ├── song-library.feature          # 标准曲库
+│   ├── song-library.feature          # 标准曲库 (v7.10 前端已按契约实现 UI 选择器)
 │   ├── animations.feature            # GSAP 动画 (v7.3.1, ⚠️ 旧架构)
 │   ├── offline.feature               # 离线/本地库 (v7.3.1)
 │   ├── responsive.feature            # 响应式布局 (v7.3.1)

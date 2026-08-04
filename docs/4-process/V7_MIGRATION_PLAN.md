@@ -1,12 +1,12 @@
 # v7.0 全栈重构计划: FastAPI + Vue 3 + Element Plus + Electron + 六维评分
 
-> ✅ **迁移已全部完成 (v7.9, 2026-08-02)**。本文档保留作为架构决策记录 (ADR) 和历史参考。
+> ✅ **迁移已全部完成 (v7.10, 2026-08-04)**。本文档保留作为架构决策记录 (ADR) 和历史参考。
 >
-> Phase 0-5 ✅ (v7.0) | 绞杀者内移 ✅ (v7.1.3) | 死代码清理 ✅ (v7.1.4) | 特征提取清理 ✅ (v7.1.5) | audiofeat ✅ (v7.2.0) | 代码审查 ✅ (v7.2.1) | audiofeat 评分 ✅ (v7.3.0) | 安全加固 ✅ (v7.3.1) | 权重调整 ✅ (v7.4) | 音色8维 ✅ (v7.5) | ABI+rubato+attack_slope ✅ (v7.6) | Flag桥接+DDD特征统一 ✅ (v7.7) | GNE+GSAP ✅ (v7.8) | Songs CRUD+数据库BDD ✅ (v7.9)
+> Phase 0-5 ✅ (v7.0) | 绞杀者内移 ✅ (v7.1.3) | 死代码清理 ✅ (v7.1.4) | 特征提取清理 ✅ (v7.1.5) | audiofeat ✅ (v7.2.0) | 代码审查 ✅ (v7.2.1) | audiofeat 评分 ✅ (v7.3.0) | 安全加固 ✅ (v7.3.1) | 权重调整 ✅ (v7.4) | 音色8维 ✅ (v7.5) | ABI+rubato+attack_slope ✅ (v7.6) | Flag桥接+DDD特征统一 ✅ (v7.7) | GNE+GSAP ✅ (v7.8) | Songs CRUD+数据库BDD ✅ (v7.9) | 歌曲库前端 + 音频播放修复 ✅ (v7.10)
 >
 > **当前架构文档**: [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | **当前状态**: [PROJECT_STATUS.md](PROJECT_STATUS.md)
 >
-> 原始日期: 2026-07-21 | 基于 v6.3 代码库 | TDD + BDD + DDD 驱动 | 26.5 天 (Phase 0-5 计划) + 持续迭代至 v7.9
+> 原始日期: 2026-07-21 | 基于 v6.3 代码库 | TDD + BDD + DDD 驱动 | 26.5 天 (Phase 0-5 计划) + 持续迭代至 v7.10
 
 ---
 

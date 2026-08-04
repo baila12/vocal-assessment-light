@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-02 | 版本: **v7.9** | 分支: `feat/v7-fastapi-vue-refactor`
+> 更新: 2026-08-04 | 版本: **v7.10** | 分支: `main`
 
 ---
 
@@ -83,6 +83,19 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 ---
 
 ## 二、完成功能
+
+### v7.10 (2026-08-04) — 标准歌曲库前端页面 + 音频播放修复
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **前端** | `SongsView.vue` 卡片网格页 (浏览/搜索/风格·难度筛选/上传/删除/试听) — 对齐 song-library.feature BDD 契约选择器 | ✅ |
+| **前端** | `songs.store.ts` Pinia store: 服务端分页 + 服务端搜索/筛选 + 300ms 防抖 + CRUD | ✅ |
+| **前端** | `/api/v1/songs` 全量对接 + 类型 (SongRecord/SongMetadata/SongListResponse...) | ✅ |
+| **前端** | `/songs` 路由 + TopNav/BottomNav 双端导航 ("曲库", Folder 图标) | ✅ |
+| **后端** | `/api/v1/audio` 白名单增加 `songs_dir` — 修复歌曲播放 403 (TestAudioPlayback RED→GREEN) | ✅ |
+| **安全** | 目录锁 `startswith` → `is_relative_to` — 修复同名前缀兄弟目录越界 (安全审查 HIGH, TDD 回归) | ✅ |
+| **测试** | +24 Vitest store tests; +3 集成 (音频播放 + 安全边界); 版本 7.9.0 → 7.10.0 | ✅ |
+| **BDD** | song-library.feature 作为行为契约 (浏览器级基建后续项); database.feature API 级回归通过 | ✅ |
 
 ### v7.9 (2026-08-02) — 标准歌曲库后端 (DDD+TDD+BDD)
 
@@ -174,7 +187,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.9)
+## 三、测试状态 (v7.10)
 
 ### 生产测试 (全部 GREEN)
 
@@ -185,9 +198,9 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | DDD 对齐 + Flag bridge + GNE | 22 | ✅ |
 | 中间件 | 22 | ✅ |
 | **DDD 合计** | **406** | **100% GREEN** |
-| FastAPI 集成 | 33 | ✅ |
+| FastAPI 集成 | 36 | ✅ | (含 v7.10 TestAudioPlayback ×3)
 | 扩展测试 (DTW/repos/calibrator) | 36 | ✅ |
-| **生产代码总计** | **475** | **100% GREEN** |
+| **生产代码总计** | **478** | **100% GREEN** |
 
 > 注: DDD 子项 (领域/基建/对齐/中间件) 为近似归类, 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` = 406 为准。
 
@@ -202,7 +215,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| Vitest (stores) | 33 | ✅ 100% |
+| Vitest (stores) | 57 | ✅ 100% | (含 v7.10 songs.store ×24)
 | vue-tsc type check | 0 errors | ✅ |
 | Vite build | 8.5s | ✅ |
 
@@ -232,7 +245,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 四、已知问题
 
-> 更新: 2026-08-02 | v7.9
+> 更新: 2026-08-04 | v7.10
 
 ### 架构残留
 
@@ -272,6 +285,8 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 |------|------|
 | BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; 6 features 仍待实现 |
 | BDD animations.feature 旧架构 | 15 scenarios 针对已废弃的 Vanilla JS 架构, 需迁移 |
+| BDD 浏览器基建指向旧 Flask | `tests/bdd/conftest.py` base_url=http://localhost:5000 (Flask 已移除 v7.6); 需改 FastAPI :8000 + 前端 `window.__store` 测试钩子; song-library.feature 12 场景待浏览器 BDD (v7.10 已按其契约构建 UI 选择器) |
+| 选歌录音 (选歌→演唱页) | `#/sing/:songId` 跳转依赖 SingView 扩展 + 后端 metadata 增加 音域/原唱调 字段 (PRD 计划中) |
 
 ---
 

@@ -1,6 +1,6 @@
-# 测试驱动开发 (TDD) 规范 v7.9
+# 测试驱动开发 (TDD) 规范 v7.10
 
-> 更新: 2026-08-02 | 475 tests 100% GREEN | pytest + Vitest
+> 更新: 2026-08-04 | 478 tests 100% GREEN | pytest + Vitest
 
 ---
 
@@ -34,14 +34,14 @@
 
 ---
 
-## 2. 测试金字塔 (v7.9 实际)
+## 2. 测试金字塔 (v7.10 实际)
 
 ```
          ╱   E2E   ╲         Playwright, ~19 files, 按需
         ╱────────────╲
        ╱   BDD        ╲       pytest-bdd, 16 step files, 21 feature files
       ╱──────────────────╲
-     ╱   Integration +       ╲   FastAPI routes + Songs, 33 tests (不含回归)
+     ╱   Integration +       ╲   FastAPI routes + Songs, 36 tests (不含回归)
     ╱    Extended              ╲  DTW/repos/calibrator, 36 tests
    ╱──────────────────────────────╲
   ╱   Unit (DDD domain + infra     ╲  406 tests — 核心, 最快
@@ -56,18 +56,18 @@
 | Unit (中间件: SecurityHeaders + RateLimit + MaxBodySize) | 23 | < 1s | 100% |
 | Unit (DDD 对齐 + extraction flag + flag bridge) | 23 | < 1s | 100% |
 | Integration (FastAPI routes) | 19 | ~8s | 100% |
-| Integration (Songs API) | 14 | ~6s | 100% |
+| Integration (Songs API) | 17 | ~6s | 100% |
 | Integration (WebSocket) | 8 | ~5s | 100% |
 | Extended (DTW/repos/calibrator) | 36 | ~9s | 100% |
 | Real Audio Regression | 28 | ~27min | 100% |
-| **生产代码合计** | **475** | **~50s (不含回归/WS)** | **100% GREEN** |
+| **生产代码合计** | **478** | **~50s (不含回归/WS)** | **100% GREEN** |
 | TDD (future features) | 1 skip + 4 xfail | < 1s | ⏭️ |
 | BDD | 16 step files | < 60s | ✅ |
-| Frontend (Vitest) | 33 | < 5s | 100% |
+| Frontend (Vitest) | 57 | < 5s | 100% |
 
 ---
 
-## 3. 测试文件组织 (v7.9 实际)
+## 3. 测试文件组织 (v7.10 实际)
 
 ```
 tests/
@@ -102,7 +102,7 @@ tests/
 │
 ├── integration/
 │   ├── test_api_routes.py                # FastAPI endpoints (19 tests)
-│   ├── test_songs_api.py                 # 🆕 v7.9 歌曲库 API (14 tests)
+│   ├── test_songs_api.py                 # 🆕 v7.9 歌曲库 API (17 tests, 含 TestAudioPlayback)
 │   ├── test_ws_score.py                  # WebSocket 实时评分 (8 tests)
 │   └── test_real_audio_regression.py     # 真实音频基线 (28 tests)
 │
@@ -162,7 +162,7 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 
 ---
 
-## 5. 覆盖率矩阵 (v7.9 实际)
+## 5. 覆盖率矩阵 (v7.10 实际)
 
 | 模块 | 测试文件 | 测试数 |
 |------|---------|:-----:|
@@ -181,11 +181,11 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 | DDD Alignment + Flag | `test_ddd_alignment.py` + `test_ddd_extraction_flag.py` + `test_flag_bridge.py` | 23 |
 | **DDD Unit 合计** | | **~406** |
 | FastAPI Integration | `test_api_routes.py` | 19 |
-| Songs API Integration | `test_songs_api.py` | 14 |
+| Songs API Integration | `test_songs_api.py` | 17 |
 | WebSocket Integration | `test_ws_score.py` | 8 |
 | Extended | `test_comparison_dtw.py` + `test_repositories.py` + `test_score_calibrator.py` | 36 |
 | Real Audio Regression | `test_real_audio_regression.py` | 28 |
-| **生产代码合计** | | **475** (unit 406 + FastAPI 33 + extended 36; 不含 WS 8 / 真实音频回归 28) |
+| **生产代码合计** | | **478** (unit 406 + FastAPI 36 + extended 36; 不含 WS 8 / 真实音频回归 28) |
 
 ---
 
@@ -265,9 +265,10 @@ def test_pitch_disabled_returns_neutral():
 ```
 frontend/tests/unit/stores/
 ├── assessment.test.ts    # Assessment store
-└── preferences.test.ts   # Preferences store
+├── preferences.test.ts   # Preferences store
+└── songs.test.ts         # 🆕 v7.10 Songs store (24 tests)
 
-33/33 tests passed (3 suites)
+57/57 tests passed (4 suites)
 ```
 
 ---
