@@ -2,7 +2,7 @@
 
 > 版本: v1.1 | 日期: 2026-07-28 (审计更新: 2026-08-02) | 基于 v7.3.1 源码完整追踪
 >
-> **架构演进说明**: v7.6 起 Flask 已移除, API 路由统一到 FastAPI `/api/v1/`。本文管线分析基于 v7.3.1, 核心性能瓶颈 (Demucs/PYIN/HPSS) 及优化建议在 v7.9 依然有效。
+> **架构演进说明**: v7.6 起 Flask 已移除, API 路由统一到 FastAPI `/api/v1/`。本文管线分析基于 v7.3.1, 核心性能瓶颈 (Demucs/PYIN/HPSS) 及优化建议在 v7.11 依然有效 (v7.9 歌曲库后端 + v7.10 前端 + v7.11 评分权重均不改变音频分析管线复杂度)。
 >
 > **关联文档**: [SCORING.md](SCORING.md) | [ARCHITECTURE.md](ARCHITECTURE.md) | [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
 

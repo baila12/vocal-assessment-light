@@ -1,6 +1,6 @@
-# 系统架构 v7.10
+# 系统架构 v7.11
 
-> 更新: 2026-08-04 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.10 前端曲库页
+> 更新: 2026-08-04 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 
@@ -83,7 +83,7 @@ Raw Audio (y, sr)
        └─ L3: Muscle + Artistry
 ```
 
-### 评分权重 (v7.9 当前生效)
+### 评分权重 (v7.11 当前生效, 单一数据来源 ScoringWeights)
 
 | 维度 | 权重 | 子维度 | 文献级别 |
 |------|:---:|------|:------:|
@@ -96,14 +96,16 @@ Raw Audio (y, sr)
 | **Total** | **100%** | | |
 | Timbre (音色) ⚠️ | ±3~-5 | 加减分项, 不占权重, clamp[0,100] | B |
 
+> v7.11: 权重收敛为 `ScoringWeights` 值对象 (frozen dataclass, `backend/domain/assessment/scoring_weights.py`)，作为六维权重的单一数据来源。`Score.weighted()` 方法均委托到 `ScoringWeights.default()`。提供 4 个风格预设 (pop/bel_canto/ethnic/rap) 供评分权重 API (`GET /api/v1/scoring/presets`, `POST /api/v1/scoring/apply-weights`) 使用。
+>
 > ⚠️ 标记维度使用启发式代理指标，非直接生理测量。详见 [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)。
 
 ### 已知问题
 
 | 问题 | 影响 | 计划 |
 |------|------|------|
-| 气声比 HNR 占 70% 权重，文献建议 CPPS 为主 | Technique 系统性偏低 | [P0 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#三p0-1-气声比-hnr-权重修正) |
-| 咬字缺失 ZCR + Spectral Centroid (Rathi & Hsu 2021) | 咬字算法偏离文献 | [P0 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#四p0-2-咬字清晰度接入-zcr--spectral-centroid) |
+| ~~气声比 HNR 占 70% 权重~~ | ✅ v7.4 已修复: CPPS(40%)+HNR(25%) reconst | 已解决 |
+| ~~咬字缺失 ZCR + Spectral Centroid~~ | ✅ v7.6 已修复: Rathi & Hsu 2:1:1 对齐 | 已解决 |
 | 无颤音 → 艺术表现 0 分 | 流行/R&B 受系统性歧视 | [P0 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#五p0-3-艺术表现无颤音-fallback) |
 | 音色置信度门控在生产中始终归零 | 音色维度完全失效 | [P1 修复](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md#八p1-2-音色八维剖面增强) |
 | ~~肌肉权重 25%，文献建议 15%~~ | ✅ v7.4 已修复 (25%→15%) | 已解决 |
@@ -119,6 +121,7 @@ domain/
 ├── assessment/                     # 评分领域
 │   ├── value_objects.py            # 7 个 frozen dataclass (PitchScore…TimbreAdjustment)
 │   ├── services.py                 # ScoringDomainService.calculate_total()
+│   ├── scoring_weights.py          # v7.11: 六维权重值对象 + 风格预设 (单一数据来源)
 │   ├── events.py                   # AssessmentCompleted 领域事件
 │   ├── errors.py                   # InvalidScoreError
 │   ├── feature_flags.py            # DimensionFlags (独立开关每个维度)
@@ -198,10 +201,13 @@ interfaces/
 │   │   ├── history.py               # GET/DELETE history
 │   │   ├── audio.py                 # GET audio streaming
 │   │   ├── songs.py                 # POST/GET/GET:id/DELETE songs (v7.9 CRUD)
+│   │   ├── flags.py                 # GET /api/v1/flags (v7.7)
+│   │   ├── scoring.py               # v7.11: GET /scoring/presets + POST /scoring/apply-weights
 │   │   └── health.py                # GET /health (GPU status)
 │   ├── schemas/
 │   │   ├── assessment.py            # AnalyzeRequest/UploadResponse
 │   │   ├── history.py               # HistoryRecordOut/HistoryListResponse
+│   │   ├── scoring.py               # v7.11: ApplyWeightsRequest/ScoringPresetsResponse
 │   │   └── common.py                # ErrorResponse
 │   ├── middleware.py                 # SecurityHeaders + RateLimit + MaxBodySize
 │   └── deps.py                      # FastAPI Depends (Settings, EventBus)
@@ -320,7 +326,7 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
 
 ---
 
-## 九、目录结构 (v7.10 实际)
+## 九、目录结构 (v7.11 实际)
 
 ```
 vocal_assessment_light/
@@ -338,9 +344,11 @@ vocal_assessment_light/
 │   ├── src/
 │   │   ├── views/                   # 6 页面 (Home/Report/History/Compare/Sing/Songs)
 │   │   │   └── SongsView.vue        #   v7.10 曲库卡片网格页
-│   │   ├── components/              # 6 共享 + 3 布局组件
-│   │   ├── stores/                  # 5 Pinia stores
-│   │   │   └── songs.store.ts       #   v7.10 曲库状态管理
+│   │   ├── components/              # 7 共享 + 3 布局组件
+│   │   │   └── scoring/             # v7.11: ScoringWeightsPanel.vue 权重配置面板
+│   │   ├── stores/                  # 6 Pinia stores
+│   │   │   ├── songs.store.ts       #   v7.10 曲库状态管理
+│   │   │   └── scoring.store.ts     #   v7.11 评分权重预设/滑块/归一化
 │   │   ├── composables/             # 5 composables
 │   │   ├── api/                     # API 客户端 (零硬编码 URL)
 │   │   ├── router/                  # Vue Router (hash history)
@@ -364,7 +372,7 @@ vocal_assessment_light/
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
 ├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 478 tests (unit 406 + integration 36 + extended 36 + e2e/bdd/tools)
+├── tests/                           # 521 tests (DDD 435 + 集成 50 + 扩展 36)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)
@@ -392,4 +400,4 @@ vocal_assessment_light/
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings (FastAPI) |
-| 测试 | pytest 478 tests (unit 406 + int 36 + ext 36) + Vitest 57 tests |
+| 测试 | pytest 521 tests (DDD 435 + 集成 50 + 扩展 36) + Vitest 68 tests |

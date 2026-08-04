@@ -1,6 +1,6 @@
 # 前端与后端计划对齐
 
-> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.10 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。
+> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.11 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。标准曲库 API 已于 v7.9 实现、前端页面已于 v7.10 实现 (SongsView)；评分权重 API (`GET /api/v1/scoring/presets` + `POST /api/v1/scoring/apply-weights`) 已于 v7.11 实现，前端权重面板 (ScoringWeightsPanel) 已集成到 ReportView。
 >
 > 当前前后端状态见: [ARCHITECTURE.md](../ARCHITECTURE.md) | [ROUTES.md](ROUTES.md) | [README.md](README.md)
 
@@ -36,7 +36,8 @@
 | `DELETE /api/v1/songs/{id}` | `database.feature` | 曲库管理 | **已实现** |
 | `POST /api/match` | `auto-match.feature` | 上传后匹配、分析任务 | 计划中 |
 | `POST /api/scoring/recommend` | `scoring-config.feature` | 评分参数设置 | 计划中 |
-| `GET /api/scoring/presets` | `scoring-config.feature` | 设置页、添加歌曲页 | 计划中 |
+| `GET /api/v1/scoring/presets` | `scoring-config.feature` | 设置页、权重预设 | **已实现 (v7.11)** |
+| `POST /api/v1/scoring/apply-weights` | `scoring-config.feature` | 前端重算总分/等级 | **已实现 (v7.11)** |
 | `POST /api/analysis/start` | `nonblocking-analysis.feature` | 非阻塞分析任务 | 计划中 |
 | `GET /api/analysis/progress?task_id=...` | `nonblocking-analysis.feature` | SSE 进度 | 计划中 |
 
@@ -51,8 +52,8 @@
 | Practice | 部分由 Sing 承担 | 选歌后录音准备、倒计时、标准曲线预加载、伴奏模式 |
 | Compare | 已存在但需重做 | 手动双音频对比、参数设置、匹配/未匹配结果 |
 | Report | 已存在但需重做 | 匹配歌曲信息、fallback_reason、权重来源、问题段落 |
-| Settings/Scoring | 不存在 | 风格预设、六维权重、自动归一化、自定义预设导入导出 |
-| Settings/Models | 不存在 | Feature Flag、GPU 状态、模型可用性、实验性算法说明 |
+| Settings/Scoring | 部分实现 (ScoringWeightsPanel, v7.11) | 风格预设、六维权重滑块、自动归一化、自定义预设导入导出 |
+| Settings/Models | 部分实现 (HomeView el-drawer, v7.7) | Feature Flag、GPU 状态、模型可用性、实验性算法说明 |
 | AnalysisTask | 不存在 | SSE 阶段进度、已到达特征、跨页面任务恢复 |
 
 ## 前端数据模型预留

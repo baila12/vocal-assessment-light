@@ -1,6 +1,6 @@
-# 测试驱动开发 (TDD) 规范 v7.10
+# 测试驱动开发 (TDD) 规范 v7.11
 
-> 更新: 2026-08-04 | 478 tests 100% GREEN | pytest + Vitest
+> 更新: 2026-08-04 | 521 tests 100% GREEN | pytest + Vitest
 
 ---
 
@@ -34,40 +34,41 @@
 
 ---
 
-## 2. 测试金字塔 (v7.10 实际)
+## 2. 测试金字塔 (v7.11 实际)
 
 ```
          ╱   E2E   ╲         Playwright, ~19 files, 按需
         ╱────────────╲
        ╱   BDD        ╲       pytest-bdd, 16 step files, 21 feature files
       ╱──────────────────╲
-     ╱   Integration +       ╲   FastAPI routes + Songs, 36 tests (不含回归)
+     ╱   Integration +       ╲   FastAPI routes + Songs + Scoring, 50 tests (不含回归)
     ╱    Extended              ╲  DTW/repos/calibrator, 36 tests
    ╱──────────────────────────────╲
-  ╱   Unit (DDD domain + infra     ╲  406 tests — 核心, 最快
+  ╱   Unit (DDD domain + infra     ╲  435 tests — 核心, 最快
  ╱    + middleware + alignment)      ╲
 ╱──────────────────────────────────────╲
 ```
 
 | 层级 | 测试数 | 速度 | 通过率 |
 |------|:-----:|------|:---:|
-| Unit (DDD 领域: 7 scorers + comparison + audiofeat) | 228 | < 12s | 100% |
-| Unit (DDD 基建: 10 extractors + orchestrator + audio_utils) | 132 | < 8s | 100% |
+| Unit (DDD 领域: 7 scorers + comparison + songs + ScoringWeights) | 257 | < 14s | 100% |
+| Unit (DDD 基建: 10 extractors + orchestrator + audio_utils + ABI + sqlite) | 132 | < 10s | 100% |
 | Unit (中间件: SecurityHeaders + RateLimit + MaxBodySize) | 23 | < 1s | 100% |
 | Unit (DDD 对齐 + extraction flag + flag bridge) | 23 | < 1s | 100% |
 | Integration (FastAPI routes) | 19 | ~8s | 100% |
 | Integration (Songs API) | 17 | ~6s | 100% |
+| Integration (Scoring API) 🆕 v7.11 | 14 | ~5s | 100% |
 | Integration (WebSocket) | 8 | ~5s | 100% |
 | Extended (DTW/repos/calibrator) | 36 | ~9s | 100% |
 | Real Audio Regression | 28 | ~27min | 100% |
-| **生产代码合计** | **478** | **~50s (不含回归/WS)** | **100% GREEN** |
+| **生产代码合计** | **521** | **~60s (不含回归/WS)** | **100% GREEN** |
 | TDD (future features) | 1 skip + 4 xfail | < 1s | ⏭️ |
 | BDD | 16 step files | < 60s | ✅ |
-| Frontend (Vitest) | 57 | < 5s | 100% |
+| Frontend (Vitest) | 68 | < 5s | 100% |
 
 ---
 
-## 3. 测试文件组织 (v7.10 实际)
+## 3. 测试文件组织 (v7.11 实际)
 
 ```
 tests/
@@ -81,6 +82,7 @@ tests/
 │   │   ├── test_artistry_scorer.py       # 四维独立声学
 │   │   ├── test_timbre_adjuster.py       # 音色加减分
 │   │   ├── test_scoring_domain_service.py
+│   │   ├── test_scoring_weights.py       # 🆕 v7.11 六维权重值对象 (25 tests)
 │   │   ├── test_comparison_scoring.py    # v7.3
 │   │   └── test_comparison_value_objects.py  # v7.3
 │   │
@@ -98,11 +100,12 @@ tests/
 │   ├── test_middleware.py                # SecurityHeaders + RateLimit + MaxBodySize
 │   ├── test_ddd_alignment.py             # DDD vs Legacy 对齐
 │   ├── test_ddd_extraction_flag.py       # Feature Flag 切换
-│   └── test_flag_bridge.py              # 🆕 v7.7 Flag 桥接
+│   └── test_flag_bridge.py              # v7.7 Flag 桥接
 │
 ├── integration/
 │   ├── test_api_routes.py                # FastAPI endpoints (19 tests)
-│   ├── test_songs_api.py                 # 🆕 v7.9 歌曲库 API (17 tests, 含 TestAudioPlayback)
+│   ├── test_songs_api.py                 # v7.9 歌曲库 API (17 tests, 含 TestAudioPlayback)
+│   ├── test_scoring_api.py               # 🆕 v7.11 评分权重 API (14 tests)
 │   ├── test_ws_score.py                  # WebSocket 实时评分 (8 tests)
 │   └── test_real_audio_regression.py     # 真实音频基线 (28 tests)
 │
@@ -162,7 +165,7 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 
 ---
 
-## 5. 覆盖率矩阵 (v7.10 实际)
+## 5. 覆盖率矩阵 (v7.11 实际)
 
 | 模块 | 测试文件 | 测试数 |
 |------|---------|:-----:|
@@ -173,26 +176,29 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 | MuscleStrengthScorer | `test_muscle_scorer.py` | ~14 |
 | ArtistryScorer | `test_artistry_scorer.py` | ~12 |
 | TimbreAdjuster | `test_timbre_adjuster.py` | ~12 |
-| ScoringDomainService | `test_scoring_domain_service.py` | ~8 |
+| ScoringWeights 🆕 v7.11 | `test_scoring_weights.py` | 25 |
+| ScoringDomainService | `test_scoring_domain_service.py` | ~12 |
 | Comparison (DDD) | `test_comparison_scoring.py` + `test_comparison_value_objects.py` | ~30 |
 | Audiofeat enhancement | `test_audiofeat_extractor.py` + scorer audiofeat tests | ~40 |
 | 10 Extractors | `test_*_extractor.py` (7 files) + `test_orchestrator.py` + `test_audio_utils.py` + `test_batch4_extractors.py` | ~132 |
 | Middleware | `test_middleware.py` | 23 |
 | DDD Alignment + Flag | `test_ddd_alignment.py` + `test_ddd_extraction_flag.py` + `test_flag_bridge.py` | 23 |
-| **DDD Unit 合计** | | **~406** |
+| **DDD Unit 合计** | | **435** |
 | FastAPI Integration | `test_api_routes.py` | 19 |
 | Songs API Integration | `test_songs_api.py` | 17 |
+| Scoring API Integration 🆕 v7.11 | `test_scoring_api.py` | 14 |
 | WebSocket Integration | `test_ws_score.py` | 8 |
 | Extended | `test_comparison_dtw.py` + `test_repositories.py` + `test_score_calibrator.py` | 36 |
 | Real Audio Regression | `test_real_audio_regression.py` | 28 |
-| **生产代码合计** | | **478** (unit 406 + FastAPI 36 + extended 36; 不含 WS 8 / 真实音频回归 28) |
+| **生产代码合计** | | **521** (DDD 435 + 集成 50 + 扩展 36; 不含 WS 8 / 真实音频回归 28) |
 
 ---
 
 ## 6. 运行命令
 
 ```bash
-# DDD 核心 (406 tests, ~22s) — 默认单元测试命令
+# DDD 核心 (435 tests, ~25s) — 默认单元测试命令
+# ⚠️ 不直接运行 pytest tests/unit/ (PyTorch C 扩展冲突 → 崩溃), 必须使用分组命令:
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
@@ -204,6 +210,9 @@ pytest tests/integration/test_api_routes.py -v
 
 # Songs API 集成 (独立进程, ~6s)
 pytest tests/integration/test_songs_api.py -v
+
+# Scoring API 集成 🆕 v7.11 (独立进程, ~5s)
+pytest tests/integration/test_scoring_api.py -v
 
 # WebSocket 集成 (独立进程)
 pytest tests/integration/test_ws_score.py -v
@@ -224,7 +233,10 @@ pytest tests/bdd/ -v -m "browser"
 pytest tests/unit/domain/ tests/unit/test_middleware.py -v
 
 # 全量 (不含真实音频回归和 E2E)
-pytest tests/unit/ tests/integration/ tests/extended/ -v
+pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/test_middleware.py \
+       tests/unit/test_ddd_alignment.py tests/unit/test_ddd_extraction_flag.py \
+       tests/unit/test_flag_bridge.py \
+       tests/integration/ tests/extended/ -v
 ```
 
 ---
@@ -258,6 +270,88 @@ def test_pitch_disabled_returns_neutral():
 - [ ] 测试函数名准确描述行为和期望
 - [ ] 集成测试独立进程运行 (C 扩展冲突)
 
+### 8.1 TDD 案例: ScoringWeights 值对象 (v7.11)
+
+v7.11 的六维权重可配置功能严格遵循 TDD 三步循环。以 `ScoringWeights` 值对象为例:
+
+**RED -- 先写会失败的测试 (test_scoring_weights.py)**
+
+```python
+# 测试 1: 默认权重总和必须 = 100%
+def test_scoring_weights_default_sums_to_100():
+    weights = ScoringWeights.default()
+    total = sum(weights.to_dict().values())
+    assert total == 100.0  # ❌ RED: ScoringWeights 还不存在
+
+# 测试 2: 单维度不得超过 50%
+def test_scoring_weights_rejects_dimension_over_50():
+    with pytest.raises(ValueError, match="单维度权重不能超过 50%"):
+        ScoringWeights(pitch=60.0, rhythm=10.0, breath=10.0, technique=10.0, muscle=5.0, artistry=5.0)
+        # ❌ RED: validate() 尚未实现
+
+# 测试 3: 总和不为 100% 时拒绝
+def test_scoring_weights_rejects_non_100_sum():
+    with pytest.raises(ValueError, match="总和必须为 100%"):
+        ScoringWeights(pitch=10.0, rhythm=10.0, breath=10.0, technique=10.0, muscle=10.0, artistry=10.0)
+        # ❌ RED: 10+10+10+10+10+10=60≠100, validate() 尚未实现
+
+# 测试 4: 4 个风格预设均通过校验
+@pytest.mark.parametrize("preset", ["pop", "bel_canto", "folk", "rap"])
+def test_all_presets_pass_validation(preset):
+    weights = ScoringWeights.preset(preset)
+    weights.validate()  # ❌ RED: 预设方法尚未实现
+    total = sum(weights.to_dict().values())
+    assert total == 100.0
+```
+
+**GREEN -- 最简实现通过测试**
+
+```python
+@dataclass(frozen=True)
+class ScoringWeights:
+    """六维权重值对象 -- v7.11 单一权重数据来源"""
+    pitch: float = 13.0
+    rhythm: float = 12.0
+    breath: float = 22.0
+    technique: float = 25.0
+    muscle: float = 15.0
+    artistry: float = 13.0
+
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self):
+        total = self.pitch + self.rhythm + self.breath + self.technique + self.muscle + self.artistry
+        if abs(total - 100.0) > 0.01:
+            raise ValueError(f"总和必须为 100%, 当前 {total}%")
+        for dim_name, val in self.to_dict().items():
+            if val > 50.0:
+                raise ValueError(f"单维度权重不能超过 50%: {dim_name}={val}%")
+            if val < 0:
+                raise ValueError(f"权重不能为负: {dim_name}={val}%")
+
+    @classmethod
+    def default(cls) -> 'ScoringWeights':
+        return cls()  # 使用类默认值 (v7.4 定稿权重)
+
+    @classmethod
+    def preset(cls, name: str) -> 'ScoringWeights':
+        """风格预设: 原 5 维×0.85 + muscle 15%"""
+        # 流行/美声/民族/说唱各有不同的五维分布, muscle 固定 15%
+        ...
+
+    def weighted_total(self, scores: dict) -> float:
+        return sum(self.to_dict()[dim] * scores[dim] / 100.0 for dim in scores)
+```
+
+**REFACTOR -- 优化代码, 测试保持绿色**
+
+- 提取 `_DEFAULT_WEIGHTS` 字典 → `default()` 和 `to_dict()` 复用同一数据源
+- `preset()` 改为查表 + `_apply_preset_scaling()` 复用 `__post_init__` 校验
+- `weighted_total()` 改为 `weighted_total_from_scores()` 接收 `DimensionScores` 值对象
+
+**结果**: 25 tests GREEN, ScoringWeights 成为 `value_objects.py` 中 6 个 `weighted()` 方法和 `flags.py` 中 `dimension_weights` 的**单一权重数据来源**, 消除了 6 处硬编码权重。
+
 ---
 
 ## 9. 前端测试 (Vitest)
@@ -266,14 +360,40 @@ def test_pitch_disabled_returns_neutral():
 frontend/tests/unit/stores/
 ├── assessment.test.ts    # Assessment store
 ├── preferences.test.ts   # Preferences store
-└── songs.test.ts         # 🆕 v7.10 Songs store (24 tests)
+├── songs.test.ts         # v7.10 Songs store (24 tests)
+└── scoring.test.ts       # 🆕 v7.11 Scoring store (11 tests)
 
-57/57 tests passed (4 suites)
+68/68 tests passed (5 suites)
 ```
+
+> vue-tsc: **0 errors** | Vite build: **8.9s**
 
 ---
 
-## 10. 参考
+## 10. BDD 与真实音频状态
+
+### BDD (v7.11)
+
+| 指标 | 状态 |
+|------|:---:|
+| 收集 scenarios | 162 |
+| Step files | 16 |
+| Feature files | 21 |
+| scoring-config API 级 | ✅ PASS |
+| scoring-config UI 级 | ⚠️ XFAIL (阈值联动未实现) |
+| animations.feature (15 scenarios) | ⚠️ 旧 Vanilla JS 架构待迁移 |
+| 6 features 缺 step defs | ⚠️ auto-match/multi-dim-analysis/nonblocking-analysis/pitch-realtime/realtime-analysis/song-select |
+
+### 真实音频回归
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| 真实音频 Quick + Pro | 28 | ✅ 100% | BASELINE_V7_6 |
+| 高低分区分度 | 9.1 pts | ✅ | >8 阈值 |
+
+> ⚠️ BDD upload.feature 38 场景因测试数据 `tests/test_data/audio/vocal/vocals.wav` 缺失**预存失败** (非代码回归)。
+
+## 11. 参考
 
 | 文档 | 路径 |
 |------|------|
@@ -282,3 +402,4 @@ frontend/tests/unit/stores/
 | 系统架构 | [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) |
 | 评分算法 | [SCORING.md](../2-technical/SCORING.md) |
 | 项目状态 | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) |
+| 测试结果 | [TEST_RESULTS.md](../4-process/TEST_RESULTS.md) |

@@ -1,6 +1,6 @@
-# 声乐评估系统 (VAS) — 产品需求文档 v7.10
+# 声乐评估系统 (VAS) — 产品需求文档 v7.11
 
-> 版本: v7.10 | 日期: 2026-08-04 | 状态: 活跃开发
+> 版本: v7.11 | 日期: 2026-08-04 | 状态: 活跃开发
 >
 > **关联文档**: [GOALS.md](GOALS.md) | [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | [SCORING.md](../2-technical/SCORING.md)
 
@@ -59,7 +59,7 @@
 | 功能 | 说明 |
 |------|------|
 | 多格式音频上传 | WAV/MP3/FLAC/OGG/M4A/AAC，支持拖拽 |
-| 六维评分 | 音准 13% / 节奏 12% / 气息 22% / 发声技术(咬字+气声比) 25% / 肌肉力量 15% / 艺术 13% + 音色加减分(+3~-5) |
+| 六维评分 | 音准 13% / 节奏 12% / 气息 22% / 发声技术(咬字+气声比) 25% / 肌肉力量 15% / 艺术 13% + 音色加减分(+3~-5)；权重单一来源 ScoringWeights 值对象, 可配置 (v7.11) |
 | Quick 模式 | 跳过 Demucs 和 DL 模型，直接在原始音频上评分 (~20s) |
 | Professional 模式 | Demucs 分离 → 纯净人声评分 + 逐句 + 可视化 (~155s CPU / ~55s GPU) |
 | 非人声检测 | 白噪声/纯音乐/合成语音 → `is_voice=false` → score=0 |
@@ -69,7 +69,8 @@
 | 逐句评分 | Pro 模式自动分句 + 每句独立评分 |
 | 可视化图表 | 频谱图 + 基音轨迹 + 能量曲线 + 六维雷达图 |
 | 报告导出 | PDF / 图片格式 |
-| 风格自适应评分 | 流行/美声/民族/说唱 四风格权重调整 |
+| 风格自适应评分 | 流行/美声/民族/说唱 四风格权重调整 (v7.11 实现为 ScoringWeights 风格预设 + API) |
+| 评分权重面板 | 前端 ScoringWeightsPanel — 预设选择 + 六维滑块 + 总和校验 + 归一化 + 对比重算 (v7.11) |
 | GPU 加速 | Demucs CUDA/MPS 自动检测 |
 
 ### 3.2 高级特征 (已实现)
@@ -101,11 +102,14 @@
 - 每 2s 计算 incremental score
 - 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL)
 
-### 3.5 近期新增 (v7.10 后端+前端均完成)
+### 3.5 近期新增 (v7.10 + v7.11)
 
 | 功能 | 说明 |
 |------|------|
-| 标准曲库管理 | 后端 CRUD (POST/GET/GET id/DELETE, SQLite)，前端卡片网格页已实现 (v7.10) |
+| 标准曲库管理 | 后端 CRUD (POST/GET/GET id/DELETE, SQLite) (v7.9) + 前端卡片网格页 (SongsView, 搜索/筛选/上传/删除/试听) (v7.10) + 音频播放目录白名单修复 + 目录锁 is_relative_to 安全加固 (v7.10) |
+| 评分权重可配置 | ScoringWeights 值对象 (frozen, 总和 100% + 单维 ≤50%) + 4 风格预设 (流行/美声/民族/说唱) + calculate_total 注入 weights + GET /api/v1/scoring/presets + POST /api/v1/scoring/apply-weights (v7.11) |
+| 前端权重面板 | scoring.store.ts + ScoringWeightsPanel.vue (预设单选 + 六维滑块 + 实时总和校验 + 自动归一化 + 对比重算含 vs 原总分差值) + ReportView 集成 (v7.11) |
+| BDD 基建修复 | conftest base_url :5000→:8000 (FastAPI 服务 frontend/dist) + api_client Flask→FastAPI TestClient + 前端 window.__store 测试钩子 (v7.11) |
 | 自动曲库匹配 (auto-match) | 计划中：SQLite 预提取特征 + 自动匹配用户翻唱 |
 
 ### 3.6 计划中 (未实现)
@@ -146,7 +150,7 @@
 | 指标 | 当前 |
 |------|:---:|
 | 非人声归零率 | 10/10 (100%) |
-| 单元测试通过率 | 475/475 (100%) |
+| 单元测试通过率 | 521/521 (100%) |
 | Quick/Pro 同音频分差 | < 10% |
 
 ### 4.3 兼容性
@@ -170,7 +174,7 @@
 
 ## 5. 技术栈
 
-| 层 | 当前 (v7.10) |
+| 层 | 当前 (v7.11) |
 |------|------|
 | 后端框架 | FastAPI (uvicorn, workers=1) |
 | 音频处理 | librosa + parselmouth + pyworld |
@@ -185,7 +189,7 @@
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings |
-| 测试 | pytest 478 + Vitest 57 |
+| 测试 | pytest 521 + Vitest 68 |
 
 ---
 
@@ -204,8 +208,9 @@
 | v7.6 | 2026-07-31 | ABI + rubato + attack_slope + Flask 绞杀者完成 + 旧前端移除 |
 | v7.7 | 2026-08-01 | Feature Flag 系统 + 维度独立开关 |
 | v7.8 | 2026-08-01 | GNE 接入 + GSAP 动效系统 + 前后端对齐 |
+| **v7.11** | **2026-08-04** | **评分权重可配置 (ScoringWeights 值对象 + 4 风格预设 + API) + 前端权重面板 + BDD 基建修复** |
 | v7.10 | 2026-08-04 | 歌曲库前端页面 (卡片网格+搜索/筛选+上传/删除/试听) + 音频播放修复 |
-| **v7.9** | **2026-08-02** | **歌曲库后端 CRUD + API 文档对齐** |
+| v7.9 | 2026-08-02 | 歌曲库后端 CRUD + 架构清理 |
 
 ---
 
@@ -217,7 +222,12 @@
 | ~~咬字缺失 ZCR + Spectral Centroid~~ | ~~偏离文献方法~~ | ✅ v7.4 P0-2 已修复 |
 | ~~音色置信度门控失效~~ | ~~音色维度完全禁用~~ | ✅ v7.4 P1-2a 已修复 |
 | ~~肌肉权重 25% vs 文献建议 15%~~ | ~~启发式维度影响过大~~ | ✅ v7.4 P0-4 已修复 |
+| ~~评分权重新硬编码 (6 个 weighted() 各自维护)~~ | ~~权重数据源分散, 不一致风险~~ | ✅ v7.11 ScoringWeights 值对象单一数据来源 |
+| ~~BDD 浏览器基建指向已删除 Flask~~ | ~~conftest base_url :5000, api_client 旧 Flask~~ | ✅ v7.11 FastAPI TestClient + :8000 + window.__store 钩子 |
 | Demucs 子进程开销 | Pro 模式耗时 155s | [性能优化](../2-technical/PERFORMANCE_ANALYSIS_AND_OPTIMIZATION.md) |
+| BDD animations.feature 旧架构 | 15 scenarios 针对已废弃 Vanilla JS | 待迁移到 Vue 3 DOM 选择器 |
+| 选歌录音 (#/sing/:songId) | 依赖 SingView 扩展 + 后端 metadata 音域/原唱调字段 | PRD 计划中 |
+| upload 38 场景测试数据缺失 | vocals.wav 缺失预存失败 | 浏览器 BDD 基建已修复, 待补充测试数据 |
 
 ---
 

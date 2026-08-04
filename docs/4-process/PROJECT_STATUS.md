@@ -211,16 +211,16 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| DDD 领域 (scorers + value objects + comparison + songs + **ScoringWeights**) | 179 | ✅ |
-| DDD 基建 (extractors + orchestrator + ABI + sqlite) | 149 | ✅ |
-| DDD 对齐 + Flag bridge + GNE | 22 | ✅ |
-| 中间件 | 22 | ✅ |
-| **DDD 合计** | **432** | **100% GREEN** |
-| FastAPI 集成 | 50 | ✅ | (含 v7.10 音频播放 ×3 + v7.11 scoring ×14)
+| DDD 领域 (scorers + value objects + comparison + songs + **ScoringWeights**) | 257 | ✅ |
+| DDD 基建 (extractors + orchestrator + ABI + sqlite) | 132 | ✅ |
+| DDD 对齐 + Flag bridge (test_ddd_alignment/extraction_flag/flag_bridge) | 23 | ✅ |
+| 中间件 | 23 | ✅ |
+| **DDD 合计** | **435** | **100% GREEN** |
+| FastAPI 集成 | 50 | ✅ | (api_routes 19 + songs_api 17 + scoring_api 14)
 | 扩展测试 (DTW/repos/calibrator) | 36 | ✅ |
-| **生产代码总计** | **518** | **100% GREEN** |
+| **生产代码总计** | **521** | **100% GREEN** |
 
-> 注: DDD 子项 (领域/基建/对齐/中间件) 为近似归类, 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` + 集成 = 485 为准 (独立进程)。
+> 注: DDD 子项为实测计数 (领域 257 + 基建 132 + 对齐 17 + 中间件 23 + Flag bridge 6), 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` = 435 + 集成 50 + 扩展 36 = 521 为准 (独立进程)。
 
 ### 真实音频回归
 
@@ -263,7 +263,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 四、已知问题
 
-> 更新: 2026-08-04 | v7.10
+> 更新: 2026-08-04 | v7.11
 
 ### 架构残留
 
@@ -347,7 +347,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 默认测试 (406 tests, ~16s)
+# 默认测试 (435 tests, ~16s)
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \

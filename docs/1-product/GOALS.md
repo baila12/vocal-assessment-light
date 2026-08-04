@@ -1,4 +1,4 @@
-# 产品目标与设计原则 v7.10
+# 产品目标与设计原则 v7.11
 
 > 更新: 2026-08-04 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
 
@@ -22,7 +22,7 @@
 ## 二、功能全景
 
 ```
-离线声乐评估系统 v7.10
+离线声乐评估系统 v7.11
 │
 ├── 模块1: 音频采集
 │   ├── 多格式上传 (WAV/MP3/FLAC/OGG/M4A/AAC, 拖拽)
@@ -31,6 +31,9 @@
 │
 ├── 模块2: 评分分析 ★核心
 │   ├── 六维评分 (音准13% / 节奏12% / 气息22% / 技术25% / 肌肉15% / 艺术13%)
+│   ├── 评分权重可配置 (ScoringWeights 值对象, 单一数据来源, v7.11)
+│   ├── 风格预设 (流行/美声/民族/说唱, 4 套权重, v7.11)
+│   ├── 权重 API (GET /api/v1/scoring/presets + POST /api/v1/scoring/apply-weights, v7.11)
 │   ├── 音色加减分 (+3~-5, clamp[0,100])
 │   ├── Quick 模式 (~20s, 无 Demucs/无 DL)
 │   ├── Pro 模式 (~155s CPU / ~55s GPU, 完整管线)
@@ -47,9 +50,10 @@
 │   ├── 六维雷达图 (Chart.js)
 │   └── 音高曲线对比 (DTW 叠加)
 │
-├── 模块4: 曲库管理 (v7.9 后端 + v7.10 前端)
+├── 模块4: 曲库管理 (v7.9 后端 + v7.10 前端, 均已完成)
 │   ├── 标准曲库 CRUD (POST/GET/GET id/DELETE, SQLite)
-│   └── 前端卡片网格页 (SongsView, #/songs, v7.10)
+│   ├── 前端卡片网格页 (SongsView, #/songs, 搜索/风格·难度筛选/上传/删除/试听, v7.10)
+│   └── 音频播放白名单 + 目录锁 is_relative_to 安全加固 (v7.10)
 │
 ├── 模块5: 历史与导出
 │   ├── 历史记录 (分页/筛选/批量删除, JSON 存储)
@@ -117,13 +121,13 @@
 
 | 层级 | 方法 | 当前 |
 |------|------|:---:|
-| 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag | 406 tests ✅ |
-| 集成测试 | pytest, FastAPI routes (assessment + songs) | 36 tests ✅ |
+| 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag | 435 tests ✅ |
+| 集成测试 | pytest, FastAPI routes (assessment + songs + scoring) | 50 tests ✅ |
 | 扩展测试 | pytest, DTW/repos/calibrator/real_audio | 36 tests ✅ |
 | BDD | pytest-bdd, 16 step files, 21 .feature files, 162 scenarios collected | ✅ |
 | 真实音频回归 | pytest, 5 基准文件, 28 tests | ✅ |
-| **生产合计** | | **478 tests 100% GREEN** |
-| 前端测试 | Vitest, 57 tests, vue-tsc 0 errors | ✅ |
+| **生产合计** | | **521 tests 100% GREEN** |
+| 前端测试 | Vitest, 68 tests, vue-tsc 0 errors | ✅ |
 
 ---
 
@@ -139,7 +143,7 @@
 | 状态管理 | Pinia 2.3 |
 | 桌面 | Electron 28 (配置就绪) |
 | 数据 | JSON + SQLite |
-| 测试 | pytest 478 + Vitest 57 |
+| 测试 | pytest 521 + Vitest 68 |
 
 ---
 

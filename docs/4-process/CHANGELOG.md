@@ -37,7 +37,7 @@
 
 ### 测试总结
 
-- DDD 领域: 154 → **179 tests**; DDD 合计: 406 → **432 GREEN**
+- DDD 合计: 406 → **435 GREEN** (+29: ScoringWeights 25 + domain service 4)
 - 集成: 36 → **50 GREEN** (scoring API +14)
 - 前端 Vitest: 57 → **68 GREEN** (scoring.store +11); vue-tsc 0 errors; build 8.9s
 

@@ -1,6 +1,6 @@
-# API 契约文档 v7.10
+# API 契约文档 v7.11
 
-> 更新: 2026-08-04 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 478 测试 GREEN
+> 更新: 2026-08-04 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 521 测试 GREEN (DDD 435 + 集成 50 + 扩展 36)
 
 ---
 
@@ -29,11 +29,15 @@
 | GET | `/api/v1/songs/{id}` | 歌曲详情 [v7.9] | ✅ | ✅ |
 | DELETE | `/api/v1/songs/{id}` | 删除歌曲 [v7.9] | ✅ | ✅ |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | ✅ | ✅ |
+| GET | `/api/v1/scoring/presets` | 评分权重预设 — 默认 + 4 风格 (v7.11) | ✅ | ✅ |
+| POST | `/api/v1/scoring/apply-weights` | 维度分数+权重→总分/等级 — 纯前端重算 (v7.11) | ✅ | ✅ |
 | WS | `/ws/v1/score` | 实时流式评分 | — | — |
 
 ---
 
 ## 核心响应格式
+
+### 分析响应 (upload/analyze)
 
 ```json
 {
@@ -59,6 +63,82 @@
   "analysis_id": "abc123"
 }
 ```
+
+### 评分权重 API (v7.11)
+
+**GET `/api/v1/scoring/presets`** --- 返回默认权重 + 4 风格预设:
+
+```json
+{
+  "data": {
+    "default": {
+      "name": "default", "label": "默认 (v7.4)",
+      "weights": { "pitch": 0.13, "rhythm": 0.12, "breath": 0.22,
+                   "technique": 0.25, "muscle": 0.15, "artistry": 0.13 }
+    },
+    "presets": [
+      { "name": "pop", "label": "流行",
+        "weights": { "pitch": 0.21, "rhythm": 0.17, "breath": 0.13,
+                     "technique": 0.17, "muscle": 0.15, "artistry": 0.17 } },
+      { "name": "bel_canto", "label": "美声",
+        "weights": { "pitch": 0.25, "rhythm": 0.13, "breath": 0.21,
+                     "technique": 0.17, "muscle": 0.15, "artistry": 0.09 } },
+      { "name": "ethnic", "label": "民族",
+        "weights": { "pitch": 0.24, "rhythm": 0.15, "breath": 0.15,
+                     "technique": 0.15, "muscle": 0.15, "artistry": 0.16 } },
+      { "name": "rap", "label": "说唱",
+        "weights": { "pitch": 0.08, "rhythm": 0.30, "breath": 0.09,
+                     "technique": 0.13, "muscle": 0.15, "artistry": 0.25 } }
+    ],
+    "default_preset": "pop"
+  }
+}
+```
+
+**POST `/api/v1/scoring/apply-weights`** --- 纯前端重算 (不重新分析音频):
+
+请求 (`preset` 和 `weights` 二选一, 都不传则用 default):
+```json
+{
+  "dimension_scores": {
+    "pitch": 90, "rhythm": 50, "breath": 70,
+    "technique": 70, "muscle": 70, "artistry": 70
+  },
+  "preset": "rap",
+  "weights": null,
+  "timbre_adjustment": 0
+}
+```
+
+响应:
+```json
+{
+  "data": {
+    "total_score": 67.7,
+    "level": "良好",
+    "grade": "B",
+    "color": "#10b981",
+    "stars": "★★",
+    "weighted_dimensions": {
+      "pitch": 7.2, "rhythm": 15.0, "breath": 6.3,
+      "technique": 9.1, "muscle": 10.5, "artistry": 17.5
+    },
+    "applied_weights": {
+      "pitch": 0.08, "rhythm": 0.30, "breath": 0.09,
+      "technique": 0.13, "muscle": 0.15, "artistry": 0.25
+    },
+    "applied_preset": "rap"
+  }
+}
+```
+
+**校验规则 (400 Bad Request)**:
+- `preset` 和 `weights` 同时传入 → `"preset 和 weights 只能二选一"`
+- 权重总和 != 100% → `"权重总和必须为 100%, 当前为 XX%"`
+- 单维度 > 50% → `"[维度名] 单个维度权重不能超过 50%, 当前 XX%"`
+- 缺失维度分数 → `"缺少维度分数: [维度名列表]"`
+- 未知预设名 → `"未知风格预设: XX"`
+- 负数权重 → `"[维度名] 权重不能为负: X.XX"`
 
 ---
 

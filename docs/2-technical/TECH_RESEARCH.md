@@ -2,7 +2,7 @@
 
 > 日期: 2026-07-23 | 版本: v7.1-alpha (审计更新: 2026-08-04) | 状态: 研究阶段 (已完成)
 >
-> **架构演进说明**: v7.6 起旧版 ScoreServiceV4 + `services/scoring/` 已移除, Flask 已移除。当前评分仅使用 DDD `backend/domain/assessment/` 六维体系。
+> **架构演进说明**: v7.6 起旧版 ScoreServiceV4 + `services/scoring/` 已移除, Flask 已移除。当前评分仅使用 DDD `backend/domain/assessment/` 六维体系。v7.11 权重收敛为 `ScoringWeights` 值对象 (单一数据来源), 支持 4 风格预设 (pop/bel_canto/ethnic/rap) + API 驱动重算。
 >
 > **研究结论已转化为实施计划**: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
 >
@@ -42,9 +42,9 @@
 | 轨道 | 路径 | 维度 | 状态 |
 |------|------|------|------|
 | 旧版 | `services/score_service.py` (ScoreServiceV4) | 5维 (音准28%/节奏20%/气息20%/技术18%/艺术14%) | ❌ 已移除 (v7.6) |
-| 新版 | `backend/domain/assessment/value_objects.py` | 6维 (音准13%/节奏12%/气息22%/技术25%/肌肉15%/艺术13%) + 音色±3~-5 | ✅ 生产使用 (v7.10) |
+| 新版 | `backend/domain/assessment/` (value_objects.py + scoring_weights.py) | 6维 (音准13%/节奏12%/气息22%/技术25%/肌肉15%/艺术13%) + 音色±3~-5, 权重单一来源 ScoringWeights | ✅ 生产使用 (v7.11) |
 
-### 2.2 管道模式 (v7.10)
+### 2.2 管道模式 (v7.11)
 
 ```
 Audio → DddFeatureExtractionOrchestrator (特征提取)
@@ -53,9 +53,9 @@ Audio → DddFeatureExtractionOrchestrator (特征提取)
      → ScoreLevel.from_score() (等级判定)
 ```
 
-### 2.3 扩展接口 (v7.6 后仅 DDD 路径)
+### 2.3 扩展接口 (v7.11 后仅 DDD 路径)
 
-新维度接入路径: 创建 `backend/domain/assessment/newdim_scorer.py` → 定义 ValueObject → 接入 ScoringDomainService.calculate_total()。旧版 `services/scoring/` 目录已随 Flask 移除 (v7.6)。
+新维度接入路径: 创建 `backend/domain/assessment/newdim_scorer.py` → 定义 ValueObject → 接入 `ScoringDomainService.calculate_total()` + `ScoringWeights` 值对象 (权重单一来源)。旧版 `services/scoring/` 目录已随 Flask 移除 (v7.6)。
 
 ---
 

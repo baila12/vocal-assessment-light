@@ -5,6 +5,8 @@
 > **关联文档**: [TECH_RESEARCH.md](TECH_RESEARCH.md) | [SCORING.md](SCORING.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 >
 > **实施状态**: P0 ✅ v7.4-v7.5 | P1 ✅ v7.6 | P2 ⏭️ 按需 (ABI 9参数 + 艺术表现重构; Flask + Legacy 代码清理已于 v7.6 完成)
+>
+> **v7.11 补充**: 本文档中"六维权重"相关设计已收敛为 `ScoringWeights` 值对象 (单一数据来源, 支持风格预设/自定义), 详见 [SCORING.md](SCORING.md)。权重数值保持不变 (v7.4 定稿 13/12/22/25/15/13)。
 
 ---
 

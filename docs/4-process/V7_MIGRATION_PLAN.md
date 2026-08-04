@@ -1,12 +1,12 @@
 # v7.0 全栈重构计划: FastAPI + Vue 3 + Element Plus + Electron + 六维评分
 
-> ✅ **迁移已全部完成 (v7.10, 2026-08-04)**。本文档保留作为架构决策记录 (ADR) 和历史参考。
+> ✅ **迁移已全部完成 (v7.11, 2026-08-04)**。本文档保留作为架构决策记录 (ADR) 和历史参考。
 >
-> Phase 0-5 ✅ (v7.0) | 绞杀者内移 ✅ (v7.1.3) | 死代码清理 ✅ (v7.1.4) | 特征提取清理 ✅ (v7.1.5) | audiofeat ✅ (v7.2.0) | 代码审查 ✅ (v7.2.1) | audiofeat 评分 ✅ (v7.3.0) | 安全加固 ✅ (v7.3.1) | 权重调整 ✅ (v7.4) | 音色8维 ✅ (v7.5) | ABI+rubato+attack_slope ✅ (v7.6) | Flag桥接+DDD特征统一 ✅ (v7.7) | GNE+GSAP ✅ (v7.8) | Songs CRUD+数据库BDD ✅ (v7.9) | 歌曲库前端 + 音频播放修复 ✅ (v7.10)
+> Phase 0-5 ✅ (v7.0) | 绞杀者内移 ✅ (v7.1.3) | 死代码清理 ✅ (v7.1.4) | 特征提取清理 ✅ (v7.1.5) | audiofeat ✅ (v7.2.0) | 代码审查 ✅ (v7.2.1) | audiofeat 评分 ✅ (v7.3.0) | 安全加固 ✅ (v7.3.1) | 权重调整 ✅ (v7.4) | 音色8维 ✅ (v7.5) | ABI+rubato+attack_slope ✅ (v7.6) | Flag桥接+DDD特征统一 ✅ (v7.7) | GNE+GSAP ✅ (v7.8) | Songs CRUD+数据库BDD ✅ (v7.9) | 歌曲库前端 + 音频播放修复 ✅ (v7.10) | 评分权重可配置 + 六维权重单一来源 + BDD 基建修复 ✅ (v7.11)
 >
 > **当前架构文档**: [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | **当前状态**: [PROJECT_STATUS.md](PROJECT_STATUS.md)
 >
-> 原始日期: 2026-07-21 | 基于 v6.3 代码库 | TDD + BDD + DDD 驱动 | 26.5 天 (Phase 0-5 计划) + 持续迭代至 v7.10
+> 原始日期: 2026-07-21 | 基于 v6.3 代码库 | TDD + BDD + DDD 驱动 | 26.5 天 (Phase 0-5 计划) + 持续迭代至 v7.11
 
 ---
 
@@ -1945,6 +1945,8 @@ Feature: Electron 桌面应用
 | **v7.7** | **Flag 桥接 + DDD 特征提取统一 (14 自包含模块 + AudiofeatExtractor 20+ 特征)** | — | **✅** |
 | **v7.8** | **GNE 接入 + GSAP 动效系统 + 前后端对齐** | — | **✅** |
 | **v7.9** | **Songs CRUD API + 数据库 BDD + 文档审计** | — | **✅** |
+| **v7.10** | **歌曲库前端页面 + 音频播放修复 + BDD 契约对齐** | — | **✅** |
+| **v7.11** | **六维权重可配置 + ScoringWeights 单一数据来源 + BDD 基建修复** | — | **✅** |
 
 ### 10.1.1 v7.1.3 完成后状态 (2026-07-26)
 
@@ -1958,9 +1960,9 @@ Feature: Electron 桌面应用
 | 真实音频批量 (5 files) | 10/10 PASS, avg Δ=-7.2 |
 | 新增 TDD 测试 (v7.1.3) | +33 |
 
-> **v7.9 当前状态 (2026-08-02)**: 项目持续迭代至 v7.9。
-> 单元测试 406 + 集成测试 33 + 扩展测试 36 = **总计 475** (100% GREEN)。
-> 前端 Vitest 33, vue-tsc 0 errors, vite build ~8.6s。
+> **v7.11 当前状态 (2026-08-04)**: 项目持续迭代至 v7.11。
+> DDD 435 + 集成 50 + 扩展 36 = **总计 521** (100% GREEN)。
+> 前端 Vitest 68, vue-tsc 0 errors, vite build 8.9s。
 > 详见 [PROJECT_STATUS.md](PROJECT_STATUS.md)。
 
 ### 10.2 回归测试 (每 Phase 后运行)

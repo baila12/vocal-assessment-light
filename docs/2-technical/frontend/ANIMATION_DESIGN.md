@@ -1,6 +1,6 @@
 # 前端 GSAP 动效系统 + 布局重构设计 v3.0
 
-> ⚠️ **已废弃**: 本文档描述 v5.x Vanilla JS 前端 (`web/static/js/`) 的动效设计。当前 v7.10 前端已迁移至 Vue 3 + Element Plus (`frontend/src/`)，动效通过 GSAP 3.15 npm 包 + `useGsap()` composable + `<Transition>` 组件实现。本文档保留作为历史参考，部分 GSAP 动画原则仍适用于 Vue 3 实现。
+> ⚠️ **已废弃**: 本文档描述 v5.x Vanilla JS 前端 (`web/static/js/`) 的动效设计。当前 v7.11 前端已迁移至 Vue 3 + Element Plus (`frontend/src/`)，动效通过 GSAP 3.15 npm 包 + `useGsap()` composable + `<Transition>` 组件实现。本文档保留作为历史参考，部分 GSAP 动画原则仍适用于 Vue 3 实现。v7.8 已完成全站 GSAP 动效重建 (6 页面覆盖，prefers-reduced-motion 双重保护)；v7.11 未新增动效。BDD animations.feature 15 场景仍针对旧 Vanilla JS 架构待迁移。
 >
 > 更新: 2026-06-11 | 基于 BDD/TDD/SDD 三驱动 + GSAP 系列技能官方规范
 
@@ -650,7 +650,7 @@ tests/bdd/
 
 ## 附录 A：GSAP 版本与依赖
 
-> **注意**: 以下描述的是 v5.x 旧前端 (Vanilla JS) 的 GSAP 加载方式。v7.10 前端已改用 npm 包 (`"gsap": "^3.15.0"`) 并通过 `useGsap()` composable 管理。
+> **注意**: 以下描述的是 v5.x 旧前端 (Vanilla JS) 的 GSAP 加载方式。v7.11 前端已改用 npm 包 (`"gsap": "^3.15.0"`) 并通过 `useGsap()` composable 管理。
 
 旧前端曾使用 `web/static/lib/gsap/gsap.min.js`。如需 ScrollTrigger 插件：
 
