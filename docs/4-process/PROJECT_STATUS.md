@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-04 | 版本: **v7.10** | 分支: `main`
+> 更新: 2026-08-04 | 版本: **v7.11** | 分支: `main`
 
 ---
 
@@ -83,6 +83,24 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 ---
 
 ## 二、完成功能
+
+### v7.11 (2026-08-04) — 评分权重可配置 + 六维权重单一来源 + BDD 基建修复
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **领域** | `ScoringWeights` 值对象 — 权重单一数据来源 (frozen, validate 总和100%+单维≤50%) | ✅ |
+| **领域** | 4 个风格预设 (流行/美声/民族/说唱, 6 维适配: 原5维×0.85 + muscle 15%) | ✅ |
+| **领域** | `weighted_total()`/`weighted_total_from_scores()` 加权聚合 | ✅ |
+| **领域** | `calculate_total()` 注入 `weights` 参数; value_objects `weighted()` 委托单一来源 | ✅ |
+| **API** | `GET /api/v1/scoring/presets` — 默认权重 + 4 风格预设 | ✅ |
+| **API** | `POST /api/v1/scoring/apply-weights` — 维度分数+权重→总分/等级 (纯前端重算) | ✅ |
+| **API** | flags.py `dimension_weights` 改为 ScoringWeights 单一来源 (此前硬编码) | ✅ |
+| **前端** | `scoring.store.ts` — 预设加载/滑块权重/合法性/自动归一化/纯前端重算 | ✅ |
+| **前端** | `ScoringWeightsPanel.vue` — 预设选择 + 六维滑块 + 总和校验 + 归一化 + 对比重算 | ✅ |
+| **前端** | ReportView 集成权重面板 (muscle_strength→muscle 键映射) | ✅ |
+| **BDD** | scoring-config.feature 6 维契约更新 (API 级 XFAIL→PASS, UI 级保留 XFAIL) | ✅ |
+| **BDD** | 浏览器基建修复: conftest base_url→:8000 + api_client→FastAPI + 前端 `window.__store` 钩子 | ✅ |
+| **测试** | +25 领域 (ScoringWeights) +14 集成 (scoring API) +11 Vitest (scoring.store) | ✅ |
 
 ### v7.10 (2026-08-04) — 标准歌曲库前端页面 + 音频播放修复
 
@@ -187,22 +205,22 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.10)
+## 三、测试状态 (v7.11)
 
 ### 生产测试 (全部 GREEN)
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| DDD 领域 (scorers + value objects + comparison + songs) | 154 | ✅ |
+| DDD 领域 (scorers + value objects + comparison + songs + **ScoringWeights**) | 179 | ✅ |
 | DDD 基建 (extractors + orchestrator + ABI + sqlite) | 149 | ✅ |
 | DDD 对齐 + Flag bridge + GNE | 22 | ✅ |
 | 中间件 | 22 | ✅ |
-| **DDD 合计** | **406** | **100% GREEN** |
-| FastAPI 集成 | 36 | ✅ | (含 v7.10 TestAudioPlayback ×3)
+| **DDD 合计** | **432** | **100% GREEN** |
+| FastAPI 集成 | 50 | ✅ | (含 v7.10 音频播放 ×3 + v7.11 scoring ×14)
 | 扩展测试 (DTW/repos/calibrator) | 36 | ✅ |
-| **生产代码总计** | **478** | **100% GREEN** |
+| **生产代码总计** | **518** | **100% GREEN** |
 
-> 注: DDD 子项 (领域/基建/对齐/中间件) 为近似归类, 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` = 406 为准。
+> 注: DDD 子项 (领域/基建/对齐/中间件) 为近似归类, 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` + 集成 = 485 为准 (独立进程)。
 
 ### 真实音频回归
 
@@ -215,9 +233,9 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| Vitest (stores) | 57 | ✅ 100% | (含 v7.10 songs.store ×24)
+| Vitest (stores) | 68 | ✅ 100% | (v7.10 songs ×24 + v7.11 scoring ×11)
 | vue-tsc type check | 0 errors | ✅ |
-| Vite build | 8.5s | ✅ |
+| Vite build | 8.9s | ✅ |
 
 ### 前端 GSAP 动效 (v7.8 新增)
 
@@ -284,8 +302,10 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | 问题 | 说明 |
 |------|------|
 | BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; 6 features 仍待实现 |
-| BDD animations.feature 旧架构 | 15 scenarios 针对已废弃的 Vanilla JS 架构, 需迁移 |
-| BDD 浏览器基建指向旧 Flask | `tests/bdd/conftest.py` base_url=http://localhost:5000 (Flask 已移除 v7.6); 需改 FastAPI :8000 + 前端 `window.__store` 测试钩子; song-library.feature 12 场景待浏览器 BDD (v7.10 已按其契约构建 UI 选择器) |
+| BDD animations.feature 旧架构 | 15 scenarios 针对已废弃的 Vanilla JS 架构, 需迁移到 Vue 3 DOM 选择器 |
+| ~~BDD 浏览器基建指向旧 Flask~~ | ✅ v7.11: conftest base_url→:8000 + api_client→FastAPI + 前端 `window.__store` 钩子 (setState/getState/emit); song-library.feature 12 场景待浏览器运行 |
+| BDD 浏览器测试需服务运行 | 运行浏览器 BDD 需先 `python backend/main.py` (FastAPI :8000 服务 frontend/dist); 38 个 upload 场景因测试数据 `vocals.wav` 缺失预存失败 |
+| 评分阈值联动 (风格预设) | scoring-config.feature: 各预设阈值微调 (MAE断点等) 未实现 — API 级 PASS, 阈值联动/自动风格检测/UI 面板仍 XFAIL |
 | 选歌录音 (选歌→演唱页) | `#/sing/:songId` 跳转依赖 SingView 扩展 + 后端 metadata 增加 音域/原唱调 字段 (PRD 计划中) |
 
 ---
@@ -314,6 +334,10 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | `backend/infrastructure/persistence/sqlite_song_repo.py` | v7.9 — SQLite 仓储 (CRUD/分页/筛选/去重) |
 | `backend/application/songs/song_library_service.py` | v7.9 — 应用层服务 |
 | `backend/interfaces/api/routes/songs.py` | v7.9 — /api/v1/songs POST/GET/DELETE |
+| `backend/domain/assessment/scoring_weights.py` | v7.11 — 六维权重值对象 + 风格预设 + 校验 + 聚合 |
+| `backend/interfaces/api/routes/scoring.py` | v7.11 — /api/v1/scoring/presets + apply-weights |
+| `frontend/src/stores/scoring.store.ts` | v7.11 — 权重预设/滑块/归一化/纯前端重算 store |
+| `frontend/src/components/scoring/ScoringWeightsPanel.vue` | v7.11 — 权重配置面板 (ReportView 集成) |
 | `backend/main.py` | FastAPI 入口 (Flask 已移除) |
 
 ### 启动命令

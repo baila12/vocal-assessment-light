@@ -14,9 +14,10 @@ scenarios('../features/scoring-config.feature')
 
 # ── Given ──────────────────────────────────────────
 
-@given('Flask 服务已启动')
-def flask_app_running(api_client):
-    assert api_client is not None
+@given('FastAPI 服务已启动')
+def fastapi_app_running(fastapi_client):
+    """v7.11: Flask 已移除, 使用 FastAPI 测试客户端."""
+    assert fastapi_client is not None
 
 
 @given('评分配置文件 scoring_config.py 中定义了风格预设')
@@ -214,26 +215,27 @@ def export_presets():
 
 @then('应返回以下预设:')
 def check_four_style_presets(datatable):
-    """Verify that scoring value objects implement the weight system.
+    """v7.11: 验证 4 个风格预设存在且权重与契约一致 (6 维)."""
+    from backend.domain.assessment.scoring_weights import ScoringWeights
 
-    The current architecture uses fixed weights in value_objects.py,
-    not configurable style presets. This test verifies the foundation
-    (weighted scoring) exists, while marking the dynamic preset feature
-    as aspirational.
-    """
-    from backend.domain.assessment.value_objects import (
-        PitchScore, RhythmScore, BreathScore,
-        TechniqueScore, MuscleStrengthScore, ArtistryScore,
-    )
-    # Verify each dimension has a weighted() method
-    for cls, name in [
-        (PitchScore, 'Pitch'), (RhythmScore, 'Rhythm'),
-        (BreathScore, 'Breath'), (TechniqueScore, 'Technique'),
-        (MuscleStrengthScore, 'Muscle'), (ArtistryScore, 'Artistry'),
-    ]:
-        assert hasattr(cls, 'weighted'), f'{name} missing weighted() method'
+    presets = ScoringWeights.presets()
+    assert set(presets.keys()) == {'pop', 'bel_canto', 'ethnic', 'rap'}
 
-    pytest.xfail('Dynamic style presets not yet implemented (current: fixed weights in value_objects.py)')
+    # datatable 是 list[list] — 首行表头, 随后每行一个预设
+    style_key = {'流行': 'pop', '美声': 'bel_canto', '民族': 'ethnic', '说唱': 'rap'}
+    col_index = {h: i for i, h in enumerate(datatable[0])}
+    for row in datatable[1:]:
+        style_cn = row[0]
+        key = style_key[style_cn]
+        w = presets[key]
+        # 各维度按表头顺序断言 (Muscle 列存在 → 6 维)
+        for dim in ['Pitch', 'Rhythm', 'Breath', 'Technique', 'Muscle', 'Artistry']:
+            expected_pct = int(row[col_index[dim]].rstrip('%'))
+            actual = getattr(w, dim.lower()) * 100
+            assert abs(actual - expected_pct) < 0.5, (
+                f'{style_cn} {dim} 期望 {expected_pct}%, 实际 {actual:.1f}%'
+            )
+        assert w.sum() == pytest.approx(1.0), f'{style_cn} 权重总和 != 100%'
 
 
 @then('每种预设应有对应的阈值微调参数 (PitchThresholds MAE断点等)')
@@ -243,7 +245,8 @@ def check_preset_thresholds():
 
 @then('默认使用 "流行" 预设 (如用户未指定)')
 def check_default_pop_preset():
-    pytest.xfail('Dynamic preset selection not implemented')
+    from backend.domain.assessment.scoring_weights import ScoringWeights
+    assert ScoringWeights.default_preset_name() == 'pop'
 
 
 @then('不仅权重变化, 各维度的阈值也应联动:')
@@ -288,27 +291,18 @@ def check_custom_slider_mode():
 
 @then('五维权重总和必须为 100% (前端实时校验 + 后端验证)')
 def check_weight_sum_must_be_100():
-    """Verify weight sum validation exists in the scoring domain service."""
-    from backend.domain.assessment.services import ScoringDomainService
-    from backend.domain.assessment.pitch_scorer import PitchScorer, PitchFeatures
-    from backend.domain.assessment.rhythm_scorer import RhythmScorer, RhythmFeatures
-    from backend.domain.assessment.breath_scorer import BreathScorer, BreathFeatures
-    from backend.domain.assessment.technique_scorer import TechniqueScorer, TechniqueFeatures
-    from backend.domain.assessment.muscle_scorer import MuscleStrengthScorer, MuscleFeatures
-    from backend.domain.assessment.artistry_scorer import ArtistryScorer, ArtistryFeatures
-    from backend.domain.assessment.timbre_adjuster import TimbreAdjuster, TimbreFeatures
-
-    svc = ScoringDomainService()
-    pitch = PitchScorer().calculate(PitchFeatures())
-    rhythm = RhythmScorer().calculate(RhythmFeatures())
-    breath = BreathScorer().calculate(BreathFeatures())
-    technique = TechniqueScorer().calculate(TechniqueFeatures())
-    muscle = MuscleStrengthScorer().calculate(MuscleFeatures())
-    artistry = ArtistryScorer().calculate(ArtistryFeatures())
-    timbre = TimbreAdjuster().calculate(TimbreFeatures())
-
-    total = svc.calculate_total(pitch, rhythm, breath, technique, muscle, artistry, timbre)
-    assert 0.0 <= total <= 100.0, f'Total score {total} out of range'
+    """v7.11: ScoringWeights 校验 — 合法权重通过, 总和≠100% 拒绝."""
+    import pytest as _pt
+    from backend.domain.assessment.scoring_weights import (
+        ScoringWeights, WeightsValidationError,
+    )
+    valid = {"pitch": 0.13, "rhythm": 0.12, "breath": 0.22,
+             "technique": 0.25, "muscle": 0.15, "artistry": 0.13}
+    ScoringWeights.from_dict(valid)  # 不抛异常 = 通过
+    bad = {"pitch": 0.3, "rhythm": 0.3, "breath": 0.25,
+           "technique": 0.2, "muscle": 0.0, "artistry": 0.0}  # 总和 105%
+    with _pt.raises(WeightsValidationError, match='100%'):
+        ScoringWeights.from_dict(bad)
 
 
 @then('保存后, 该歌曲的评分参数存在数据库的 scoring_config 字段')
@@ -338,9 +332,17 @@ def check_custom_param_scoring():
 
 @then(parsers.parse('总和为 {total}%, 超过 100%'))
 def check_total_exceeds_100(total):
-    """验证 Gherkin 场景描述的超限权重 (>100%) — 不使用 pytest 私有属性"""
+    """验证超限权重 (115%) 会被 ScoringWeights 拒绝."""
+    import pytest as _pt
+    from backend.domain.assessment.scoring_weights import (
+        ScoringWeights, WeightsValidationError,
+    )
     total_value = float(total)
     assert total_value > 100, f'Expected >100%, got {total_value}%'
+    bad = {"pitch": 0.3, "rhythm": 0.3, "breath": 0.25,
+           "technique": 0.2, "muscle": 0.1, "artistry": 0.0}  # 总和 115%
+    with _pt.raises(WeightsValidationError):
+        ScoringWeights.from_dict(bad)
 
 
 @then('"应用" 按钮应置灰')
@@ -450,7 +452,15 @@ def check_breath_card_excluded_label():
 
 @then('应拒绝并提示 "单个维度权重不能超过 50%"')
 def check_single_weight_max_50():
-    pytest.xfail('Single weight validation not implemented')
+    """v7.11: ScoringWeights.validate 拒绝单维 >50% (domain 校验)."""
+    import pytest as _pt
+    from backend.domain.assessment.scoring_weights import (
+        ScoringWeights, WeightsValidationError,
+    )
+    bad = {"pitch": 0.55, "rhythm": 0.1, "breath": 0.1,
+           "technique": 0.1, "muscle": 0.1, "artistry": 0.05}
+    with _pt.raises(WeightsValidationError, match='50%'):
+        ScoringWeights.from_dict(bad)
 
 
 @then('避免单维度主导评分 (防止用户误操作)')

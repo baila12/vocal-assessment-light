@@ -1,6 +1,45 @@
-# 变更日志 v7.10
+# 变更日志 v7.11
 
 > 更新: 2026-08-04 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.11 — 评分权重可配置 + 六维权重单一来源 + BDD 基建修复 (2026-08-04)
+
+### 概述
+
+实现 `scoring-config.feature` 权重可配置核心:**六维权重收敛为单一数据来源** `ScoringWeights` 值对象(替代 6 个硬编码 `weighted()` 方法),提供 4 个风格预设(流行/美声/民族/说唱)、校验(总和 100% + 单维 ≤50%)、聚合与序列化。新增 2 个评分权重 API + 前端权重面板。同时修复 BDD 浏览器基建(conftest 指向已删除 Flask)。
+
+### 领域层 (backend/domain/assessment/)
+
+- 🆕 `scoring_weights.py`: `ScoringWeights` frozen 值对象 — `default()` (v7.4 定稿 13/12/22/25/15/13)、4 风格预设 (原 5 维×0.85 + muscle 15%)、`validate()` (总和 100% + 单维 ≤50% + 非负)、`weighted_total()`/`weighted_total_from_scores()`、`to_dict`/`from_dict`
+- 🔧 `value_objects.py`: 6 个 `weighted()` 委托 `ScoringWeights.default()` — 消除权重硬编码
+- 🔧 `services.py`: `calculate_total(..., weights=None)` — 注入 ScoringWeights 支持自定义权重计算
+
+### API (backend/interfaces/api/)
+
+- 🆕 `routes/scoring.py` + `schemas/scoring.py`: `GET /api/v1/scoring/presets` (默认 + 4 预设)、`POST /api/v1/scoring/apply-weights` (维度分数+权重→总分/等级/星标, 纯前端重算)
+- 🔧 `routes/flags.py`: `dimension_weights` 从硬编码 → `ScoringWeights.default()` 单一来源
+- 🔧 `main.py`: 注册 scoring 路由; 版本 7.10.0 → 7.11.0
+
+### 前端 (frontend/)
+
+- 🆕 `stores/scoring.store.ts`: 预设加载/选中/自定义滑块权重/总和校验/自动归一化/`recalc()` 纯前端重算
+- 🆕 `components/scoring/ScoringWeightsPanel.vue`: 预设单选 + 六维滑块 (0-50%) + 实时总和校验 + 自动归一化 + 对比重算 (含 vs 原总分差值)
+- 🔧 `views/ReportView.vue`: 集成权重面板 (muscle_strength→muscle 键映射); `types/api.ts`: +ScoringWeightsDto/Preset/PresetsData/ApplyWeights 类型
+- 🆕 `tests/unit/stores/scoring.test.ts`: 11 条 TDD 用例 (预设/校验/归一化/recalc)
+
+### BDD 基建修复
+
+- 🔧 `tests/bdd/conftest.py`: `api_client` 旧 Flask `from api import create_app` → FastAPI TestClient; `base_url` :5000 → **:8000** (FastAPI 服务 frontend/dist)
+- 🆕 `frontend/src/main.ts`: `window.__store` 测试钩子 (setState/getState/emit) — 浏览器 BDD 注入 Pinia store 状态
+- 🔧 `tests/bdd/features/scoring-config.feature` + `test_scoring_config_steps.py`: 6 维契约更新 (加 Muscle 列); API 级步骤 XFAIL→PASS (预设校验/默认流行/超50%拒绝/总和校验)
+
+### 测试总结
+
+- DDD 领域: 154 → **179 tests**; DDD 合计: 406 → **432 GREEN**
+- 集成: 36 → **50 GREEN** (scoring API +14)
+- 前端 Vitest: 57 → **68 GREEN** (scoring.store +11); vue-tsc 0 errors; build 8.9s
 
 ---
 

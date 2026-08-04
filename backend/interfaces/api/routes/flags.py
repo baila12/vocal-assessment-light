@@ -50,14 +50,16 @@ async def get_feature_flags():
         "demucs": True,  # demucs 通过 pip 安装, 不依赖本地模型文件
     }
 
-    # ---- Dimension Weights (v7.4, from value_objects.py) ----
+    # ---- Dimension Weights (v7.11: 单一数据来源 ScoringWeights) ----
+    from backend.domain.assessment.scoring_weights import ScoringWeights
+    _default_weights = ScoringWeights.default()
     dimension_weights = {
-        "pitch": 13,
-        "rhythm": 12,
-        "breath": 22,
-        "technique": 25,
-        "muscle_strength": 15,
-        "artistry": 13,
+        "pitch": round(_default_weights.pitch * 100),
+        "rhythm": round(_default_weights.rhythm * 100),
+        "breath": round(_default_weights.breath * 100),
+        "technique": round(_default_weights.technique * 100),
+        "muscle_strength": round(_default_weights.muscle * 100),
+        "artistry": round(_default_weights.artistry * 100),
     }
 
     # ---- Feature Flags ----

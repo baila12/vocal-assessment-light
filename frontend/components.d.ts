@@ -36,6 +36,7 @@ declare module 'vue' {
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     ElResult: typeof import('element-plus/es')['ElResult']
     ElSelect: typeof import('element-plus/es')['ElSelect']
+    ElSlider: typeof import('element-plus/es')['ElSlider']
     ElSwitch: typeof import('element-plus/es')['ElSwitch']
     ElTable: typeof import('element-plus/es')['ElTable']
     ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
@@ -48,6 +49,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     ScoreCard: typeof import('./src/components/ScoreCard.vue')['default']
     ScoreRadar: typeof import('./src/components/ScoreRadar.vue')['default']
+    ScoringWeightsPanel: typeof import('./src/components/scoring/ScoringWeightsPanel.vue')['default']
     TopNav: typeof import('./src/components/layout/TopNav.vue')['default']
     WaveformCanvas: typeof import('./src/components/WaveformCanvas.vue')['default']
   }

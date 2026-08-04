@@ -39,8 +39,29 @@ if (typeof window !== 'undefined') {
 
 const app = createApp(App)
 
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
 app.use(ElementPlus, { locale: undefined })  // Phase 4: 添加 zhCn locale
+
+// ---- BDD 浏览器测试钩子 (window.__store) ----
+// 浏览器级 BDD (tests/bdd/ 下 mark.browser 场景) 通过该钩子注入/读取 Pinia store
+// 状态, 避免依赖真实后端数据。生产构建保留以支持浏览器测试 (本地离线应用)。
+// API: setState(partial, storeName) / getState(storeName) / emit(eventName, payload)
+if (typeof window !== 'undefined') {
+  ;(window as unknown as Record<string, unknown>).__store = {
+    setState(partial: Record<string, unknown>, storeName: string) {
+      const store = (pinia as unknown as { _s: Map<string, { $patch: (p: unknown) => void }> })._s.get(storeName)
+      if (store) store.$patch(partial)
+    },
+    getState(storeName: string) {
+      const store = (pinia as unknown as { _s: Map<string, { $state: unknown }> })._s.get(storeName)
+      return store ? store.$state : undefined
+    },
+    emit(eventName: string, payload?: unknown) {
+      window.dispatchEvent(new CustomEvent(`vas:${eventName}`, { detail: payload }))
+    },
+  }
+}
 
 app.mount('#app')

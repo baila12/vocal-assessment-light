@@ -20,6 +20,7 @@ import ScoreCard from '@/components/ScoreCard.vue'
 import ScoreRadar from '@/components/ScoreRadar.vue'
 import AudioPlayer from '@/components/AudioPlayer.vue'
 import WaveformCanvas from '@/components/WaveformCanvas.vue'
+import ScoringWeightsPanel from '@/components/scoring/ScoringWeightsPanel.vue'
 import type { SixDimensionScores } from '@/types/score'
 import type { AssessmentResult } from '@/types/api'
 
@@ -48,6 +49,19 @@ const scores = computed<SixDimensionScores>(() => {
 const heuristicDims = computed(() => result.value?.heuristic_dimensions ?? [])
 const normalization = computed(() => result.value?.normalization)
 const hasNormNote = computed(() => normalization.value?.applied && normalization.value?.note)
+
+// v7.11: apply-weights API 用 muscle 键 (后端 ScoringWeights), 映射 muscle_strength
+const applyScores = computed<Record<string, number>>(() => {
+  const s = scores.value
+  return {
+    pitch: s.pitch,
+    rhythm: s.rhythm,
+    breath: s.breath,
+    technique: s.technique,
+    muscle: s.muscle_strength,
+    artistry: s.artistry,
+  }
+})
 
 const scoreCards = computed(() => {
   const s = scores.value
@@ -264,6 +278,15 @@ function onTimeUpdate(time: number): void {
             />
           </div>
         </div>
+      </div>
+
+      <!-- v7.11: 评分权重配置 — 预设/自定义滑块/纯前端重算对比 -->
+      <div class="weights-section">
+        <ScoringWeightsPanel
+          :dimension-scores="applyScores"
+          :timbre-adjustment="result?.timbre_adjustment ?? 0"
+          :original-total="result?.total_score"
+        />
       </div>
 
       <!-- 音频回放 + 波形可视化 -->

@@ -105,3 +105,58 @@ export interface SongDeleteResponse {
   success: boolean
   deleted: boolean
 }
+
+/** v7.11: 六维权重 (小数, 总和=1.0) — 对齐后端 ScoringWeights */
+export interface ScoringWeightsDto {
+  pitch: number
+  rhythm: number
+  breath: number
+  technique: number
+  muscle: number
+  artistry: number
+}
+
+/** v7.11: 风格预设 (GET /api/v1/scoring/presets 项) */
+export interface ScoringPreset {
+  name: string
+  label: string
+  weights: ScoringWeightsDto
+}
+
+/** v7.11: presets 响应数据 */
+export interface ScoringPresetsData {
+  default: ScoringPreset
+  presets: ScoringPreset[]
+  default_preset: string
+}
+
+export interface ScoringPresetsResponse {
+  success: boolean
+  data: ScoringPresetsData
+  error?: string
+}
+
+/** v7.11: apply-weights 请求/响应 (POST /api/v1/scoring/apply-weights) */
+export interface ApplyWeightsRequest {
+  dimension_scores: Record<string, number>
+  weights?: ScoringWeightsDto
+  preset?: string
+  timbre_adjustment?: number
+}
+
+export interface ApplyWeightsData {
+  total_score: number
+  level: string
+  grade: string
+  color: string
+  stars: string
+  weighted_dimensions: Record<string, number>
+  applied_weights: ScoringWeightsDto
+  applied_preset: string
+}
+
+export interface ApplyWeightsResponse {
+  success: boolean
+  data: ApplyWeightsData
+  error?: string
+}

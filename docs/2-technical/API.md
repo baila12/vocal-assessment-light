@@ -1,4 +1,4 @@
-# API 接口文档 v7.10
+# API 接口文档 v7.11
 
 > FastAPI 为主 (Flask 已移除 v7.6)
 
@@ -28,6 +28,23 @@
 | POST | `/api/v1/songs` | 添加歌曲 (multipart) | < 200ms |
 | DELETE | `/api/v1/songs/{id}` | 删除歌曲 | < 100ms |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | < 50ms |
+| GET | `/api/v1/scoring/presets` | 评分权重预设 (v7.11): 默认 + 4 风格 | < 50ms |
+| POST | `/api/v1/scoring/apply-weights` | 维度分数+权重→总分/等级 (v7.11, 纯前端重算) | < 50ms |
+
+### 评分权重 API (v7.11)
+
+**GET `/api/v1/scoring/presets`** — 返回默认权重 (v7.4 13/12/22/25/15/13) + 4 风格预设:
+`pop`(流行) / `bel_canto`(美声) / `ethnic`(民族) / `rap`(说唱), 每项含 `name`/`label`/`weights`(6 维小数)。权重单一数据来源 `ScoringWeights`。
+
+**POST `/api/v1/scoring/apply-weights`** — 纯前端重算(不重新分析音频):
+```json
+{
+  "dimension_scores": {"pitch": 90, "rhythm": 50, "breath": 70, "technique": 70, "muscle": 70, "artistry": 70},
+  "preset": "rap",            // 或 weights: {"pitch": 0.08, ...} (二选一, 默认用 default)
+  "timbre_adjustment": 0      // 复用原分析音色调整
+}
+```
+校验: 权重总和=100% + 单维 ≤50% (400 拒绝)。返回 `total_score`/`level`/`grade`/`color`/`stars`/`weighted_dimensions`。
 
 ## WebSocket
 

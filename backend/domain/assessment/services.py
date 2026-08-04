@@ -17,6 +17,7 @@ from backend.domain.assessment.value_objects import (
     TimbreAdjustment,
 )
 from backend.domain.assessment.errors import InvalidScoreError
+from backend.domain.assessment.scoring_weights import ScoringWeights
 
 
 class ScoringDomainService:
@@ -34,20 +35,26 @@ class ScoringDomainService:
         muscle: MuscleStrengthScore,
         artistry: ArtistryScore,
         timbre: TimbreAdjustment | None = None,
+        weights: ScoringWeights | None = None,
     ) -> float:
         """
         计算六维加权总分 + 音色调整。
 
+        v7.11: weights 参数 — 权重的单一数据来源 ScoringWeights.
+        不传则用默认 v7.4 权重 (13/12/22/25/15/13); 传入则按自定义权重计算
+        (支持风格预设 / 用户自定义 / 系统推荐 — scoring-config.feature)。
+
         Returns:
             float: 最终总分 (clamped [0, 100])
         """
-        total = (
-            pitch.weighted()
-            + rhythm.weighted()
-            + breath.weighted()
-            + technique.weighted()
-            + muscle.weighted()
-            + artistry.weighted()
+        w = weights or ScoringWeights.default()
+        total = w.weighted_total(
+            pitch=pitch,
+            rhythm=rhythm,
+            breath=breath,
+            technique=technique,
+            muscle=muscle,
+            artistry=artistry,
         )
 
         result = round(timbre.apply(total) if timbre else total, 1)

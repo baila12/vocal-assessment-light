@@ -1,6 +1,6 @@
-# 评分算法文档 v7.10
+# 评分算法文档 v7.11
 
-> 更新: 2026-08-04 | DDD 唯一评分路径 | 478 测试 GREEN (unit 406 + int 36 + ext 36)
+> 更新: 2026-08-04 | DDD 唯一评分路径 | 518 测试 GREEN (unit/DDD 432 + int 50 + ext 36)
 >
 > **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md) | [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 
@@ -23,7 +23,25 @@
 >
 > v7.5 增强: Technique HNR 单调化 + 实谱 HF 解耦, Muscle formant/overtone 校准, Artistry 真实 F0 CV, Timbre 八维剖面
 >
+> v7.11: 权重收敛为单一数据来源 `ScoringWeights` 值对象 (见下节)
+>
 > ⚠️ = 启发式代理指标。详见 [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)。
+
+### 权重单一来源 — ScoringWeights (v7.11)
+
+权重不再硬编码在 6 个 `Score.weighted()` 方法, 收敛为 `backend/domain/assessment/scoring_weights.py`:
+
+- `ScoringWeights.default()` — v7.4 定稿 13/12/22/25/15/13
+- 4 风格预设 (`pop`/`bel_canto`/`ethnic`/`rap`): 按 `scoring-config.feature` 原 5 维比例 ×0.85 + muscle 默认 15%
+- `validate()` — 总和=100% + 单维 ∈[0,50%] (系统边界 from_dict/API 校验)
+- `calculate_total(..., weights=None)` — 注入自定义权重计算 (风格预设/用户自定义/系统推荐)
+
+| 预设 | Pitch | Rhythm | Breath | Technique | Muscle | Artistry | 说明 |
+|------|:---:|:---:|:---:|:---:|:---:|:---:|------|
+| 流行 | 21% | 17% | 13% | 17% | 15% | 17% | 均衡, 艺术表现较高 |
+| 美声 | 25% | 13% | 21% | 17% | 15% | 9% | 偏重音准和气息 |
+| 民族 | 24% | 15% | 15% | 15% | 15% | 16% | 五维均衡 |
+| 说唱 | 8% | 30% | 9% | 13% | 15% | 25% | 节奏+艺术表现核心 |
 
 ### 等级划分
 

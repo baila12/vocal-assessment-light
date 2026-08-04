@@ -3,8 +3,8 @@ BDD 测试专用 fixtures.
 
 Provides:
 - test_data_dir: 测试数据根目录
-- api_client: Flask 测试客户端 (session 级别复用)
-- base_url: 应用根 URL (Playwright)
+- api_client: FastAPI 测试客户端 (session 级别复用) — v7.11: Flask 已移除
+- base_url: 应用根 URL (Playwright) — FastAPI :8000 生产构建
 - page: Playwright 浏览器页面 (function 级别)
 - browser: Playwright 浏览器实例 (session 级别)
 """
@@ -24,16 +24,12 @@ def test_data_dir():
 
 @pytest.fixture(scope='session')
 def api_client():
-    """Flask 测试客户端 (session 级别复用)."""
-    project_root = Path(__file__).parent.parent.parent
-    sys.path.insert(0, str(project_root))
-
-    from api import create_app
+    """FastAPI 测试客户端 (session 级别复用). v7.11: 原 Flask client 已随 Flask 移除."""
+    from backend.main import create_app
+    from fastapi.testclient import TestClient
 
     app = create_app()
-    app.config['TESTING'] = True
-
-    with app.test_client() as client:
+    with TestClient(app) as client:
         yield client
 
 
@@ -76,8 +72,11 @@ def fastapi_client():
 
 @pytest.fixture(scope='session')
 def base_url():
-    """应用基础 URL."""
-    return 'http://localhost:5000'
+    """应用基础 URL — v7.11: Flask :5000 已移除, FastAPI :8000 服务 frontend/dist.
+
+    运行浏览器 BDD 前需: python backend/main.py (生产构建挂载 /)。
+    """
+    return 'http://localhost:8000'
 
 
 @pytest.fixture(scope='session')
@@ -112,7 +111,7 @@ def page(browser, base_url):
         page.goto(base_url, timeout=10000)
     except Exception:
         # Server may not be running — skip browser tests
-        pytest.skip('Flask server not reachable at ' + base_url)
+        pytest.skip('FastAPI server not reachable at ' + base_url)
 
     yield page
     context.close()

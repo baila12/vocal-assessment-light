@@ -175,3 +175,55 @@ class TestScoringDomainService:
             make_technique(80), make_muscle(80), make_artistry(80),
         )
         assert result == 80.0
+
+
+class TestScoringDomainServiceCustomWeights:
+    """v7.11: calculate_total 支持注入 ScoringWeights (权重可配置核心)"""
+
+    def test_custom_weights_applied(self):
+        from backend.domain.assessment.scoring_weights import ScoringWeights
+        service = ScoringDomainService()
+        w = ScoringWeights(pitch=1.0, rhythm=0.0, breath=0.0,
+                           technique=0.0, muscle=0.0, artistry=0.0)
+        result = service.calculate_total(
+            make_pitch(90), make_rhythm(80), make_breath(80),
+            make_technique(80), make_muscle(80), make_artistry(80),
+            weights=w,
+        )
+        assert result == 90.0
+
+    def test_no_weights_uses_v7_4_default(self):
+        service = ScoringDomainService()
+        result = service.calculate_total(
+            make_pitch(80), make_rhythm(80), make_breath(80),
+            make_technique(80), make_muscle(80), make_artistry(80),
+        )
+        assert result == 80.0
+
+    def test_rap_preset_pulls_total_toward_rhythm(self):
+        from backend.domain.assessment.scoring_weights import ScoringWeights
+        service = ScoringDomainService()
+        args = dict(
+            pitch=make_pitch(90), rhythm=make_rhythm(50),
+            breath=make_breath(70), technique=make_technique(70),
+            muscle=make_muscle(70), artistry=make_artistry(70),
+        )
+        default_total = service.calculate_total(**args)
+        rap_total = service.calculate_total(**args, weights=ScoringWeights.rap())
+        # 说唱 rhythm 权重 30% > 默认 12% → 低 rhythm 拉低总分
+        assert rap_total < default_total
+
+    def test_custom_weights_with_timbre(self):
+        from backend.domain.assessment.scoring_weights import ScoringWeights
+        service = ScoringDomainService()
+        timbre = TimbreAdjustment(adjustment=3.0, brightness_score=90.0,
+                                  warmth_score=90.0, nasality_score=0.0, confidence=0.9)
+        w = ScoringWeights(pitch=1.0, rhythm=0.0, breath=0.0,
+                           technique=0.0, muscle=0.0, artistry=0.0)
+        result = service.calculate_total(
+            make_pitch(85), make_rhythm(85), make_breath(85),
+            make_technique(85), make_muscle(85), make_artistry(85),
+            timbre=timbre, weights=w,
+        )
+        # base=85, +3 → 88
+        assert result == 88.0

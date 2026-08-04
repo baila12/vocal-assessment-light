@@ -10,6 +10,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from backend.shared.domain_types import ScoreValue
+from backend.domain.assessment.scoring_weights import ScoringWeights
 
 
 # ============================================================
@@ -31,7 +32,8 @@ class PitchScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.13  # v7.4: 10%→13%
+        # v7.11: 委托 ScoringWeights 单一数据来源 (v7.4: 13%)
+        return self.raw_score * ScoringWeights.default().pitch
 
 
 # ============================================================
@@ -49,7 +51,7 @@ class RhythmScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.12  # v7.4: 10%→12%
+        return self.raw_score * ScoringWeights.default().rhythm  # v7.4: 12%
 
 
 # ============================================================
@@ -70,7 +72,7 @@ class BreathScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.22  # v7.4: 20%→22%
+        return self.raw_score * ScoringWeights.default().breath  # v7.4: 22%
 
 
 # ============================================================
@@ -88,7 +90,7 @@ class TechniqueScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.25
+        return self.raw_score * ScoringWeights.default().technique  # 25%
 
 
 # ============================================================
@@ -109,7 +111,7 @@ class MuscleStrengthScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.15  # v7.4: 25%→15%
+        return self.raw_score * ScoringWeights.default().muscle  # v7.4: 15%
 
 
 # ============================================================
@@ -127,7 +129,7 @@ class ArtistryScore:
     diagnosis: tuple[str, ...] = ()
 
     def weighted(self) -> float:
-        return self.raw_score * 0.13  # v7.4: 10%→13%
+        return self.raw_score * ScoringWeights.default().artistry  # v7.4: 13%
 
 
 # ============================================================

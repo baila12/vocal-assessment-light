@@ -80,8 +80,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app() -> FastAPI:
     """FastAPI 应用工厂 — 绞杀者模式主入口"""
     app = FastAPI(
-        title="VAS v7.10",
-        version="7.10.0",
+        title="VAS v7.11",
+        version="7.11.0",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
@@ -149,6 +149,7 @@ def create_app() -> FastAPI:
     from backend.interfaces.api.routes.audio import router as audio_router
     from backend.interfaces.api.routes.songs import router as songs_router
     from backend.interfaces.api.routes.flags import router as flags_router  # v7.7
+    from backend.interfaces.api.routes.scoring import router as scoring_router  # v7.11
 
     app.include_router(health_router, tags=["health"])
     app.include_router(assessment_router, prefix="/api/v1", tags=["assessment"])
@@ -156,6 +157,7 @@ def create_app() -> FastAPI:
     app.include_router(audio_router, prefix="/api/v1", tags=["audio"])
     app.include_router(songs_router, prefix="/api/v1", tags=["songs"])
     app.include_router(flags_router, prefix="/api/v1", tags=["flags"])  # v7.7
+    app.include_router(scoring_router, prefix="/api/v1", tags=["scoring"])  # v7.11
 
     # ===== Phase 3: 注册 WebSocket 路由 =====
     from backend.interfaces.ws import router as ws_router
