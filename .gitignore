@@ -80,6 +80,9 @@ server_out.txt
 server_*.log
 data/screenshots/
 
+# SQLite 歌曲库运行时数据 (未隔离集成测试会生成空库污染)
+data/songs.db
+
 # Generated files (Demucs output, reports)
 web/static/htdemucs*/
 web/static/htdemucs_ft/
