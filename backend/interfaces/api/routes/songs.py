@@ -49,6 +49,7 @@ async def create_song(
     bpm: int = Form(0),
     difficulty: str = Form('beginner'),
     style: str = Form('pop'),
+    vocal_range: str = Form(''),
     file: UploadFile | None = File(None),
     service: SongLibraryService = Depends(get_song_service),
     settings: Settings = Depends(get_settings),
@@ -70,6 +71,7 @@ async def create_song(
         bpm=max(0, bpm),
         difficulty=difficulty,
         style=style,
+        vocal_range=vocal_range.strip(),
     )
 
     # 保存音频文件 (可选) — 写入失败返回明确错误, 不泄露内部路径

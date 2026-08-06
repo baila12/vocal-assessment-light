@@ -212,7 +212,7 @@ function onTimeUpdate(time: number): void {
     <!-- 报告内容 -->
     <template v-else>
       <!-- 总分概览 -->
-      <div class="score-hero">
+      <div class="score-hero" data-test="score-hero">
         <div class="score-hero-left">
           <span class="total-label">综合评分</span>
           <div class="total-score-row">
@@ -251,7 +251,7 @@ function onTimeUpdate(time: number): void {
       </div>
 
       <!-- 六维雷达图 -->
-      <div class="radar-section">
+      <div class="radar-section" data-test="radar-section">
         <h3 class="section-title">六维评分雷达图</h3>
         <ScoreRadar :scores="scores" :heuristic-dimensions="heuristicDims" />
         <p v-if="heuristicDims.length > 0" class="heuristic-note">
@@ -268,7 +268,7 @@ function onTimeUpdate(time: number): void {
       <div class="cards-section">
         <h3 class="section-title">各维度详情</h3>
         <div class="cards-grid">
-          <div v-for="card in scoreCards" :key="card.key" class="score-card-wrap">
+          <div v-for="card in scoreCards" :key="card.key" class="score-card-wrap" data-test="score-card">
             <ScoreCard
               :label="card.label"
               :score="card.score"
@@ -310,7 +310,7 @@ function onTimeUpdate(time: number): void {
         <h3 class="section-title">改进建议</h3>
         <el-card shadow="never">
           <ul class="advice-list">
-            <li v-for="(item, i) in result.advice" :key="i" class="advice-item">
+            <li v-for="(item, i) in result.advice" :key="i" class="advice-item" data-test="advice-item">
               <el-icon color="var(--el-color-primary)"><CircleCheck /></el-icon>
               <span>{{ item }}</span>
             </li>

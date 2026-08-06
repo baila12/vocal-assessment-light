@@ -8,8 +8,9 @@
  */
 
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Delete, VideoPlay } from '@element-plus/icons-vue'
+import { Search, Plus, Delete, VideoPlay, Headset } from '@element-plus/icons-vue'
 import { useGsap } from '@/composables/useGsap'
 import { useApi } from '@/composables/useApi'
 import { useSongsStore } from '@/stores/songs.store'
@@ -148,6 +149,13 @@ function highlightTitle(title: string): HighlightPart[] {
     idx = found + q.length
   }
   return parts.length ? parts : [{ key: 'full', text: title, hit: false }]
+}
+
+// ---- 选歌录音 (v7.12: 曲库 → 演唱页) ----
+const router = useRouter()
+
+function selectSongForSing(song: SongRecord): void {
+  router.push({ name: 'sing', params: { songId: song.id } })
 }
 
 // ---- 删除 ----
@@ -366,6 +374,7 @@ const isEmptyLibrary = computed(
             <el-descriptions-item label="BPM">{{ song.metadata.bpm || '—' }}</el-descriptions-item>
             <el-descriptions-item label="难度">{{ getDifficultyLabel(song.metadata.difficulty) }}</el-descriptions-item>
             <el-descriptions-item label="风格">{{ getStyleLabel(song.metadata.style) }}</el-descriptions-item>
+            <el-descriptions-item label="音域">{{ song.metadata.vocal_range || '—' }}</el-descriptions-item>
             <el-descriptions-item label="时长">{{ formatDuration(song.duration_seconds) }}</el-descriptions-item>
             <el-descriptions-item label="添加时间">{{ formatDate(song.created_at) }}</el-descriptions-item>
           </el-descriptions>
@@ -376,6 +385,16 @@ const isEmptyLibrary = computed(
           <p v-else class="no-audio-hint">该歌曲未上传音频，无法试听</p>
 
           <div class="detail-actions">
+            <el-button
+              type="primary"
+              plain
+              size="small"
+              :icon="Headset"
+              data-test="sing-this-song"
+              @click.stop="selectSongForSing(song)"
+            >
+              选择此歌
+            </el-button>
             <el-button
               type="danger"
               plain

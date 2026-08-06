@@ -13,18 +13,97 @@
  *   6. window.__audioCleanup() fallback
  */
 
-import { ref, onBeforeUnmount, onMounted, watch } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Microphone, VideoPause } from '@element-plus/icons-vue'
+import { Microphone, VideoPause, Headset, ArrowRight } from '@element-plus/icons-vue'
 import { useGsap } from '@/composables/useGsap'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useAudioContext } from '@/composables/useAudioContext'
+import { useSongsStore } from '@/stores/songs.store'
+import { apiClient, ApiError } from '@/api/client'
 import { scoreColor } from '@/utils/colors'
+import type { SongRecord, SongDetailResponse } from '@/types/api'
 import type { WsEvent } from '@/composables/useWebSocket'
 
 // ---- Composables ----
 const wsManager = useWebSocket()
 const audioManager = useAudioContext()
+const route = useRoute()
+const router = useRouter()
+const songsStore = useSongsStore()
+
+// ---- 选歌状态 (v7.12: 选歌录音 — 从曲库选择参考歌曲) ----
+const selectedSong = ref<SongRecord | null>(null)
+const songLoading = ref(false)
+const songError = ref<string | null>(null)
+const songId = computed(() => (route.params.songId as string | undefined) ?? '')
+
+/** 加载曲库列表供选歌区展示 (无 songId 时) */
+async function loadSongCandidates(): Promise<void> {
+  try {
+    if (songsStore.songs.length === 0) await songsStore.fetchSongs()
+  } catch {
+    // 曲库加载失败不阻塞演唱页
+  }
+}
+
+/** 选择歌曲 → 路由跳转到 /sing/:songId (携带参考歌曲) */
+function selectSong(song: SongRecord): void {
+  if (isSinging.value) {
+    ElMessage.warning('录音进行中，请先停止录音')
+    return
+  }
+  router.push({ name: 'sing', params: { songId: song.id } })
+}
+
+/** 取消选择 → 回到 /sing (选歌区) */
+function clearSong(): void {
+  if (isSinging.value) {
+    ElMessage.warning('录音进行中，请先停止录音')
+    return
+  }
+  router.push({ name: 'sing' })
+}
+
+/** 按路由参数加载参考歌曲 */
+async function loadSong(id: string): Promise<void> {
+  // 优先从曲库 store 查找 (选歌区已加载的歌曲直接可用, 避免重复 API 请求)
+  const fromStore = songsStore.songs.find((s) => s.id === id)
+  if (fromStore) {
+    selectedSong.value = fromStore
+    return
+  }
+  songLoading.value = true
+  songError.value = null
+  selectedSong.value = null
+  try {
+    const json = await apiClient.get<SongDetailResponse>(`/api/v1/songs/${id}`)
+    if (json.success && json.song) {
+      selectedSong.value = json.song
+    } else {
+      songError.value = '歌曲不存在'
+    }
+  } catch (e) {
+    songError.value = e instanceof ApiError ? e.message : '歌曲加载失败'
+  } finally {
+    songLoading.value = false
+  }
+}
+
+watch(
+  songId,
+  (id) => {
+    if (id) {
+      loadSong(id)
+    } else {
+      selectedSong.value = null
+      songError.value = null
+      loadSongCandidates()
+    }
+  },
+  { immediate: true },
+)
 
 // ---- GSAP 录音脉冲动画 ----
 const singContainer = ref<HTMLElement | null>(null)
@@ -102,8 +181,11 @@ async function startSinging(): Promise<void> {
     qualityWarning.value = null
     elapsedTime.value = 0
 
-    // 1. 发送 start 控制消息
-    wsManager.sendControl('start')
+    // 1. 发送 start 控制消息 (v7.12: 携带参考歌曲 song_id)
+    wsManager.sendControl(
+      'start',
+      selectedSong.value ? { song_id: selectedSong.value.id } : undefined,
+    )
 
     // 2. 开始录音 + AudioWorklet
     await audioManager.start((pcm: Float32Array) => {
@@ -320,6 +402,58 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <!-- 选歌状态 (v7.12: 参考歌曲) -->
+    <div v-if="songId" class="song-selection" data-test="selected-song">
+      <template v-if="selectedSong">
+        <div class="selected-song-info">
+          <el-icon :size="20" color="var(--el-color-primary)"><Headset /></el-icon>
+          <span class="song-title">{{ selectedSong.metadata.title }}</span>
+          <span class="song-artist">{{ selectedSong.metadata.artist }}</span>
+          <el-tag size="small" effect="plain">{{ selectedSong.metadata.key }}</el-tag>
+          <el-tag v-if="selectedSong.metadata.bpm" size="small" effect="plain">
+            {{ selectedSong.metadata.bpm }} BPM
+          </el-tag>
+          <el-tag v-if="selectedSong.metadata.vocal_range" size="small" type="info" effect="plain">
+            音域 {{ selectedSong.metadata.vocal_range }}
+          </el-tag>
+        </div>
+        <el-button size="small" text type="primary" @click="clearSong">取消选择</el-button>
+      </template>
+      <div v-else-if="songLoading" class="song-status">加载歌曲中…</div>
+      <div v-else class="song-status song-error">
+        <span>{{ songError || '歌曲不存在' }}</span>
+        <el-button size="small" text type="primary" @click="router.push('/songs')">返回曲库</el-button>
+      </div>
+    </div>
+
+    <!-- 选歌区 (无 songId) -->
+    <div v-else class="song-selection-area" data-test="song-selection-area">
+      <div class="select-area-header">
+        <h3 class="select-title">选择标准歌曲</h3>
+        <span class="select-hint">请先选择一首标准歌曲作为演唱参考</span>
+      </div>
+      <div v-if="songsStore.hasSongs" class="song-candidate-list">
+        <div
+          v-for="s in songsStore.songs"
+          :key="s.id"
+          class="song-candidate"
+          :data-test="`song-${s.id}`"
+          @click="selectSong(s)"
+        >
+          <span class="cand-title">{{ s.metadata.title }}</span>
+          <span class="cand-artist">{{ s.metadata.artist }}</span>
+          <el-icon class="cand-arrow"><ArrowRight /></el-icon>
+        </div>
+      </div>
+      <div v-else-if="songsStore.songs.length === 0" class="empty-library">
+        <el-empty description="曲库为空" :image-size="60">
+          <el-button type="primary" size="small" @click="router.push('/songs')">
+            前往曲库导入标准歌曲
+          </el-button>
+        </el-empty>
+      </div>
+    </div>
+
     <!-- 实时音高 Canvas -->
     <div class="canvas-container">
       <canvas
@@ -327,6 +461,7 @@ onBeforeUnmount(() => {
         class="pitch-canvas"
         role="img"
         aria-label="实时音高显示"
+        data-test="pitch-canvas"
       />
     </div>
 
@@ -341,6 +476,7 @@ onBeforeUnmount(() => {
         circle
         ref="recordBtn"
         class="record-btn"
+        data-test="record-btn"
         @click="startSinging"
         aria-label="开始演唱"
       />
@@ -352,6 +488,7 @@ onBeforeUnmount(() => {
         :icon="VideoPause"
         circle
         class="record-btn recording"
+        data-test="record-btn-recording"
         @click="stopSinging"
         aria-label="停止演唱"
       />
@@ -372,7 +509,7 @@ onBeforeUnmount(() => {
     />
 
     <!-- 实时评分预览 -->
-    <div v-if="partialScore" class="partial-score">
+    <div v-if="partialScore" class="partial-score" data-test="partial-score">
       <div class="partial-row">
         <span class="partial-label">音准</span>
         <el-progress
@@ -467,6 +604,24 @@ onBeforeUnmount(() => {
 .tips { margin-bottom: 24px; }
 .tips ol { margin: 0; padding-left: 20px; }
 .tips li { margin: 4px 0; font-size: 13px; color: var(--el-text-color-regular); }
+/* v7.12: 选歌区 */
+.song-selection { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; background: var(--el-bg-color-overlay); border: 1px solid var(--el-border-color-lighter); border-radius: var(--el-border-radius-base); margin-bottom: 16px; flex-wrap: wrap; }
+.selected-song-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.selected-song-info .song-title { font-size: 15px; font-weight: 700; color: var(--el-text-color-primary); }
+.selected-song-info .song-artist { font-size: 13px; color: var(--el-text-color-secondary); }
+.song-status { font-size: 13px; color: var(--el-text-color-secondary); }
+.song-error { display: flex; align-items: center; gap: 8px; color: var(--el-color-danger); }
+.song-selection-area { padding: 14px 16px; background: var(--el-fill-color-lighter); border: 1px dashed var(--el-border-color); border-radius: var(--el-border-radius-base); margin-bottom: 16px; }
+.select-area-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.select-title { font-size: 15px; font-weight: 600; margin: 0; }
+.select-hint { font-size: 12px; color: var(--el-text-color-secondary); }
+.song-candidate-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+.song-candidate { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--el-bg-color); border: 1px solid var(--el-border-color-lighter); border-radius: var(--el-border-radius-base); cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+.song-candidate:hover { border-color: var(--el-color-primary); background: var(--el-fill-color-light); }
+.song-candidate .cand-title { font-size: 14px; font-weight: 600; }
+.song-candidate .cand-artist { font-size: 12px; color: var(--el-text-color-secondary); }
+.song-candidate .cand-arrow { margin-left: auto; color: var(--el-text-color-placeholder); }
+.empty-library { padding: 4px 0; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
 @media (max-width: 767px) { .sing-view { padding-bottom: 72px; } }

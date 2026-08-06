@@ -65,6 +65,8 @@ export interface SongMetadata {
   bpm: number
   difficulty: Difficulty
   style: SongStyle
+  /** v7.12: 音域 (如 "C3-E5"); '' = 未知 */
+  vocal_range: string
 }
 
 /** v7.10: 歌曲记录 (对齐后端 SongOut) */

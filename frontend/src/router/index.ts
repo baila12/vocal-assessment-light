@@ -25,7 +25,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/CompareView.vue'),
   },
   {
-    path: '/sing',
+    path: '/sing/:songId?',
     name: 'sing',
     component: () => import('@/views/SingView.vue'),
   },

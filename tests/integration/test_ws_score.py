@@ -147,3 +147,39 @@ class TestControlMessages:
 
             response = ws.receive_json()
             assert response["event"] == "error"
+
+
+class TestStartWithSongId:
+    """v7.12: start 消息携带 song_id → 会话存储 (选歌录音)"""
+
+    def test_start_with_song_id_stores_on_session(self, client):
+        """start 消息带 song_id → session.song_id 保存.
+
+        stop 触发响应 (无音频 → error '录音时间过短'), 同步等待服务端处理。
+        """
+        with client.websocket_connect("/ws/v1/score") as ws:
+            ws.receive_json()  # ready
+            ws.send_text(json.dumps(
+                {"type": "start", "song_id": "moon_love", "mode": "quick"}
+            ))
+            ws.send_text(json.dumps({"type": "stop"}))
+            response = ws.receive_json()  # error: 录音时间过短
+            assert response["event"] == "error"
+
+            from backend.interfaces.ws import _score_handler
+            sessions = list(_score_handler._sessions.values())
+            matched = [s for s in sessions if getattr(s, 'song_id', None) == 'moon_love']
+            assert matched, '未找到携带 song_id 的会话'
+
+    def test_start_without_song_id_keeps_none(self, client):
+        """不带 song_id → session.song_id 保持 None"""
+        with client.websocket_connect("/ws/v1/score") as ws:
+            ws.receive_json()  # ready
+            ws.send_text(json.dumps({"type": "start", "mode": "quick"}))
+            ws.send_text(json.dumps({"type": "stop"}))
+            response = ws.receive_json()
+            assert response["event"] == "error"
+
+            from backend.interfaces.ws import _score_handler
+            sessions = list(_score_handler._sessions.values())
+            assert any(getattr(s, 'song_id', None) is None for s in sessions)

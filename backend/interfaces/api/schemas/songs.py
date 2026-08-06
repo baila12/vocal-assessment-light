@@ -13,6 +13,7 @@ class SongMetadataOut(BaseModel):
     bpm: int = 0
     difficulty: str = 'beginner'
     style: str = 'pop'
+    vocal_range: str = ''
 
 
 class SongOut(BaseModel):
@@ -38,6 +39,7 @@ class SongOut(BaseModel):
                 bpm=m.bpm,
                 difficulty=m.difficulty,
                 style=m.style,
+                vocal_range=m.vocal_range,
             ),
             filepath=song.filepath,
             duration_seconds=song.duration_seconds,

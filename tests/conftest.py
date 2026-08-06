@@ -18,6 +18,9 @@ def pytest_configure(config):
     os.environ.setdefault("MKL_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
     os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+    # v7.12: KMP_DUPLICATE_LIB_OK=TRUE — 允许 libiomp5md.dll 重复初始化 (MKL+PyTorch)
+    # 否则完整音频分析 (librosa → numpy einsum) 触发 "OMP: Error #15" 导致 Fatal Python error: Aborted
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 
 # ---- Playwright E2E fixtures (lazy import 避免单元测试加载 playwright) ----

@@ -36,6 +36,7 @@ class StreamingSession:
         # 状态
         self.is_active = False
         self.mode: str = "quick"
+        self.song_id: Optional[str] = None  # v7.12: 选歌录音 — 参考歌曲 ID
 
     @property
     def duration(self) -> float:

@@ -39,6 +39,7 @@ class SongMetadata:
         bpm: 速度 (0 = 未知)
         difficulty: 难度 (beginner/intermediate/advanced)
         style: 风格 (pop/classical/folk/rap)
+        vocal_range: 音域 (如 C3-E5, '' = 未知) — v7.12 选歌录音
     """
     title: str
     artist: str
@@ -46,6 +47,7 @@ class SongMetadata:
     bpm: int = 0
     difficulty: SongDifficulty = 'beginner'
     style: SongStyle = 'pop'
+    vocal_range: str = ''
 
     def __post_init__(self) -> None:
         """运行时校验 — Literal 类型注解仅为编译期提示"""

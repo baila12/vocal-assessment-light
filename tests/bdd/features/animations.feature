@@ -104,7 +104,7 @@ Feature: GSAP 动画与微交互
 
   Scenario: 录音按钮尺寸符合标准
     Given 我在演唱页
-    Then 开始录音按钮宽度应为 56px
+    Then 开始录音按钮宽度应为 72px
     And 按钮应为正圆形 (border-radius: 50%)
 
   Scenario: 实时评分面板无数据状态

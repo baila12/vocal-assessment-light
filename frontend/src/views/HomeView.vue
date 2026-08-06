@@ -141,7 +141,7 @@ function goToSing(): void {
     </div>
 
     <!-- 主内容区 -->
-    <div class="hero-section">
+    <div class="hero-section" data-test="hero-section">
       <el-icon :size="56" color="var(--el-color-primary)">
         <Headset />
       </el-icon>

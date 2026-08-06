@@ -101,6 +101,28 @@ class TestCreateSong:
         assert after == before, f'重复创建遗留孤立文件: {before} → {after}'
 
 
+class TestSongVocalRange:
+    """v7.12: 歌曲音域字段 (选歌录音所需)"""
+
+    def test_create_song_with_vocal_range(self, client):
+        resp = _post(client, title='青藏高原', vocal_range='C3-E5')
+        assert resp.status_code == 200, resp.text
+        metadata = resp.json()['song']['metadata']
+        assert metadata['vocal_range'] == 'C3-E5'
+
+    def test_create_song_default_vocal_range_empty(self, client):
+        resp = _post(client, title='默认音域')
+        assert resp.status_code == 200
+        assert resp.json()['song']['metadata']['vocal_range'] == ''
+
+    def test_get_song_returns_vocal_range(self, client):
+        resp = _post(client, title='高音练习', vocal_range='A4-C6')
+        song_id = resp.json()['song']['id']
+        detail = client.get(f'/api/v1/songs/{song_id}')
+        assert detail.status_code == 200
+        assert detail.json()['song']['metadata']['vocal_range'] == 'A4-C6'
+
+
 class TestListSongs:
     def test_list_returns_created_songs(self, client):
         _post(client, title='列表测试甲')

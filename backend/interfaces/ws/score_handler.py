@@ -139,7 +139,11 @@ class ScoreWebSocketHandler:
             if msg_type == "start":
                 req = WsClientStart(**data)
                 session.mode = req.mode
-                logger.info(f"WS session {session.id} started, mode={req.mode}")
+                session.song_id = req.song_id
+                logger.info(
+                    f"WS session {session.id} started, mode={req.mode}"
+                    + (f", song_id={req.song_id}" if req.song_id else "")
+                )
 
             elif msg_type == "stop":
                 req = WsClientStop(**data)

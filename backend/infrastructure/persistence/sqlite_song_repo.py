@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS songs (
     bpm              INTEGER NOT NULL DEFAULT 0,
     difficulty       TEXT NOT NULL DEFAULT 'beginner',
     style            TEXT NOT NULL DEFAULT 'pop',
+    vocal_range      TEXT NOT NULL DEFAULT '',
     filepath         TEXT NOT NULL DEFAULT '',
     duration_seconds REAL NOT NULL DEFAULT 0,
     feature_status   TEXT NOT NULL DEFAULT 'pending',
@@ -31,6 +32,11 @@ CREATE TABLE IF NOT EXISTS songs (
     created_at       TEXT NOT NULL DEFAULT ''
 )
 """
+
+# 增量迁移: 旧库 (v7.11-) 无 vocal_range 列时 ALTER TABLE 补齐
+_MIGRATIONS = (
+    "vocal_range",
+)
 
 
 class SqliteSongRepository:
@@ -45,8 +51,20 @@ class SqliteSongRepository:
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute(_SCHEMA)
+        self._apply_migrations()
         self._conn.commit()
         self._lock = threading.Lock()  # 串行化并发写
+
+    def _apply_migrations(self) -> None:
+        """轻量列迁移 — 旧库 (v7.11-) 无 vocal_range 列时 ALTER TABLE 补齐."""
+        existing = {
+            row[1] for row in self._conn.execute('PRAGMA table_info(songs)').fetchall()
+        }
+        for column in _MIGRATIONS:
+            if column not in existing:
+                self._conn.execute(
+                    f'ALTER TABLE songs ADD COLUMN {column} TEXT NOT NULL DEFAULT \'\''
+                )
 
     def close(self) -> None:
         """关闭数据库连接"""
@@ -59,9 +77,9 @@ class SqliteSongRepository:
             self._conn.execute(
                 """
                 INSERT INTO songs
-                    (id, title, artist, key, bpm, difficulty, style,
+                    (id, title, artist, key, bpm, difficulty, style, vocal_range,
                      filepath, duration_seconds, feature_status, scoring_config, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     song.id,
@@ -71,6 +89,7 @@ class SqliteSongRepository:
                     song.metadata.bpm,
                     song.metadata.difficulty,
                     song.metadata.style,
+                    song.metadata.vocal_range,
                     song.filepath,
                     song.duration_seconds,
                     song.feature_status,
@@ -155,6 +174,7 @@ class SqliteSongRepository:
                 bpm=row['bpm'],
                 difficulty=row['difficulty'],
                 style=row['style'],
+                vocal_range=row['vocal_range'],
             ),
             filepath=row['filepath'],
             duration_seconds=row['duration_seconds'],
