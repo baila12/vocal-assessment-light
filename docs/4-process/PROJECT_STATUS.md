@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-04 | 版本: **v7.11** | 分支: `main`
+> 更新: 2026-08-06 | 版本: **v7.12** | 分支: `main`
 
 ---
 
@@ -83,6 +83,21 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 ---
 
 ## 二、完成功能
+
+### v7.12 (2026-08-06) — 选歌录音 MVP + BDD 基建修复 + dl_services 死代码清理
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **选歌录音** | 后端: `SongMetadata.vocal_range` (音域) 全链路 (值对象/SQLite列+旧库迁移/schema/API Form) | ✅ |
+| **选歌录音** | 后端 WS: `StreamingSession.song_id` + score_handler 存储 (WsClientStart.song_id 协议接线) | ✅ |
+| **选歌录音** | 前端: 路由 `/sing/:songId?` + SingView 选歌区 (无参数) / 歌曲信息+取消选择 (有参数) / WS start 携带 song_id | ✅ |
+| **选歌录音** | 前端: SongsView "选择此歌" 按钮 → `/sing/:songId`; 音域展示 | ✅ |
+| **选歌录音** | BDD: sing-song-select.feature 迁移 Vue 3 — 6 PASS + 6 XFAIL (录音相关) | ✅ |
+| **BDD 数据** | `scripts/gen_bdd_test_data.py` 生成 vocals.wav (60s 人声) + 根 conftest `KMP_DUPLICATE_LIB_OK=TRUE` (OMP Error#15 崩溃修复) | ✅ |
+| **BDD upload** | fixture bug (target_fixture) / httpx 适配 (files=/json()/路径) / feature 裁剪 12 无 step 场景 / Pro Demucs @slow | ✅ |
+| **BDD animations** | step defs 迁移 Vue 3 data-test 选择器 + 前端 data-test 钩子 (SingView/ReportView/HomeView) + 按钮 72px | ✅ |
+| **架构清理** | dl_services 死代码删除 (桩/model_manager 子包/features:types/enhanced_dl_assessor) + 同步删 test_score_calibrator | ✅ |
+| **测试** | 集成 50→53 (+3 vocal_range); WS 8→10 (+2 song_id); 扩展 36→21 (-15); 前端 68 全绿 | ✅ |
 
 ### v7.11 (2026-08-04) — 评分权重可配置 + 六维权重单一来源 + BDD 基建修复
 
@@ -205,7 +220,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.11)
+## 三、测试状态 (v7.12)
 
 ### 生产测试 (全部 GREEN)
 
@@ -216,11 +231,11 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | DDD 对齐 + Flag bridge (test_ddd_alignment/extraction_flag/flag_bridge) | 23 | ✅ |
 | 中间件 | 23 | ✅ |
 | **DDD 合计** | **435** | **100% GREEN** |
-| FastAPI 集成 | 50 | ✅ | (api_routes 19 + songs_api 17 + scoring_api 14)
-| 扩展测试 (DTW/repos/calibrator) | 36 | ✅ |
-| **生产代码总计** | **521** | **100% GREEN** |
+| FastAPI 集成 | 53 | ✅ | (api_routes 19 + songs_api 20 + scoring_api 14)
+| 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
+| **生产代码总计** | **509** | **100% GREEN** |
 
-> 注: DDD 子项为实测计数 (领域 257 + 基建 132 + 对齐 17 + 中间件 23 + Flag bridge 6), 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` = 435 + 集成 50 + 扩展 36 = 521 为准 (独立进程)。
+> 注: DDD 子项为实测计数 (领域 257 + 基建 132 + 对齐 17 + 中间件 23 + Flag bridge 6), 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` = 435 + 集成 53 + 扩展 21 = 509 为准 (独立进程)。另含 WebSocket 集成 10 (v7.12 +2 song_id) 与真实音频回归 28 (BASELINE_V7_6), 不计入生产代码合计。
 
 ### 真实音频回归
 
@@ -229,13 +244,23 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | 真实音频 Quick + Pro | 28 | ✅ 100% | BASELINE_V7_6 |
 | BDD | 16 step files | ✅ | 162 scenarios collected + 6 features pending step defs |
 
+### BDD (v7.12 浏览器基建 + 场景迁移)
+
+| Feature | 状态 |
+|------|------|
+| upload.feature (裁剪为 5 核心场景) | ✅ 5 PASS + 3 SKIP (FLAC/OGG/M4A 无测试文件) + Pro Demucs `@slow` |
+| animations.feature (迁移 Vue 3 data-test) | ✅ 7 PASS + 9 XFAIL (无 UI/依赖录音场景带理由) |
+| sing-song-select.feature (迁移 Vue 3) | ✅ 6 PASS + 6 XFAIL (依赖 WebSocket 录音/auto-match/上传) |
+| scoring-config.feature | ✅ API 级 PASS (v7.11) |
+| database.feature | ✅ 4 PASS + 6 XFAIL (v7.9) |
+
 ### 前端测试
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
 | Vitest (stores) | 68 | ✅ 100% | (v7.10 songs ×24 + v7.11 scoring ×11)
 | vue-tsc type check | 0 errors | ✅ |
-| Vite build | 8.9s | ✅ |
+| Vite build | 11-12s | ✅ |
 
 ### 前端 GSAP 动效 (v7.8 新增)
 
@@ -263,7 +288,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 四、已知问题
 
-> 更新: 2026-08-04 | v7.11
+> 更新: 2026-08-06 | v7.12
 
 ### 架构残留
 
@@ -274,7 +299,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | ~~P2~~ | ~~前后端对齐: flags 路由硬编码 /api/v1/flags~~ | ✅ v7.8: 已修复 (prefix 约定一致) |
 | ~~P2~~ | ~~前后端对齐: ScoreRadar/HistoryView as any 类型~~ | ✅ v7.8: 已修复 (ChartOptions/HistoryFilter 类型) |
 | ~~P2~~ | ~~前后端对齐: ApiResponse<T> 死代码 + HistoryListResponse list[dict]~~ | ✅ v7.8: 已清理 |
-| **P2** | `services/dl_services/` (11 files) | style classifier, VAD, DTW 仍在使用 |
+| **P2** | `services/dl_services/` (4 活跃) | ✅ v7.12: 死代码已清 (桩/model_manager 子包/features:types/enhanced_dl_assessor 删除); 保留 voice_quality_detector/singing_style_classifier/self_referenced_dtw/dl_style_classifier (Professional 模式) — DDD 迁移为独立工程 |
 
 ### 文献差距
 
@@ -295,18 +320,19 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | ~~P0~~ | ~~HomeView 无入场动画~~ | ✅ v7.8: 5 阶段 enterFrom 序列 |
 | ~~P0~~ | ~~prefers-reduced-motion 未处理~~ | ✅ v7.8: CSS + GSAP matchMedia 双重保护 |
 | ~~P1~~ | ~~useGsap.ts 死代码 (零引用)~~ | ✅ v7.8: 5 组件引用 |
-| **P1** | BDD animations.feature 针对旧架构 | 15 scenarios 需迁移到 Vue 3 DOM 选择器 |
+| ~~P1~~ | ~~BDD animations.feature 针对旧架构~~ | ✅ v7.12: 迁移 Vue 3 data-test 选择器 (7 PASS + 9 XFAIL) |
 
 ### 测试遗留
 
 | 问题 | 说明 |
 |------|------|
 | BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; 6 features 仍待实现 |
-| BDD animations.feature 旧架构 | 15 scenarios 针对已废弃的 Vanilla JS 架构, 需迁移到 Vue 3 DOM 选择器 |
-| ~~BDD 浏览器基建指向旧 Flask~~ | ✅ v7.11: conftest base_url→:8000 + api_client→FastAPI + 前端 `window.__store` 钩子 (setState/getState/emit); song-library.feature 12 场景待浏览器运行 |
-| BDD 浏览器测试需服务运行 | 运行浏览器 BDD 需先 `python backend/main.py` (FastAPI :8000 服务 frontend/dist); 38 个 upload 场景因测试数据 `vocals.wav` 缺失预存失败 |
-| 评分阈值联动 (风格预设) | scoring-config.feature: 各预设阈值微调 (MAE断点等) 未实现 — API 级 PASS, 阈值联动/自动风格检测/UI 面板仍 XFAIL |
-| 选歌录音 (选歌→演唱页) | `#/sing/:songId` 跳转依赖 SingView 扩展 + 后端 metadata 增加 音域/原唱调 字段 (PRD 计划中) |
+| ~~BDD animations.feature 旧架构~~ | ✅ v7.12: 迁移 Vue 3 (data-test 钩子 + 类选择器); 无 UI 场景 xfail 带理由 |
+| ~~BDD 浏览器基建指向旧 Flask~~ | ✅ v7.11: conftest base_url→:8000 + api_client→FastAPI + 前端 `window.__store` 钩子 |
+| ~~upload.feature 数据缺失 (vocals.wav)~~ | ✅ v7.12: `scripts/gen_bdd_test_data.py` 生成 + KMP_DUPLICATE_LIB_OK 崩溃修复; 5 PASS + 3 SKIP |
+| BDD 浏览器测试需服务运行 | 运行浏览器 BDD 需先 `python backend/main.py` (FastAPI :8000 服务 frontend/dist); 服务未启动时场景 skip |
+| 评分阈值联动 (风格预设) | scoring-config.feature: 各预设阈值微调 (MAE断点等) 未实现 — API 级 PASS, 阈值联动/自动风格检测/UI 面板仍 XFAIL (用户指定暂不开发) |
+| ~~选歌录音 (选歌→演唱页)~~ | ✅ v7.12 MVP: `/sing/:songId` + WS song_id + vocal_range; 实时音高参考线叠加 / DTW 流式评分 / auto-match 为后续增强 (song-select.feature) |
 
 ---
 

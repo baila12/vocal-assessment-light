@@ -1,6 +1,6 @@
-# 行为驱动开发 (BDD) 规范 v7.11
+# 行为驱动开发 (BDD) 规范 v7.12
 
-> 更新: 2026-08-04 | 16 step files | 21 feature files (15 已实现 + 6 规划中) | scoring-config.feature v7.11: 6 维契约更新, API 级 PASS (预设/校验/超50%拒绝), 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | upload.feature 38 场景因 `vocals.wav` 测试数据缺失预存失败
+> 更新: 2026-08-06 | 16 step files | 21 feature files (15 已实现 + 6 规划中) | scoring-config.feature v7.11: 6 维契约更新, API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | **v7.12: upload.feature 数据补齐 (vocals.wav + KMP 修复) + animations/sing-song-select 迁移 Vue 3 data-test 选择器**
 
 ---
 
@@ -52,9 +52,9 @@ tests/bdd/
 │   ├── navigation.feature            # SPA 路由导航
 │   ├── compare-ui.feature            # 对比 UI 交互
 │   ├── mode-select.feature           # 模式选择
-│   ├── sing-song-select.feature      # 演唱选歌
+│   ├── sing-song-select.feature      # 演唱选歌 (v7.12: 6 PASS + 6 XFAIL, 录音相关 xfail)
 │   ├── song-library.feature          # 标准曲库 (v7.10 前端已按契约实现 UI 选择器)
-│   ├── animations.feature            # GSAP 动画 (v7.3.1, ⚠️ 旧架构)
+│   ├── animations.feature            # GSAP 动画 (v7.12: 迁移 Vue 3 data-test, 7 PASS + 9 XFAIL)
 │   ├── offline.feature               # 离线/本地库 (v7.3.1)
 │   ├── responsive.feature            # 响应式布局 (v7.3.1)
 │   ├── dtw-demotion.feature          # v7.8: DTW 降级为特征提供者 (18 scenarios)

@@ -1,6 +1,6 @@
 # 测试驱动开发 (TDD) 规范 v7.11
 
-> 更新: 2026-08-04 | 521 tests 100% GREEN | pytest + Vitest
+> 更新: 2026-08-06 | 509 tests 100% GREEN | pytest + Vitest
 
 ---
 
@@ -42,7 +42,7 @@
        ╱   BDD        ╲       pytest-bdd, 16 step files, 21 feature files
       ╱──────────────────╲
      ╱   Integration +       ╲   FastAPI routes + Songs + Scoring, 50 tests (不含回归)
-    ╱    Extended              ╲  DTW/repos/calibrator, 36 tests
+    ╱    Extended              ╲  DTW/repos, 21 tests (v7.12 -calibrator)
    ╱──────────────────────────────╲
   ╱   Unit (DDD domain + infra     ╲  435 tests — 核心, 最快
  ╱    + middleware + alignment)      ╲
@@ -56,12 +56,12 @@
 | Unit (中间件: SecurityHeaders + RateLimit + MaxBodySize) | 23 | < 1s | 100% |
 | Unit (DDD 对齐 + extraction flag + flag bridge) | 23 | < 1s | 100% |
 | Integration (FastAPI routes) | 19 | ~8s | 100% |
-| Integration (Songs API) | 17 | ~6s | 100% |
+| Integration (Songs API) | 20 | ~6s | 100% | (v7.12 +3 vocal_range)
 | Integration (Scoring API) 🆕 v7.11 | 14 | ~5s | 100% |
-| Integration (WebSocket) | 8 | ~5s | 100% |
-| Extended (DTW/repos/calibrator) | 36 | ~9s | 100% |
+| Integration (WebSocket) | 10 | ~5s | 100% | (v7.12 +2 song_id)
+| Extended (DTW/repos) | 21 | ~6s | 100% | (v7.12 删 test_score_calibrator)
 | Real Audio Regression | 28 | ~27min | 100% |
-| **生产代码合计** | **521** | **~60s (不含回归/WS)** | **100% GREEN** |
+| **生产代码合计** | **509** | **~55s (不含回归/WS)** | **100% GREEN** |
 | TDD (future features) | 1 skip + 4 xfail | < 1s | ⏭️ |
 | BDD | 16 step files | < 60s | ✅ |
 | Frontend (Vitest) | 68 | < 5s | 100% |
@@ -188,9 +188,9 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 | Songs API Integration | `test_songs_api.py` | 17 |
 | Scoring API Integration 🆕 v7.11 | `test_scoring_api.py` | 14 |
 | WebSocket Integration | `test_ws_score.py` | 8 |
-| Extended | `test_comparison_dtw.py` + `test_repositories.py` + `test_score_calibrator.py` | 36 |
+| Extended | `test_comparison_dtw.py` + `test_repositories.py` | 21 | (v7.12 删 test_score_calibrator)
 | Real Audio Regression | `test_real_audio_regression.py` | 28 |
-| **生产代码合计** | | **521** (DDD 435 + 集成 50 + 扩展 36; 不含 WS 8 / 真实音频回归 28) |
+| **生产代码合计** | | **509** (DDD 435 + 集成 53 + 扩展 21; 不含 WS 10 / 真实音频回归 28) |
 
 ---
 

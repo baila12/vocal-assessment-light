@@ -1,6 +1,54 @@
-# 变更日志 v7.11
+# 变更日志 v7.12
 
-> 更新: 2026-08-04 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+> 更新: 2026-08-06 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.12 — 选歌录音 MVP + BDD 基建修复 (测试数据/animations 迁移) + dl_services 死代码清理 (2026-08-06)
+
+### 概述
+
+四条线并行: ① 选歌录音 MVP (曲库选歌 → `/sing/:songId` 演唱页 → WS 携带 song_id, 后端 songs 元数据增 vocal_range); ② BDD 测试数据补齐 (生成 vocals.wav + 修复 upload.feature 的 fixture/路径/httpx/KMP 崩溃问题); ③ animations.feature 迁移到 Vue 3 DOM 选择器; ④ dl_services 死代码清理。所有 BDD 场景从"旧架构预存失败"转为"Vue 3 可跑 + 合理 xfail"。
+
+### ① 选歌录音 MVP (PRD 计划中)
+
+- 🆕 后端: `SongMetadata` + `vocal_range` (音域) — value_objects.py / SQLite 列 + 旧库迁移 (ALTER TABLE) / `SongMetadataOut` schema / `create_song` Form 参数
+- 🆕 后端 WS: `StreamingSession.song_id` + `score_handler` 存 `req.song_id` (WsClientStart.song_id 协议早已存在, 前后端此前未接线)
+- 🆕 前端: 路由 `/sing/:songId?` (可选参数); `SingView.vue` 解析 songId → loadSong (优先曲库 store, 否则 API) → 显示歌曲信息 (标题/歌手/调性/BPM/音域) + 取消选择; 无 songId 时显示选歌区 (候选列表/空库提示); `startSinging()` 传 `{ song_id }`
+- 🆕 前端: `SongsView.vue` 歌曲卡片加"选择此歌"按钮 → `/sing/:songId`; 音域展示
+- 🆕 测试: `test_songs_api.py` +3 (vocal_range 创建/默认/详情)、`test_ws_score.py` +2 (song_id 存储); 前端 data-test 钩子
+- **BDD**: `sing-song-select.feature` step defs 迁移 Vue 3 — 6 场景 PASS (无参数选歌区/有 songId 直接进入/选歌激活/取消选择/空库/ID 不存在) + 6 XFAIL (依赖 WebSocket 录音/auto-match/上传)
+
+### ② BDD 测试数据补齐 + upload.feature 修复
+
+- 🆕 `scripts/gen_bdd_test_data.py`: 从现有高分人声 MP3 生成 `tests/test_data/audio/vocal/vocals.wav` (60s, 44100Hz PCM16)
+- 🔧 `tests/bdd/conftest.py` (根): +`KMP_DUPLICATE_LIB_OK=TRUE` — 修复完整音频分析 (librosa→numpy einsum) 触发 "OMP: Error #15" → Fatal Python error
+- 🔧 `test_upload_steps.py`: `upload_response` fixture bug (When step +`target_fixture`)、`pytest_request`→`request`、`get_json()`→`.json()`、`/api/upload`→`/api/v1/upload`、`content_type`→`files=` (httpx)、+`import pytest`
+- 🔧 `upload.feature`: 裁剪 12 个无 step defs 场景 (移至规划 feature: auto-match/nonblocking/pitch-realtime/realtime-analysis); When 文本对齐; Pro Demucs 场景 `@slow` 标记 + 补缺失 Then
+- ✅ upload.feature 从全失败 → **5 passed + 3 skipped** (FLAC/OGG/M4A 无测试文件合理跳过)
+
+### ③ BDD animations.feature 迁移 Vue 3
+
+- 🔧 `test_animations_steps.py` 重写: 旧 Vanilla JS 选择器 (`#pageContainer`/`#startRecordBtn`/`#scoreRingContainer`) → Vue 3 data-test 钩子 + 类选择器 (`[data-test=record-btn]`/`.score-hero`/`.advice-item`/`.app-main`); 导航 location.hash; report 数据场景降级为容器级验证
+- 🆕 前端 data-test: `SingView.vue` (pitch-canvas/record-btn/record-btn-recording/partial-score)、`ReportView.vue` (score-hero/radar-section/score-card/advice-item)、`HomeView.vue` (hero-section)
+- 🔧 `animations.feature`: 录音按钮尺寸 56px→72px (Vue 3 实际值)
+- ✅ **7 passed + 9 xfailed** — 无 UI 场景 (Toast 细节/PERFECT 命中/连击/AnimationController) 与依赖 WS 录音场景明确 xfail (带理由)
+
+### ④ dl_services 死代码清理
+
+- 🗑️ 删除零生产引用: `services/dl_services.py` (桩)、`services/dl_services/model_manager/` (整子包)、`model_manager.py` (代理)、`services/features/types.py` (v7.6 DEPRECATED)、`enhanced_dl_assessor.py` (ScoreCalibrator 仅测试用)
+- 🗑️ 同步删 `tests/extended/test_score_calibrator.py` (15 tests)
+- 🔧 `services/dl_services/__init__.py`: 移除死模块导出
+- 说明: 4 个活跃模块 (voice_quality_detector/singing_style_classifier/self_referenced_dtw/dl_style_classifier, Professional 模式) **保留** — DDD 迁移列为独立工程
+
+### 测试总结
+
+- DDD 单元: 435 GREEN (不变)
+- 集成: 50 → **53 GREEN** (+3 vocal_range); WS: 8 → **10** (+2 song_id)
+- 扩展: 36 → **21** (删 test_score_calibrator 15)
+- **生产代码合计: 521 → 509** (435 + 53 + 21)
+- 前端: Vitest 68 GREEN、vue-tsc 0 errors、Vite build 通过
+- BDD: upload 5P+3S、animations 7P+9X、sing-song-select 6P+6X
 
 ---
 

@@ -1,4 +1,4 @@
-# 产品目标与设计原则 v7.11
+# 产品目标与设计原则 v7.12
 
 > 更新: 2026-08-04 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
 
@@ -22,7 +22,7 @@
 ## 二、功能全景
 
 ```
-离线声乐评估系统 v7.11
+离线声乐评估系统 v7.12
 │
 ├── 模块1: 音频采集
 │   ├── 多格式上传 (WAV/MP3/FLAC/OGG/M4A/AAC, 拖拽)
@@ -126,7 +126,7 @@
 | 扩展测试 | pytest, DTW/repos/calibrator/real_audio | 36 tests ✅ |
 | BDD | pytest-bdd, 16 step files, 21 .feature files, 162 scenarios collected | ✅ |
 | 真实音频回归 | pytest, 5 基准文件, 28 tests | ✅ |
-| **生产合计** | | **521 tests 100% GREEN** |
+| **生产合计** | | **509 tests 100% GREEN** |
 | 前端测试 | Vitest, 68 tests, vue-tsc 0 errors | ✅ |
 
 ---
@@ -143,7 +143,7 @@
 | 状态管理 | Pinia 2.3 |
 | 桌面 | Electron 28 (配置就绪) |
 | 数据 | JSON + SQLite |
-| 测试 | pytest 521 + Vitest 68 |
+| 测试 | pytest 509 + Vitest 68 |
 
 ---
 

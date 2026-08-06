@@ -1,6 +1,6 @@
-# 声乐评估系统 (VAS) — 产品需求文档 v7.11
+# 声乐评估系统 (VAS) — 产品需求文档 v7.12
 
-> 版本: v7.11 | 日期: 2026-08-04 | 状态: 活跃开发
+> 版本: v7.12 | 日期: 2026-08-06 | 状态: 活跃开发
 >
 > **关联文档**: [GOALS.md](GOALS.md) | [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | [SCORING.md](../2-technical/SCORING.md)
 
@@ -110,13 +110,14 @@
 | 评分权重可配置 | ScoringWeights 值对象 (frozen, 总和 100% + 单维 ≤50%) + 4 风格预设 (流行/美声/民族/说唱) + calculate_total 注入 weights + GET /api/v1/scoring/presets + POST /api/v1/scoring/apply-weights (v7.11) |
 | 前端权重面板 | scoring.store.ts + ScoringWeightsPanel.vue (预设单选 + 六维滑块 + 实时总和校验 + 自动归一化 + 对比重算含 vs 原总分差值) + ReportView 集成 (v7.11) |
 | BDD 基建修复 | conftest base_url :5000→:8000 (FastAPI 服务 frontend/dist) + api_client Flask→FastAPI TestClient + 前端 window.__store 测试钩子 (v7.11) |
+| 选歌录音 MVP | 曲库选歌 → `/sing/:songId` → WS 携带 song_id; 后端 `SongMetadata.vocal_range` (v7.12) |
 | 自动曲库匹配 (auto-match) | 计划中：SQLite 预提取特征 + 自动匹配用户翻唱 |
 
 ### 3.6 计划中 (未实现)
 
 | 功能 | 说明 |
 |------|------|
-| 选歌录音 | 浏览曲库 → 选歌 → 录音 (实时音高对比) → DTW 评分 |
+| 选歌录音完整版 | 选歌 → 录音 → 实时音高参考线叠加 → DTW 流式评分 (v7.12 已 MVP: 选歌+携带 song_id; 参考线/DTW 后续增强) |
 | 实时音准对比 | 类似全民K歌：双曲线叠加，偏差绿/橙/红着色 |
 | 非阻塞分析 | SSE 进度推送，分析中可播放音频，跨页面不中断 |
 | Electron 桌面打包 | electron-builder + 嵌入式 Python，<2s 启动 |
@@ -150,7 +151,7 @@
 | 指标 | 当前 |
 |------|:---:|
 | 非人声归零率 | 10/10 (100%) |
-| 单元测试通过率 | 521/521 (100%) |
+| 单元测试通过率 | 509/509 (100%) |
 | Quick/Pro 同音频分差 | < 10% |
 
 ### 4.3 兼容性
@@ -226,7 +227,7 @@
 | ~~BDD 浏览器基建指向已删除 Flask~~ | ~~conftest base_url :5000, api_client 旧 Flask~~ | ✅ v7.11 FastAPI TestClient + :8000 + window.__store 钩子 |
 | Demucs 子进程开销 | Pro 模式耗时 155s | [性能优化](../2-technical/PERFORMANCE_ANALYSIS_AND_OPTIMIZATION.md) |
 | BDD animations.feature 旧架构 | 15 scenarios 针对已废弃 Vanilla JS | 待迁移到 Vue 3 DOM 选择器 |
-| 选歌录音 (#/sing/:songId) | 依赖 SingView 扩展 + 后端 metadata 音域/原唱调字段 | PRD 计划中 |
+| ~~选歌录音 (#/sing/:songId)~~ | ✅ v7.12 MVP (选歌+WS song_id+vocal_range); 实时音高参考线叠加/DTW 流式评分为后续增强 |
 | upload 38 场景测试数据缺失 | vocals.wav 缺失预存失败 | 浏览器 BDD 基建已修复, 待补充测试数据 |
 
 ---
