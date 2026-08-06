@@ -95,7 +95,7 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 521 tests (DDD 435 + integration 50 + extended 36)
+└── tests/                # 509 tests (DDD 435 + integration 53 + extended 21)
 ```
 
 ## API 接口

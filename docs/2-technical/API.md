@@ -1,4 +1,4 @@
-# API 接口文档 v7.11
+# API 接口文档 v7.12
 
 > FastAPI 为主 (Flask 已移除 v7.6)
 
@@ -23,9 +23,9 @@
 | DELETE | `/api/v1/history/all` | 清空全部 | < 500ms |
 | GET | `/api/v1/test-files` | 测试音频列表 | < 50ms |
 | GET | `/api/v1/audio?file=...` | 音频流 + 路径安全 | < 200ms |
-| GET | `/api/v1/songs` | 曲库列表 (page/limit/search) | < 100ms |
+| GET | `/api/v1/songs` | 曲库列表 (page/limit/style/difficulty/search) | < 100ms |
 | GET | `/api/v1/songs/{id}` | 歌曲详情 | < 50ms |
-| POST | `/api/v1/songs` | 添加歌曲 (multipart) | < 200ms |
+| POST | `/api/v1/songs` | 添加歌曲 (multipart; v7.12: +`vocal_range` 音域) | < 200ms |
 | DELETE | `/api/v1/songs/{id}` | 删除歌曲 | < 100ms |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | < 50ms |
 | GET | `/api/v1/scoring/presets` | 评分权重预设 (v7.11): 默认 + 4 风格 | < 50ms |
@@ -51,6 +51,14 @@
 | 路径 | 说明 |
 |------|------|
 | `/ws/v1/score` | 实时流式评分 (AudioWorklet → Float32Array → numpy.frombuffer) |
+
+### WS start 消息 (v7.12: 选歌录音携带参考歌曲)
+
+```json
+{"type": "start", "song_id": "moon_love", "mode": "quick"}
+```
+
+`song_id` 可选 — 选歌录音时前端传入, 服务端存入 `StreamingSession.song_id` (后续用于参考音高对比/DTW 评分)。
 
 ## 基础端点
 

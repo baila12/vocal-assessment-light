@@ -1,39 +1,39 @@
-# 测试结果记录 v7.11
+# 测试结果记录 v7.12
 
-> 更新: 2026-08-04 | 521 tests 100% GREEN | 分支: `main`
+> 更新: 2026-08-06 | 509 tests 100% GREEN | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
 ---
 
-## v7.11 测试统计
+## v7.12 测试统计
 
 ### 生产测试 (全部 GREEN)
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| DDD 领域 (scorers + value objects + comparison + songs + **ScoringWeights**) | 257 | ✅ 100% | 7 scorers + comparison + songs + ScoringWeights 值对象 (v7.11: +29) |
+| DDD 领域 (scorers + value objects + comparison + songs + **ScoringWeights**) | 257 | ✅ 100% | 7 scorers + comparison + songs + ScoringWeights 值对象 |
 | DDD 基建 (extractors + orchestrator + ABI + sqlite) | 132 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 |
 | DDD 对齐 + Flag bridge | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
 | 中间件 | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
 | **DDD 合计** | **435** | **100% GREEN** | (~25s) |
-| FastAPI 集成 | 50 | ✅ 100% | test_api_routes (19) + test_songs_api (17, 含 v7.10 TestAudioPlayback ×3) + **test_scoring_api (14, v7.11 new)** |
-| 扩展测试 (DTW/repos/calibrator) | 36 | ✅ 100% | tests/extended/ |
-| **生产代码总计** | **521** | **100% GREEN** | (DDD 435 + 集成 50 + 扩展 36) |
+| FastAPI 集成 | 53 | ✅ 100% | test_api_routes (19) + test_songs_api (20, 含 v7.12 vocal_range ×3) + test_scoring_api (14) |
+| WebSocket 集成 | 10 | ✅ 100% | test_ws_score (8 + v7.12 song_id ×2) |
+| 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ (v7.12 删 test_score_calibrator 15) |
+| **生产代码总计** | **509** | **100% GREEN** | (DDD 435 + 集成 53 + 扩展 21; 不含 WS 10 / 真实音频回归 28) |
 | 真实音频回归 | 28 | ✅ 100% | BASELINE_V7_6, 高低分区分度 9.1 pts |
-| BDD (16 step files) | 162 scenarios collected | ✅ | scoring-config API 级 PASS; upload.feature 38 场景测试数据缺失预存失败; animations.feature 15 场景待迁移; 6 features 缺 step defs |
-| 前端 Vitest | 68 | ✅ 100% | songs.store (24) + scoring.store 🆕 (11) + 33 其他 |
+| BDD (16 step files) | 162 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X (v7.12); scoring-config API 级 PASS; 6 features 缺 step defs |
+| 前端 Vitest | 68 | ✅ 100% | songs.store (24) + scoring.store (11) + 33 其他 |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
-| Vite build | 8.9s | ✅ | 生产构建 |
+| Vite build | ~12s | ✅ | 生产构建 |
 
-### v7.11 新增测试明细
+### v7.12 新增/移除测试明细
 
-| 文件 | 新增测试数 | 覆盖 |
-|------|:---------:|------|
-| `test_scoring_weights.py` | 25 | ScoringWeights 值对象: 默认权重/总和校验/单维≤50%/非负/4 风格预设/weighted_total/to_dict/from_dict |
-| `test_scoring_api.py` | 14 | GET /presets + POST /apply-weights: 默认流行/预设校验/超50%拒绝/总和校验/未知预设400/非法权重422/apply-weights 总分等级星标 |
-| `test_scoring_domain_service.py` (扩展) | +4 | calculate_total(weights=...) 注入 + weighted_total_from_scores |
-| `frontend/tests/unit/stores/scoring.test.ts` | 11 | 预设加载/滑块权重/总和校验/自动归一化/recalc 纯前端重算 |
+| 文件 | 变化 | 覆盖 |
+|------|:-----:|------|
+| `test_songs_api.py` | +3 | v7.12 vocal_range: 创建携带/默认空/详情返回 |
+| `test_ws_score.py` | +2 | v7.12 WS start 携带 song_id → 会话存储 |
+| `test_score_calibrator.py` | -15 | v7.12 删除 (dl_services enhanced_dl_assessor 死代码随之清理) |
 
 ## v7.5 测试统计 (历史)
 
@@ -131,11 +131,12 @@ pytest tests/unit/domain/ tests/unit/infrastructure/ \
 
 # 集成测试 (独立进程)
 pytest tests/integration/test_api_routes.py -v     # FastAPI (19 tests)
-pytest tests/integration/test_songs_api.py -v      # Songs API (17 tests)
-pytest tests/integration/test_scoring_api.py -v    # Scoring API 🆕 v7.11 (14 tests)
+pytest tests/integration/test_songs_api.py -v      # Songs API (20 tests, v7.12 +vocal_range)
+pytest tests/integration/test_scoring_api.py -v    # Scoring API (14 tests)
+pytest tests/integration/test_ws_score.py -v       # WebSocket (10 tests, v7.12 +song_id)
 
-# 扩展测试 (独立进程, ~9s)
-pytest tests/extended/ -v                           # 36 tests (DTW/repos/calibrator)
+# 扩展测试 (独立进程, ~6s)
+pytest tests/extended/ -v                           # 21 tests (DTW/repos; v7.12 -calibrator)
 
 # 真实音频回归 (独立进程, ~27min)
 pytest tests/integration/test_real_audio_regression.py -v

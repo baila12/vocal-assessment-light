@@ -1,6 +1,6 @@
 # 前端与后端计划对齐
 
-> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.11 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。标准曲库 API 已于 v7.9 实现、前端页面已于 v7.10 实现 (SongsView)；评分权重 API (`GET /api/v1/scoring/presets` + `POST /api/v1/scoring/apply-weights`) 已于 v7.11 实现，前端权重面板 (ScoringWeightsPanel) 已集成到 ReportView。
+> ⚠️ **已废弃**: 本文档描述 v5.17/v6.0 时期的 Flask + Vanilla JS 前后端对齐计划。当前 v7.12 已迁移至 FastAPI (`backend/`) + Vue 3 SPA (`frontend/src/`)。本文档保留作为 v6.0 设计历史参考。标准曲库 API 已于 v7.9 实现、前端页面已于 v7.10 实现 (SongsView)；评分权重 API 已于 v7.11 实现；选歌录音 (`#/sing/:songId` + WS song_id) 已于 v7.12 MVP 实现。
 >
 > 当前前后端状态见: [ARCHITECTURE.md](../ARCHITECTURE.md) | [ROUTES.md](ROUTES.md) | [README.md](README.md)
 

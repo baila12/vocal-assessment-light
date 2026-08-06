@@ -1,6 +1,6 @@
-# 系统架构 v7.11
+# 系统架构 v7.12
 
-> 更新: 2026-08-04 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置
+> 更新: 2026-08-06 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 
@@ -46,8 +46,8 @@
                                │
 ┌──────────────────────────────▼──────────────────────────────────┐
 │              旧服务层 (逐步废弃)                                   │
-│  services/features/ (1 file: types.py, DeprecationWarning)       │
-│  services/dl_services/ (11 files, DL 模型仍在用)                  │
+│  services/dl_services/ (4 活跃: VAD/Style/自参照DTW, Pro 模式)     │
+│    — v7.12 已删死代码: model_manager/ 子包 + 桩 + features:types  │
 │  services/ (audio, separation, phrase, visualization...)         │
 │  api/ (business/ 桥梁 + schemas, Flask routes 已移除 v7.6)       │
 └──────────────────────────────────────────────────────────────────┘
@@ -152,9 +152,9 @@ domain/
     ├── value_objects.py             # ComparisonScores, DimensionComparisonScore (frozen)
     └── services.py                  # ComparisonScoringService (四维加权)
 
-└── songs/                           # v7.9: 曲库领域
+└── songs/                           # v7.9: 曲库领域 (v7.12: +vocal_range 音域)
     ├── entities.py                  # Song (frozen dataclass)
-    ├── value_objects.py             # SongFilter, SongList (frozen)
+    ├── value_objects.py             # SongMetadata (v7.12: +vocal_range), 难度/风格
     └── repository.py                # SongRepository 抽象接口
 ```
 
@@ -281,6 +281,7 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
   ├─ 每 2048 samples (~128ms) 推送一帧
   ├─ StreamingSession 累积 (<120s buffer)
   ├─ 每 2s 计算 incremental score
+  ├─ start 消息可携带 song_id (v7.12: 选歌录音参考歌曲, 存入 session)
   └─ 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL)
 ```
 
@@ -293,8 +294,8 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
 | DDD domain/audio/ | ✅ 13/13 模块自包含 | 零 `services/features/` 依赖 |
 | DDD domain/assessment/ | ✅ 7 scorers | DDD 唯一评分路径 |
 | DDD domain/comparison/ | ✅ v7.3 完成 | 实体 + 值对象 + 领域服务 |
-| `services/features/` | ⚠️ 1 file (types.py) | DeprecationWarning, 仍被 audio_service 引用 |
-| `services/dl_services/` | ⚠️ 11 files | Style/VAD/DTW 仍在 Pro 模式使用 |
+| `services/features/` | ✅ 已移除 (v7.12) | types.py 死代码已删 |
+| `services/dl_services/` | ⚠️ 4 活跃 | Style/VAD/自参照DTW 仍在 Pro 模式; v7.12 已删 8 个死文件 (model_manager 子包等), DDD 迁移为独立工程 |
 | `api/routes/` (Flask) | ✅ 已移除 (v7.6) | Flask 路由文件已删除 |
 | `web/static/js/` + `web/static/app.js` | ✅ 已移除 (v7.1.4) | 旧 vanilla JS 前端 |
 
@@ -326,7 +327,7 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
 
 ---
 
-## 九、目录结构 (v7.11 实际)
+## 九、目录结构 (v7.12 实际)
 
 ```
 vocal_assessment_light/
@@ -342,8 +343,9 @@ vocal_assessment_light/
 │
 ├── frontend/                        # Vue 3 SPA ★当前前端
 │   ├── src/
-│   │   ├── views/                   # 6 页面 (Home/Report/History/Compare/Sing/Songs)
-│   │   │   └── SongsView.vue        #   v7.10 曲库卡片网格页
+│   │   ├── views/                   # 7 页面 (Home/Report/History/Compare/Sing/Songs)
+│   │   │   └── SingView.vue        #   v7.12 选歌录音 (选歌区/歌曲信息/WS song_id)
+│   │   │   └── SongsView.vue        #   v7.10 曲库卡片网格页 (v7.12: 选择此歌按钮)
 │   │   ├── components/              # 7 共享 + 3 布局组件
 │   │   │   └── scoring/             # v7.11: ScoringWeightsPanel.vue 权重配置面板
 │   │   ├── stores/                  # 6 Pinia stores
@@ -364,15 +366,14 @@ vocal_assessment_light/
 ├── services/                        # 旧服务层 (部分仍在使用)
 │   ├── audio_service.py             # 音频分析主管线
 │   ├── separation_service.py        # Demucs 分离 (subprocess)
-│   ├── features/                    # ⚠️ 1 file (types.py, DeprecationWarning)
-│   ├── dl_services/                 # DL 模型 (11 files: VAD/Style/DTW)
+│   ├── dl_services/                 # DL 模型 (4 活跃: VAD/Style/自参照DTW; v7.12 已删 8 死文件)
 │   └── (phrase/visualization...)
 │
 ├── config/                          # 配置 (Flask legacy + styles.yaml)
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
 ├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 521 tests (DDD 435 + 集成 50 + 扩展 36)
+├── tests/                           # 509 tests (DDD 435 + 集成 53 + 扩展 21)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)
@@ -400,4 +401,4 @@ vocal_assessment_light/
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings (FastAPI) |
-| 测试 | pytest 521 tests (DDD 435 + 集成 50 + 扩展 36) + Vitest 68 tests |
+| 测试 | pytest 509 tests (DDD 435 + 集成 53 + 扩展 21) + Vitest 68 tests |

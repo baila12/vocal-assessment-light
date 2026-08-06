@@ -1,6 +1,6 @@
 # 前端页面功能设计 v1.0 — 标准曲库 / 模式选择 / 对比分析 / 选歌录音
 
-> ⚠️ **已废弃**: 本文档描述 v6.0 计划时期的 Vanilla JS 页面设计。当前 v7.11 已迁移至 Vue 3 + Element Plus (`frontend/src/views/`)。本文档中描述的标准曲库前端页面已于 v7.10 实现 (SongsView, `frontend/src/views/SongsView.vue`)，评分权重面板已于 v7.11 实现 (ScoringWeightsPanel, `frontend/src/components/scoring/ScoringWeightsPanel.vue`)；选歌演唱 (`#/sing/:songId`)、对比分析改造 (`#/compare` 标准音频选择) 等前端页面尚未在 Vue 3 中实现，保留作为未来功能参考。
+> ⚠️ **已废弃**: 本文档描述 v6.0 计划时期的 Vanilla JS 页面设计。当前 v7.12 已迁移至 Vue 3 + Element Plus (`frontend/src/views/`)。标准曲库前端已于 v7.10 实现 (SongsView)；评分权重面板已于 v7.11 实现 (ScoringWeightsPanel)；选歌演唱 (`#/sing/:songId`) 已于 v7.12 MVP 实现 (选歌区 + 歌曲信息 + WS song_id)。对比分析改造 (`#/compare` 标准音频选择) 仍为未来功能参考。
 >
 > 当前页面状态见: [README.md](README.md) | [ROUTES.md](ROUTES.md)
 

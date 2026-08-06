@@ -1,6 +1,6 @@
-# 评分算法文档 v7.11
+# 评分算法文档 v7.12
 
-> 更新: 2026-08-04 | DDD 唯一评分路径 | 521 测试 GREEN (DDD 435 + int 50 + ext 36)
+> 更新: 2026-08-06 | DDD 唯一评分路径 | 509 测试 GREEN (DDD 435 + int 53 + ext 21)
 >
 > **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md) | [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 

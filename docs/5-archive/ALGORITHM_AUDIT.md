@@ -1,6 +1,6 @@
 # 核心算法审计报告
 
-> 🗄️ **归档文档 — v5.9 (2026-05-26)** | 当前版本: v7.3.1
+> 🗄️ **归档文档 — v5.9 (2026-05-26)** | 当前版本: v7.12
 >
 > P0 问题已在 v5.11-v5.17 修复。当前算法: [SCORING.md](../2-technical/SCORING.md) | 已知问题: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
 

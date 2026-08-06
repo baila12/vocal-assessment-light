@@ -190,7 +190,7 @@
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings |
-| 测试 | pytest 521 + Vitest 68 |
+| 测试 | pytest 509 + Vitest 68 |
 
 ---
 
@@ -226,9 +226,9 @@
 | ~~评分权重新硬编码 (6 个 weighted() 各自维护)~~ | ~~权重数据源分散, 不一致风险~~ | ✅ v7.11 ScoringWeights 值对象单一数据来源 |
 | ~~BDD 浏览器基建指向已删除 Flask~~ | ~~conftest base_url :5000, api_client 旧 Flask~~ | ✅ v7.11 FastAPI TestClient + :8000 + window.__store 钩子 |
 | Demucs 子进程开销 | Pro 模式耗时 155s | [性能优化](../2-technical/PERFORMANCE_ANALYSIS_AND_OPTIMIZATION.md) |
-| BDD animations.feature 旧架构 | 15 scenarios 针对已废弃 Vanilla JS | 待迁移到 Vue 3 DOM 选择器 |
+| ~~BDD animations.feature 旧架构~~ | ~~15 scenarios 针对已废弃 Vanilla JS~~ | ✅ v7.12 迁移 Vue 3 data-test (7 PASS + 9 XFAIL) |
 | ~~选歌录音 (#/sing/:songId)~~ | ✅ v7.12 MVP (选歌+WS song_id+vocal_range); 实时音高参考线叠加/DTW 流式评分为后续增强 |
-| upload 38 场景测试数据缺失 | vocals.wav 缺失预存失败 | 浏览器 BDD 基建已修复, 待补充测试数据 |
+| ~~upload 38 场景测试数据缺失~~ | ~~vocals.wav 缺失预存失败~~ | ✅ v7.12 生成 vocals.wav + fixture 修复 (5 PASS + 3 SKIP) |
 
 ---
 

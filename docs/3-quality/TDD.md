@@ -381,7 +381,9 @@ frontend/tests/unit/stores/
 | Feature files | 21 |
 | scoring-config API 级 | ✅ PASS |
 | scoring-config UI 级 | ⚠️ XFAIL (阈值联动未实现) |
-| animations.feature (15 scenarios) | ⚠️ 旧 Vanilla JS 架构待迁移 |
+| animations.feature (16 scenarios) | ✅ v7.12 迁移 Vue 3 data-test — 7 PASS + 9 XFAIL (无 UI/依赖录音场景) |
+| sing-song-select.feature | ✅ v7.12 迁移 Vue 3 — 6 PASS + 6 XFAIL (录音/auto-match/上传) |
+| upload.feature | ✅ v7.12 数据补齐 + fixture 修复 — 5 PASS + 3 SKIP (FLAC/OGG/M4A 无文件) |
 | 6 features 缺 step defs | ⚠️ auto-match/multi-dim-analysis/nonblocking-analysis/pitch-realtime/realtime-analysis/song-select |
 
 ### 真实音频回归
@@ -391,7 +393,7 @@ frontend/tests/unit/stores/
 | 真实音频 Quick + Pro | 28 | ✅ 100% | BASELINE_V7_6 |
 | 高低分区分度 | 9.1 pts | ✅ | >8 阈值 |
 
-> ⚠️ BDD upload.feature 38 场景因测试数据 `tests/test_data/audio/vocal/vocals.wav` 缺失**预存失败** (非代码回归)。
+> ✅ v7.12: upload.feature 测试数据已补齐 (`scripts/gen_bdd_test_data.py` 生成 vocals.wav), 5 PASS + 3 SKIP (FLAC/OGG/M4A 无测试文件合理跳过)。
 
 ## 11. 参考
 

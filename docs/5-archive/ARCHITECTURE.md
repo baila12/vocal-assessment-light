@@ -1,6 +1,6 @@
 # 声乐评估系统架构规划 v3.1
 
-> 🗄️ **归档文档 — v3.1 (2026-05)** | 当前版本: v7.3.1
+> 🗄️ **归档文档 — v3.1 (2026-05)** | 当前版本: v7.12
 >
 > 历史快照。当前架构已迁移至 FastAPI + DDD 四层 + Vue 3 SPA。详见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)。
 > 当前架构见 **[../2-technical/ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)**。

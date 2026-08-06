@@ -1,4 +1,4 @@
-# 前端技术文档 v7.11
+# 前端技术文档 v7.12
 
 > Vue 3.5 + Element Plus 2.14 + Pinia 2.3 + GSAP 3.15 + Chart.js 4.5 + Electron 28
 
@@ -33,7 +33,7 @@
 
 ---
 
-## GSAP 动效系统 (v7.8 全站, v7.11 保持)
+## GSAP 动效系统 (v7.8 全站, v7.12 保持)
 
 ### Composable: `useGsap.ts`
 
@@ -66,6 +66,7 @@
 | `flags.store.ts` | 算法状态 (GPU, audiofeat, DL models, weights) — v7.7 |
 | `songs.store.ts` | 标准歌曲库 (songs, pagination, filters, CRUD) — v7.10 |
 | `scoring.store.ts` | 评分权重可配置 (presets, sliders, validation, recalc) — v7.11 |
+| `songs.store.ts` | 选歌录音复用 — SingView 选歌区候选列表 (v7.12) |
 
 ---
 
