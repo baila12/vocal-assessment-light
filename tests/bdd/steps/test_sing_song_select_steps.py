@@ -1,17 +1,19 @@
 """
-Step definitions for sing-song-select.feature — v7.12 迁移到 Vue 3 DOM 选择器
+Step definitions for sing-song-select.feature — v7.12/v7.13 Vue 3 DOM 选择器
 
 背景:
-    原 step 定义针对 Vanilla JS 架构 (#page-sing / #songSelectionArea / #startRecordBtn)。
-    v7.12 迁移到 Vue 3 SingView:
+    v7.12 迁移到 Vue 3 SingView; v7.13 新增选歌录音增强:
+      - 参考音高线: 选歌后加载 /songs/{id}/pitch → Canvas 虚线参考线
+      - 上传已有录音: data-test="upload-recording-btn" + hidden input → DTW 对比 → data-test="compare-result"
+      - 再来一首: data-test="sing-again-btn"
       - 选歌区: data-test="song-selection-area" (无 songId)
       - 已选歌曲: data-test="selected-song"
       - 曲库空: .empty-library
       - 导航: location.hash (Vue Router hash mode)
       - 歌曲数据经 window.__store 注入 songs store (v7.11 测试钩子)
 
-    依赖真实 WebSocket 录音/上传的交互场景 (开始录音/上传已有录音/auto-match)
-    标注 xfail — 浏览器 BDD 无真实录音连接。
+    依赖真实 WebSocket 录音的交互场景 (开始录音/参考线随录渲染/auto-match)
+    标注 xfail — 浏览器 BDD 无真实麦克风录音; 上传场景需 :8000 服务端真实带音频歌曲。
 
 所有场景需要 Playwright 浏览器 + FastAPI :8000 (服务 frontend/dist)。
 """
@@ -194,17 +196,21 @@ def recording_finished(page):
 
 @when('我点击 "上传已有录音" 按钮')
 def click_upload_existing(page):
-    pytest.xfail('Vue 3 无选歌后上传录音入口 (v7.12 MVP 未含)')
+    # v7.13: UI 入口已实现 (data-test="upload-recording-btn")
+    btn = page.locator('[data-test="upload-recording-btn"]')
+    pytest.xfail('UI 入口已实现 (v7.13); 浏览器 BDD 需 :8000 服务端真实带音频歌曲')
 
 
 @when('弹出文件选择器')
 def file_picker_shown(page):
-    pytest.xfail('Vue 3 上传依赖 FileUploader 交互 (v7.12 MVP 未含)')
+    # v7.13: el-upload (data-test="upload-recording") 内部 file input 触发选择器
+    pytest.xfail('UI 入口已实现 (v7.13); 浏览器 BDD 需 :8000 服务端真实带音频歌曲')
 
 
 @when('我选择一个音频文件')
 def select_audio_file(page):
-    pytest.xfail('Vue 3 上传依赖 FileUploader 交互 (v7.12 MVP 未含)')
+    # v7.13: page.set_input_files('[data-test="upload-recording"] input[type=file]', path)
+    pytest.xfail('UI 入口已实现 (v7.13); 浏览器 BDD 需 :8000 服务端真实带音频歌曲')
 
 
 @when('点击 "直接上传音频文件分析"')
@@ -229,7 +235,8 @@ def recording_complete(page):
 
 @when('点击 "再来一首"')
 def click_sing_again(page):
-    pytest.xfail('Vue 3 录音完成流程依赖 WebSocket 录音 (v7.12)')
+    # v7.13: data-test="sing-again-btn" 已渲染 (依赖 final_score 出现)
+    pytest.xfail('UI 按钮已实现 (v7.13); 依赖录音 final_score (真实麦克风)')
 
 
 # ============================================================================
@@ -321,12 +328,12 @@ def recording_started(page):
 
 @then('实时音高对比 Canvas 显示标准参考线')
 def pitch_canvas_shows_reference(page):
-    pytest.xfail('Vue 3 参考线叠加为后续增强 (song-select.feature) (v7.12)')
+    pytest.xfail('参考线渲染已实现 (v7.13); 依赖真实麦克风录音触发 drawLoop')
 
 
 @then('参考线与选中歌曲的基频数据一致')
 def reference_matches_song(page):
-    pytest.xfail('Vue 3 参考线叠加为后续增强 (v7.12)')
+    pytest.xfail('参考线渲染已实现 (v7.13); 依赖真实麦克风录音触发 drawLoop')
 
 
 @then('录音面板激活 (跳过选歌)')
@@ -361,12 +368,14 @@ def match_fail_shows_absolute(page):
 
 @then('文件被上传并与选中标准歌曲进行 DTW 对比')
 def file_uploaded_for_dtw(page):
-    pytest.xfail('Vue 3 无选歌后上传录音入口 (v7.12 MVP 未含)')
+    # v7.13: POST /api/v1/songs/{id}/compare → data-test="compare-result"
+    pytest.xfail('UI 入口已实现 (v7.13); 浏览器 BDD 需 :8000 服务端真实带音频歌曲')
 
 
 @then('评分结果页面显示歌曲信息')
 def results_show_song_info(page):
-    pytest.xfail('Vue 3 无选歌后上传录音入口 (v7.12 MVP 未含)')
+    # v7.13: compare-result 卡片显示 歌名/歌手/评分
+    pytest.xfail('UI 入口已实现 (v7.13); 浏览器 BDD 需 :8000 服务端真实带音频歌曲')
 
 
 # ============================================================================
@@ -424,9 +433,11 @@ def can_switch_song(page):
 
 @then('页面底部显示 "再来一首" 按钮')
 def sing_again_btn_shown(page):
-    pytest.xfail('Vue 3 录音完成流程依赖 WebSocket 录音 (v7.12)')
+    # v7.13: data-test="sing-again-btn" 在 finalResult 卡片下方
+    pytest.xfail('UI 按钮已实现 (v7.13); 依赖录音 final_score (真实麦克风)')
 
 
 @then('返回选歌状态 (保留已完成的录音结果)')
 def back_to_song_selection(page):
-    pytest.xfail('Vue 3 录音完成流程依赖 WebSocket 录音 (v7.12)')
+    # v7.13: singAgain() → clearSong() 保留 finalResult, 回到选歌区
+    pytest.xfail('UI 逻辑已实现 (v7.13); 依赖录音 final_score (真实麦克风)')

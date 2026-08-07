@@ -7,6 +7,7 @@ JSON 帧: {"type": "start"|"stop"}
 """
 
 from __future__ import annotations
+import asyncio
 import struct
 import json
 import logging
@@ -18,11 +19,35 @@ from fastapi import WebSocket, WebSocketDisconnect
 from backend.interfaces.ws.streaming_session import StreamingSession
 from backend.interfaces.ws.schemas import (
     WsClientStart, WsClientStop,
-    WsServerReady, WsServerPartialScore,
+    WsServerReady, WsServerPartialScore, WsServerPitchUpdate,
     WsServerQualityWarning, WsServerFinalScore, WsServerError,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_pitch_segment(
+    segment: np.ndarray, sr: int, time_offset: float
+) -> Optional[dict]:
+    """对音频段做 PYIN → {frequencies, times, confidence}
+
+    times 以录音起点为绝对时间轴 (segment 起点 + time_offset)。
+    NaN → 0.0 (JSON 兼容, 0 = 无声)。
+    """
+    try:
+        import librosa
+        f0, voiced, _ = librosa.pyin(
+            segment.astype(np.float64), fmin=65.0, fmax=1047.0, sr=sr, hop_length=512
+        )
+        times = librosa.times_like(f0, sr=sr, hop_length=512) + time_offset
+        return {
+            "frequencies": [float(np.nan_to_num(v, nan=0.0)) for v in f0],
+            "times": [float(t) for t in times],
+            "confidence": (~np.isnan(f0)).astype(float).tolist(),
+        }
+    except Exception:
+        logger.exception("Pitch segment computation failed")
+        return None
 
 
 class ScoreWebSocketHandler:
@@ -128,6 +153,24 @@ class ScoreWebSocketHandler:
                 partial = session.compute_partial()
                 await ws.send_json(partial)
 
+            # v7.13: 实时音高推送 — 每 2s 新音频段 PYIN → pitch_update
+            if session.ready_for_pitch_update():
+                segment = session.get_new_audio_segment()
+                time_offset = session._pitch_computed_samples / session._sample_rate
+                if segment is not None and len(segment) >= 1024:
+                    pitch_result = await asyncio.to_thread(
+                        _compute_pitch_segment, segment, session._sample_rate, time_offset
+                    )
+                    if pitch_result:
+                        await ws.send_json(WsServerPitchUpdate(
+                            event="pitch_update",
+                            frequencies=pitch_result["frequencies"],
+                            times=pitch_result["times"],
+                            confidence=pitch_result["confidence"],
+                            duration=round(session.duration, 1),
+                        ).model_dump())
+                session.mark_pitch_computed()
+
     async def _handle_json(
         self, ws: WebSocket, session: StreamingSession, raw: bytes
     ) -> None:
@@ -174,7 +217,6 @@ class ScoreWebSocketHandler:
 
         try:
             # 使用 asyncio.to_thread() 避免同步 librosa 调用阻塞事件循环
-            import asyncio
             result = await asyncio.to_thread(self._score_lightweight, buffer, session)
             await ws.send_json(WsServerFinalScore(
                 event="final_score",
@@ -264,15 +306,17 @@ class ScoreWebSocketHandler:
         except Exception:
             artistry_score = 50.0
 
-        # 六维加权
+        # 六维加权 — v7.13: 单一权重来源 ScoringWeights (此前硬编码旧权重)
+        from backend.domain.assessment.scoring_weights import ScoringWeights
+        _w = ScoringWeights.default()
         total = (
-            pitch_score * 0.10
-            + rhythm_score * 0.10
-            + breath_score * 0.20
-            + technique_score * 0.25
-            + muscle_score * 0.25
-            + artistry_score * 0.10
-        )
+            pitch_score * _w.pitch
+            + rhythm_score * _w.rhythm
+            + breath_score * _w.breath
+            + technique_score * _w.technique
+            + muscle_score * _w.muscle
+            + artistry_score * _w.artistry
+        ) / 100.0
 
         # 等级判定 — 委托到共享内核 ScoreLevel (单一权威来源)
         from backend.shared.domain_types import ScoreLevel

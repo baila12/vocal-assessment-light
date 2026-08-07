@@ -13,7 +13,11 @@ import type {
   SongCreateResponse,
   SongListResponse,
   SongDeleteResponse,
+  SongPitchResponse,
+  SongCompareData,
+  SongCompareResponse,
 } from '@/types/api'
+import type { PitchPoint } from '@/types/pitch'
 
 export const useSongsStore = defineStore('songs', () => {
   // ---- 状态 ----
@@ -28,6 +32,8 @@ export const useSongsStore = defineStore('songs', () => {
   const difficultyFilter = ref('')
   const showUploadDialog = ref(false)
   const uploading = ref(false)
+  /** v7.13: 歌曲参考音高缓存 (song_id → PitchPoint[], 选歌录音参考线) */
+  const pitchCache = ref<Record<string, PitchPoint[]>>({})
 
   // ---- 计算属性 ----
   // 后端不返回 total_pages, 前端计算 (至少 1 页)
@@ -155,6 +161,43 @@ export const useSongsStore = defineStore('songs', () => {
     showUploadDialog.value = false
   }
 
+  // ---- v7.13: 选歌录音参考音高 + 选歌对比 ----
+
+  async function fetchSongPitch(id: string): Promise<PitchPoint[]> {
+    if (pitchCache.value[id]) return pitchCache.value[id]
+    try {
+      const resp = await apiClient.get<SongPitchResponse>(`/api/v1/songs/${id}/pitch`)
+      if (!resp.success || !resp.data) return []
+      const data = resp.data
+      const points: PitchPoint[] = data.frequencies.map((f, i) => ({
+        time: data.times[i] ?? 0,
+        frequency: f,
+        confidence: data.confidence[i] ?? 0,
+      }))
+      pitchCache.value = { ...pitchCache.value, [id]: points }
+      return points
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : '加载参考音高失败'
+      return []
+    }
+  }
+
+  async function compareWithSong(id: string, formData: FormData): Promise<SongCompareData> {
+    try {
+      const resp = await apiClient.upload<SongCompareResponse>(
+        `/api/v1/songs/${id}/compare`,
+        formData,
+      )
+      if (!resp.success || !resp.data) {
+        throw new Error(resp.error || '对比分析失败')
+      }
+      return resp.data
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : '对比分析失败'
+      throw e
+    }
+  }
+
   return {
     // 状态
     songs,
@@ -184,5 +227,9 @@ export const useSongsStore = defineStore('songs', () => {
     resetFilters,
     openUploadDialog,
     closeUploadDialog,
+    // v7.13
+    pitchCache,
+    fetchSongPitch,
+    compareWithSong,
   }
 })

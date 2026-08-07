@@ -2,28 +2,33 @@
 /**
  * SingView — 实时演唱页 (最高风险页面)
  *
- * 功能: Canvas 实时音高绘制 + AudioWorklet 重采样 + WebSocket 流式评分
+ * 功能 (v7.13): AudioWorklet 重采样 + WebSocket 流式评分 +
+ *   PitchComparisonCanvas 实时偏差着色对比 (v7.13 P1 参考线 + P2 全功能视口) +
+ *   录音后回放控制 (播放/暂停/拖拽/倍速/A-B 循环)
  *
- * ⚠️ 6 步清理法 (防内存泄露):
- *   1. cancelAnimationFrame
- *   2. audioContext.close()
- *   3. mediaStream.getTracks().forEach(stop)
- *   4. ws.close(1000)
- *   5. ctx.clearRect
- *   6. window.__audioCleanup() fallback
+ * ⚠️ 清理法 (防内存泄露):
+ *   1. stopReplay() — 回放定时器
+ *   2. audioManager.stop()
+ *   3. 清除 elapsedTimer
+ *   4. wsManager.close()
+ *   5. window.__audioCleanup() fallback
  */
 
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Microphone, VideoPause, Headset, ArrowRight } from '@element-plus/icons-vue'
+import { ElMessage, type UploadFile } from 'element-plus'
+import { Microphone, VideoPause, CaretRight, Headset, ArrowRight, Upload } from '@element-plus/icons-vue'
 import { useGsap } from '@/composables/useGsap'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useAudioContext } from '@/composables/useAudioContext'
 import { useSongsStore } from '@/stores/songs.store'
 import { apiClient, ApiError } from '@/api/client'
 import { scoreColor } from '@/utils/colors'
-import type { SongRecord, SongDetailResponse } from '@/types/api'
+import PitchComparisonCanvas from '@/components/PitchComparisonCanvas.vue'
+import { PLAYBACK_RATES, DEFAULT_PLAYBACK_RATE, advancePlayback, clampSeek, wrapInABLoop } from '@/utils/pitchPlayback'
+import type { ABLoopRange } from '@/utils/pitchPlayback'
+import type { SongRecord, SongDetailResponse, SongCompareData } from '@/types/api'
+import type { PitchPoint } from '@/types/pitch'
 import type { WsEvent } from '@/composables/useWebSocket'
 
 // ---- Composables ----
@@ -38,6 +43,14 @@ const selectedSong = ref<SongRecord | null>(null)
 const songLoading = ref(false)
 const songError = ref<string | null>(null)
 const songId = computed(() => (route.params.songId as string | undefined) ?? '')
+
+// ---- 参考音高 (v7.13: 选歌录音参考线) ----
+const refPitchData = ref<PitchPoint[]>([])
+const refPitchLoading = ref(false)
+
+// ---- 选歌后上传录音对比 (v7.13) ----
+const compareResult = ref<SongCompareData | null>(null)
+const compareLoading = ref(false)
 
 /** 加载曲库列表供选歌区展示 (无 songId 时) */
 async function loadSongCandidates(): Promise<void> {
@@ -72,22 +85,35 @@ async function loadSong(id: string): Promise<void> {
   const fromStore = songsStore.songs.find((s) => s.id === id)
   if (fromStore) {
     selectedSong.value = fromStore
-    return
-  }
-  songLoading.value = true
-  songError.value = null
-  selectedSong.value = null
-  try {
-    const json = await apiClient.get<SongDetailResponse>(`/api/v1/songs/${id}`)
-    if (json.success && json.song) {
-      selectedSong.value = json.song
-    } else {
-      songError.value = '歌曲不存在'
+  } else {
+    songLoading.value = true
+    songError.value = null
+    selectedSong.value = null
+    try {
+      const json = await apiClient.get<SongDetailResponse>(`/api/v1/songs/${id}`)
+      if (json.success && json.song) {
+        selectedSong.value = json.song
+      } else {
+        songError.value = '歌曲不存在'
+      }
+    } catch (e) {
+      songError.value = e instanceof ApiError ? e.message : '歌曲加载失败'
+    } finally {
+      songLoading.value = false
     }
-  } catch (e) {
-    songError.value = e instanceof ApiError ? e.message : '歌曲加载失败'
-  } finally {
-    songLoading.value = false
+  }
+
+  // v7.13: 加载参考音高 (参考线叠加数据源, store 缓存避免重复请求)
+  if (selectedSong.value) {
+    refPitchData.value = []
+    refPitchLoading.value = true
+    try {
+      refPitchData.value = await songsStore.fetchSongPitch(id)
+    } catch {
+      refPitchData.value = []
+    } finally {
+      refPitchLoading.value = false
+    }
   }
 }
 
@@ -99,6 +125,8 @@ watch(
     } else {
       selectedSong.value = null
       songError.value = null
+      refPitchData.value = []
+      compareResult.value = null
       loadSongCandidates()
     }
   },
@@ -108,7 +136,7 @@ watch(
 // ---- GSAP 录音脉冲动画 ----
 const singContainer = ref<HTMLElement | null>(null)
 const recordBtn = ref<HTMLElement | null>(null)
-const { pulse } = useGsap(singContainer)
+const { pulse, enterFrom, scaleIn } = useGsap(singContainer)
 let pulseTween: gsap.core.Tween | null = null
 
 // ---- 状态 ----
@@ -135,7 +163,6 @@ watch(isSinging, (singing) => {
     }
   }
 })
-const canvasRef = ref<HTMLCanvasElement | null>(null)
 const pitchHistory = ref<Array<{ time: number; freq: number; conf: number }>>([])
 const partialScore = ref<{ pitch?: number; rhythm?: number; progress: number } | null>(null)
 const finalResult = ref<any>(null)
@@ -143,17 +170,38 @@ const qualityWarning = ref<string | null>(null)
 const sessionId = ref('')
 const elapsedTime = ref(0)
 
-// ---- Canvas / 动画 ----
-let animationId: number | null = null
-let canvasCtx: CanvasRenderingContext2D | null = null
-let elapsedTimer: ReturnType<typeof setInterval> | null = null
+// ---- 回放控制 (v7.13 Phase 2: 偏差着色 + 播放控制) ----
+const isReplaying = ref(false)
+const playbackRate = ref<number>(DEFAULT_PLAYBACK_RATE)
+const replayTime = ref(0)
+const abLoop = ref<ABLoopRange | null>(null)
+let replayTimer: ReturnType<typeof setInterval> | null = null
 
-// ---- 录制 ----
+/** 用户音高曲线 (PitchPoint[] 供 PitchComparisonCanvas) — 低置信度帧透传 */
+const userPitchPoints = computed<PitchPoint[]>(() =>
+  pitchHistory.value.map((h) => ({
+    time: h.time,
+    frequency: h.freq,
+    confidence: h.conf,
+  })),
+)
+
+/** 总时长 — 参考曲线与用户曲线的最大时间 (回放游标上限) */
+const totalDuration = computed(() => {
+  const times = [...refPitchData.value, ...userPitchPoints.value].map((d) => d.time)
+  return times.length ? Math.max(...times) : 0
+})
+
+/** 当前展示位置 — 录音中用 elapsedTime, 回放中用 replayTime */
+const displayTime = computed(() => (isReplaying.value ? replayTime.value : elapsedTime.value))
+
+/** 录音计时器 */
+let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
 // ---- 辅助 ----
 function formatElapsed(seconds: number): string {
   const m = Math.floor(seconds / 60)
-  const s = seconds % 60
+  const s = Math.floor(seconds % 60)
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
@@ -180,6 +228,7 @@ async function startSinging(): Promise<void> {
     finalResult.value = null
     qualityWarning.value = null
     elapsedTime.value = 0
+    stopReplay()
 
     // 1. 发送 start 控制消息 (v7.12: 携带参考歌曲 song_id)
     wsManager.sendControl(
@@ -192,9 +241,8 @@ async function startSinging(): Promise<void> {
       wsManager.sendPcm(pcm)
     })
 
-    // 3. 开始 Canvas 绘制循环
+    // 3. 开始录音 (Canvas 由 PitchComparisonCanvas 组件响应式渲染)
     isSinging.value = true
-    drawLoop()
   } catch (e) {
     const msg = e instanceof Error ? e.message : '录音启动失败'
     ElMessage.error(`无法开始录音: ${msg}`)
@@ -207,99 +255,110 @@ async function startSinging(): Promise<void> {
 // ---- 停止演唱 ----
 function stopSinging(): void {
   isSinging.value = false
-
-  if (animationId) {
-    cancelAnimationFrame(animationId)
-    animationId = null
-  }
-
   audioManager.stop()
   wsManager.sendControl('stop')
 }
 
-// ---- Canvas 绘制 ----
-function drawLoop(): void {
-  if (!isSinging.value) return
+// ---- 回放控制 (v7.13 Phase 2) ----
+function stopReplay(): void {
+  if (replayTimer) {
+    clearInterval(replayTimer)
+    replayTimer = null
+  }
+  isReplaying.value = false
+  abLoop.value = null
+}
 
-  const canvas = canvasRef.value
-  if (!canvas) {
-    animationId = requestAnimationFrame(drawLoop)
+/** 播放/暂停 — 录音结束后查看偏差着色曲线回放 */
+function toggleReplay(): void {
+  if (isSinging.value) return
+  if (isReplaying.value) {
+    stopReplay()
     return
   }
-
-  if (!canvasCtx) {
-    canvasCtx = canvas.getContext('2d')
-  }
-
-  const ctx = canvasCtx!
-  const { width, height } = canvas
-
-  ctx.clearRect(0, 0, width, height)
-  ctx.fillStyle = '#0f172a'
-  ctx.fillRect(0, 0, width, height)
-
-  // 网格线
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)'
-  ctx.lineWidth = 1
-  for (let i = 0; i < 8; i++) {
-    const y = (height / 8) * i
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(width, y)
-    ctx.stroke()
-  }
-
-  // 音高曲线
-  const history = pitchHistory.value
-  if (history.length > 1) {
-    ctx.beginPath()
-    ctx.strokeStyle = '#6366f1'
-    ctx.lineWidth = 2
-    ctx.lineJoin = 'round'
-
-    const maxTime = history[history.length - 1].time
-    const minTime = Math.max(0, maxTime - 5)
-    const timeRange = Math.max(maxTime - minTime, 1)
-
-    let started = false
-    for (const point of history) {
-      if (point.freq <= 0) {
-        if (started) { ctx.stroke(); started = false }
-        continue
-      }
-      const x = ((point.time - minTime) / timeRange) * width
-      const logFreq = Math.log2(Math.max(point.freq, 50))
-      const y = height * (1 - (logFreq - Math.log2(50)) / (Math.log2(1200) - Math.log2(50)))
-      const alpha = 0.3 + point.conf * 0.7
-
-      if (!started) {
-        ctx.beginPath()
-        ctx.moveTo(x, Math.max(0, Math.min(height, y)))
-        started = true
-      } else {
-        ctx.globalAlpha = alpha
-        ctx.lineTo(x, Math.max(0, Math.min(height, y)))
-      }
+  // 开始回放: 每 100ms 推进 (10fps 游标平滑), dt 细分使 A-B 循环越界 ≤0.15s (无缝)
+  isReplaying.value = true
+  if (replayTime.value >= totalDuration.value) replayTime.value = 0
+  replayTimer = setInterval(() => {
+    const next = advancePlayback({
+      current: replayTime.value,
+      dt: 0.1,
+      rate: playbackRate.value,
+      duration: totalDuration.value,
+    })
+    replayTime.value = next
+    // A-B 循环: 越过 B 点回绕到 A
+    if (abLoop.value) replayTime.value = wrapInABLoop(replayTime.value, abLoop.value)
+    if (replayTime.value >= totalDuration.value) {
+      stopReplay()
     }
-    ctx.globalAlpha = 1
-    ctx.stroke()
-  }
-
-  // 状态文字
-  ctx.fillStyle = '#cbd5e1'
-  ctx.font = '13px monospace'
-  ctx.textAlign = 'left'
-  ctx.fillText(formatElapsed(elapsedTime.value), 12, height - 12)
-
-  if (partialScore.value) {
-    ctx.textAlign = 'right'
-    const ps = partialScore.value
-    const text = `音准: ${ps.pitch ?? '--'} | 节奏: ${ps.rhythm ?? '--'} | 进度: ${Math.round(ps.progress * 100)}%`
-    ctx.fillText(text, width - 12, height - 12)
-  }
-
-  animationId = requestAnimationFrame(drawLoop)
+  }, 100)
 }
+
+/** 拖拽/点击跳转 — 画布 seek 事件 + 进度条 */
+function onSeek(time: number): void {
+  if (isSinging.value) return
+  replayTime.value = clampSeek(time, totalDuration.value)
+}
+
+/** A-B 循环切换: 第 1 次设起点 A → 第 2 次设终点 B (B>A 激活) → 第 3 次清除 */
+function toggleABLoop(): void {
+  if (!abLoop.value) {
+    abLoop.value = { a: replayTime.value, b: replayTime.value }
+    ElMessage.info(`循环起点 A: ${formatElapsed(replayTime.value)}`)
+    return
+  }
+  if (abLoop.value.b <= abLoop.value.a) {
+    // 设置终点 B — 需大于起点
+    if (replayTime.value <= abLoop.value.a) {
+      ElMessage.warning('循环终点需大于起点，已清除循环')
+      abLoop.value = null
+      return
+    }
+    abLoop.value = { a: abLoop.value.a, b: replayTime.value }
+    ElMessage.info(
+      `A-B 循环: ${formatElapsed(abLoop.value.a)} - ${formatElapsed(abLoop.value.b)}`,
+    )
+    return
+  }
+  abLoop.value = null
+  ElMessage.info('已清除 A-B 循环')
+}
+
+// ---- 选歌后上传已有录音 → DTW 对比 (v7.13, el-upload) ----
+async function onUploadRecording(uploadFile: UploadFile): Promise<void> {
+  const file = uploadFile.raw
+  if (!file || !selectedSong.value) return
+
+  compareLoading.value = true
+  compareResult.value = null
+  try {
+    const formData = new FormData()
+    formData.append('user_file', file)
+    formData.append('style', selectedSong.value.metadata.style)
+    compareResult.value = await songsStore.compareWithSong(selectedSong.value.id, formData)
+    ElMessage.success('对比分析完成')
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : '对比分析失败')
+  } finally {
+    compareLoading.value = false
+  }
+}
+
+// ---- 再来一首 (v7.13: 录音完成后返回选歌状态) ----
+function singAgain(): void {
+  // 保留已完成的录音结果, 返回选歌状态
+  clearSong()
+}
+
+// ---- GSAP 入场动画 (v7.13: 对比结果 / 再来一首) ----
+watch(compareResult, (result) => {
+  if (result) enterFrom('.compare-result', { y: 16, duration: 0.4 })
+})
+
+watch(finalResult, (result) => {
+  if (result) scaleIn('.sing-again-row', { scale: 0.9, duration: 0.35 })
+})
 
 // ---- WebSocket 事件处理 ----
 watch(
@@ -313,17 +372,16 @@ watch(
         break
       case 'pitch_update':
         if (event.frequencies && event.times) {
+          // 不可变更新 (触发 PitchComparisonCanvas 重绘); 保持最近 2000 点
+          const points: Array<{ time: number; freq: number; conf: number }> = []
           for (let i = 0; i < event.frequencies.length; i++) {
-            pitchHistory.value.push({
+            points.push({
               time: event.times[i],
               freq: event.frequencies[i],
               conf: event.confidence?.[i] ?? 1,
             })
           }
-          // 保持最近 2000 个数据点 (~33s @ 60fps)
-          if (pitchHistory.value.length > 2000) {
-            pitchHistory.value = pitchHistory.value.slice(-2000)
-          }
+          pitchHistory.value = [...pitchHistory.value, ...points].slice(-2000)
         }
         break
       case 'partial_score':
@@ -349,18 +407,6 @@ watch(
 
 // ---- 初始化 ----
 onMounted(() => {
-  const canvas = canvasRef.value
-  if (canvas) {
-    const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * dpr
-    canvas.height = 240 * dpr
-    canvas.style.width = `${rect.width}px`
-    canvas.style.height = '240px'
-    const ctx = canvas.getContext('2d')
-    if (ctx) ctx.scale(dpr, dpr)
-  }
-
   initConnection().catch(() => { /* 错误已在 initConnection 内部处理 */ })
 
   elapsedTimer = setInterval(() => {
@@ -368,22 +414,15 @@ onMounted(() => {
   }, 1000)
 })
 
-// ⚠️ 6 步清理法 — 防止内存泄露
+// ⚠️ 清理法 — 防止内存泄露
 onBeforeUnmount(() => {
-  if (animationId) {
-    cancelAnimationFrame(animationId)
-    animationId = null
-  }
+  stopReplay()
   audioManager.stop()
   if (elapsedTimer) {
     clearInterval(elapsedTimer)
     elapsedTimer = null
   }
   wsManager.close()
-  if (canvasRef.value) {
-    const ctx = canvasRef.value.getContext('2d')
-    if (ctx) ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
-  }
   if (window.__audioCleanup) {
     window.__audioCleanup()
   }
@@ -402,7 +441,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- 选歌状态 (v7.12: 参考歌曲) -->
+    <!-- 选歌状态 (v7.12: 参考歌曲; v7.13: 参考音高 + 上传录音) -->
     <div v-if="songId" class="song-selection" data-test="selected-song">
       <template v-if="selectedSong">
         <div class="selected-song-info">
@@ -416,8 +455,29 @@ onBeforeUnmount(() => {
           <el-tag v-if="selectedSong.metadata.vocal_range" size="small" type="info" effect="plain">
             音域 {{ selectedSong.metadata.vocal_range }}
           </el-tag>
+          <el-tag v-if="refPitchLoading" size="small" type="warning" effect="plain">
+            参考音高加载中…
+          </el-tag>
         </div>
-        <el-button size="small" text type="primary" @click="clearSong">取消选择</el-button>
+        <div class="selected-song-actions">
+          <el-upload
+            :auto-upload="false"
+            :show-file-list="false"
+            accept="audio/*"
+            data-test="upload-recording"
+            :on-change="onUploadRecording"
+          >
+            <el-button
+              size="small"
+              :icon="Upload"
+              :loading="compareLoading"
+              data-test="upload-recording-btn"
+            >
+              上传已有录音
+            </el-button>
+          </el-upload>
+          <el-button size="small" text type="primary" @click="clearSong">取消选择</el-button>
+        </div>
       </template>
       <div v-else-if="songLoading" class="song-status">加载歌曲中…</div>
       <div v-else class="song-status song-error">
@@ -454,15 +514,69 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- 实时音高 Canvas -->
+    <!-- 实时音高对比 Canvas (v7.13 Phase 2: 偏差着色 + 滚动窗口 + 播放游标) -->
     <div class="canvas-container">
-      <canvas
-        ref="canvasRef"
-        class="pitch-canvas"
-        role="img"
-        aria-label="实时音高显示"
+      <PitchComparisonCanvas
+        :user-pitch-data="userPitchPoints"
+        :ref-pitch-data="refPitchData"
+        :current-time="displayTime"
+        :total-duration="totalDuration"
+        :ab-loop="abLoop"
+        :height="240"
         data-test="pitch-canvas"
+        @seek="onSeek"
       />
+    </div>
+
+    <!-- 回放控制 (录音结束后) -->
+    <div
+      v-if="!isSinging && userPitchPoints.length > 1"
+      class="playback-controls"
+      data-test="playback-controls"
+    >
+      <el-button
+        size="small"
+        type="primary"
+        :icon="isReplaying ? VideoPause : CaretRight"
+        circle
+        :aria-label="isReplaying ? '暂停回放' : '开始回放'"
+        data-test="replay-toggle"
+        @click="toggleReplay"
+      />
+      <el-slider
+        :model-value="replayTime"
+        :min="0"
+        :max="totalDuration"
+        :step="0.1"
+        :show-tooltip="true"
+        class="seek-slider"
+        data-test="replay-seek"
+        @input="onSeek"
+      />
+      <el-select
+        v-model="playbackRate"
+        size="small"
+        class="rate-select"
+        aria-label="播放倍速"
+        data-test="replay-rate"
+      >
+        <el-option
+          v-for="rate in PLAYBACK_RATES"
+          :key="rate"
+          :label="`${rate}x`"
+          :value="rate"
+        />
+      </el-select>
+      <el-button
+        size="small"
+        text
+        :type="abLoop ? 'primary' : 'default'"
+        :aria-label="'A-B 循环'"
+        data-test="ab-loop-toggle"
+        @click="toggleABLoop"
+      >
+        A-B
+      </el-button>
     </div>
 
     <!-- 演唱控制 -->
@@ -494,7 +608,7 @@ onBeforeUnmount(() => {
       />
 
       <div class="elapsed-display">
-        {{ formatElapsed(elapsedTime) }}
+        {{ formatElapsed(displayTime) }}
       </div>
     </div>
 
@@ -557,6 +671,46 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </el-card>
+        <!-- v7.13: 再来一首 -->
+        <div class="sing-again-row">
+          <el-button
+            type="primary"
+            data-test="sing-again-btn"
+            @click="singAgain"
+          >
+            再来一首
+          </el-button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 选歌后上传录音对比结果 (v7.13) -->
+    <Transition name="fade">
+      <div v-if="compareResult" class="compare-result" data-test="compare-result">
+        <el-card shadow="hover">
+          <template #header>
+            <span>对比评分 — {{ selectedSong?.metadata.title }} {{ selectedSong?.metadata.artist }}</span>
+          </template>
+          <div class="compare-hero">
+            <el-statistic
+              title="综合评分"
+              :value="compareResult.score"
+              :precision="1"
+              :value-style="{ color: scoreColor(compareResult.score), fontSize: '44px', fontWeight: 800 }"
+            />
+            <el-tag type="success" effect="light" size="small">{{ compareResult.level }}</el-tag>
+          </div>
+          <el-descriptions :column="3" size="small" border class="compare-metrics">
+            <el-descriptions-item label="音准匹配率">{{ compareResult.pitch_match_rate }}%</el-descriptions-item>
+            <el-descriptions-item label="节奏匹配率">{{ compareResult.rhythm_match_rate }}%</el-descriptions-item>
+            <el-descriptions-item label="平均偏差">{{ compareResult.avg_cents_error }} 音分</el-descriptions-item>
+          </el-descriptions>
+          <div v-if="compareResult.diagnosis?.length" class="compare-diagnosis">
+            <div v-for="(d, i) in compareResult.diagnosis" :key="i" class="compare-diagnosis-item">
+              · {{ d }}
+            </div>
+          </div>
+        </el-card>
       </div>
     </Transition>
 
@@ -581,7 +735,10 @@ onBeforeUnmount(() => {
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .page-title { font-size: 24px; font-weight: 700; margin: 0; }
 .canvas-container { border-radius: var(--el-border-radius-base); overflow: hidden; margin-bottom: 20px; }
-.pitch-canvas { width: 100%; height: 240px; display: block; }
+/* v7.13 Phase 2: 回放控制面板 */
+.playback-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 8px 12px; background: var(--el-bg-color-overlay); border: 1px solid var(--el-border-color-lighter); border-radius: var(--el-border-radius-base); }
+.playback-controls .seek-slider { flex: 1; margin: 0 4px; }
+.playback-controls .rate-select { width: 88px; }
 .controls-section { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 24px; }
 .record-btn { width: 72px !important; height: 72px !important; font-size: 28px !important; transition: transform 0.15s, box-shadow 0.15s; }
 .record-btn:hover { transform: scale(1.05); }
@@ -624,5 +781,13 @@ onBeforeUnmount(() => {
 .empty-library { padding: 4px 0; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+/* v7.13: 选歌录音增强 */
+.selected-song-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sing-again-row { display: flex; justify-content: center; margin-top: 12px; }
+.compare-result { margin-top: 8px; }
+.compare-hero { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 14px; }
+.compare-metrics { margin-bottom: 12px; }
+.compare-diagnosis { padding: 8px 12px; background: var(--el-fill-color-lighter); border-radius: var(--el-border-radius-small); }
+.compare-diagnosis-item { font-size: 12px; color: var(--el-text-color-regular); margin: 2px 0; }
 @media (max-width: 767px) { .sing-view { padding-bottom: 72px; } }
 </style>

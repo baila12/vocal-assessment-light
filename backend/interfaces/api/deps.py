@@ -81,3 +81,17 @@ def get_song_service():
     """标准曲库应用服务单例"""
     from backend.application.songs.song_library_service import SongLibraryService
     return SongLibraryService(get_song_repo())
+
+
+@lru_cache()
+def get_pitch_cache():
+    """歌曲音高缓存 — 内存实现 (进程内常驻单例)"""
+    from backend.infrastructure.persistence.in_memory_pitch_cache import InMemoryPitchCacheRepository
+    return InMemoryPitchCacheRepository()
+
+
+def get_song_pitch_usecase():
+    """歌曲参考音高用例 — v7.13"""
+    from backend.application.songs_pitch.get_song_pitch import GetSongPitchUseCase
+    from backend.domain.songs_pitch.services import PitchExtractionService
+    return GetSongPitchUseCase(repo=get_pitch_cache(), extractor=PitchExtractionService)

@@ -8,15 +8,16 @@ DELETE /api/v1/songs/{id}   — 删除
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from backend.infrastructure.config import Settings
-from backend.interfaces.api.deps import get_settings, get_song_service
+from backend.interfaces.api.deps import get_settings, get_song_service, get_flask_config
 from backend.application.songs.song_library_service import (
     SongLibraryService,
     SongNotFoundError,
@@ -34,6 +35,7 @@ from backend.interfaces.api.schemas.songs import (
     SongDetailResponse,
     SongDeleteResponse,
 )
+from backend.interfaces.api.schemas.assessment import CompareResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -154,3 +156,57 @@ async def delete_song(
     except SongNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return SongDeleteResponse(deleted=True)
+
+
+@router.post("/songs/{song_id}/compare", response_model=CompareResponse)
+async def compare_song_audio(
+    song_id: str,
+    request: Request,
+    config=Depends(get_flask_config),
+    service: SongLibraryService = Depends(get_song_service),
+) -> CompareResponse:
+    """v7.13: 上传用户录音与选中标准歌曲 DTW 对比 (选歌录音增强)
+
+    用户文件写入 uploads_dir, 与歌曲库标准音频 (songs_dir) 对比。
+    不走 validate_filepath (歌曲路径来自入库时已验证的 song.filepath)。
+    """
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" not in content_type:
+        raise HTTPException(status_code=400, detail="需要 multipart/form-data")
+
+    form = await request.form()
+    user_file = form.get("user_file")
+    if not user_file or not hasattr(user_file, 'filename'):
+        raise HTTPException(status_code=400, detail="缺少用户音频文件")
+    if not config.is_allowed_extension(user_file.filename):
+        raise HTTPException(status_code=400, detail="不支持的用户音频格式")
+
+    style = form.get("style", "pop")
+    if style not in ("pop", "classical", "folk", "rap"):
+        raise HTTPException(status_code=400, detail=f"无效的风格: {style}")
+
+    try:
+        song = service.get_song(song_id)
+    except SongNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    if not song.filepath or not Path(song.filepath).exists():
+        raise HTTPException(status_code=400, detail='该歌曲无音频文件')
+
+    # 保存用户录音到 uploads_dir
+    from backend.interfaces.api.routes.assessment import sanitize_filename
+    user_safe = sanitize_filename(user_file.filename)
+    user_path = config.get_upload_path(user_safe)
+    user_path.write_bytes(await user_file.read())
+
+    try:
+        from backend.application.comparison.compare_audio import CompareAudioUseCase
+        usecase = CompareAudioUseCase()
+        dto = await asyncio.to_thread(
+            usecase.execute_lightweight, song.filepath, str(user_path), style=style
+        )
+    except Exception:
+        logger.exception('选歌对比失败: %s', song_id)
+        raise HTTPException(status_code=500, detail='对比分析失败，请稍后重试')
+
+    return CompareResponse(success=True, data=dto)

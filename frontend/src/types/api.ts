@@ -138,6 +138,47 @@ export interface ScoringPresetsResponse {
   error?: string
 }
 
+/** v7.13: 歌曲音高曲线数据 (GET /api/v1/songs/{id}/pitch) */
+export interface SongPitchData {
+  song_id: string
+  /** Hz, 0 = 无声 */
+  frequencies: number[]
+  /** 秒 */
+  times: number[]
+  /** 0-1 */
+  confidence: number[]
+  sample_rate: number
+  hop_length: number
+  duration_seconds: number
+  frame_count: number
+}
+
+/** v7.13: 歌曲音高响应 */
+export interface SongPitchResponse {
+  success: boolean
+  data: SongPitchData | null
+  error?: string
+}
+
+/** v7.13: 选歌对比数据 (POST /api/v1/songs/{id}/compare) */
+export interface SongCompareData {
+  score: number
+  level: string
+  confidence: number
+  pitch_match_rate: number
+  rhythm_match_rate: number
+  avg_cents_error: number
+  diagnosis: string[]
+  suggestions: string[]
+  method: string
+}
+
+export interface SongCompareResponse {
+  success: boolean
+  data: SongCompareData
+  error?: string
+}
+
 /** v7.11: apply-weights 请求/响应 (POST /api/v1/scoring/apply-weights) */
 export interface ApplyWeightsRequest {
   dimension_scores: Record<string, number>
