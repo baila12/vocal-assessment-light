@@ -169,6 +169,8 @@ const finalResult = ref<any>(null)
 const qualityWarning = ref<string | null>(null)
 const sessionId = ref('')
 const elapsedTime = ref(0)
+/** 录音起始壁钟 (performance.now) — live 时钟基准, 10Hz 浮点推进 (Phase 3 圆点平滑淡出) */
+const singStartWall = ref(0)
 
 // ---- 回放控制 (v7.13 Phase 2: 偏差着色 + 播放控制) ----
 const isReplaying = ref(false)
@@ -192,10 +194,22 @@ const totalDuration = computed(() => {
   return times.length ? Math.max(...times) : 0
 })
 
-/** 当前展示位置 — 录音中用 elapsedTime, 回放中用 replayTime */
-const displayTime = computed(() => (isReplaying.value ? replayTime.value : elapsedTime.value))
+/** 录音数据前沿 — WS 音高帧最大时间 (分数秒, 0.032s 粒度) */
+const liveDataNow = computed<number>(() =>
+  pitchHistory.value.length ? Math.max(...pitchHistory.value.map((h) => h.time)) : 0,
+)
 
-/** 录音计时器 */
+/**
+ * 当前展示位置 — 回放中用 replayTime; 录音中 live 时钟与数据前沿取大:
+ *   数据前沿保证新点立即可见 (不再被整数刻度截断), 壁钟保证圆点按真实时间连续淡出
+ */
+const displayTime = computed(() => {
+  if (isReplaying.value) return replayTime.value
+  if (isSinging.value) return Math.max(elapsedTime.value, liveDataNow.value)
+  return elapsedTime.value
+})
+
+/** 录音计时器 — 10Hz 浮点 (0.5s 淡出窗口 ~5 次采样, 与回放游标 100ms 节奏一致) */
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
 // ---- 辅助 ----
@@ -228,6 +242,7 @@ async function startSinging(): Promise<void> {
     finalResult.value = null
     qualityWarning.value = null
     elapsedTime.value = 0
+    singStartWall.value = performance.now()
     stopReplay()
 
     // 1. 发送 start 控制消息 (v7.12: 携带参考歌曲 song_id)
@@ -410,8 +425,8 @@ onMounted(() => {
   initConnection().catch(() => { /* 错误已在 initConnection 内部处理 */ })
 
   elapsedTimer = setInterval(() => {
-    if (isSinging.value) elapsedTime.value++
-  }, 1000)
+    if (isSinging.value) elapsedTime.value = (performance.now() - singStartWall.value) / 1000
+  }, 100)
 })
 
 // ⚠️ 清理法 — 防止内存泄露
@@ -514,7 +529,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- 实时音高对比 Canvas (v7.13 Phase 2: 偏差着色 + 滚动窗口 + 播放游标) -->
+    <!-- 实时音高对比 Canvas (v7.13 Phase 2 回放: 偏差着色/滚动窗口/播放游标; Phase 3 录音中实时圆点) -->
     <div class="canvas-container">
       <PitchComparisonCanvas
         :user-pitch-data="userPitchPoints"
@@ -522,6 +537,7 @@ onBeforeUnmount(() => {
         :current-time="displayTime"
         :total-duration="totalDuration"
         :ab-loop="abLoop"
+        :live-mode="isSinging"
         :height="240"
         data-test="pitch-canvas"
         @seek="onSeek"

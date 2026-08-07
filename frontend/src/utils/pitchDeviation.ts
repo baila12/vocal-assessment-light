@@ -10,6 +10,9 @@
  */
 import type { DeviationFrame, PitchPoint } from '@/types/pitch'
 
+/** 每八度音分数 — 频率↔音分换算的数学常数 (freqToCents 与 freqAtCentsOffset 互为逆运算共享) */
+export const CENTS_PER_OCTAVE = 1200
+
 export const DEVIATION_THRESHOLDS = {
   accurate: 25,
   slightBias: 50,
@@ -30,7 +33,7 @@ export const DEFAULT_USER_COLOR = '#3b82f6'
 /** 计算两频率间的音分偏差 (正=偏高) */
 export function freqToCents(userFreq: number, refFreq: number): number {
   if (userFreq <= 0 || refFreq <= 0) return 0
-  return 1200 * Math.log2(userFreq / refFreq)
+  return CENTS_PER_OCTAVE * Math.log2(userFreq / refFreq)
 }
 
 /** 偏差颜色映射 */
@@ -43,8 +46,10 @@ export function deviationColor(absCents: number): string {
 /** 八度跳变检测 — 相邻有效帧相差 ≥12 半音 */
 export function isOctaveJump(prevFreq: number, currFreq: number): boolean {
   if (prevFreq <= 0 || currFreq <= 0) return false
-  return Math.abs(1200 * Math.log2(currFreq / prevFreq)) >=
+  return (
+    Math.abs(CENTS_PER_OCTAVE * Math.log2(currFreq / prevFreq)) >=
     DEVIATION_THRESHOLDS.octaveJumpSemitones * 100
+  )
 }
 
 /**

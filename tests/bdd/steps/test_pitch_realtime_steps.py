@@ -1,10 +1,11 @@
 """
-Step definitions for pitch-realtime.feature — v7.13 Phase 2 实时音准对比 (骨架).
+Step definitions for pitch-realtime.feature — v7.13 Phase 2+3 实时音准对比 (骨架).
 
 背景:
     v7.13 前端音准对比子系统 Phase 1 已落地后端 (参考音高 API + WS pitch_update) +
     Phase 2 落地前端 (PitchComparisonCanvas 偏差着色/滚动窗口/音高时间轴 +
-    SingView 回放控制面板: 播放/暂停/拖拽/倍速/A-B 循环)。
+    SingView 回放控制面板: 播放/暂停/拖拽/倍速/A-B 循环) +
+    Phase 3 落地录音中实时对比 (PitchComparisonCanvas live 模式: 圆点/色带/趋势箭头/音分值)。
 
     浏览器 BDD 无法获取真实麦克风录音 → WS pitch_update 无数据 → Canvas 无曲线渲染。
     故本骨架所有数据相关步骤 xfail, 并在消息中标注对应的**纯 TS 单元测试文件** —
@@ -16,10 +17,11 @@ Step definitions for pitch-realtime.feature — v7.13 Phase 2 实时音准对比
       - tests/unit/utils/pitchScrollTicks.test.ts → 自动刻度步长/时间刻度
       - tests/unit/utils/pitchDeviation.test.ts   → 偏差颜色/静音灰/八度跳变/置信度阈值
       - tests/unit/utils/pitchPlayback.test.ts    → clampSeek/倍速推进/A-B 循环/帧率降级
+      - tests/unit/utils/pitchLive.test.ts        → Phase 3 圆点淡出/趋势箭头/色带/音分值
 
 场景分布 (对齐 feature 六章):
     一 视觉规范 (3) / 二 数据质量 (5) / 三 播放控制 (4) — Phase 2 已实现
-    四 性能兼容 (4) — Phase 5 部分 / 五 模式交互 (6) — Phase 3-5 / 六 辅助 (3) — Phase 5
+    四 性能兼容 (4) — Phase 5 部分 / 五 模式交互 (6) — Phase 3 已实现录音中实时对比 / 六 辅助 (3) — Phase 5
 """
 import pytest
 from pytest_bdd import given, when, then, parsers, scenarios
@@ -613,17 +615,17 @@ def start_recording_sing(page):
 @then('应在 Canvas 上实时显示:')
 def canvas_realtime_elements(datatable):
     # 表: 元素/说明 (标准虚线/实时圆点/偏差色带/音分数值/趋势箭头)
-    pytest.xfail('Phase 3 未实现 (实时圆点/色带/趋势箭头) — 见 PROJECT_STATUS')
+    _xfail('pitchLive.test.ts (deviationTrend/trendDisplay/freqAtCentsOffset 圆点/色带/趋势/偏差值)', 'Phase 3')
 
 
 @then('圆点在 2 秒后淡出 (保留最近的音高轨迹)')
 def dots_fade_after_2s(page):
-    pytest.xfail('Phase 3 未实现 (圆点淡出)')
+    _xfail('pitchLive.test.ts (visibleLivePoints/dotAlpha 2s 保留窗口线性淡出)', 'Phase 3')
 
 
 @then('不应显示完整的用户曲线 (因为还没唱完)')
 def no_full_curve_yet(page):
-    pytest.xfail('Phase 3 未实现 (仅实时圆点)')
+    _xfail('PitchComparisonCanvas live 模式 (仅实时圆点, 不画完整曲线)', 'Phase 3')
 
 
 # Scenario 选歌录音 — 录音后回放对比
