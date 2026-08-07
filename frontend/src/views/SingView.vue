@@ -27,6 +27,8 @@ import { scoreColor } from '@/utils/colors'
 import PitchComparisonCanvas from '@/components/PitchComparisonCanvas.vue'
 import { PLAYBACK_RATES, DEFAULT_PLAYBACK_RATE, advancePlayback, clampSeek, wrapInABLoop } from '@/utils/pitchPlayback'
 import type { ABLoopRange } from '@/utils/pitchPlayback'
+import { alignPitchCurves, DEVIATION_COLORS } from '@/utils/pitchDeviation'
+import { computeDeviationStats, computePitchRange } from '@/utils/pitchStats'
 import type { SongRecord, SongDetailResponse, SongCompareData } from '@/types/api'
 import type { PitchPoint } from '@/types/pitch'
 import type { WsEvent } from '@/composables/useWebSocket'
@@ -187,6 +189,28 @@ const userPitchPoints = computed<PitchPoint[]>(() =>
     confidence: h.conf,
   })),
 )
+
+// ---- 回放统计 (v7.13 Phase 4: 播放结束/回放中显示精准/略偏/跑调 + 最高/最低音) ----
+/** 是否有参考音高 (与 Canvas hasReference 判定一致) */
+const hasRefPitch = computed(() => refPitchData.value.length > 0)
+
+/**
+ * 对齐偏差帧 — 有参考时逐帧对齐 (Canvas 内部同一逻辑, 供统计面板复用)。
+ * 有意与 Canvas 各自调用一次 alignPitchCurves (重复对齐, 而非共享可变缓存):
+ * align 为 O(n log m) 二分查找, 数百帧开销可忽略; 组件保持自包含便于 Phase 5 复用。
+ */
+const deviationFrames = computed(() =>
+  hasRefPitch.value ? alignPitchCurves(userPitchPoints.value, refPitchData.value) : [],
+)
+
+/** 是否存在有声偏差帧 — 全无声时统计面板降级为空态 (避免误导性的 0%/0%/0%) */
+const hasVoicedFrames = computed(() => deviationFrames.value.some((f) => !f.isSilent))
+
+/** 偏差统计 — "精准率 X% | 略偏 Y% | 跑调 Z%" (分母为有声帧) */
+const deviationStats = computed(() => computeDeviationStats(deviationFrames.value))
+
+/** 音域范围 — 无参考时标注 "最高音 / 最低音" */
+const pitchRange = computed(() => computePitchRange(userPitchPoints.value))
 
 /** 总时长 — 参考曲线与用户曲线的最大时间 (回放游标上限) */
 const totalDuration = computed(() => {
@@ -595,6 +619,44 @@ onBeforeUnmount(() => {
       </el-button>
     </div>
 
+    <!-- 回放统计 (v7.13 Phase 4: 播放结束/回放中 — 有参考: 精准/略偏/跑调; 无参考: 最高/最低音) -->
+    <div
+      v-if="!isSinging && userPitchPoints.length > 1"
+      class="replay-stats"
+      data-test="replay-stats"
+    >
+      <el-card shadow="never" class="stats-card">
+        <template #header><span>音准统计</span></template>
+        <template v-if="hasRefPitch && hasVoicedFrames">
+          <div class="stats-grid">
+            <div class="stat-item" data-test="stat-accurate">
+              <span class="stat-value" :style="{ color: DEVIATION_COLORS.accurate }">
+                {{ deviationStats.accuratePct }}%
+              </span>
+              <span class="stat-label">精准</span>
+            </div>
+            <div class="stat-item" data-test="stat-slight">
+              <span class="stat-value" :style="{ color: DEVIATION_COLORS.slightBias }">
+                {{ deviationStats.slightPct }}%
+              </span>
+              <span class="stat-label">略偏</span>
+            </div>
+            <div class="stat-item" data-test="stat-out-of-tune">
+              <span class="stat-value" :style="{ color: DEVIATION_COLORS.outOfTune }">
+                {{ deviationStats.outOfTunePct }}%
+              </span>
+              <span class="stat-label">跑调</span>
+            </div>
+          </div>
+        </template>
+        <div v-else-if="pitchRange" class="stats-range" data-test="stat-pitch-range">
+          <span>最高音: <b>{{ pitchRange.maxNote }}</b></span>
+          <span>最低音: <b>{{ pitchRange.minNote }}</b></span>
+        </div>
+        <div v-else class="stats-empty">暂无有效音高数据</div>
+      </el-card>
+    </div>
+
     <!-- 演唱控制 -->
     <div class="controls-section">
       <el-button
@@ -753,6 +815,16 @@ onBeforeUnmount(() => {
 .canvas-container { border-radius: var(--el-border-radius-base); overflow: hidden; margin-bottom: 20px; }
 /* v7.13 Phase 2: 回放控制面板 */
 .playback-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 8px 12px; background: var(--el-bg-color-overlay); border: 1px solid var(--el-border-color-lighter); border-radius: var(--el-border-radius-base); }
+/* v7.13 Phase 4: 回放统计面板 */
+.replay-stats { margin-bottom: 20px; }
+.replay-stats .stats-card { border-color: var(--el-border-color-lighter); }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; background: var(--el-fill-color-light); border-radius: var(--el-border-radius-small); }
+.stat-value { font-size: 24px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 12px; color: var(--el-text-color-secondary); }
+.stats-range { display: flex; justify-content: center; gap: 24px; padding: 8px 0; font-size: 13px; color: var(--el-text-color-regular); }
+.stats-range b { font-size: 15px; color: var(--el-text-color-primary); }
+.stats-empty { text-align: center; font-size: 13px; color: var(--el-text-color-secondary); padding: 8px 0; }
 .playback-controls .seek-slider { flex: 1; margin: 0 4px; }
 .playback-controls .rate-select { width: 88px; }
 .controls-section { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 24px; }

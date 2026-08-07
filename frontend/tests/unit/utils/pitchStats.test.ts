@@ -107,6 +107,23 @@ describe('computeDeviationStats', () => {
     expect(s.accuratePct).toBe(0)
     expect(Number.isFinite(s.accuratePct)).toBe(true)
   })
+
+  it('无声率取整不引入分母误差 — 有声帧精确计数 (审查回归)', () => {
+    // 2000 帧: silent=501 → silentPct=round1(25.05)=25.1
+    // 旧实现从 25.1 反推 voiced=round(2000×74.9/100)=1498 (差 1 帧)
+    // 新实现精确计数 voiced=1499 → accuratePct=50.0 (旧实现会得 50.1)
+    const frames = [
+      ...Array.from({ length: 750 }, () => frame({ colorHex: DEVIATION_COLORS.accurate })),
+      ...Array.from({ length: 375 }, () => frame({ colorHex: DEVIATION_COLORS.slightBias })),
+      ...Array.from({ length: 374 }, () => frame({ colorHex: DEVIATION_COLORS.outOfTune })),
+      ...Array.from({ length: 501 }, () => frame({ colorHex: DEVIATION_COLORS.silent })),
+    ]
+    const s = computeDeviationStats(frames)
+    expect(s.silentPct).toBe(25.1)
+    expect(s.accuratePct).toBe(50.0)
+    expect(s.slightPct).toBe(25.0)
+    expect(s.outOfTunePct).toBe(24.9)
+  })
 })
 
 describe('computePitchRange', () => {

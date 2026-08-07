@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * PitchComparisonCanvas — 全功能音准对比视口 (v7.13 Phase 2 + Phase 3)
+ * PitchComparisonCanvas — 全功能音准对比视口 (v7.13 Phase 2 + Phase 3 + Phase 4)
  *
  * 对齐 pitch-realtime.feature:
  *   回放模式 (默认, Phase 2, 第一~三章):
@@ -21,8 +21,12 @@
  *   - 音高趋势箭头: 偏高 ↑ 红 / 偏低 ↓ 蓝 / 精准 ✓ 绿 (deviationTrend/trendDisplay)
  *   - 不绘制完整用户曲线 (还没唱完)
  *
- * Props 全部响应式, 组件内部用纯函数 (pitchDeviation/pitchScroll/pitchNotes/pitchLive)
- * 计算, 无业务逻辑 — 便于 Phase 4 回放/Phase 5 CompareView 复用。
+ *   Phase 4 (回放分析, 非 live + 有参考):
+ *   - 问题段落红色半透明背景高亮 (偏差 >50 音分持续 >0.5s, findProblemSegments)
+ *   - 逐句音准评分标签浮在乐句上方 (segmentPhrases + scorePhrase + phraseScoreColor)
+ *
+ * Props 全部响应式, 组件内部用纯函数 (pitchDeviation/pitchScroll/pitchNotes/pitchLive/pitchSegments)
+ * 计算, 无业务逻辑 — 便于 Phase 5 CompareView 复用。
  */
 
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
@@ -40,6 +44,13 @@ import {
   freqAtCentsOffset,
   LIVE_DOT_KEEP_SECONDS,
 } from '@/utils/pitchLive'
+import {
+  findProblemSegments,
+  segmentPhrases,
+  scorePhrase,
+  phraseScoreColor,
+  type TimeRange,
+} from '@/utils/pitchSegments'
 
 const props = withDefaults(
   defineProps<{
@@ -118,6 +129,31 @@ const deviationFrames = computed(() => {
   return alignPitchCurves(props.userPitchData, props.refPitchData)
 })
 
+/** 问题段落 (回放模式 + 有参考) — 偏差 >50 音分持续 >0.5s (feature: 红色半透明背景高亮) */
+const problemSegments = computed<TimeRange[]>(() => {
+  if (props.liveMode || !hasReference.value) return []
+  return findProblemSegments(deviationFrames.value)
+})
+
+/** 逐句音准评分 (回放模式 + 有参考) — 参考曲线静音间隙切分乐句, 每句一个分数标签 */
+const phraseScores = computed<Array<{ start: number; end: number; score: number; maxFreq: number }>>(() => {
+  if (props.liveMode || !hasReference.value) return []
+  const frames = deviationFrames.value
+  const scores: Array<{ start: number; end: number; score: number; maxFreq: number }> = []
+  for (const phrase of segmentPhrases(props.refPitchData)) {
+    const score = scorePhrase(frames, phrase.start, phrase.end)
+    if (score === null) continue
+    // 预计算乐句内参考最高音 (静态数据) — 避免 draw() 每帧 O(乐句×参考点) 扫描 (审查 MEDIUM)
+    let maxFreq = 0
+    for (const p of props.refPitchData) {
+      if (p.frequency <= 0 || p.time < phrase.start || p.time > phrase.end) continue
+      if (p.frequency > maxFreq) maxFreq = p.frequency
+    }
+    scores.push({ start: phrase.start, end: phrase.end, score, maxFreq })
+  }
+  return scores
+})
+
 /** live 模式最近偏差 (音分) — 最新有声帧; 无参考/全静音 → null */
 const liveDeviation = computed<number | null>(() => {
   if (!hasReference.value) return null
@@ -155,7 +191,10 @@ function draw(): void {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  const { width, height } = canvas
+  // CSS 像素尺寸 — canvas.width/height 为物理像素 (initCanvas ×dpr + ctx.scale),
+  // 几何计算除以 dpr 才能落在缩放后的坐标空间 (审查 CRITICAL: HiDPI 全图错位)
+  const width = canvas.width / dpr
+  const height = canvas.height / dpr
   ctx.clearRect(0, 0, width, height)
 
   // 空状态
@@ -235,6 +274,9 @@ function draw(): void {
     }
   }
 
+  // ---- 问题段落红色半透明背景高亮 (Phase 4) — 曲线下方, 仅窗口相交部分 ----
+  drawProblemSegments(ctx, timeToX, windowStart, windowEnd, padding.top, padding.top + plotH)
+
   // ---- 标准参考曲线 — 虚线 #6366f1 (2px) ----
   if (props.showReference && hasReference.value) {
     ctx.save()
@@ -292,6 +334,9 @@ function draw(): void {
       ctx.fillText('⚠️', x, Math.max(padding.top + 8, y))
     }
   }
+
+  // ---- 逐句音准评分标签 (Phase 4) — 浮在乐句上方 ----
+  drawPhraseScores(ctx, timeToX, freqToY, windowStart, windowEnd, padding.left, plotW, padding.top, plotH)
 
   // ---- 播放游标 (当前播放位置, 居中标尺) ----
   const cx = padding.left + cursorXFraction * plotW
@@ -423,6 +468,76 @@ function drawDeviationCurve(
   }
   flushSilent()
   flush()
+}
+
+/**
+ * 问题段落红色半透明背景高亮 (Phase 4) — 仅绘制与当前窗口相交的部分。
+ * 覆盖在曲线下方 (背景), 点击仍由 onClickCanvas 全画布 seek 处理。
+ */
+function drawProblemSegments(
+  ctx: CanvasRenderingContext2D,
+  timeToX: (t: number) => number,
+  windowStart: number,
+  windowEnd: number,
+  plotTop: number,
+  plotBottom: number,
+): void {
+  if (problemSegments.value.length === 0) return
+  ctx.save()
+  ctx.fillStyle = 'rgba(239, 68, 68, 0.10)'
+  for (const seg of problemSegments.value) {
+    const x1 = timeToX(Math.max(seg.start, windowStart))
+    const x2 = timeToX(Math.min(seg.end, windowEnd))
+    if (x2 <= x1) continue
+    ctx.fillRect(x1, plotTop, x2 - x1, plotBottom - plotTop)
+  }
+  ctx.restore()
+}
+
+/**
+ * 逐句音准评分标签 (Phase 4) — 每句一个分数药丸, 浮在乐句参考曲线最高音上方。
+ * 深底浅文保证暗背景可读性 (a11y), 药丸居中于乐句, 越界裁剪在绘图区内。
+ */
+function drawPhraseScores(
+  ctx: CanvasRenderingContext2D,
+  timeToX: (t: number) => number,
+  freqToY: (f: number) => number,
+  windowStart: number,
+  windowEnd: number,
+  plotLeft: number,
+  plotWidth: number,
+  plotTop: number,
+  plotHeight: number,
+): void {
+  if (phraseScores.value.length === 0) return
+  ctx.save()
+  ctx.font = 'bold 12px sans-serif'
+  ctx.textAlign = 'center'
+  for (const ps of phraseScores.value) {
+    if (ps.end < windowStart || ps.start > windowEnd) continue
+    const cx = (timeToX(Math.max(ps.start, windowStart)) + timeToX(Math.min(ps.end, windowEnd))) / 2
+    const label = `${ps.score}`
+    const tw = ctx.measureText(label).width
+    const bw = tw + 12
+    const bh = 17
+    const bx = Math.min(Math.max(cx - bw / 2, plotLeft + 2), plotLeft + plotWidth - bw - 2)
+    // 最高音在视口外时 Y 可能越界 — 钳制在绘图区顶/底部 (a11y: 标签始终可读)
+    const rawBy = (ps.maxFreq > 0 ? freqToY(ps.maxFreq) : plotTop + 14) - bh - 4
+    const by = Math.min(Math.max(rawBy, plotTop + 2), plotTop + plotHeight - bh - 2)
+    // 药丸背景 (深底) + 分数颜色边框与文字 — 暗背景可读
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)'
+    ctx.strokeStyle = phraseScoreColor(ps.score)
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    // roundRect 兼容性回退 (Safari<16/FF<112) — 防止整个渲染管线中断 (审查 MEDIUM)
+    if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, bw, bh, 5)
+    else ctx.rect(bx, by, bw, bh)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = phraseScoreColor(ps.score)
+    ctx.fillText(label, bx + bw / 2, by + bh - 5)
+  }
+  ctx.restore()
 }
 
 /**

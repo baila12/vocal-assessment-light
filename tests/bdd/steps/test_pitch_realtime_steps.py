@@ -18,10 +18,11 @@ Step definitions for pitch-realtime.feature — v7.13 Phase 2+3 实时音准对�
       - tests/unit/utils/pitchDeviation.test.ts   → 偏差颜色/静音灰/八度跳变/置信度阈值
       - tests/unit/utils/pitchPlayback.test.ts    → clampSeek/倍速推进/A-B 循环/帧率降级
       - tests/unit/utils/pitchLive.test.ts        → Phase 3 圆点淡出/趋势箭头/色带/音分值
+      - tests/unit/utils/pitchSegments.test.ts    → Phase 4 问题段落/乐句切分/逐句评分
 
 场景分布 (对齐 feature 六章):
     一 视觉规范 (3) / 二 数据质量 (5) / 三 播放控制 (4) — Phase 2 已实现
-    四 性能兼容 (4) — Phase 5 部分 / 五 模式交互 (6) — Phase 3 已实现录音中实时对比 / 六 辅助 (3) — Phase 5
+    四 性能兼容 (4) — Phase 5 部分 / 五 模式交互 (6) — Phase 3 录音中实时对比 + Phase 4 录音后回放分析 / 六 辅助 (3) — Phase 5
 """
 import pytest
 from pytest_bdd import given, when, then, parsers, scenarios
@@ -562,7 +563,7 @@ def no_ref_banner(page):
 
 @then('应在曲线上标注 "最高音: G5" "最低音: C3"')
 def pitch_range_labels(page):
-    _xfail('pitchStats.test.ts (computePitchRange → minNote/maxNote)')
+    _xfail('pitchStats.test.ts (computePitchRange → minNote/maxNote) + SingView 回放统计面板', 'Phase 4')
 
 
 # Scenario Quick/Pro 有自动匹配
@@ -593,7 +594,7 @@ def deviation_vs_standard(page):
 
 @then('播放结束后应显示统计: "精准率 78% | 略偏 15% | 跑调 7%"')
 def stats_78_15_7(page):
-    _xfail('pitchStats.test.ts (computeDeviationStats 分母为有声帧)')
+    _xfail('pitchStats.test.ts (computeDeviationStats 分母为有声帧) + SingView 回放统计面板', 'Phase 4')
 
 
 # Scenario 选歌录音 — 录音中实时对比
@@ -636,7 +637,7 @@ def just_finished_recording(page):
 
 @when('我点击 "查看回放" 并播放')
 def click_view_replay(page):
-    pytest.xfail('Phase 4 未实现 (回放按钮) — 见 PROJECT_STATUS')
+    _xfail('pitchPlayback.test.ts (toggleReplay/advancePlayback 回放推进)', 'Phase 4')
 
 
 @then('应显示完整的双曲线对比 (与 Scenario "回放时查看音准 (有自动匹配)" 一致)')
@@ -646,17 +647,17 @@ def full_dual_curve(page):
 
 @then('问题段落应用红色半透明背景高亮 (偏差 > 50 音分持续 > 0.5s)')
 def problem_segment_highlight(page):
-    pytest.xfail('Phase 4 未实现 (问题段落高亮)')
+    _xfail('pitchSegments.test.ts (findProblemSegments 阈值 50/持续 0.5s)', 'Phase 4')
 
 
 @then('点击问题段落可跳到该位置重新播放')
 def click_problem_jump(page):
-    pytest.xfail('Phase 4 未实现 (问题段落跳转)')
+    _xfail('PitchComparisonCanvas onClickCanvas 全画布 seek + pitchSegments.test.ts (问题段 = 高亮区间)', 'Phase 4')
 
 
 @then('应显示逐句音准评分 (每句一个分数标签浮在曲线上方)')
 def per_phrase_scores(page):
-    pytest.xfail('Phase 4 未实现 (逐句评分)')
+    _xfail('pitchSegments.test.ts (segmentPhrases 静音间隙切分 + scorePhrase 精准率 + phraseScoreColor)', 'Phase 4')
 
 
 # Scenario 对比分析 — 双轨叠加对比

@@ -67,29 +67,42 @@ export function computeFramePercentages(frames: DeviationFrame[]): DeviationPerc
 /**
  * 偏差统计 — 有声帧按偏差比例 (无声帧独立成无声率)。
  * 无声率 = 无声帧 / 总帧; 有声三率 = 有声帧内的占比。
+ * 单次遍历精确计数 (不依赖已取整百分比的逆推, 修复 ≤1 帧分母舍入误差)。
  */
 export function computeDeviationStats(frames: DeviationFrame[]): DeviationPercentages {
   if (frames.length === 0) return EMPTY_PCT
 
-  const pct = computeFramePercentages(frames)
-
-  // 有声帧数 = 总帧 - 无声帧
-  const voiced = Math.round((frames.length * (100 - pct.silentPct)) / 100)
-  if (voiced <= 0) {
-    return { ...EMPTY_PCT, silentPct: pct.silentPct }
+  let accurate = 0
+  let slight = 0
+  let outOfTune = 0
+  let silent = 0
+  for (const f of frames) {
+    switch (f.colorHex) {
+      case DEVIATION_COLORS.accurate:
+        accurate++
+        break
+      case DEVIATION_COLORS.slightBias:
+        slight++
+        break
+      case DEVIATION_COLORS.outOfTune:
+        outOfTune++
+        break
+      default:
+        silent++
+        break
+    }
   }
 
-  // 重新按有声帧为分母计算三率
-  const accurateCount = frames.filter((f) => f.colorHex === DEVIATION_COLORS.accurate).length
-  const slightCount = frames.filter((f) => f.colorHex === DEVIATION_COLORS.slightBias).length
-  const outOfTuneCount = frames.filter((f) => f.colorHex === DEVIATION_COLORS.outOfTune).length
-
+  const voiced = accurate + slight + outOfTune
   const round1 = (n: number): number => Math.round(n * 10) / 10
+  const silentPct = round1((silent / frames.length) * 100)
+  if (voiced <= 0) return { ...EMPTY_PCT, silentPct }
+
   return {
-    accuratePct: round1((accurateCount / voiced) * 100),
-    slightPct: round1((slightCount / voiced) * 100),
-    outOfTunePct: round1((outOfTuneCount / voiced) * 100),
-    silentPct: pct.silentPct,
+    accuratePct: round1((accurate / voiced) * 100),
+    slightPct: round1((slight / voiced) * 100),
+    outOfTunePct: round1((outOfTune / voiced) * 100),
+    silentPct,
   }
 }
 
