@@ -1,6 +1,6 @@
 # 系统架构 v7.13
 
-> 更新: 2026-08-07 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1-3
+> 更新: 2026-08-07 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1-4
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 

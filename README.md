@@ -23,6 +23,8 @@
 - **选歌后上传对比** - 上传已有录音与选中标准歌曲 DTW 对比 (v7.13)
 - **音准偏差着色** - 音准对比 Canvas 逐帧偏差着色 (≤25 绿 / 25-50 橙 / >50 红), 静音灰虚线, 八度跳变 ⚠️ 标记, 无参考蓝色单曲线 (v7.13 Phase 2)
 - **音准回放控制** - 录音后回放: 播放/暂停/点击拖拽跳转/倍速 (0.5x/1x/1.5x)/A-B 循环, 滚动窗口播放位置居中 (v7.13 Phase 2)
+- **录音中实时对比** - 演唱中 live 模式: 用户音高圆点 2s 淡出 + 偏差背景色带 + 当前偏差值/趋势箭头 (v7.13 Phase 3)
+- **录音后回放分析** - 回放时问题段落红色高亮 + 逐句评分药丸 + 音准统计面板 (精准/略偏/跑调, 最高/最低音) (v7.13 Phase 4)
 - **导出报告** - PDF/图片格式报告
 
 ### 对比分析功能
@@ -101,7 +103,7 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 534 tests (DDD 451 + integration 62 + extended 21) + 前端 166 Vitest
+└── tests/                # 534 tests (DDD 451 + integration 62 + extended 21) + 前端 230 Vitest
 ```
 
 ## API 接口
@@ -177,7 +179,7 @@ cd frontend && npx vitest run
 
 ## 版本历史
 
-- **v7.13** — 实时音准对比子系统 Phase 1 + Phase 2: 参考音高 API (GET /songs/{id}/pitch) + 选歌录音增强 (参考线叠加/上传录音 DTW 对比/再来一首) + WS pitch_update 实时推送 + WS 权重 ScoringWeights 单一来源; Phase 2: 音准对比 Canvas 偏差着色 + 滚动窗口 + 回放控制 (播放/拖拽/倍速/A-B) + Y 轴音高/时间刻度 (2026-08-07)
+- **v7.13** — 实时音准对比子系统 Phase 1-4: 参考音高 API (GET /songs/{id}/pitch) + 选歌录音增强 (参考线叠加/上传录音 DTW 对比/再来一首) + WS pitch_update 实时推送 + WS 权重 ScoringWeights 单一来源; Phase 2: 音准对比 Canvas 偏差着色 + 滚动窗口 + 回放控制 (播放/拖拽/倍速/A-B) + Y 轴音高/时间刻度; Phase 3: 录音中实时对比 (live 模式圆点/偏差色带/趋势); Phase 4: 录音后回放分析 (问题段落高亮/逐句评分/统计面板) (2026-08-07)
 - **v7.12** — 选歌录音 MVP (/sing/:songId + WS song_id + vocal_range) + BDD 基建修复 (vocals.wav 数据 + animations/sing-song-select 迁移 Vue 3 + KMP 崩溃修复) + dl_services 死代码清理 (2026-08-06)
 - **v7.11** — 评分权重可配置: ScoringWeights 值对象 (单一来源) + 4 风格预设 + 权重面板 + 纯前端重算; BDD 浏览器基建修复 (2026-08-04)
 - **v7.10** — 标准歌曲库前端页面: 卡片网格 + 搜索/筛选 + 上传 + 删除 + 试听; 音频播放修复 (songs_dir) (2026-08-04)

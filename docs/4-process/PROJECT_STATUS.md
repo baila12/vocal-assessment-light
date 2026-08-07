@@ -84,7 +84,7 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 
 ## 二、完成功能
 
-### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3
+### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3 + Phase 4
 
 | 类别 | 项目 | 状态 |
 |------|------|:--:|
@@ -100,11 +100,13 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **前端 store** | songs.store +`fetchSongPitch` (缓存) + `compareWithSong` | ✅ |
 | **前端组件** | `PitchComparisonCanvas.vue` (P1 双曲线 → P2 全功能): 偏差着色 (≤25 绿/≤50 橙/>50 红, 静音灰虚线 40% 延续不跳变) + 滚动窗口 (播放居中) + Y 轴钢琴键/时间刻度 + 八度跳变 ⚠️ + 无参考蓝色单曲线 | ✅ |
 | **前端组件 (P3)** | live 模式 (`:live-mode` prop): 录音中 3px 圆点 2s 淡出 (dotAlpha 线性) + 偏差背景色带 (±25 绿/±50 橙半透明) + 右上角当前偏差值/趋势箭头 (偏离演唱位置, 窗口外跳过) + 不画完整用户曲线; 索引遍历 O(n) 圆点渲染 | ✅ |
-| **前端视图** | SingView (Element Plus + GSAP): P1 选歌参考线/上传 DTW/再来一首; P2 回放控制面板 (播放/暂停/拖拽跳转/倍速 0.5x-1.5x/A-B 循环) + WS 不可变更新; P3 录音中切换到 live 模式 + live 时钟 (100ms 壁钟浮点, 与数据前沿对齐 → 圆点平滑淡出/新点即时可见) | ✅ |
-| **BDD** | sing-song-select step defs 更新 (data-test 钩子, xfail 对齐 v7.13); 🆕 `pitch-realtime` step defs 骨架 (25 场景, 每条标注对应纯 TS 单元测试; P3 起 3 场景指向 pitchLive.test.ts) | ✅ |
-| **测试** | 单测 435→451 (+16) + 集成 53→62 (+9) + WS 10→14 (+4); 前端 102→166 (+64) → **197** (Phase 3 +31); 后端全绿 548 (534 生产 + 14 WS); BDD 场景 154→**179** | ✅ |
+| **前端视图** | SingView (Element Plus + GSAP): P1 选歌参考线/上传 DTW/再来一首; P2 回放控制面板 (播放/暂停/拖拽跳转/倍速 0.5x-1.5x/A-B 循环) + WS 不可变更新; P3 录音中切换到 live 模式 + live 时钟 (100ms 壁钟浮点, 与数据前沿对齐 → 圆点平滑淡出/新点即时可见); P4 回放统计面板 (有参考: 精准/略偏/跑调 = computeDeviationStats; 无参考: 最高/最低音 = computePitchRange; 全无声空态 = hasVoicedFrames) | ✅ |
+| **前端纯 TS (P4)** | `utils/pitchSegments.ts`: `findProblemSegments` (偏差>50 持续≥0.5s) + `segmentPhrases` (静音间隙>0.4s 切分乐句) + `scorePhrase` (乐句精准率) + `phraseScoreColor` (≥85绿/≥60橙/红) — 零 Vue 依赖 | ✅ |
+| **前端组件 (P4)** | 回放分析: 问题段落红色半透明 band + 逐句评分药丸 (maxFreq 预计算锚在乐句最高音) + DPR 修复 (CSS 像素) + `roundRect` 兼容回退 | ✅ |
+| **BDD** | sing-song-select step defs 更新 (data-test 钩子, xfail 对齐 v7.13); 🆕 `pitch-realtime` step defs 骨架 (25 场景, 每条标注对应纯 TS 单元测试; P3 起录音中对比指向 pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计指向 pitchSegments.test.ts) | ✅ |
+| **测试** | 单测 435→451 (+16) + 集成 53→62 (+9) + WS 10→14 (+4); 前端 102→166 (+64) → 197 (+31) → **230** (Phase 4 +33); 后端全绿 548 (534 生产 + 14 WS); BDD 场景 154→**179** | ✅ |
 
-> **后续 Phase (pitch-realtime.feature 全量)**: Phase 4 回放对比+统计+问题段落+逐句评分 / Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 均已设计, 未实现。
+> **后续 Phase (pitch-realtime.feature 全量)**: Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 已设计, 未实现。
 
 ### v7.12 (2026-08-06) — 选歌录音 MVP + BDD 基建修复 + dl_services 死代码清理
 
@@ -275,13 +277,13 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | sing-song-select.feature (迁移 Vue 3) | ✅ 6 PASS + 6 XFAIL (依赖 WebSocket 录音/auto-match/上传) |
 | scoring-config.feature | ✅ API 级 PASS (v7.11) |
 | database.feature | ✅ 4 PASS + 6 XFAIL (v7.9) |
-| **pitch-realtime.feature (v7.13 P2 骨架)** | ✅ 25 XFAIL (每条标注对应纯 TS 单元测试文件; 浏览器 BDD 无真实音频/WS) |
+| **pitch-realtime.feature (v7.13 P4 骨架)** | ✅ 25 XFAIL (每条标注对应纯 TS 单元测试文件; P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计→pitchSegments.test.ts; 浏览器 BDD 无真实音频/WS) |
 
 ### 前端测试
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| Vitest | 166 | ✅ 100% | (stores 74 + **pitch utils 92**; v7.13 P1 +34, P2 +64)
+| Vitest | 230 | ✅ 100% | (stores 74 + **pitch utils 156**; v7.13 P1 +34, P2 +64, P3 +31, P4 +33)
 | vue-tsc type check | 0 errors | ✅ |
 | Vite build | ~16s | ✅ |
 
@@ -357,7 +359,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | BDD 浏览器测试需服务运行 | 运行浏览器 BDD 需先 `python backend/main.py` (FastAPI :8000 服务 frontend/dist); 服务未启动时场景 skip |
 | 评分阈值联动 (风格预设) | scoring-config.feature: 各预设阈值微调 (MAE断点等) 未实现 — API 级 PASS, 阈值联动/自动风格检测/UI 面板仍 XFAIL (用户指定暂不开发) |
 | ~~选歌录音 (选歌→演唱页)~~ | ✅ v7.12 MVP + v7.13 Phase 1: `/sing/:songId` + WS song_id + vocal_range + 参考音高 API + WS pitch_update + 上传录音对比 + 再来一首 |
-| **实时音准对比 Phase 3-5** | pitch-realtime.feature 全量 (录音中实时对比/回放对比/CompareView 双轨/性能降级/截图/快捷键) 已设计未实现; auto-match 独立 feature 待开发 |
+| **实时音准对比 Phase 4-5** | pitch-realtime.feature 全量 (回放分析已落地 P4: 问题段落/逐句评分/统计; 待 CompareView 双轨/性能降级/截图/快捷键 Phase 5) 已设计未实现; auto-match 独立 feature 待开发 |
 
 ---
 

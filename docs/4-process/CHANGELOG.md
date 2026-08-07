@@ -115,7 +115,45 @@
 - ✅ vue-tsc 0 errors + Vite build 通过 (~15s)
 - 🔧 BDD: `pitch-realtime` 3 场景 (录音中实时对比) step defs 指向 `pitchLive.test.ts`; 25 场景仍 25 XFAIL (浏览器行为由纯 TS 单测验证)
 
-> **后续 Phase (pitch-realtime.feature 全量)**: Phase 4 回放对比+统计+问题段落+逐句评分 / Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 均已设计, 未实现。
+---
+
+## v7.13 (续) — 实时音准对比子系统 Phase 4: 录音后回放分析 (2026-08-07)
+
+### 概述
+
+在 Phase 3 (录音中实时对比) 之上落地录音后回放分析 (pitch-realtime.feature 第六~七章 "录音后回放对比" + "回放时查看音准"): 回放时 Canvas 高亮问题段落 (偏差 >50 音分且持续 ≥0.5s) + 逐句评分药丸 (按静音间隙切分乐句, 精准率 ≤25 音分占比) + `SingView` 音准统计面板 (有参考: 精准/略偏/跑调; 无参考: 最高/最低音; 全无声空态)。纯 TS 逻辑层 (`pitchSegments.ts`) 零 Vue 依赖, Vitest 直接验证。多代理代码审查 (7 条确认发现) 全部修复。
+
+### ① 纯 TS 逻辑层 (`frontend/src/utils/pitchSegments.ts`, 零 Vue 依赖)
+
+- 🆕 `findProblemSegments`: 偏差 >50 音分且连续持续 ≥0.5s 的段落 (排除静音/八度跳变帧) → 问题区间 (红色高亮)
+- 🆕 `segmentPhrases`: 按静音间隙 >0.4s 切分参考曲线为乐句 (过滤 frequency≤0)
+- 🆕 `scorePhrase`: 乐句内有声帧中精准率 (偏差 ≤25 音分百分比), 无有效帧返回 null
+- 🆕 `phraseScoreColor`: ≥85 绿 / ≥60 橙 / <60 红 (与偏差着色色板一致)
+
+### ② 组件 — PitchComparisonCanvas.vue (Phase 4 回放分析)
+
+- 🆕 问题段落红色半透明 band (`drawProblemSegments`, 窗口相交钳制)
+- 🆕 逐句评分药丸 (深底 + 分数色边框, 锚在乐句最高音上方; `drawPhraseScores` maxFreq 预计算)
+- 🔧 **CRITICAL DPR 修复**: draw() 改读 CSS 像素 (`canvas.width / dpr`) — 此前用物理像素使几何放大 dpr 倍 (审查 CRITICAL, 高 DPI 渲染~49%)
+- 🔧 `roundRect` 兼容性回退 (`typeof ctx.roundRect === 'function'` → `ctx.rect`) — Safari<16/FF<112 不抛 TypeError 中断渲染 (审查 MEDIUM)
+
+### ③ 视图 — SingView.vue (回放统计面板)
+
+- 🆕 回放统计面板 (`data-test="replay-stats"`, 录音结束且有数据时显示): 有参考 → 精准/略偏/跑调 3 宫格 (`deviationStats`, 分母=有声帧); 无参考 → 最高/最低音 (`pitchRange`); 全无声 → 空态
+- 🔧 `hasVoicedFrames`: 全无声时统计面板降级为空态 — 避免误导性的 0%/0%/0% (审查 MEDIUM)
+- 🔧 `deviationFrames` 注释: 有意与 Canvas 各自对齐一次 (`alignPitchCurves` O(n log m) 开销可忽略, 组件自包含便于 Phase 5 复用)
+
+### ④ 审查修复 (多代理 workflow: 3 维度审查 + 对抗验证, 7 条确认全部修复)
+
+- 🔧 `computeDeviationStats` 重写单次遍历精确计数 — 不再从 round1(silentPct) 反推有声分母 (≤1 帧舍入误差, 审查 LOW) + 回归测试 (2000 帧断言 25.1/50.0/25.0/24.9)
+
+### 测试
+
+- 🆕 前端 Vitest 197 → **230** (+33: pitchSegments 32 + pitchStats 回归 1) — 全绿
+- ✅ vue-tsc 0 errors + Vite build 通过
+- 🔧 BDD: `pitch-realtime` 回放对比/问题段落/逐句评分/统计 step defs 指向 `pitchSegments.test.ts` + SingView 统计面板; 25 场景仍 25 XFAIL (浏览器行为由纯 TS 单测验证)
+
+> **后续 Phase (pitch-realtime.feature 全量)**: Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 已设计, 未实现。
 
 ---
 

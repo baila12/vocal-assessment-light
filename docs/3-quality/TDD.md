@@ -384,7 +384,7 @@ frontend/tests/unit/stores/
 | animations.feature (16 scenarios) | ✅ v7.12 迁移 Vue 3 data-test — 7 PASS + 9 XFAIL (无 UI/依赖录音场景) |
 | sing-song-select.feature | ✅ v7.12 迁移 Vue 3 — 6 PASS + 6 XFAIL (录音/auto-match/上传) |
 | upload.feature | ✅ v7.12 数据补齐 + fixture 修复 — 5 PASS + 3 SKIP (FLAC/OGG/M4A 无文件) |
-| pitch-realtime.feature (25 scenarios) | ✅ v7.13 P3 step defs 骨架 — 25 XFAIL (每条标注对应纯 TS 单元测试; P3 起 3 场景指向 pitchLive.test.ts) |
+| pitch-realtime.feature (25 scenarios) | ✅ v7.13 P4 step defs 骨架 — 25 XFAIL (每条标注对应纯 TS 单元测试; P3 起录音中对比指向 pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分指向 pitchSegments.test.ts) |
 | 5 features 缺 step defs | ⚠️ auto-match/multi-dim-analysis/nonblocking-analysis/realtime-analysis/song-select |
 
 ### 真实音频回归

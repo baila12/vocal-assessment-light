@@ -1,7 +1,7 @@
 # 声乐评估系统文档索引
 
 > **v7.13 | 2026-08-07** | 分支: `main`
-> 实时音准对比子系统 Phase 1-3 (参考音高 API + WS pitch_update + 偏差着色/滚动窗口/播放控制 + 录音中实时对比) | 534 后端测试 GREEN + 197 前端 GREEN
+> 实时音准对比子系统 Phase 1-4 (参考音高 API + WS pitch_update + 偏差着色/滚动窗口/播放控制 + 录音中实时对比 + 录音后回放分析) | 534 后端测试 GREEN + 230 前端 GREEN
 
 本目录按产品、技术、质量、过程和归档五类组织。
 
@@ -18,7 +18,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.12 DDD 四层架构 + 评分权重领域 + 歌曲库领域 + 选歌录音 + GSAP 动效 + 安全中间件 |
+| [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.13 DDD 四层架构 + 评分权重领域 + 歌曲库领域 + 选歌录音 + 实时音准对比 + GSAP 动效 + 安全中间件 |
 | [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | API 契约 (21 paths + WebSocket) |
 | [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分 + audiofeat + GNE 增强 + v7.9 真实音频基线 |
 | [2-technical/API.md](2-technical/API.md) | API 参考文档 |
@@ -35,28 +35,28 @@
 | [3-quality/TDD.md](3-quality/TDD.md) | TDD 规范 |
 | [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景 (21 Feature files, 16 step files) |
 
-### 测试体系状态 (v7.12)
+### 测试体系状态 (v7.13)
 
 | 层级 | 测试数 | 通过率 | 说明 |
 |------|:-----:|--------|------|
-| DDD 单元测试 (domain + infrastructure + alignment + flag + middleware) | 435 | ✅ 100% | 7 scorers + 10 extractors + songs domain + ScoringWeights + ABI + middleware |
-| FastAPI 集成测试 | 53 | ✅ 100% | test_api_routes (19) + test_songs_api (20) + scoring API (14) (独立进程) |
+| DDD 单元测试 (domain + infrastructure + alignment + flag + middleware) | 451 | ✅ 100% | 7 scorers + 10 extractors + songs/songs_pitch domain + ScoringWeights + ABI + middleware |
+| FastAPI 集成测试 | 62 | ✅ 100% | test_api_routes (19) + test_songs_api (20) + scoring API (14) + songs_pitch_api (9) (独立进程) |
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ (独立进程; v7.12 删 test_score_calibrator) |
-| **生产代码总计** | **509** | **100% GREEN** | |
-| WebSocket 集成 | 10 | ✅ 100% | test_ws_score (v7.12 +2 song_id) |
-| Vue 3 前端 (Vitest) | 68 | ✅ 100% | stores (songs 24 + scoring 11) |
+| **生产代码总计** | **534** | **100% GREEN** | |
+| WebSocket 集成 | 14 | ✅ 100% | test_ws_score (10) + ws_pitch_update (4, v7.13) |
+| Vue 3 前端 (Vitest) | 230 | ✅ 100% | stores 74 + pitch utils 156 (v7.13 P1-P4) |
 | 前端 vue-tsc | 0 errors | ✅ | TypeScript 类型检查 |
-| 前端 Vite build | ~12s | ✅ | 生产构建 |
+| 前端 Vite build | ~16s | ✅ | 生产构建 |
 | 真实音频回归 | 28 | ⚠️ 24P+4F | BASELINE_V7_6 (4 breath 基线漂移 0.1-0.8 分, 见已知问题) |
-| BDD | 16 step files, 21 feature files | ✅ | upload 5P+3S, animations 7P+9X, sing-song-select 6P+6X (v7.12) |
+| BDD | 17 step files, 21 feature files | ✅ | upload 5P+3S, animations 7P+9X, sing-song-select 6P+6X, pitch-realtime 25X (v7.13) |
 
 ## 4. 过程文档
 
 | 文档 | 说明 |
 |------|------|
-| [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.12 进度、已知问题、测试详情 |
-| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (v5.0 → v7.12) |
-| [4-process/TEST_RESULTS.md](4-process/TEST_RESULTS.md) | 测试结果记录 (v7.12: 509 tests) |
+| [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.13 进度、已知问题、测试详情 |
+| [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (v5.0 → v7.13) |
+| [4-process/TEST_RESULTS.md](4-process/TEST_RESULTS.md) | 测试结果记录 (v7.13: 534 tests) |
 | [4-process/V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md) | v7.0 全栈重构计划 (历史参考) |
 | [4-process/audits/README.md](4-process/audits/README.md) | 项目审计与优化计划 |
 

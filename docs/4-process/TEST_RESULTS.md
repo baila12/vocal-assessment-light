@@ -22,8 +22,8 @@
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
 | **生产代码总计** | **534** | **100% GREEN** | (DDD 451 + 集成 62 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
 | 真实音频回归 | 28 | ⚠️ 24 PASS + 4 FAIL | 4 失败均为 breath 维度基线漂移 (BASELINE_V7_6 阈值过紧, 既有) — 见 PROJECT_STATUS |
-| BDD (17 step files) | 179 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; **pitch-realtime 25X (v7.13 P3 骨架)**; 5 features 缺 step defs |
-| 前端 Vitest | 197 | ✅ 100% | stores 74 + pitch utils 123 (v7.13 P1 +34, P2 +64, P3 +31) |
+| BDD (17 step files) | 179 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; **pitch-realtime 25X (v7.13 P4 骨架)**; 5 features 缺 step defs |
+| 前端 Vitest | 230 | ✅ 100% | stores 74 + pitch utils 156 (v7.13 P1 +34, P2 +64, P3 +31, P4 +33) |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | ~16s | ✅ | 生产构建 |
 
@@ -43,6 +43,8 @@
 | `frontend/tests/unit/utils/pitchPlayback.test.ts` | +21 | v7.13 P2 clampSeek/倍速/A-B 循环/帧率降级 |
 | `frontend/tests/unit/utils/pitchDeviation.test.ts` | +2 | v7.13 P2 置信度 < 0.5 → 静音灰 |
 | `frontend/tests/unit/utils/pitchLive.test.ts` | +31 | v7.13 P3 录音中实时对比 (趋势/偏差格式/最近偏差/圆点淡出/色带几何) + 审查边界 (NaN/keep≤0) |
+| `frontend/tests/unit/utils/pitchSegments.test.ts` | +32 | v7.13 P4 问题段落 (findProblemSegments) + 乐句切分 (segmentPhrases) + 逐句评分 (scorePhrase) + 分数颜色 (phraseScoreColor) |
+| `frontend/tests/unit/utils/pitchStats.test.ts` | +1 | v7.13 P4 审查回归 — 无声率取整不引入分母误差 (2000 帧精确计数 25.1/50.0/25.0/24.9) |
 
 ## v7.12 测试统计 (历史)
 
