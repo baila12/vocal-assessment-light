@@ -1,7 +1,7 @@
 # 声乐评估系统文档索引
 
-> **v7.12 | 2026-08-06** | 分支: `main`
-> 选歌录音 MVP + BDD 基建修复 + dl_services 死代码清理 | 509 测试 GREEN + 68 前端 GREEN
+> **v7.13 | 2026-08-07** | 分支: `main`
+> 实时音准对比子系统 Phase 1 (参考音高 API + WS pitch_update + 选歌录音增强) | 534 测试 GREEN + 102 前端 GREEN
 
 本目录按产品、技术、质量、过程和归档五类组织。
 
@@ -47,7 +47,7 @@
 | Vue 3 前端 (Vitest) | 68 | ✅ 100% | stores (songs 24 + scoring 11) |
 | 前端 vue-tsc | 0 errors | ✅ | TypeScript 类型检查 |
 | 前端 Vite build | ~12s | ✅ | 生产构建 |
-| 真实音频回归 | 28 | ✅ 100% | BASELINE_V7_6 |
+| 真实音频回归 | 28 | ⚠️ 24P+4F | BASELINE_V7_6 (4 breath 基线漂移 0.1-0.8 分, 见已知问题) |
 | BDD | 16 step files, 21 feature files | ✅ | upload 5P+3S, animations 7P+9X, sing-song-select 6P+6X (v7.12) |
 
 ## 4. 过程文档

@@ -1,6 +1,88 @@
-# 变更日志 v7.12
+# 变更日志 v7.13
 
-> 更新: 2026-08-06 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+> 更新: 2026-08-07 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.13 — 实时音准对比子系统 Phase 1: 参考音高 API + WS pitch_update + 选歌录音增强 (2026-08-07)
+
+### 概述
+
+启动"实时音准对比"子系统 (pitch-realtime.feature 全量为多版本目标)。本版本落地 Phase 1 基础能力: 歌曲参考音高 API + WS 实时音高推送 + 选歌录音增强 (参考线叠加/上传录音 DTW 对比/再来一首), 并修复 WS 评分权重未用 ScoringWeights 单一来源的历史遗留。
+
+### ① 参考音高领域 + API (DDD)
+
+- 🆕 `backend/domain/songs_pitch/`: `SongPitchCurve` 值对象 (frozen, NaN→0.0 归一化, to_dict/from_dict 往返) + `PitchCacheRepository` Protocol + `PitchExtractionService` (librosa.yin 纯函数)
+- 🆕 `backend/application/songs_pitch/get_song_pitch.py`: `GetSongPitchUseCase` — 缓存优先编排
+- 🆕 `backend/infrastructure/persistence/in_memory_pitch_cache.py`: 进程内单例缓存 (lru_cache DI)
+- 🆕 `GET /api/v1/songs/{id}/pitch`: 歌曲 F0 曲线 (thread pool 防阻塞; 404/400 边界; 不走 validate_filepath — 歌曲路径入库时已验证)
+- 🆕 `POST /api/v1/songs/{id}/compare`: 上传录音与选中歌曲 DTW 对比 (复用 `CompareAudioUseCase.execute_lightweight`)
+
+### ② WS 实时音高推送 (pitch_update 接线)
+
+- 🔧 `WsServerPitchUpdate` schema 此前已定义但 handler 从未发送 — v7.13 接线
+- 🆕 `StreamingSession`: 样本驱动音高推送 (每 2s 新音频段 `ready_for_pitch_update`/`get_new_audio_segment`/`mark_pitch_computed`)
+- 🔧 `score_handler._parse_frames`: 增量 PYIN (`asyncio.to_thread`) → `WsServerPitchUpdate` (times 绝对时间轴, NaN→0.0)
+
+### ③ 前端音准对比基础 (低耦合: 纯 TS → 组件 → 视图)
+
+- 🆕 `types/pitch.ts`: `PitchPoint`/`DeviationFrame`
+- 🆕 `utils/pitchDeviation.ts`: `freqToCents`/`deviationColor` (≤25绿/≤50橙/>50红)/`isOctaveJump` (≥12半音)/`alignPitchCurves` (线性插值对齐) — 零 Vue 依赖
+- 🆕 `utils/pitchScroll.ts`: `computeScrollWindow` (播放居中滚动视口)/`trimSilence`/`autoViewportSeconds` (≤10s 全曲, 长音频 15s)
+- 🆕 `components/PitchComparisonCanvas.vue`: 双曲线 canvas (参考虚线 #6366f1 2px + 用户实线 3px, 对数 Y 轴, 播放游标, DPR-aware)
+- 🆕 songs.store: +`fetchSongPitch` (缓存) + `compareWithSong`
+- 🔧 `SingView.vue`: 选歌加载参考音高 → Canvas 参考虚线随 elapsedTime 滚动; "上传已有录音" 按钮 + DTW 对比结果卡片 (歌名/歌手/评分/匹配率/诊断); "再来一首" 按钮 (保留结果返回选歌区)
+
+### ④ 修复 WS 权重单一来源
+
+- 🔧 `_score_lightweight()` 硬编码权重 10/10/20/25/25/10 → `ScoringWeights.default()` (13/12/22/25/15/13) — v7.11 单一权重来源原则落地 WS 路径
+
+### 测试
+
+- 🆕 单测 +16 (SongPitchCurve 8 / PitchExtractionService 4 / GetSongPitchUseCase 4)
+- 🆕 集成 +13 (songs_pitch_api 9: pitch 5 + compare 4; ws_pitch_update 4)
+- 🆕 前端 Vitest +34 (pitchDeviation 17 + pitchScroll 11 + songsPitch store 6)
+- 🔧 BDD: sing-song-select step defs 更新 — 新增 data-test 钩子 (upload-recording-btn/compare-result/sing-again-btn), xfail 理由对齐 v7.13 (依赖真实麦克风/服务端带音频歌曲)
+
+---
+
+## v7.13 (续) — 实时音准对比子系统 Phase 2: 偏差着色 + 滚动窗口 + 播放控制 (2026-08-07)
+
+### 概述
+
+在 Phase 1 (参考音高 API + WS pitch_update) 之上落地前端对比视口: `PitchComparisonCanvas` 双曲线逐帧偏差着色 + 滚动窗口 + Y 轴音高/时间刻度 + 无参考模式; `SingView` 回放控制面板 (播放/暂停/点击跳转/倍速/A-B 循环)。对齐 pitch-realtime.feature 第一~三章 (~12 场景)。纯 TS 逻辑层零 Vue 依赖, Vitest 直接验证。
+
+### ① 纯 TS 工具层 (零 Vue 依赖, TDD RED→GREEN)
+
+- 🆕 `utils/pitchNotes.ts`: `freqToMidi`/`midiToNoteName`/`freqToNoteName`/`isWhiteKey`/`generateNoteTicks` (C3-B5 白键高亮)/`pitchRangeToMidi` — 22 tests
+- 🆕 `utils/pitchStats.ts`: `computeFramePercentages`/`computeDeviationStats` (分母=有声帧, 静音率=总帧)/`computePitchRange` (最高/最低音) — 10 tests
+- 🆕 `utils/pitchPlayback.ts`: `clampSeek`/`advancePlayback` (倍速推进, rate=0 冻结)/`isInABLoop`/`wrapInABLoop` (无缝回绕)/`shouldDegradeFrameRate` (连续 3s <20fps → 降级 15fps) — 21 tests
+- 🆕 `utils/pitchScroll.ts` 扩展: `autoTickStepSeconds` (≤10s→1s, ≤60s→5s, >60s→15s)/`generateTimeTicks` (含端点) — 9 tests (pitchScrollTicks.test.ts)
+- 🔧 `utils/pitchDeviation.ts`: `alignPitchCurves` 静音判定含置信度 — 气声/清辅音 (confidence < 0.5) 视为静音灰虚线 (feature 场景 4) — +2 tests (19 total)
+
+### ② 组件 — PitchComparisonCanvas.vue (全功能对比视口)
+
+- 🆕 双曲线: 参考虚线 #6366f1 2px / 用户偏差着色 3px (≤25 绿 / ≤50 橙 / >50 红, 逐段合并平滑过渡, 静音灰虚线 40% 透明度延续上一个有效音高不跳变)
+- 🆕 滚动窗口: `computeScrollWindow` 播放位置居中, 短音频全曲 / 长音频 15s 视口
+- 🆕 Y 轴钢琴键 (白键高亮 + 音名标注, 黑键短刻度), X 轴时间秒刻度 (自动步长)
+- 🆕 八度跳变 ⚠️ 标记, 无参考模式单条蓝色 #3b82f6 + "绝对音高 (无参考)", 画布点击 → seek 事件
+- 🆕 DPR-aware 重绘, computed 触发器 (数据/时间/循环/视口), 复用纯函数无业务逻辑
+
+### ③ 视图 — SingView.vue (录音画布 + 回放控制)
+
+- 🔧 移除手写 drawLoop/canvasRef (Phase 1 Canvas 循环) → 替换为响应式 `PitchComparisonCanvas` (用户曲线来自 WS pitch_update, 参考线来自 fetchSongPitch)
+- 🔧 WS pitch_update handler 改不可变更新 (新数组引用触发组件重绘, 保持最近 2000 点)
+- 🆕 回放控制面板 (录音结束且有数据时显示): 播放/暂停按钮 (GSAP 图标), 进度条拖拽/点击跳转 (el-slider → clampSeek), 倍速选择 (0.5x/1x/1.5x), A-B 循环按钮 (第 1 次设 A → 第 2 次设 B 激活 → 第 3 次清除); 回放游标驱动滚动窗口
+- 🆕 `stopReplay()` 清理: startSinging 复位 + onBeforeUnmount 定时器清理 (防内存泄露)
+
+### 测试
+
+- 🆕 前端 Vitest 102 → **166** (+64: pitchNotes 22 + pitchStats 10 + pitchScrollTicks 9 + pitchPlayback 21 + pitchDeviation +2) — 全绿
+- ✅ vue-tsc 0 errors + Vite build 通过
+- 🔧 后端: 版本对齐修复 — `health.py` version 7.11.0 → 7.13.0 (Phase 1 仅更新 main.py title, health 遗漏) + `test_api_routes.py` 断言同步 (548 = 534 生产 + 14 WS 全绿)
+- 🆕 BDD: `test_pitch_realtime_steps.py` step defs 骨架 — 25 场景全部可收集 (25 XFAIL, 每条标注对应纯 TS 单元测试文件); BDD 场景 154 → 179, 待实现 features 6 → 5
+
+> **后续 Phase (pitch-realtime.feature 全量)**: Phase 3 Sing 录音中实时对比 (圆点/色带/趋势箭头) / Phase 4 回放对比+统计+问题段落+逐句评分 / Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 均已设计, 未实现。
 
 ---
 

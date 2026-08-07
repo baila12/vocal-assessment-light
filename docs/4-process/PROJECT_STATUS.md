@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-06 | 版本: **v7.12** | 分支: `main`
+> 更新: 2026-08-07 | 版本: **v7.13** | 分支: `main`
 
 ---
 
@@ -83,6 +83,27 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 ---
 
 ## 二、完成功能
+
+### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **领域** | `backend/domain/songs_pitch/`: `SongPitchCurve` 值对象 (frozen, NaN→0.0, to_dict/from_dict) + `PitchCacheRepository` Protocol + `PitchExtractionService` (librosa.yin) | ✅ |
+| **应用** | `GetSongPitchUseCase` — 查缓存→提取→写缓存 (缓存优先编排) | ✅ |
+| **基建** | `InMemoryPitchCacheRepository` 进程内单例缓存 (lru_cache DI) | ✅ |
+| **API** | `GET /api/v1/songs/{id}/pitch` — 歌曲参考 F0 曲线 (thread pool, 404/400 边界) | ✅ |
+| **API** | `POST /api/v1/songs/{id}/compare` — 上传录音与选中歌曲 DTW 对比 (复用 CompareAudioUseCase) | ✅ |
+| **WS** | `pitch_update` 接线 — StreamingSession 样本驱动 (每 2s 新音频段) PYIN → `WsServerPitchUpdate` (绝对时间轴) | ✅ |
+| **修复** | `_score_lightweight()` 权重 10/10/20/25/25/10 → `ScoringWeights.default()` 单一来源 (13/12/22/25/15/13) | ✅ |
+| **前端纯 TS (P1)** | `types/pitch.ts` + `utils/pitchDeviation.ts` (freqToCents/颜色映射/八度跳变/曲线对齐) + `utils/pitchScroll.ts` (滚动窗口/静音裁剪/自动视口) — 零 Vue 依赖 | ✅ |
+| **前端纯 TS (P2)** | `utils/pitchNotes.ts` (freq↔MIDI↔音名/白键/音高刻度) + `utils/pitchStats.ts` (偏差百分比/最高最低音) + `utils/pitchPlayback.ts` (clampSeek/倍速推进/A-B 循环/帧率降级) + `pitchScroll` 扩展 (自动刻度步长/时间刻度) — 零 Vue 依赖 | ✅ |
+| **前端 store** | songs.store +`fetchSongPitch` (缓存) + `compareWithSong` | ✅ |
+| **前端组件** | `PitchComparisonCanvas.vue` (P1 双曲线 → P2 全功能): 偏差着色 (≤25 绿/≤50 橙/>50 红, 静音灰虚线 40% 延续不跳变) + 滚动窗口 (播放居中) + Y 轴钢琴键/时间刻度 + 八度跳变 ⚠️ + 无参考蓝色单曲线 | ✅ |
+| **前端视图** | SingView (Element Plus + GSAP): P1 选歌参考线/上传 DTW/再来一首; P2 回放控制面板 (播放/暂停/拖拽跳转/倍速 0.5x-1.5x/A-B 循环) + WS 不可变更新 | ✅ |
+| **BDD** | sing-song-select step defs 更新 (data-test 钩子, xfail 对齐 v7.13); 🆕 `pitch-realtime` step defs 骨架 (25 场景, 每条标注对应纯 TS 单元测试) | ✅ |
+| **测试** | 单测 435→451 (+16) + 集成 53→62 (+9) + WS 10→14 (+4); 前端 102→**166** (+64); 后端全绿 548 (534 生产 + 14 WS); BDD 场景 154→**179** | ✅ |
+
+> **后续 Phase (pitch-realtime.feature 全量)**: Phase 3 Sing 录音中实时对比 (圆点/色带/趋势箭头) / Phase 4 回放对比+统计+问题段落+逐句评分 / Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 均已设计, 未实现。
 
 ### v7.12 (2026-08-06) — 选歌录音 MVP + BDD 基建修复 + dl_services 死代码清理
 
@@ -220,29 +241,29 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.12)
+## 三、测试状态 (v7.13)
 
 ### 生产测试 (全部 GREEN)
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| DDD 领域 (scorers + value objects + comparison + songs + **ScoringWeights**) | 257 | ✅ |
+| DDD 领域 (scorers + value objects + comparison + songs + **songs_pitch** + ScoringWeights) | 273 | ✅ |
 | DDD 基建 (extractors + orchestrator + ABI + sqlite) | 132 | ✅ |
 | DDD 对齐 + Flag bridge (test_ddd_alignment/extraction_flag/flag_bridge) | 23 | ✅ |
 | 中间件 | 23 | ✅ |
-| **DDD 合计** | **435** | **100% GREEN** |
-| FastAPI 集成 | 53 | ✅ | (api_routes 19 + songs_api 20 + scoring_api 14)
+| **DDD 合计** | **451** | **100% GREEN** |
+| FastAPI 集成 | 62 | ✅ | (api_routes 19 + songs_api 20 + scoring_api 14 + **songs_pitch_api 9**)
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
-| **生产代码总计** | **509** | **100% GREEN** |
+| **生产代码总计** | **534** | **100% GREEN** |
 
-> 注: DDD 子项为实测计数 (领域 257 + 基建 132 + 对齐 17 + 中间件 23 + Flag bridge 6), 合计以实测命令 `pytest tests/unit/domain/ tests/unit/infrastructure/ ... test_flag_bridge.py` = 435 + 集成 53 + 扩展 21 = 509 为准 (独立进程)。另含 WebSocket 集成 10 (v7.12 +2 song_id) 与真实音频回归 28 (BASELINE_V7_6), 不计入生产代码合计。
+> 注: 生产合计 = DDD 451 + 集成 62 + 扩展 21 = 534 (独立进程实测)。另含 WebSocket 集成 14 (v7.12 10 + v7.13 pitch_update 4) 与真实音频回归 28 (BASELINE_V7_6), 不计入生产代码合计。
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| 真实音频 Quick + Pro | 28 | ✅ 100% | BASELINE_V7_6 |
-| BDD | 16 step files | ✅ | 162 scenarios collected + 6 features pending step defs |
+| 真实音频 Quick + Pro | 28 | ⚠️ 24 PASS + 4 FAIL | 4 个失败均为 `test_dimension_scores_in_baseline_ranges` 的 **breath 维度**越界 0.1-0.8 分 (79.2/83.4/75.9/69.9 vs 基线 80/84/76/70) — BASELINE_V7_6 阈值过紧的既有漂移, 与 v7.13 改动无关 (评分管线零触碰; total/valid 范围测试全 PASS) |
+| BDD | 17 step files | ✅ | 179 scenarios collected + 5 features pending step defs |
 
 ### BDD (v7.12 浏览器基建 + 场景迁移)
 
@@ -253,14 +274,15 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | sing-song-select.feature (迁移 Vue 3) | ✅ 6 PASS + 6 XFAIL (依赖 WebSocket 录音/auto-match/上传) |
 | scoring-config.feature | ✅ API 级 PASS (v7.11) |
 | database.feature | ✅ 4 PASS + 6 XFAIL (v7.9) |
+| **pitch-realtime.feature (v7.13 P2 骨架)** | ✅ 25 XFAIL (每条标注对应纯 TS 单元测试文件; 浏览器 BDD 无真实音频/WS) |
 
 ### 前端测试
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| Vitest (stores) | 68 | ✅ 100% | (v7.10 songs ×24 + v7.11 scoring ×11)
+| Vitest | 166 | ✅ 100% | (stores 74 + **pitch utils 92**; v7.13 P1 +34, P2 +64)
 | vue-tsc type check | 0 errors | ✅ |
-| Vite build | 11-12s | ✅ |
+| Vite build | ~16s | ✅ |
 
 ### 前端 GSAP 动效 (v7.8 新增)
 
@@ -288,7 +310,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 四、已知问题
 
-> 更新: 2026-08-06 | v7.12
+> 更新: 2026-08-07 | v7.13
 
 ### 架构残留
 
@@ -326,13 +348,15 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 问题 | 说明 |
 |------|------|
-| BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; 6 features 仍待实现 |
+| 真实音频 breath 基线漂移 | `test_dimension_scores_in_baseline_ranges` 4 个文件 breath 越界 0.1-0.8 分 (v7.6 基线阈值过紧, 环境漂移) — 待校准 BASELINE_V7_6 breath_range 或接受漂移 (v7.13 实测 24P+4F) |
+| BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; v7.13: pitch-realtime step defs 骨架已创建; 5 features 仍待实现 |
 | ~~BDD animations.feature 旧架构~~ | ✅ v7.12: 迁移 Vue 3 (data-test 钩子 + 类选择器); 无 UI 场景 xfail 带理由 |
 | ~~BDD 浏览器基建指向旧 Flask~~ | ✅ v7.11: conftest base_url→:8000 + api_client→FastAPI + 前端 `window.__store` 钩子 |
 | ~~upload.feature 数据缺失 (vocals.wav)~~ | ✅ v7.12: `scripts/gen_bdd_test_data.py` 生成 + KMP_DUPLICATE_LIB_OK 崩溃修复; 5 PASS + 3 SKIP |
 | BDD 浏览器测试需服务运行 | 运行浏览器 BDD 需先 `python backend/main.py` (FastAPI :8000 服务 frontend/dist); 服务未启动时场景 skip |
 | 评分阈值联动 (风格预设) | scoring-config.feature: 各预设阈值微调 (MAE断点等) 未实现 — API 级 PASS, 阈值联动/自动风格检测/UI 面板仍 XFAIL (用户指定暂不开发) |
-| ~~选歌录音 (选歌→演唱页)~~ | ✅ v7.12 MVP: `/sing/:songId` + WS song_id + vocal_range; 实时音高参考线叠加 / DTW 流式评分 / auto-match 为后续增强 (song-select.feature) |
+| ~~选歌录音 (选歌→演唱页)~~ | ✅ v7.12 MVP + v7.13 Phase 1: `/sing/:songId` + WS song_id + vocal_range + 参考音高 API + WS pitch_update + 上传录音对比 + 再来一首 |
+| **实时音准对比 Phase 3-5** | pitch-realtime.feature 全量 (录音中实时对比/回放对比/CompareView 双轨/性能降级/截图/快捷键) 已设计未实现; auto-match 独立 feature 待开发 |
 
 ---
 

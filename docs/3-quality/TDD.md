@@ -372,19 +372,20 @@ frontend/tests/unit/stores/
 
 ## 10. BDD 与真实音频状态
 
-### BDD (v7.11)
+### BDD (v7.13)
 
 | 指标 | 状态 |
 |------|:---:|
-| 收集 scenarios | 162 |
-| Step files | 16 |
+| 收集 scenarios | 179 |
+| Step files | 17 |
 | Feature files | 21 |
 | scoring-config API 级 | ✅ PASS |
 | scoring-config UI 级 | ⚠️ XFAIL (阈值联动未实现) |
 | animations.feature (16 scenarios) | ✅ v7.12 迁移 Vue 3 data-test — 7 PASS + 9 XFAIL (无 UI/依赖录音场景) |
 | sing-song-select.feature | ✅ v7.12 迁移 Vue 3 — 6 PASS + 6 XFAIL (录音/auto-match/上传) |
 | upload.feature | ✅ v7.12 数据补齐 + fixture 修复 — 5 PASS + 3 SKIP (FLAC/OGG/M4A 无文件) |
-| 6 features 缺 step defs | ⚠️ auto-match/multi-dim-analysis/nonblocking-analysis/pitch-realtime/realtime-analysis/song-select |
+| pitch-realtime.feature (25 scenarios) | ✅ v7.13 P2 step defs 骨架 — 25 XFAIL (每条标注对应纯 TS 单元测试) |
+| 5 features 缺 step defs | ⚠️ auto-match/multi-dim-analysis/nonblocking-analysis/realtime-analysis/song-select |
 
 ### 真实音频回归
 

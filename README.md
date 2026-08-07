@@ -1,4 +1,4 @@
-# 声乐评估系统 v7.12
+# 声乐评估系统 v7.13
 
 基于 FastAPI + Vue 3 的本地 Web 应用，提供六维声乐评分、实时录音、对比分析、歌曲库管理等功能。
 
@@ -17,7 +17,12 @@
 - **录音功能** - 实时录音并分析
 - **成长曲线** - 历史评分趋势图
 - **标准歌曲库** - 上传/浏览/搜索/筛选/试听参考歌曲，卡片网格前端页面 (v7.9 后端 + v7.10 前端)
-- **选歌录音** - 曲库选歌 → `/sing/:songId` 演唱页 → 录音携带参考歌曲 (v7.12 MVP)
+- **选歌录音** - 曲库选歌 → `/sing/:songId` 演唱页 → 录音携带参考歌曲 (v7.12 MVP; v7.13 增强)
+- **参考音高线** - 选歌后加载歌曲 F0 曲线，录音 Canvas 叠加标准参考虚线 (v7.13)
+- **实时音高推送** - WebSocket 每 2s 增量推送 pitch_update，用户音高曲线实时渲染 (v7.13)
+- **选歌后上传对比** - 上传已有录音与选中标准歌曲 DTW 对比 (v7.13)
+- **音准偏差着色** - 音准对比 Canvas 逐帧偏差着色 (≤25 绿 / 25-50 橙 / >50 红), 静音灰虚线, 八度跳变 ⚠️ 标记, 无参考蓝色单曲线 (v7.13 Phase 2)
+- **音准回放控制** - 录音后回放: 播放/暂停/点击拖拽跳转/倍速 (0.5x/1x/1.5x)/A-B 循环, 滚动窗口播放位置居中 (v7.13 Phase 2)
 - **导出报告** - PDF/图片格式报告
 
 ### 对比分析功能
@@ -84,7 +89,8 @@ vocal_assessment_light/
 │   │   ├── assessment/   # 7 scorers (六维+音色)
 │   │   ├── audio/        # 10 特征提取模块
 │   │   ├── comparison/   # 对比分析领域
-│   │   └── songs/        # 歌曲库领域 (v7.9)
+│   │   ├── songs/        # 歌曲库领域 (v7.9)
+│   │   └── songs_pitch/  # 参考音高领域 (v7.13: F0 曲线 + 缓存)
 │   ├── application/      # 编排层
 │   ├── infrastructure/   # 基础设施 (SQLite 仓储)
 │   ├── interfaces/       # API + WebSocket
@@ -95,7 +101,7 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 509 tests (DDD 435 + integration 53 + extended 21)
+└── tests/                # 534 tests (DDD 451 + integration 62 + extended 21) + 前端 166 Vitest
 ```
 
 ## API 接口
@@ -111,6 +117,8 @@ vocal_assessment_light/
 | `/api/v1/flags` | GET | Feature Flags 状态 |
 | `/api/v1/history` | GET/POST/DELETE | 历史记录 CRUD |
 | `/api/v1/songs` | POST/GET/GET/DELETE | 歌曲库管理 (v7.9) |
+| `/api/v1/songs/{id}/pitch` | GET | 歌曲参考音高 F0 曲线 (v7.13) |
+| `/api/v1/songs/{id}/compare` | POST | 上传录音与选中歌曲 DTW 对比 (v7.13) |
 | `/api/v1/audio` | GET | 流式传输音频文件 |
 | `/ws/v1/score` | WebSocket | 实时评分推送 |
 
@@ -169,6 +177,7 @@ cd frontend && npx vitest run
 
 ## 版本历史
 
+- **v7.13** — 实时音准对比子系统 Phase 1 + Phase 2: 参考音高 API (GET /songs/{id}/pitch) + 选歌录音增强 (参考线叠加/上传录音 DTW 对比/再来一首) + WS pitch_update 实时推送 + WS 权重 ScoringWeights 单一来源; Phase 2: 音准对比 Canvas 偏差着色 + 滚动窗口 + 回放控制 (播放/拖拽/倍速/A-B) + Y 轴音高/时间刻度 (2026-08-07)
 - **v7.12** — 选歌录音 MVP (/sing/:songId + WS song_id + vocal_range) + BDD 基建修复 (vocals.wav 数据 + animations/sing-song-select 迁移 Vue 3 + KMP 崩溃修复) + dl_services 死代码清理 (2026-08-06)
 - **v7.11** — 评分权重可配置: ScoringWeights 值对象 (单一来源) + 4 风格预设 + 权重面板 + 纯前端重算; BDD 浏览器基建修复 (2026-08-04)
 - **v7.10** — 标准歌曲库前端页面: 卡片网格 + 搜索/筛选 + 上传 + 删除 + 试听; 音频播放修复 (songs_dir) (2026-08-04)

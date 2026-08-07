@@ -1,6 +1,6 @@
-# API 契约文档 v7.12
+# API 契约文档 v7.13
 
-> 更新: 2026-08-06 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 509 测试 GREEN (DDD 435 + 集成 53 + 扩展 21)
+> 更新: 2026-08-07 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 534 测试 GREEN (DDD 451 + 集成 62 + 扩展 21)
 
 ---
 
@@ -28,6 +28,8 @@
 | GET | `/api/v1/songs` | 曲库列表 (page/limit/style/difficulty/search) [v7.9] | ✅ | ✅ |
 | GET | `/api/v1/songs/{id}` | 歌曲详情 [v7.9] | ✅ | ✅ |
 | DELETE | `/api/v1/songs/{id}` | 删除歌曲 [v7.9] | ✅ | ✅ |
+| GET | `/api/v1/songs/{id}/pitch` | 歌曲参考 F0 曲线 (选歌录音参考线数据源; 缓存) [v7.13] | ✅ | ✅ |
+| POST | `/api/v1/songs/{id}/compare` | 上传录音与选中歌曲 DTW 对比 (multipart user_file+style) [v7.13] | ✅ | ✅ |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | ✅ | ✅ |
 | GET | `/api/v1/scoring/presets` | 评分权重预设 — 默认 + 4 风格 (v7.11) | ✅ | ✅ |
 | POST | `/api/v1/scoring/apply-weights` | 维度分数+权重→总分/等级 — 纯前端重算 (v7.11) | ✅ | ✅ |

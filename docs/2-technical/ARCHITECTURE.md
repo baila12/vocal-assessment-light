@@ -1,6 +1,6 @@
-# 系统架构 v7.12
+# 系统架构 v7.13
 
-> 更新: 2026-08-06 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP
+> 更新: 2026-08-07 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 
@@ -156,6 +156,11 @@ domain/
     ├── entities.py                  # Song (frozen dataclass)
     ├── value_objects.py             # SongMetadata (v7.12: +vocal_range), 难度/风格
     └── repository.py                # SongRepository 抽象接口
+
+└── songs_pitch/                     # v7.13: 参考音高领域 (实时音准对比数据源)
+    ├── value_objects.py             # SongPitchCurve (frozen, NaN→0.0, 序列化)
+    ├── repository.py                # PitchCacheRepository Protocol
+    └── services.py                  # PitchExtractionService (librosa.yin 纯函数)
 ```
 
 ### application/ — 应用层 (编排, 无领域逻辑)
@@ -281,8 +286,9 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
   ├─ 每 2048 samples (~128ms) 推送一帧
   ├─ StreamingSession 累积 (<120s buffer)
   ├─ 每 2s 计算 incremental score
+  ├─ 每 2s 新音频段 PYIN → pitch_update (v7.13: 样本驱动, 绝对时间轴)
   ├─ start 消息可携带 song_id (v7.12: 选歌录音参考歌曲, 存入 session)
-  └─ 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL)
+  └─ 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL; v7.13: ScoringWeights 单一权重来源)
 ```
 
 ---

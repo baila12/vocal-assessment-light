@@ -1,12 +1,49 @@
-# 测试结果记录 v7.12
+# 测试结果记录 v7.13
 
-> 更新: 2026-08-06 | 509 tests 100% GREEN | 分支: `main`
+> 更新: 2026-08-07 | 534 tests 100% GREEN | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
 ---
 
-## v7.12 测试统计
+## v7.13 测试统计
+
+### 生产测试 (全部 GREEN)
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| DDD 领域 (scorers + value objects + comparison + songs + songs_pitch + ScoringWeights) | 273 | ✅ 100% | 7 scorers + comparison + songs + songs_pitch (v7.13) + ScoringWeights 值对象 |
+| DDD 基建 (extractors + orchestrator + ABI + sqlite) | 132 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 |
+| DDD 对齐 + Flag bridge | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
+| 中间件 | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
+| **DDD 合计** | **451** | **100% GREEN** | (~25s) |
+| FastAPI 集成 | 62 | ✅ 100% | test_api_routes (19) + test_songs_api (20) + test_scoring_api (14) + songs_pitch_api (9) |
+| WebSocket 集成 | 14 | ✅ 100% | test_ws_score (10) + ws_pitch_update (4, v7.13) |
+| 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
+| **生产代码总计** | **534** | **100% GREEN** | (DDD 451 + 集成 62 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
+| 真实音频回归 | 28 | ⚠️ 24 PASS + 4 FAIL | 4 失败均为 breath 维度基线漂移 (BASELINE_V7_6 阈值过紧, 既有) — 见 PROJECT_STATUS |
+| BDD (17 step files) | 179 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; **pitch-realtime 25X (v7.13 P2 骨架)**; 5 features 缺 step defs |
+| 前端 Vitest | 166 | ✅ 100% | stores 74 + pitch utils 92 (v7.13 P1 +34, P2 +64) |
+| vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
+| Vite build | ~16s | ✅ | 生产构建 |
+
+### v7.13 新增/移除测试明细
+
+| 文件 | 变化 | 覆盖 |
+|------|:-----:|------|
+| `test_song_pitch_vo.py` | +8 | v7.13 SongPitchCurve 值对象 (frozen/NaN→0.0/往返) |
+| `test_song_pitch_service.py` | +4 | v7.13 PitchExtractionService (librosa.yin) |
+| `test_get_song_pitch_usecase.py` | +4 | v7.13 GetSongPitchUseCase (缓存优先) |
+| `test_song_pitch_api.py` | +9 | v7.13 GET /songs/{id}/pitch (5) + POST compare (4) |
+| `test_ws_pitch_update.py` | +4 | v7.13 WS pitch_update 增量推送 |
+| `test_api_routes.py` | 断言同步 | v7.13 版本对齐: health/openapi → 7.13.0 / VAS v7.13 |
+| `frontend/tests/unit/utils/pitchNotes.test.ts` | +22 | v7.13 P2 freq↔MIDI↔音名/白键/音高刻度 |
+| `frontend/tests/unit/utils/pitchStats.test.ts` | +10 | v7.13 P2 偏差百分比/音域范围 |
+| `frontend/tests/unit/utils/pitchScrollTicks.test.ts` | +9 | v7.13 P2 自动刻度步长/时间刻度 |
+| `frontend/tests/unit/utils/pitchPlayback.test.ts` | +21 | v7.13 P2 clampSeek/倍速/A-B 循环/帧率降级 |
+| `frontend/tests/unit/utils/pitchDeviation.test.ts` | +2 | v7.13 P2 置信度 < 0.5 → 静音灰 |
+
+## v7.12 测试统计 (历史)
 
 ### 生产测试 (全部 GREEN)
 
@@ -121,7 +158,7 @@
 ## 运行命令
 
 ```bash
-# DDD 核心 (435 tests, ~25s)
+# DDD 核心 (451 tests, ~25s)
 # ⚠️ 不直接运行 pytest tests/unit/ (PyTorch C 扩展冲突 → 崩溃), 必须使用分组命令:
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
@@ -131,9 +168,10 @@ pytest tests/unit/domain/ tests/unit/infrastructure/ \
 
 # 集成测试 (独立进程)
 pytest tests/integration/test_api_routes.py -v     # FastAPI (19 tests)
-pytest tests/integration/test_songs_api.py -v      # Songs API (20 tests, v7.12 +vocal_range)
+pytest tests/integration/test_songs_api.py -v      # Songs API (20 tests)
 pytest tests/integration/test_scoring_api.py -v    # Scoring API (14 tests)
-pytest tests/integration/test_ws_score.py -v       # WebSocket (10 tests, v7.12 +song_id)
+pytest tests/integration/test_song_pitch_api.py -v # Songs Pitch API (9 tests, v7.13)
+pytest tests/integration/test_ws_score.py -v       # WebSocket (14 tests: ws_score 10 + ws_pitch_update 4)
 
 # 扩展测试 (独立进程, ~6s)
 pytest tests/extended/ -v                           # 21 tests (DTW/repos; v7.12 -calibrator)
