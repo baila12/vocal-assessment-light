@@ -82,7 +82,40 @@
 - 🔧 后端: 版本对齐修复 — `health.py` version 7.11.0 → 7.13.0 (Phase 1 仅更新 main.py title, health 遗漏) + `test_api_routes.py` 断言同步 (548 = 534 生产 + 14 WS 全绿)
 - 🆕 BDD: `test_pitch_realtime_steps.py` step defs 骨架 — 25 场景全部可收集 (25 XFAIL, 每条标注对应纯 TS 单元测试文件); BDD 场景 154 → 179, 待实现 features 6 → 5
 
-> **后续 Phase (pitch-realtime.feature 全量)**: Phase 3 Sing 录音中实时对比 (圆点/色带/趋势箭头) / Phase 4 回放对比+统计+问题段落+逐句评分 / Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 均已设计, 未实现。
+## v7.13 (续) — 实时音准对比子系统 Phase 3: 录音中实时对比 + 代码审查修复 (2026-08-07)
+
+### 概述
+
+在 Phase 2 (偏差着色 + 滚动窗口 + 播放控制) 之上落地录音中实时对比 (pitch-realtime.feature 第五节): `SingView` 演唱中切换到 live 模式, `PitchComparisonCanvas` 实时渲染用户音高圆点 + 偏差背景色带 + 当前偏差数值 + 音高趋势箭头。纯 TS 逻辑层 (`pitchLive.ts`) 零 Vue 依赖, Vitest 直接验证。完成多代理代码审查 (10 发现 → 7 确认), 全部修复。
+
+### ① 纯 TS 逻辑层 (`frontend/src/utils/pitchLive.ts`, 零 Vue 依赖)
+
+- 🆕 录音中实时对比 5 元素: 圆点 2s 保留窗口 + 0.5s 线性淡出 (`visibleLivePoints`/`dotAlpha`) / 偏差趋势分类 (`deviationTrend`, 阈值与偏差着色一致 25 音分) / 趋势显示 (`trendDisplay`: ↑红 ↓蓝 ✓绿) / 偏差显示格式 (`formatCentsDeviation`: "+15 音分") / 色带频率几何 (`freqAtCentsOffset`)
+- 🔧 提取 `CENTS_PER_OCTAVE = 1200` 到 pitchDeviation.ts (freqToCents/isOctaveJump/freqAtCentsOffset 共享, 消除 3 处内联重复)
+
+### ② 组件 live 模式 (`PitchComparisonCanvas.vue`)
+
+- 🆕 `liveMode` prop + `drawLiveOverlay`: 3px 圆点 (偏差色) + 偏差色带 (±25 绿/±50 橙半透明) + 右上角偏差值/趋势标签 + 趋势箭头锚在最近有声点 (窗口外跳过)
+- 🔧 索引遍历 O(n) 渲染圆点 (deviationFrames 与 userPitchData 1:1 对齐, 消除 indexOf O(n·m))
+- 🔧 DPR 自愈: draw() 顶部检测 devicePixelRatio 变化 (跨显示器/缩放), ResizeObserver 改用当前 dpr 对比
+- 🔧 无声帧圆点不绘制 (检测不到 ≠ 跑调, 与 latestDeviationCents 语义一致)
+
+### ③ 视图 live 时钟 (`SingView.vue`)
+
+- 🔧 录音计时器 1s 整数 → 100ms 壁钟浮点 (performance.now 基准): 0.5s 淡出窗口 ~5 次采样, 修复淡出坍缩成单帧 (审查 HIGH)
+- 🔧 `displayTime` 录音中取 `max(壁钟, 数据前沿 liveDataNow)`: 新圆点即时可见, 修复整数刻度截断导致圆点消失最多 1s (审查 MEDIUM)
+
+### ④ 代码审查修复 (多代理 workflow: 3 维度审查 + 对抗验证)
+
+- 🔧 `formatCentsDeviation`/`dotAlpha`/`freqAtCentsOffset` 增加 NaN/Infinity 守卫 (防 "-NaN 音分" 垃圾输出/透明度污染) + 4 条边界测试 (审查 MEDIUM)
+
+### 测试
+
+- 🆕 前端 Vitest 166 → **197** (+31: pitchLive 27 + 审查边界测试 4) — 全绿
+- ✅ vue-tsc 0 errors + Vite build 通过 (~15s)
+- 🔧 BDD: `pitch-realtime` 3 场景 (录音中实时对比) step defs 指向 `pitchLive.test.ts`; 25 场景仍 25 XFAIL (浏览器行为由纯 TS 单测验证)
+
+> **后续 Phase (pitch-realtime.feature 全量)**: Phase 4 回放对比+统计+问题段落+逐句评分 / Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 均已设计, 未实现。
 
 ---
 

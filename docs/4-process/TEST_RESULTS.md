@@ -22,8 +22,8 @@
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
 | **生产代码总计** | **534** | **100% GREEN** | (DDD 451 + 集成 62 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
 | 真实音频回归 | 28 | ⚠️ 24 PASS + 4 FAIL | 4 失败均为 breath 维度基线漂移 (BASELINE_V7_6 阈值过紧, 既有) — 见 PROJECT_STATUS |
-| BDD (17 step files) | 179 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; **pitch-realtime 25X (v7.13 P2 骨架)**; 5 features 缺 step defs |
-| 前端 Vitest | 166 | ✅ 100% | stores 74 + pitch utils 92 (v7.13 P1 +34, P2 +64) |
+| BDD (17 step files) | 179 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; **pitch-realtime 25X (v7.13 P3 骨架)**; 5 features 缺 step defs |
+| 前端 Vitest | 197 | ✅ 100% | stores 74 + pitch utils 123 (v7.13 P1 +34, P2 +64, P3 +31) |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | ~16s | ✅ | 生产构建 |
 
@@ -42,6 +42,7 @@
 | `frontend/tests/unit/utils/pitchScrollTicks.test.ts` | +9 | v7.13 P2 自动刻度步长/时间刻度 |
 | `frontend/tests/unit/utils/pitchPlayback.test.ts` | +21 | v7.13 P2 clampSeek/倍速/A-B 循环/帧率降级 |
 | `frontend/tests/unit/utils/pitchDeviation.test.ts` | +2 | v7.13 P2 置信度 < 0.5 → 静音灰 |
+| `frontend/tests/unit/utils/pitchLive.test.ts` | +31 | v7.13 P3 录音中实时对比 (趋势/偏差格式/最近偏差/圆点淡出/色带几何) + 审查边界 (NaN/keep≤0) |
 
 ## v7.12 测试统计 (历史)
 

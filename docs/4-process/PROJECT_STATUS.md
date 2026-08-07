@@ -84,7 +84,7 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 
 ## 二、完成功能
 
-### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2
+### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3
 
 | 类别 | 项目 | 状态 |
 |------|------|:--:|
@@ -99,11 +99,12 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **前端纯 TS (P2)** | `utils/pitchNotes.ts` (freq↔MIDI↔音名/白键/音高刻度) + `utils/pitchStats.ts` (偏差百分比/最高最低音) + `utils/pitchPlayback.ts` (clampSeek/倍速推进/A-B 循环/帧率降级) + `pitchScroll` 扩展 (自动刻度步长/时间刻度) — 零 Vue 依赖 | ✅ |
 | **前端 store** | songs.store +`fetchSongPitch` (缓存) + `compareWithSong` | ✅ |
 | **前端组件** | `PitchComparisonCanvas.vue` (P1 双曲线 → P2 全功能): 偏差着色 (≤25 绿/≤50 橙/>50 红, 静音灰虚线 40% 延续不跳变) + 滚动窗口 (播放居中) + Y 轴钢琴键/时间刻度 + 八度跳变 ⚠️ + 无参考蓝色单曲线 | ✅ |
-| **前端视图** | SingView (Element Plus + GSAP): P1 选歌参考线/上传 DTW/再来一首; P2 回放控制面板 (播放/暂停/拖拽跳转/倍速 0.5x-1.5x/A-B 循环) + WS 不可变更新 | ✅ |
-| **BDD** | sing-song-select step defs 更新 (data-test 钩子, xfail 对齐 v7.13); 🆕 `pitch-realtime` step defs 骨架 (25 场景, 每条标注对应纯 TS 单元测试) | ✅ |
-| **测试** | 单测 435→451 (+16) + 集成 53→62 (+9) + WS 10→14 (+4); 前端 102→**166** (+64); 后端全绿 548 (534 生产 + 14 WS); BDD 场景 154→**179** | ✅ |
+| **前端组件 (P3)** | live 模式 (`:live-mode` prop): 录音中 3px 圆点 2s 淡出 (dotAlpha 线性) + 偏差背景色带 (±25 绿/±50 橙半透明) + 右上角当前偏差值/趋势箭头 (偏离演唱位置, 窗口外跳过) + 不画完整用户曲线; 索引遍历 O(n) 圆点渲染 | ✅ |
+| **前端视图** | SingView (Element Plus + GSAP): P1 选歌参考线/上传 DTW/再来一首; P2 回放控制面板 (播放/暂停/拖拽跳转/倍速 0.5x-1.5x/A-B 循环) + WS 不可变更新; P3 录音中切换到 live 模式 + live 时钟 (100ms 壁钟浮点, 与数据前沿对齐 → 圆点平滑淡出/新点即时可见) | ✅ |
+| **BDD** | sing-song-select step defs 更新 (data-test 钩子, xfail 对齐 v7.13); 🆕 `pitch-realtime` step defs 骨架 (25 场景, 每条标注对应纯 TS 单元测试; P3 起 3 场景指向 pitchLive.test.ts) | ✅ |
+| **测试** | 单测 435→451 (+16) + 集成 53→62 (+9) + WS 10→14 (+4); 前端 102→166 (+64) → **197** (Phase 3 +31); 后端全绿 548 (534 生产 + 14 WS); BDD 场景 154→**179** | ✅ |
 
-> **后续 Phase (pitch-realtime.feature 全量)**: Phase 3 Sing 录音中实时对比 (圆点/色带/趋势箭头) / Phase 4 回放对比+统计+问题段落+逐句评分 / Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 均已设计, 未实现。
+> **后续 Phase (pitch-realtime.feature 全量)**: Phase 4 回放对比+统计+问题段落+逐句评分 / Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 均已设计, 未实现。
 
 ### v7.12 (2026-08-06) — 选歌录音 MVP + BDD 基建修复 + dl_services 死代码清理
 
