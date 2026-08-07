@@ -103,7 +103,7 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 534 tests (DDD 451 + integration 62 + extended 21) + 前端 230 Vitest
+└── tests/                # 537 tests (DDD 451 + integration 65 + extended 21) + 前端 286 Vitest
 ```
 
 ## API 接口
@@ -179,7 +179,7 @@ cd frontend && npx vitest run
 
 ## 版本历史
 
-- **v7.13** — 实时音准对比子系统 Phase 1-4: 参考音高 API (GET /songs/{id}/pitch) + 选歌录音增强 (参考线叠加/上传录音 DTW 对比/再来一首) + WS pitch_update 实时推送 + WS 权重 ScoringWeights 单一来源; Phase 2: 音准对比 Canvas 偏差着色 + 滚动窗口 + 回放控制 (播放/拖拽/倍速/A-B) + Y 轴音高/时间刻度; Phase 3: 录音中实时对比 (live 模式圆点/偏差色带/趋势); Phase 4: 录音后回放分析 (问题段落高亮/逐句评分/统计面板) (2026-08-07)
+- **v7.13** — 实时音准对比子系统 Phase 1-5: 参考音高 API (GET /songs/{id}/pitch) + 选歌录音增强 (参考线叠加/上传录音 DTW 对比/再来一首) + WS pitch_update 实时推送 + WS 权重 ScoringWeights 单一来源; Phase 2: 音准对比 Canvas 偏差着色 + 滚动窗口 + 回放控制 (播放/拖拽/倍速/A-B) + Y 轴音高/时间刻度; Phase 3: 录音中实时对比 (live 模式圆点/偏差色带/趋势); Phase 4: 录音后回放分析 (问题段落高亮/逐句评分/统计面板); Phase 5: CompareView 双轨叠加 (偏差三色填色/热力图/缩略条) + 性能降级 + 截图/快捷键 (2026-08-08)
 - **v7.12** — 选歌录音 MVP (/sing/:songId + WS song_id + vocal_range) + BDD 基建修复 (vocals.wav 数据 + animations/sing-song-select 迁移 Vue 3 + KMP 崩溃修复) + dl_services 死代码清理 (2026-08-06)
 - **v7.11** — 评分权重可配置: ScoringWeights 值对象 (单一来源) + 4 风格预设 + 权重面板 + 纯前端重算; BDD 浏览器基建修复 (2026-08-04)
 - **v7.10** — 标准歌曲库前端页面: 卡片网格 + 搜索/筛选 + 上传 + 删除 + 试听; 音频播放修复 (songs_dir) (2026-08-04)

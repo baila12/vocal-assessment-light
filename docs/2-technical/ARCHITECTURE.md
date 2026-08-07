@@ -1,6 +1,6 @@
 # 系统架构 v7.13
 
-> 更新: 2026-08-07 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1-4
+> 更新: 2026-08-08 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1-5
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 
@@ -350,13 +350,17 @@ vocal_assessment_light/
 ├── frontend/                        # Vue 3 SPA ★当前前端
 │   ├── src/
 │   │   ├── views/                   # 7 页面 (Home/Report/History/Compare/Sing/Songs)
-│   │   │   └── SingView.vue        #   v7.12 选歌录音 (选歌区/歌曲信息/WS song_id)
-│   │   │   └── SongsView.vue        #   v7.10 曲库卡片网格页 (v7.12: 选择此歌按钮)
-│   │   ├── components/              # 7 共享 + 3 布局组件
-│   │   │   └── scoring/             # v7.11: ScoringWeightsPanel.vue 权重配置面板
+│   │   │   ├── SingView.vue        #   v7.12 选歌录音 (选歌区/歌曲信息/WS song_id)
+│   │   │   ├── SongsView.vue        #   v7.10 曲库卡片网格页 (v7.12: 选择此歌按钮)
+│   │   │   └── CompareView.vue      #   v7.13 P5 对比分析页 (双文件→DTW→双轨叠加/性能模式/截图/快捷键)
+│   │   ├── components/              # 8 共享 + 3 布局组件
+│   │   │   ├── scoring/             # v7.11: ScoringWeightsPanel.vue 权重配置面板
+│   │   │   └── PitchComparisonCanvas.vue # v7.13 P2-P5 音准对比画布 (双曲线/热力条/缩略条/性能模式)
 │   │   ├── stores/                  # 6 Pinia stores
 │   │   │   ├── songs.store.ts       #   v7.10 曲库状态管理
 │   │   │   └── scoring.store.ts     #   v7.11 评分权重预设/滑块/归一化
+│   │   ├── utils/                   # 纯 TS 逻辑层 (零 Vue 依赖, Vitest 直测)
+│   │   │   └── pitch*.ts            #   v7.13 音准家族: Deviation/Scroll/Notes/Stats/Playback/Live/Segments (P1-P4) + CompareDraw/Fps/Heatmap/Keyboard/Screenshot (P5)
 │   │   ├── composables/             # 5 composables
 │   │   ├── api/                     # API 客户端 (零硬编码 URL)
 │   │   ├── router/                  # Vue Router (hash history)
@@ -379,7 +383,7 @@ vocal_assessment_light/
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
 ├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 509 tests (DDD 435 + 集成 53 + 扩展 21)
+├── tests/                           # 551 tests (DDD 451 + 集成 65 + 扩展 21 + WS 14)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)

@@ -103,10 +103,12 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **前端视图** | SingView (Element Plus + GSAP): P1 选歌参考线/上传 DTW/再来一首; P2 回放控制面板 (播放/暂停/拖拽跳转/倍速 0.5x-1.5x/A-B 循环) + WS 不可变更新; P3 录音中切换到 live 模式 + live 时钟 (100ms 壁钟浮点, 与数据前沿对齐 → 圆点平滑淡出/新点即时可见); P4 回放统计面板 (有参考: 精准/略偏/跑调 = computeDeviationStats; 无参考: 最高/最低音 = computePitchRange; 全无声空态 = hasVoicedFrames) | ✅ |
 | **前端纯 TS (P4)** | `utils/pitchSegments.ts`: `findProblemSegments` (偏差>50 持续≥0.5s) + `segmentPhrases` (静音间隙>0.4s 切分乐句) + `scorePhrase` (乐句精准率) + `phraseScoreColor` (≥85绿/≥60橙/红) — 零 Vue 依赖 | ✅ |
 | **前端组件 (P4)** | 回放分析: 问题段落红色半透明 band + 逐句评分药丸 (maxFreq 预计算锚在乐句最高音) + DPR 修复 (CSS 像素) + `roundRect` 兼容回退 | ✅ |
-| **BDD** | sing-song-select step defs 更新 (data-test 钩子, xfail 对齐 v7.13); 🆕 `pitch-realtime` step defs 骨架 (25 场景, 每条标注对应纯 TS 单元测试; P3 起录音中对比指向 pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计指向 pitchSegments.test.ts) | ✅ |
-| **测试** | 单测 435→451 (+16) + 集成 53→62 (+9) + WS 10→14 (+4); 前端 102→166 (+64) → 197 (+31) → **230** (Phase 4 +33); 后端全绿 548 (534 生产 + 14 WS); BDD 场景 154→**179** | ✅ |
-
-> **后续 Phase (pitch-realtime.feature 全量)**: Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 已设计, 未实现。
+| **BDD** | sing-song-select step defs 更新 (data-test 钩子, xfail 对齐 v7.13); 🆕 `pitch-realtime` step defs 骨架 (25 场景, 每条标注对应纯 TS 单元测试; P3 起录音中对比指向 pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计指向 pitchSegments.test.ts, P5 起双轨填色/热力图/截图/快捷键指向 pitchCompareDraw/pitchHeatmap/pitchScreenshot/pitchKeyboard) | ✅ |
+| **前端纯 TS (P5)** | `pitchKeyboard.ts` (快捷键映射 + 修饰键/滑块守卫) + `pitchFps.ts` (FPS 监控/降级状态机, 滚动 1s 窗 + 3s <20fps 触发) + `pitchHeatmap.ts` (全时长分桶/点击跳转) + `pitchScreenshot.ts` (DPR 原分辨率 + 时间戳水印) + `pitchCompareDraw.ts` (偏差着色/三色填色/热力条/缩略条/低对齐覆盖) + `pitchStats.ts` +`excludeLowAlignmentFrames` — 零 Vue 依赖 | ✅ |
+| **后端 (P5)** | `/api/v1/compare` 响应 +`standard_pitch`/`user_pitch`/`low_alignment_segments` — 向后兼容, 提取失败空数组优雅降级 (评分仍返回) | ✅ |
+| **前端组件 (P5)** | 底部偏差热力图条 (点击 seek) + 缩略导航条 (拖拽 seek) + 性能模式 (抗锯齿关/着色每 3 帧/网格关/缩略条关) + 偏差区域三色填色 (非 live 双轨, ≤25 绿/25-50 橙/>50 红) | ✅ |
+| **前端视图 (P5)** | CompareView 对比分析页: 双文件上传 → DTW 对比 → 双轨叠加; 显示模式 (仅用户/双轨) 不中断播放; 性能模式指示器 (closable 可手动关闭); 截图导出 + 快捷键全套 (Space/←→/R/S/1/2) | ✅ |
+| **测试** | 单测 435→451 (+16) + 集成 53→62 (+9) → 65 (+3 P5) + WS 10→14 (+4); 前端 102→166 (+64) → 197 (+31) → 230 (P4 +33) → **286** (P5 +56); 后端全绿 551 (537 生产 + 14 WS); BDD 场景 154→**179** | ✅ |
 
 ### v7.12 (2026-08-06) — 选歌录音 MVP + BDD 基建修复 + dl_services 死代码清理
 
@@ -277,13 +279,13 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | sing-song-select.feature (迁移 Vue 3) | ✅ 6 PASS + 6 XFAIL (依赖 WebSocket 录音/auto-match/上传) |
 | scoring-config.feature | ✅ API 级 PASS (v7.11) |
 | database.feature | ✅ 4 PASS + 6 XFAIL (v7.9) |
-| **pitch-realtime.feature (v7.13 P4 骨架)** | ✅ 25 XFAIL (每条标注对应纯 TS 单元测试文件; P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计→pitchSegments.test.ts; 浏览器 BDD 无真实音频/WS) |
+| **pitch-realtime.feature (v7.13 P1-P5 骨架)** | ✅ 25 XFAIL (每条标注对应纯 TS 单元测试文件; P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计→pitchSegments.test.ts, P5 起双轨填色/热力图/截图/快捷键→pitchCompareDraw/pitchHeatmap/pitchScreenshot/pitchKeyboard; 浏览器 BDD 无真实音频/WS) |
 
 ### 前端测试
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| Vitest | 230 | ✅ 100% | (stores 74 + **pitch utils 156**; v7.13 P1 +34, P2 +64, P3 +31, P4 +33)
+| Vitest | 286 | ✅ 100% | (stores 74 + **pitch utils 212**; v7.13 P1 +34, P2 +64, P3 +31, P4 +33, P5 +56)
 | vue-tsc type check | 0 errors | ✅ |
 | Vite build | ~16s | ✅ |
 
@@ -359,7 +361,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | BDD 浏览器测试需服务运行 | 运行浏览器 BDD 需先 `python backend/main.py` (FastAPI :8000 服务 frontend/dist); 服务未启动时场景 skip |
 | 评分阈值联动 (风格预设) | scoring-config.feature: 各预设阈值微调 (MAE断点等) 未实现 — API 级 PASS, 阈值联动/自动风格检测/UI 面板仍 XFAIL (用户指定暂不开发) |
 | ~~选歌录音 (选歌→演唱页)~~ | ✅ v7.12 MVP + v7.13 Phase 1: `/sing/:songId` + WS song_id + vocal_range + 参考音高 API + WS pitch_update + 上传录音对比 + 再来一首 |
-| **实时音准对比 Phase 4-5** | pitch-realtime.feature 全量 (回放分析已落地 P4: 问题段落/逐句评分/统计; 待 CompareView 双轨/性能降级/截图/快捷键 Phase 5) 已设计未实现; auto-match 独立 feature 待开发 |
+| **实时音准对比 P1-P5** | pitch-realtime.feature 全量已落地 (P1 参考音高 API/WS pitch_update → P4 回放分析 → P5 CompareView 双轨叠加/热力图/性能降级/截图/快捷键/缩略条); auto-match 独立 feature 待开发 |
 
 ---
 
@@ -391,6 +393,11 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | `backend/interfaces/api/routes/scoring.py` | v7.11 — /api/v1/scoring/presets + apply-weights |
 | `frontend/src/stores/scoring.store.ts` | v7.11 — 权重预设/滑块/归一化/纯前端重算 store |
 | `frontend/src/components/scoring/ScoringWeightsPanel.vue` | v7.11 — 权重配置面板 (ReportView 集成) |
+| `backend/interfaces/api/routes/assessment.py` | v7.13 P5 — `/api/v1/compare` 响应扩展 (standard_pitch/user_pitch/low_alignment_segments) |
+| `frontend/src/utils/pitchCompareDraw.ts` | v7.13 P5 — 双轨绘制 (偏差着色/三色填色/热力条/缩略条/低对齐覆盖) |
+| `frontend/src/utils/pitchFps.ts` | v7.13 P5 — FPS 监控 + 降级状态机 |
+| `frontend/src/utils/pitchKeyboard.ts` | v7.13 P5 — 快捷键映射 + 可编辑/滑块守卫 |
+| `frontend/src/views/CompareView.vue` | v7.13 P5 — 对比分析页 (双文件→DTW→双轨叠加 + 性能模式/截图/快捷键) |
 | `backend/main.py` | FastAPI 入口 (Flask 已移除) |
 
 ### 启动命令

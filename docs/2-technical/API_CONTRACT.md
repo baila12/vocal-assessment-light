@@ -15,7 +15,7 @@
 | POST | `/api/v1/separate` | Demucs 人声分离 | ❌ | ✅ |
 | GET | `/api/v1/separate/models` | 分离模型列表 | ✅ | ✅ |
 | POST | `/api/v1/report` | PDF/图片报告导出 | ❌ | ✅ |
-| POST | `/api/v1/compare` | DTW 双文件对比 | — | — |
+| POST | `/api/v1/compare` | DTW 双文件对比 [v7.13 P5: 响应附加 `standard_pitch`/`user_pitch` (参考/用户 F0 曲线) + `low_alignment_segments` (低置信度段落), 向后兼容] | — | — |
 | GET | `/api/v1/history` | 历史分页列表 + 日期筛选 | ✅ | ✅ |
 | GET | `/api/v1/history/{id}` | 单条详情 | ✅ | ✅ |
 | DELETE | `/api/v1/history/{id}` | 删除单条 | ✅ | ✅ |

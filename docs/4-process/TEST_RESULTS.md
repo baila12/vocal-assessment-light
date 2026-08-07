@@ -1,6 +1,6 @@
 # 测试结果记录 v7.13
 
-> 更新: 2026-08-07 | 534 tests 100% GREEN | 分支: `main`
+> 更新: 2026-08-08 | 537 tests 100% GREEN | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
@@ -17,13 +17,13 @@
 | DDD 对齐 + Flag bridge | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
 | 中间件 | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
 | **DDD 合计** | **451** | **100% GREEN** | (~25s) |
-| FastAPI 集成 | 62 | ✅ 100% | test_api_routes (19) + test_songs_api (20) + test_scoring_api (14) + songs_pitch_api (9) |
+| FastAPI 集成 | 65 | ✅ 100% | test_api_routes (19) + test_songs_api (20) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (3, v7.13 P5) |
 | WebSocket 集成 | 14 | ✅ 100% | test_ws_score (10) + ws_pitch_update (4, v7.13) |
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
-| **生产代码总计** | **534** | **100% GREEN** | (DDD 451 + 集成 62 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
+| **生产代码总计** | **537** | **100% GREEN** | (DDD 451 + 集成 65 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
 | 真实音频回归 | 28 | ⚠️ 24 PASS + 4 FAIL | 4 失败均为 breath 维度基线漂移 (BASELINE_V7_6 阈值过紧, 既有) — 见 PROJECT_STATUS |
-| BDD (17 step files) | 179 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; **pitch-realtime 25X (v7.13 P4 骨架)**; 5 features 缺 step defs |
-| 前端 Vitest | 230 | ✅ 100% | stores 74 + pitch utils 156 (v7.13 P1 +34, P2 +64, P3 +31, P4 +33) |
+| BDD (17 step files) | 179 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; **pitch-realtime 25X (v7.13 P1-P5 骨架)**; 5 features 缺 step defs |
+| 前端 Vitest | 286 | ✅ 100% | stores 74 + pitch utils 212 (v7.13 P1 +34, P2 +64, P3 +31, P4 +33, P5 +56) |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | ~16s | ✅ | 生产构建 |
 
@@ -45,6 +45,13 @@
 | `frontend/tests/unit/utils/pitchLive.test.ts` | +31 | v7.13 P3 录音中实时对比 (趋势/偏差格式/最近偏差/圆点淡出/色带几何) + 审查边界 (NaN/keep≤0) |
 | `frontend/tests/unit/utils/pitchSegments.test.ts` | +32 | v7.13 P4 问题段落 (findProblemSegments) + 乐句切分 (segmentPhrases) + 逐句评分 (scorePhrase) + 分数颜色 (phraseScoreColor) |
 | `frontend/tests/unit/utils/pitchStats.test.ts` | +1 | v7.13 P4 审查回归 — 无声率取整不引入分母误差 (2000 帧精确计数 25.1/50.0/25.0/24.9) |
+| `tests/integration/test_compare_pitch_api.py` | +3 | v7.13 P5 POST /compare 双正弦 WAV → standard_pitch/user_pitch; 同文件 → low_alignment_segments 空; score/level 向后兼容 |
+| `frontend/tests/unit/utils/pitchKeyboard.test.ts` | +13 | v7.13 P5 快捷键映射 + 修饰键/可编辑目标/滑块 (role=slider) 守卫 |
+| `frontend/tests/unit/utils/pitchFps.test.ts` | +9 | v7.13 P5 FPS 监控状态机 (60fps 不降级 / 10fps 3s 降级 / 手动恢复幂等 / resetTime 保留降级) |
+| `frontend/tests/unit/utils/pitchHeatmap.test.ts` | +11 | v7.13 P5 热力图全时长分桶 (颜色密度) + heatmapClickToTime 钳制 |
+| `frontend/tests/unit/utils/pitchScreenshot.test.ts` | +9 | v7.13 P5 时间戳格式化 / 离屏 DPR 1:1 截图水印 / 下载触发 |
+| `frontend/tests/unit/utils/pitchCompareDraw.test.ts` | +8 | v7.13 P5 双轨绘制 — 性能模式每 3 帧着色回归 (原实现仅画首帧) / 三色填色 / 三色隧道 / 静音与无声帧跳过 |
+| `frontend/tests/unit/utils/pitchStats.test.ts` | +6 | v7.13 P5 excludeLowAlignmentFrames 不可变过滤低置信度段落帧 |
 
 ## v7.12 测试统计 (历史)
 

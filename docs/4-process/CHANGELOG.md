@@ -153,7 +153,52 @@
 - ✅ vue-tsc 0 errors + Vite build 通过
 - 🔧 BDD: `pitch-realtime` 回放对比/问题段落/逐句评分/统计 step defs 指向 `pitchSegments.test.ts` + SingView 统计面板; 25 场景仍 25 XFAIL (浏览器行为由纯 TS 单测验证)
 
-> **后续 Phase (pitch-realtime.feature 全量)**: Phase 5 CompareView 双轨叠加+热力图+性能降级+截图/快捷键 — 已设计, 未实现。
+## v7.13 (续) — 实时音准对比子系统 Phase 5: 对比分析双轨叠加 + 性能降级 + 辅助功能 (2026-08-08)
+
+### 概述
+
+Phase 5 收官 pitch-realtime.feature: 新增 CompareView 对比分析页 (双文件上传 → canvas 双轨叠加 + 偏差热力图 + 缩略导航条 + 性能降级 + 截图/快捷键)。纯 TS 逻辑层 (pitchFps/pitchHeatmap/pitchKeyboard/pitchScreenshot/pitchStats/pitchCompareDraw) 零 Vue 依赖, Vitest 直测。ultracode 多代理审查 (4 维 + 对抗验证) 修复 5 条确认发现 + 1 个功能缺口 (双轨偏差三色填色)。
+
+### ① 纯 TS 逻辑层 (零 Vue 依赖, Vitest 直测)
+
+- 🆕 `pitchKeyboard.ts`: 快捷键映射 (Space 播放/←→±5s/R 参考/S 截图/1 仅用户/2 双轨) — 修饰键/可编辑目标/滑块 (`role=slider`) 守卫
+- 🆕 `pitchFps.ts`: FPS 监控 + 降级状态机 (滚动 1s 窗, 连续 3s <20fps → 性能模式; 手动恢复幂等; 长停顿 `resetTime` 保留降级状态)
+- 🆕 `pitchHeatmap.ts`: `computeHeatmapSegments` (全时长分桶, 颜色密度表示跑调程度) + `heatmapClickToTime`
+- 🆕 `pitchScreenshot.ts`: `formatTimestamp`/`captureCanvasToDataUrl` (离屏 1:1 物理像素 + 时间戳水印)/`downloadCanvasPng`
+- 🆕 `pitchCompareDraw.ts`: `drawDeviationCurve` (性能模式每 3 帧着色) + `drawHeatmapBar` + `drawLowAlignmentOverlay` (⚠️ 对齐不确定) + `drawThumbnail` (全长预览+视口高亮) + `drawDeviationFillBands` (双轨偏差三色填色) + `drawDeviationBands` (三色隧道: 最外红>50/橙/绿最内)
+- 🔧 `pitchStats.ts`: +`excludeLowAlignmentFrames` (不可变过滤低置信度段落帧, 统计排除跑调率)
+
+### ② 后端 (扩展 `POST /api/v1/compare`, 向后兼容零 schema 破坏)
+
+- 🆕 响应附加 `standard_pitch`/`user_pitch` (`PitchExtractionService` 提取, `[{time, frequency, confidence}]`) + `low_alignment_segments` (dtw confidence <0.5 → 整段); 提取失败 → 空数组优雅降级 (评分仍正常返回)
+
+### ③ 组件 — PitchComparisonCanvas.vue (Phase 5 增量)
+
+- 🆕 底部偏差热力图条 (一整行, 点击 seek) + 缩略导航条 (拖拽 seek) + 性能模式 (抗锯齿关 `imageSmoothingEnabled`/着色每 3 帧/网格关/缩略条关)
+- 🔧 偏差区域三色填色 (非 live 双轨): ≤25 绿 / 25-50 橙 / >50 红 (`drawDeviationFillBands`, 曲线下方)
+- 🔧 `onCanvasKeydown` 修饰键守卫 (Ctrl/Meta/Alt 不拦截, 交还浏览器)
+
+### ④ 视图 — CompareView.vue (对比分析页)
+
+- 🆕 双文件上传 → DTW 对比 + canvas 双轨叠加 + 评分卡片; 播放控制 (播放/±5s 步进/倍速) 不中断显示模式切换
+- 🆕 显示模式: "仅显示用户曲线" (用户蓝无着色) / "显示对比" (R 键切换)
+- 🆕 性能模式 UI 指示器 (closable "性能模式 (可手动关闭)") + FPS 监控 loop (仅画布实际展示时应用自动降级)
+- 🆕 截图导出按钮 (DPR 原分辨率 + "01:23 / 03:45" 水印) + 快捷键全套
+- 🔧 `startCompare` 重试时清空旧曲线/低对齐数据 (失败不残留曲线, 状态一致)
+
+### ⑤ 审查修复 (ultracode workflow: 4 维审查 + 对抗验证)
+
+- 🔧 **CRITICAL** `drawDeviationCurve` 性能模式计数器死锁: 原实现计数器仅非跳过帧自增 → 仅首帧被画; 修复为先自增再判跳过 (每 3 帧取 1) + 回归测试 (pitchCompareDraw.test.ts)
+- 🔧 **MEDIUM** 窗口层键盘劫持 el-slider 方向键: `isEditableTarget` 覆盖 `role=slider` (div) — 滑块聚焦时箭头不再双重触发 ±5s seek
+- 🔧 **MEDIUM** `startCompare` 重试失败状态不一致 (见 ④)
+- 🔧 **MEDIUM** 画布 `onCanvasKeydown` 缺修饰键守卫 (Alt+← 浏览器后退被拦截)
+
+### 测试
+
+- 🆕 前端 Vitest 230 → **286** (+56: pitchFps 9 + pitchHeatmap 11 + pitchKeyboard 13 + pitchScreenshot 9 + pitchCompareDraw 8 + pitchStats +6) — 全绿
+- ✅ vue-tsc 0 errors + Vite build 通过
+- 🆕 后端集成 +3 (`tests/integration/test_compare_pitch_api.py`): 双正弦 WAV → 200 含 standard_pitch/user_pitch; 同文件对比 → low_alignment_segments 空数组; 既有 score/level 向后兼容 — 生产 534 → **537**
+- 🔧 BDD: pitch-realtime 25 场景仍 XFAIL (浏览器行为由纯 TS Vitest 验证), xfail 原因指向新测试 (deviation_fill_table → `drawDeviationFillBands` 三色填色)
 
 ---
 
