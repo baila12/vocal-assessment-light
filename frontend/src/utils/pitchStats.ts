@@ -8,7 +8,7 @@
  */
 import { DEVIATION_COLORS } from '@/utils/pitchDeviation'
 import { freqToNoteName } from '@/utils/pitchNotes'
-import type { DeviationFrame, PitchPoint } from '@/types/pitch'
+import type { DeviationFrame, LowAlignmentSegment, PitchPoint } from '@/types/pitch'
 
 export interface DeviationPercentages {
   /** 精准率 (%) — 偏差 ≤25 音分 */
@@ -104,6 +104,24 @@ export function computeDeviationStats(frames: DeviationFrame[]): DeviationPercen
     outOfTunePct: round1((outOfTune / voiced) * 100),
     silentPct,
   }
+}
+
+/**
+ * 剔除落在低对齐段内的帧 — 统计排除 DTW 未对齐段 (v7.13 Phase 5)。
+ * 不可变过滤: 返回新数组, 不修改输入; 段区间含端点。
+ */
+export function excludeLowAlignmentFrames(
+  frames: readonly DeviationFrame[],
+  lowAlignmentSegments: readonly LowAlignmentSegment[],
+): DeviationFrame[] {
+  if (lowAlignmentSegments.length === 0) return [...frames]
+
+  return frames.filter((f) => {
+    for (const seg of lowAlignmentSegments) {
+      if (f.time >= seg.start && f.time <= seg.end) return false
+    }
+    return true
+  })
 }
 
 export interface PitchRange {

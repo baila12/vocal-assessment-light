@@ -11,9 +11,10 @@ import {
   computeDeviationStats,
   computePitchRange,
   computeFramePercentages,
+  excludeLowAlignmentFrames,
 } from '@/utils/pitchStats'
 import { DEVIATION_COLORS } from '@/utils/pitchDeviation'
-import type { DeviationFrame, PitchPoint } from '@/types/pitch'
+import type { DeviationFrame, LowAlignmentSegment, PitchPoint } from '@/types/pitch'
 
 /** 构造偏差帧 — 只关注分类用字段 */
 function frame(
@@ -152,5 +153,57 @@ describe('computePitchRange', () => {
 
   it('空数组 → null', () => {
     expect(computePitchRange([])).toBeNull()
+  })
+})
+
+describe('excludeLowAlignmentFrames', () => {
+  /** 构造带 time 的偏差帧 */
+  function tframe(time: number, colorHex: string = DEVIATION_COLORS.accurate): DeviationFrame {
+    return frame({ time, colorHex })
+  }
+
+  it('空段列表 → 原样返回 (新数组, 不共享引用)', () => {
+    const frames = [tframe(0), tframe(1)]
+    const result = excludeLowAlignmentFrames(frames, [])
+    expect(result).toEqual(frames)
+    expect(result).not.toBe(frames)
+  })
+
+  it('剔除 time ∈ 任一低对齐段的帧', () => {
+    const frames = [tframe(0.5), tframe(1.5), tframe(2.5), tframe(3.5)]
+    const segments: LowAlignmentSegment[] = [{ start: 1.0, end: 3.0, avgConfidence: 0.3 }]
+    const result = excludeLowAlignmentFrames(frames, segments)
+    // 1.5 与 2.5 落在 [1,3) 内被剔除; 边界 3.5 保留
+    expect(result.map((f) => f.time)).toEqual([0.5, 3.5])
+  })
+
+  it('区间端点含端点 (end 闭区间)', () => {
+    const frames = [tframe(3.0), tframe(1.0)]
+    const segments: LowAlignmentSegment[] = [{ start: 1.0, end: 3.0, avgConfidence: 0.4 }]
+    const result = excludeLowAlignmentFrames(frames, segments)
+    expect(result).toEqual([])
+  })
+
+  it('全被剔除 → 空数组 (computeDeviationStats 对空输入返回零)', () => {
+    const frames = [tframe(1), tframe(2), tframe(3)]
+    const segments: LowAlignmentSegment[] = [{ start: 0, end: 10, avgConfidence: 0.2 }]
+    expect(excludeLowAlignmentFrames(frames, segments)).toEqual([])
+  })
+
+  it('多段合并剔除 (无重复)', () => {
+    const frames = [tframe(0), tframe(2), tframe(4), tframe(6)]
+    const segments: LowAlignmentSegment[] = [
+      { start: 1, end: 3, avgConfidence: 0.3 },
+      { start: 5, end: 7, avgConfidence: 0.4 },
+    ]
+    const result = excludeLowAlignmentFrames(frames, segments)
+    expect(result.map((f) => f.time)).toEqual([0, 4])
+  })
+
+  it('不修改输入数组 (不可变)', () => {
+    const frames = [tframe(0), tframe(2), tframe(4)]
+    const snapshot = [...frames]
+    excludeLowAlignmentFrames(frames, [{ start: 1, end: 3, avgConfidence: 0.3 }])
+    expect(frames).toEqual(snapshot)
   })
 })

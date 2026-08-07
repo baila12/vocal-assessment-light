@@ -8,11 +8,34 @@
 
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Aim, Microphone, CircleCheckFilled, InfoFilled } from '@element-plus/icons-vue'
+import {
+  Aim,
+  Microphone,
+  CircleCheckFilled,
+  InfoFilled,
+  CaretRight,
+  VideoPause,
+  Camera,
+} from '@element-plus/icons-vue'
 import { useGsap } from '@/composables/useGsap'
 import { apiClient } from '@/api/client'
 import { matchColor } from '@/utils/colors'
 import FileUploader from '@/components/FileUploader.vue'
+import PitchComparisonCanvas from '@/components/PitchComparisonCanvas.vue'
+import {
+  PLAYBACK_RATES,
+  DEFAULT_PLAYBACK_RATE,
+  advancePlayback,
+  clampSeek,
+  isShortAudio,
+} from '@/utils/pitchPlayback'
+import { alignPitchCurves } from '@/utils/pitchDeviation'
+import { computeDeviationStats, excludeLowAlignmentFrames } from '@/utils/pitchStats'
+import { computeHeatmapSegments, type HeatmapSegment } from '@/utils/pitchHeatmap'
+import { createFpsMonitor } from '@/utils/pitchFps'
+import { mapKeyboardAction } from '@/utils/pitchKeyboard'
+import { downloadCanvasPng, formatTimestamp } from '@/utils/pitchScreenshot'
+import type { PitchPoint, DeviationFrame, LowAlignmentSegment } from '@/types/pitch'
 
 // ---- 状态 ----
 const standardFile = ref<File | null>(null)
@@ -20,6 +43,36 @@ const userFile = ref<File | null>(null)
 const isComparing = ref(false)
 const compareResult = ref<any>(null)
 const errorMsg = ref<string | null>(null)
+
+// ---- Phase 5: 双轨叠加分析 (从 /api/v1/compare 响应映射的音高曲线) ----
+/** /api/v1/compare 响应中的音高曲线段 (snake_case, 映射为前端 camelCase) */
+interface ComparePitchPayload {
+  standard_pitch?: PitchPoint[]
+  user_pitch?: PitchPoint[]
+  low_alignment_segments?: Array<{ start: number; end: number; avg_confidence: number }>
+}
+
+const standardPitchData = ref<PitchPoint[]>([])
+const userPitchData = ref<PitchPoint[]>([])
+const lowAlignmentSegments = ref<LowAlignmentSegment[]>([])
+
+/** 播放/分析游标状态 */
+const currentTime = ref(0)
+const isPlaying = ref(false)
+const playbackRate = ref<number>(DEFAULT_PLAYBACK_RATE)
+const showReference = ref(true)
+const isPerformanceMode = ref(false)
+const showThumbnail = computed(() => !isShortAudio(totalDuration.value))
+const fpsMonitor = createFpsMonitor()
+const canvasHost = ref<HTMLElement | null>(null)
+let playbackTimer: ReturnType<typeof setInterval> | null = null
+let fpsRafId: number | null = null
+let fpsLastTick: number | null = null
+
+/** 背景/停顿间隙 >1s 视为暂停 (切 Tab 等) — 重置低帧率连段, 防止恢复瞬间误降级 */
+const FPS_PAUSE_GAP_MS = 1000
+/** 偏差热力图桶数 — 全时长粒度 */
+const HEATMAP_BUCKETS = 48
 
 // ---- GSAP 入场动画 ----
 const compareContainer = ref<HTMLElement | null>(null)
@@ -33,9 +86,15 @@ onMounted(() => {
   slideInRight('.upload-panel:last-child', { delay: 0.2 })
   // 操作按钮区域
   enterFrom('.action-bar', { y: 16, delay: 0.3 })
+  // Phase 5: 键盘快捷键 + FPS 监控 (画布挂载时独立 rAF loop)
+  window.addEventListener('keydown', onWindowKeydown)
+  startFpsLoop()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onWindowKeydown)
+  stopFpsLoop()
+  stopPlayback()
   // ctx.revert() handled by useGsap
 })
 
@@ -46,24 +105,68 @@ const canCompare = computed(
 const standardName = computed(() => standardFile.value?.name ?? '')
 const userName = computed(() => userFile.value?.name ?? '')
 
+/** 是否有音高数据可分析 — 双轨叠加区展示开关 */
+const hasPitchData = computed(
+  () => userPitchData.value.length > 0 || standardPitchData.value.length > 0,
+)
+
+/** 总时长 — 两曲线最大时间 (播放/热力图/缩略条共用) */
+const totalDuration = computed(() => {
+  const times = [...standardPitchData.value, ...userPitchData.value].map((d) => d.time)
+  return times.length ? Math.max(...times) : 0
+})
+
+/** 对齐偏差帧 — 有标准曲线时逐帧着色 (前端时间戳对齐, 复用 SingView 同款) */
+const deviationFrames = computed<DeviationFrame[]>(() =>
+  standardPitchData.value.length > 0
+    ? alignPitchCurves(userPitchData.value, standardPitchData.value)
+    : [],
+)
+
+/** 剔除低对齐段后的偏差统计 — 满足 "DTW 未对齐段落: 统计排除跑调率" */
+const deviationStats = computed(() =>
+  computeDeviationStats(excludeLowAlignmentFrames(deviationFrames.value, lowAlignmentSegments.value)),
+)
+
+/** 是否存在有声偏差帧 — 全无声时统计面板降级为空态 */
+const hasVoicedFrames = computed(() => deviationFrames.value.some((f) => !f.isSilent))
+
+/** 底部偏差热力图段 — 全时长分桶, 低对齐段置灰 */
+const heatmapSegments = computed<readonly HeatmapSegment[]>(() =>
+  computeHeatmapSegments(deviationFrames.value, totalDuration.value, HEATMAP_BUCKETS, lowAlignmentSegments.value),
+)
+
+const currentTimeLabel = computed(() => formatTimestamp(currentTime.value))
+const totalDurationLabel = computed(() => formatTimestamp(totalDuration.value))
+
 // ---- 文件处理 ----
-function onStandardFile(file: File): void {
-  standardFile.value = file
+function resetAnalysis(): void {
+  stopPlayback()
   compareResult.value = null
   errorMsg.value = null
+  standardPitchData.value = []
+  userPitchData.value = []
+  lowAlignmentSegments.value = []
+  currentTime.value = 0
+  showReference.value = true
+  isPerformanceMode.value = false
+  fpsMonitor.restoreQualityMode()
+}
+
+function onStandardFile(file: File): void {
+  standardFile.value = file
+  resetAnalysis()
 }
 
 function onUserFile(file: File): void {
   userFile.value = file
-  compareResult.value = null
-  errorMsg.value = null
+  resetAnalysis()
 }
 
 function clearAll(): void {
   standardFile.value = null
   userFile.value = null
-  compareResult.value = null
-  errorMsg.value = null
+  resetAnalysis()
 }
 
 // ---- DTW 对比 ----
@@ -73,6 +176,10 @@ async function startCompare(): Promise<void> {
   isComparing.value = true
   errorMsg.value = null
   compareResult.value = null
+  // 重试时先清空旧曲线/低对齐数据 — 避免失败后残留曲线而评分隐藏 (状态不一致)
+  standardPitchData.value = []
+  userPitchData.value = []
+  lowAlignmentSegments.value = []
 
   const formData = new FormData()
   // 注意: v7.0 已统一字段名 standard_file / user_file
@@ -89,11 +196,23 @@ async function startCompare(): Promise<void> {
         rhythm_match_rate: number
         avg_cents_error: number
         diagnosis: string[]
+        standard_pitch?: PitchPoint[]
+        user_pitch?: PitchPoint[]
+        low_alignment_segments?: Array<{ start: number; end: number; avg_confidence: number }>
       }
     }>('/api/v1/compare', formData)
 
     if (response.success) {
       compareResult.value = response.data
+      // Phase 5: 映射后端音高曲线 (snake_case → camelCase); 空数组优雅降级 (提取失败仍显示评分)
+      const pitch = response.data as unknown as ComparePitchPayload
+      standardPitchData.value = pitch.standard_pitch ?? []
+      userPitchData.value = pitch.user_pitch ?? []
+      lowAlignmentSegments.value = (pitch.low_alignment_segments ?? []).map((seg) => ({
+        start: seg.start,
+        end: seg.end,
+        avgConfidence: seg.avg_confidence,
+      }))
       ElMessage.success('对比分析完成')
     } else {
       throw new Error('对比失败')
@@ -104,6 +223,135 @@ async function startCompare(): Promise<void> {
     ElMessage.error(msg)
   } finally {
     isComparing.value = false
+  }
+}
+
+// ---- Phase 5: 播放控制 (复用 SingView 的 advancePlayback 节奏) ----
+function stopPlayback(): void {
+  if (playbackTimer) {
+    clearInterval(playbackTimer)
+    playbackTimer = null
+  }
+  isPlaying.value = false
+}
+
+/** 播放/暂停 — 100ms 推进游标 (不中断显示模式切换) */
+function togglePlayback(): void {
+  if (!hasPitchData.value) return
+  if (isPlaying.value) {
+    stopPlayback()
+    return
+  }
+  isPlaying.value = true
+  if (currentTime.value >= totalDuration.value) currentTime.value = 0
+  playbackTimer = setInterval(() => {
+    currentTime.value = advancePlayback({
+      current: currentTime.value,
+      dt: 0.1,
+      rate: playbackRate.value,
+      duration: totalDuration.value,
+    })
+    if (currentTime.value >= totalDuration.value) stopPlayback()
+  }, 100)
+}
+
+/** 画布点击/进度条跳转 */
+function onSeek(time: number): void {
+  currentTime.value = clampSeek(time, totalDuration.value)
+}
+
+/** 缩略导航条 seek — 全时长比例跳转 */
+function onThumbnailSeek(time: number): void {
+  currentTime.value = clampSeek(time, totalDuration.value)
+}
+
+/** 快捷键步进 ±5s */
+function seekBy(delta: number): void {
+  currentTime.value = clampSeek(currentTime.value + delta, totalDuration.value)
+}
+
+// ---- Phase 5: 显示模式 / 截图 ----
+/** 显示模式切换 — 不中断播放 (feature: "切换显示模式 不中断播放") */
+function setDisplayMode(mode: 'userOnly' | 'dual'): void {
+  showReference.value = mode === 'dual'
+}
+
+function toggleReference(): void {
+  showReference.value = !showReference.value
+}
+
+/** 截图导出 — 画布 DPR 原分辨率 + 时间戳水印 */
+function takeScreenshot(): void {
+  const canvas = canvasHost.value?.querySelector('canvas') ?? null
+  downloadCanvasPng(canvas, currentTime.value, totalDuration.value)
+}
+
+// ---- Phase 5: FPS 监控循环 (低性能设备降级) ----
+function startFpsLoop(): void {
+  stopFpsLoop()
+  const tick = (): void => {
+    const now = performance.now()
+    // 后台恢复/长时间停顿: 仅重置时间基准 (不清降级状态, 已降级设备保持降级),
+    // 防止把切 Tab 的间隙误计为持续低帧率连段 (resetTime 后 dtMs 从 0 起算)
+    if (fpsLastTick !== null && now - fpsLastTick > FPS_PAUSE_GAP_MS) {
+      fpsMonitor.resetTime(now)
+    }
+    fpsLastTick = now
+    const state = fpsMonitor.recordFrame(now)
+    // 仅画布实际展示时应用自动降级 (空闲/上传阶段不降级)
+    if (hasPitchData.value && state.isAutoDegraded) isPerformanceMode.value = true
+    fpsRafId = requestAnimationFrame(tick)
+  }
+  fpsRafId = requestAnimationFrame(tick)
+}
+
+function stopFpsLoop(): void {
+  if (fpsRafId !== null) cancelAnimationFrame(fpsRafId)
+  fpsRafId = null
+}
+
+/** 手动切回画质模式 (性能指示器 closable) */
+function restoreQualityMode(): void {
+  isPerformanceMode.value = false
+  fpsMonitor.restoreQualityMode()
+}
+
+// ---- Phase 5: 键盘快捷键 ----
+function onWindowKeydown(e: KeyboardEvent): void {
+  if (!hasPitchData.value) return
+  const action = mapKeyboardAction(e)
+  if (action === null) return
+  // 画布自身处理方向键 (±1s/±5s, a11y) — 窗口层跳过, 避免双重 seek
+  if (
+    (action === 'seekBack' || action === 'seekForward') &&
+    e.target instanceof Element &&
+    e.target.closest('canvas')
+  ) {
+    return
+  }
+  e.preventDefault()
+  switch (action) {
+    case 'playPause':
+      togglePlayback()
+      break
+    case 'seekBack':
+      seekBy(-5)
+      break
+    case 'seekForward':
+      seekBy(5)
+      break
+    case 'toggleReference':
+      toggleReference()
+      break
+    case 'takeScreenshot':
+      takeScreenshot()
+      break
+    case 'modeUserOnly':
+      setDisplayMode('userOnly')
+      break
+    case 'modeDualCurve':
+      setDisplayMode('dual')
+      break
   }
 }
 
@@ -260,6 +508,117 @@ async function startCompare(): Promise<void> {
         </ul>
       </div>
     </div>
+
+    <!-- Phase 5: 双轨叠加对比分析 (标准虚线 #6366f1 + 用户偏差着色 + 热力图 + 缩略条) -->
+    <div v-if="hasPitchData" class="analysis-section" data-test="compare-analysis">
+      <h3 class="section-title">音准曲线对比</h3>
+
+      <!-- 操作栏: 显示模式 + 截图 + 性能指示器 + 时间 -->
+      <div class="analysis-toolbar">
+        <div class="analysis-buttons">
+          <el-button
+            size="small"
+            :type="showReference ? 'primary' : 'default'"
+            :disabled="standardPitchData.length === 0"
+            data-test="mode-dual"
+            @click="setDisplayMode('dual')"
+          >
+            显示对比
+          </el-button>
+          <el-button
+            size="small"
+            :type="!showReference ? 'primary' : 'default'"
+            data-test="mode-user-only"
+            @click="setDisplayMode('userOnly')"
+          >
+            仅显示用户曲线
+          </el-button>
+          <el-button size="small" :icon="Camera" data-test="compare-screenshot" @click="takeScreenshot">
+            截图
+          </el-button>
+        </div>
+        <div class="toolbar-right">
+          <el-tag
+            v-if="isPerformanceMode"
+            type="warning"
+            closable
+            effect="dark"
+            class="perf-tag"
+            data-test="perf-mode-tag"
+            @close="restoreQualityMode"
+          >
+            性能模式 (可手动关闭)
+          </el-tag>
+          <span class="time-label">{{ currentTimeLabel }} / {{ totalDurationLabel }}</span>
+        </div>
+      </div>
+
+      <!-- 对比画布 -->
+      <div ref="canvasHost" class="canvas-host">
+        <PitchComparisonCanvas
+          :user-pitch-data="userPitchData"
+          :ref-pitch-data="showReference ? standardPitchData : []"
+          :current-time="currentTime"
+          :total-duration="totalDuration"
+          :performance-mode="isPerformanceMode"
+          :heatmap-segments="heatmapSegments"
+          :low-alignment-segments="lowAlignmentSegments"
+          :show-thumbnail="showThumbnail"
+          :height="280"
+          data-test="compare-pitch-canvas"
+          @seek="onSeek"
+          @thumbnail-seek="onThumbnailSeek"
+        />
+      </div>
+
+      <!-- 播放控制 -->
+      <div class="analysis-playback">
+        <el-button
+          size="small"
+          type="primary"
+          circle
+          :icon="isPlaying ? VideoPause : CaretRight"
+          :aria-label="isPlaying ? '暂停' : '播放'"
+          data-test="compare-play-toggle"
+          @click="togglePlayback"
+        />
+        <el-slider
+          :model-value="currentTime"
+          :min="0"
+          :max="totalDuration"
+          :step="0.1"
+          class="seek-slider"
+          data-test="compare-seek"
+          @input="onSeek"
+        />
+        <el-select
+          v-model="playbackRate"
+          size="small"
+          class="rate-select"
+          aria-label="播放倍速"
+          data-test="compare-rate"
+        >
+          <el-option v-for="rate in PLAYBACK_RATES" :key="rate" :label="`${rate}x`" :value="rate" />
+        </el-select>
+      </div>
+
+      <!-- 偏差统计面板 (排除低置信度段落) -->
+      <div v-if="hasVoicedFrames || lowAlignmentSegments.length > 0" class="deviation-panel" data-test="deviation-panel">
+        <div class="deviation-pills">
+          <span class="pill pill-accurate">精准率 {{ deviationStats.accuratePct }}%</span>
+          <span class="pill pill-slight">略偏 {{ deviationStats.slightPct }}%</span>
+          <span class="pill pill-out">跑调 {{ deviationStats.outOfTunePct }}%</span>
+        </div>
+        <span v-if="lowAlignmentSegments.length > 0" class="low-align-note" data-test="low-align-note">
+          ⚠️ 已排除低置信度段落
+        </span>
+      </div>
+
+      <!-- 快捷键提示 -->
+      <p class="shortcut-hint">
+        快捷键: Space 播放/暂停 · ←/→ ±5s · R 参考线 · S 截图 · 1 仅用户 · 2 双曲线
+      </p>
+    </div>
   </div>
 </template>
 
@@ -414,6 +773,109 @@ async function startCompare(): Promise<void> {
   gap: 8px;
   font-size: 14px;
   color: var(--el-text-color-regular);
+}
+
+/* ---- Phase 5: 双轨叠加分析 ---- */
+.analysis-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.analysis-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.analysis-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.perf-tag {
+  margin-right: 4px;
+}
+
+.time-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.canvas-host {
+  margin-bottom: 12px;
+}
+
+.analysis-playback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.seek-slider {
+  flex: 1;
+}
+
+.rate-select {
+  width: 80px;
+}
+
+.deviation-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--el-fill-color-light);
+  border-radius: var(--el-border-radius-base);
+  margin-bottom: 12px;
+}
+
+.deviation-pills {
+  display: flex;
+  gap: 16px;
+}
+
+.pill {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill-accurate {
+  color: #22c55e;
+}
+
+.pill-slight {
+  color: #f59e0b;
+}
+
+.pill-out {
+  color: #ef4444;
+}
+
+.low-align-note {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.shortcut-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 @media (max-width: 767px) {

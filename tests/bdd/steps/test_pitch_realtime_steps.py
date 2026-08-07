@@ -294,12 +294,12 @@ def smooth_scroll(page):
 
 @then('底部应有缩略导航条 (全长波形预览 + 当前视口高亮)')
 def thumbnail_nav_bar(page):
-    pytest.xfail('Phase 5 未实现 (PROJECT_STATUS 已知问题)')
+    pytest.xfail('浏览器 BDD 需真实长音频; 由 PitchComparisonCanvas drawThumbnail (pitchCompareDraw) + CompareView showThumbnail 验证')
 
 
 @then('拖动缩略条可跳转到任意位置')
 def drag_thumbnail_jump(page):
-    pytest.xfail('Phase 5 未实现 (缩略导航条依赖)')
+    pytest.xfail('浏览器 BDD 需真实长音频; 由 PitchComparisonCanvas 缩略条拖拽 (thumbnailSeek emit) + CompareView onThumbnailSeek 验证')
 
 
 # ============================================================================
@@ -432,7 +432,7 @@ def any_rate_comparison(page):
 
 @then('Canvas 渲染帧率应 ≥ 30fps')
 def canvas_fps_30(page):
-    _xfail('pitchPlayback.test.ts (帧率保障)')
+    _xfail('pitchFps.test.ts (createFpsMonitor 滚动 1s 窗帧率)')
 
 
 @then('不应造成音频播放卡顿或音画不同步')
@@ -447,7 +447,7 @@ def sync_error_50ms(page):
 
 @then('若浏览器帧率低于 30fps, 应自动降至 15fps (降级渲染)')
 def auto_degrade_to_15fps(page):
-    _xfail('pitchPlayback.test.ts (degradeTargetFps → 15)')
+    _xfail('pitchFps.test.ts (DEGRADE_TARGET_FPS=15 降级目标)')
 
 
 @given('设备 CPU 性能不足 (用户可感知的卡顿)')
@@ -457,23 +457,23 @@ def low_perf_device(page):
 
 @when('系统检测到连续 3 秒帧率 < 20fps')
 def detect_low_fps_3s(page):
-    _xfail('pitchPlayback.test.ts (shouldDegradeFrameRate 连续 3 秒 < 20fps)')
+    _xfail('pitchFps.test.ts (低帧率连段 3s → isDegraded)')
 
 
 @then('应自动切换为 "性能模式":')
 def performance_mode_table(datatable):
     # 表: 优化项/效果 (抗锯齿/着色颗粒度/网格/缩略条)
-    _xfail('pitchPlayback.test.ts (性能模式优化项 — Phase 5 细化)')
+    _xfail('PitchComparisonCanvas performanceMode (抗锯齿关/着色每 3 帧/网格关/缩略条关)')
 
 
 @then('应在界面显示 "性能模式 (可手动关闭)"')
 def performance_mode_label(page):
-    pytest.xfail('Phase 5 未实现 (UI 提示)')
+    pytest.xfail('浏览器 BDD 需真实性能测量; 由 CompareView 性能指示器 (perf-tag) + pitchFps.test.ts (isAutoDegraded) 验证')
 
 
 @then('用户可手动切换回 "画质模式"')
 def manual_switch_quality_mode(page):
-    pytest.xfail('Phase 5 未实现 (手动切换)')
+    pytest.xfail('浏览器 BDD 需真实性能测量; CompareView perf-tag closable → restoreQualityMode (pitchFps.test.ts)')
 
 
 @when('我切换到另一个浏览器标签页')
@@ -663,68 +663,68 @@ def per_phrase_scores(page):
 # Scenario 对比分析 — 双轨叠加对比
 @given('我手动上传了标准音频和用户音频')
 def manual_upload_both(page):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传 + 后端音高提取; 由后端 /api/v1/compare 返回 standard_pitch/user_pitch (test_compare_pitch_api.py) 验证')
 
 
 @given('DTW 对齐已完成')
 def dtw_aligned(page):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传; 由后端 /api/v1/compare DTW 评分 + 前端 alignPitchCurves 时间戳对齐 (pitchDeviation.test.ts) 验证')
 
 
 @when('我播放对比结果')
 def play_compare_result(page):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 CompareView 播放控制 (advancePlayback, pitchPlayback.test.ts) 验证')
 
 
 @then('应显示双曲线叠加 (经过 DTW 时间对齐)')
 def dual_curve_dtw_aligned(page):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 CompareView showReference + PitchComparisonCanvas 双曲线 + alignPitchCurves (pitchDeviation.test.ts) 验证')
 
 
 @then('两条曲线使用不同颜色 (标准: #6366f1 虚线, 用户: 动态着色实线)')
 def two_curve_colors(page):
-    _xfail('pitchDeviation.test.ts (Phase 2 已实现双曲线配色)')
+    _xfail('pitchDeviation.test.ts (双曲线配色) + PitchComparisonCanvas drawDeviationCurve (pitchCompareDraw)')
 
 
 @then('偏差区域应在标准曲线上下标注填色:')
 def deviation_fill_table(datatable):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 drawDeviationFillBands 三色填色带 (pitchCompareDraw, 非 live 双轨调用) + deviationColor ≤25/25-50/>50 映射 (pitchDeviation.test.ts) 验证')
 
 
 @then('底部应显示偏差热力图条 (一整行, 颜色密度表示跑调程度)')
 def heatmap_bar(page):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchHeatmap.test.ts (computeHeatmapSegments) + drawHeatmapBar (pitchCompareDraw) 验证')
 
 
 @then('点击偏差热力图任意位置可跳转播放')
 def heatmap_click_jump(page):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchHeatmap.test.ts (heatmapClickToTime) + PitchComparisonCanvas 热力条命中 seek 验证')
 
 
 # Scenario 对比分析 — DTW 未对齐段落标记
 @given('DTW 对齐在某些段落置信度低 (< 0.5)')
 def dtw_low_confidence(page):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传; 由后端 /compare 返回 low_alignment_segments (confidence < 0.5, test_compare_pitch_api.py) 验证')
 
 
 @when('渲染音准对比视图')
 def render_comparison_view(page):
-    _xfail('pitchDeviation.test.ts')
+    _xfail('CompareView lowAlignmentSegments → PitchComparisonCanvas low-alignment 覆盖 (pitchCompareDraw)')
 
 
 @then('低置信度段落应在曲线上方标记 "⚠️ 对齐不确定"')
 def low_conf_marker(page):
-    pytest.xfail('对比分析视图 (CompareView) Phase 5')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchCompareDraw drawLowAlignmentOverlay (⚠️ 标记) 验证')
 
 
 @then('该段落的偏差着色应使用灰色虚线 (不误导用户)')
 def low_conf_gray(page):
-    _xfail('pitchDeviation.test.ts (置信度 < 0.5 → 静音灰)')
+    _xfail('pitchCompareDraw drawLowAlignmentOverlay (段内灰色虚线覆盖着色)')
 
 
 @then('统计面板应排除低置信度段落的 "跑调率" 计算')
 def stats_exclude_low_conf(page):
-    _xfail('pitchStats.test.ts (分母剔除静音/低置信度帧)')
+    _xfail('pitchStats.test.ts (excludeLowAlignmentFrames 剔除段内帧)')
 
 
 # ============================================================================
@@ -739,27 +739,27 @@ def viewing_dual_mode(page):
 
 @when('我点击 "仅显示用户曲线"')
 def click_user_only(page):
-    pytest.xfail('Phase 5 未实现 (显示模式切换) — 见 PROJECT_STATUS')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 CompareView setDisplayMode("userOnly") + pitchKeyboard.test.ts (modeUserOnly) 验证')
 
 
 @then('标准曲线应隐藏')
 def ref_curve_hidden(page):
-    pytest.xfail('Phase 5 未实现 (showReference prop 已设计)')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 CompareView showReference=false → PitchComparisonCanvas ref-pitch-data=[] 验证')
 
 
 @then('用户曲线切换为蓝色 (无偏差着色)')
 def user_curve_blue(page):
-    pytest.xfail('Phase 5 未实现 (DEFAULT_USER_COLOR)')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchDeviation.test.ts (无参考 → DEFAULT_USER_COLOR 蓝色实线) 验证')
 
 
 @then('再次点击 "显示对比" → 恢复标准曲线 + 偏差着色')
 def restore_dual_mode(page):
-    pytest.xfail('Phase 5 未实现 (切换恢复)')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 CompareView setDisplayMode("dual") + pitchKeyboard.test.ts (modeDualCurve) 验证')
 
 
 @then('这个切换不应中断播放')
 def toggle_not_interrupt(page):
-    pytest.xfail('Phase 5 未实现 (播放连续性)')
+    pytest.xfail('浏览器 BDD 需真实上传; CompareView setDisplayMode 仅切 showReference, 不触碰 playbackTimer (播放连续性) 验证')
 
 
 # Scenario 导出音准对比截图
@@ -770,27 +770,27 @@ def view_with_offtune_segment(page):
 
 @when('我点击 "截图" 按钮')
 def click_screenshot(page):
-    pytest.xfail('Phase 5 未实现 (截图导出) — 见 PROJECT_STATUS')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 CompareView takeScreenshot → downloadCanvasPng (pitchScreenshot.test.ts) 验证')
 
 
 @then('应导出当前 Canvas 内容为 PNG 图片')
 def export_canvas_png(page):
-    pytest.xfail('Phase 5 未实现 (canvas.toDataURL)')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchScreenshot.test.ts (captureCanvasToDataUrl → toDataURL PNG) 验证')
 
 
 @then('图片应包含当前时间戳水印 "01:23 / 03:45"')
 def watermark_in_png(page):
-    pytest.xfail('Phase 5 未实现 (时间戳水印)')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchScreenshot.test.ts (formatTimestamp + 右下角水印) 验证')
 
 
 @then('图片分辨率应为 Canvas 实际分辨率 (不失真)')
 def png_actual_resolution(page):
-    pytest.xfail('Phase 5 未实现 (DPR 分辨率)')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchScreenshot.test.ts (离屏 1:1 复制源物理像素, DPR 原分辨率) 验证')
 
 
 @then('可附加到评估报告中')
 def attach_to_report(page):
-    pytest.xfail('Phase 5 未实现 (报告集成)')
+    pytest.xfail('报告集成不在 Phase 5 范围 (截图导出已实现); 后续报告模块接入')
 
 
 # Scenario 键盘快捷键
@@ -802,14 +802,14 @@ def pitch_view_active(page):
 @when('我按下以下按键:')
 def press_keys(datatable):
     # 表: 按键/行为 (Space/←/→/R/S/1/2)
-    pytest.xfail('Phase 5 未实现 (键盘快捷键) — 见 PROJECT_STATUS')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchKeyboard.test.ts (KEYBOARD_SHORTCUTS 映射表) 验证')
 
 
 @then('对应行为应立即生效')
 def key_binding_effective(page):
-    pytest.xfail('Phase 5 未实现 (键盘快捷键)')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchKeyboard.test.ts (mapKeyboardAction) + CompareView onWindowKeydown 分发 验证')
 
 
 @then('不应与浏览器默认快捷键冲突')
 def no_default_conflict(page):
-    pytest.xfail('Phase 5 未实现 (preventDefault 处理)')
+    pytest.xfail('浏览器 BDD 需真实上传; 由 pitchKeyboard.test.ts (修饰键/可编辑目标 → null) + CompareView preventDefault 验证')

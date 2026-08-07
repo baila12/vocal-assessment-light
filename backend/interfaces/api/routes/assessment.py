@@ -25,6 +25,7 @@ from backend.interfaces.api.schemas.assessment import (
     SeparateRequest, SeparateResponse, ReportRequest, ReportResponse,
     CompareRequest, CompareResponse,
 )
+from backend.domain.songs_pitch.services import PitchExtractionService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -71,6 +72,22 @@ def validate_filepath(filepath: str, config) -> Path:
         raise HTTPException(status_code=404, detail=_FILE_NOT_FOUND)
 
     return filepath_obj
+
+
+def _serialize_compare_pitch(path: str, tag: str) -> list[dict]:
+    """WAV → [{time, frequency, confidence}] — v7.13 Phase 5 双轨曲线序列化。
+
+    提取失败返回空列表 (优雅降级, 不阻塞对比评分)。
+    """
+    try:
+        curve = PitchExtractionService.extract(path, song_id=tag)
+        return [
+            {"time": float(t), "frequency": float(f), "confidence": float(c)}
+            for t, f, c in zip(curve.times, curve.frequencies, curve.confidence)
+        ]
+    except Exception:
+        logger.warning("Pitch extraction failed for %s, omitting curve", tag, exc_info=True)
+        return []
 
 
 def _save_history(result: dict, filepath: str, analysis_id: str, repo) -> None:
@@ -463,6 +480,23 @@ async def compare_audio(
         if not dtw_result or not dtw_result.get("success"):
             raise HTTPException(status_code=500, detail="DTW对比分析失败")
 
+        # v7.13 Phase 5: 双轨音高曲线 (与选歌参考同管线, 前端时间戳对齐)
+        standard_pitch = await asyncio.to_thread(
+            _serialize_compare_pitch, filepath_std, "compare_standard"
+        )
+        user_pitch = await asyncio.to_thread(
+            _serialize_compare_pitch, filepath_user, "compare_user"
+        )
+
+        # 低对齐置信度段落 (DTW 整体置信度 < 0.5 → 整段标记, 前端灰色虚线 + 统计排除)
+        low_alignment: list[dict] = []
+        if dtw_result.get("confidence", 1.0) < 0.5 and standard_pitch:
+            low_alignment = [{
+                "start": 0.0,
+                "end": standard_pitch[-1]["time"],
+                "avg_confidence": dtw_result["confidence"],
+            }]
+
         standard_result = await asyncio.to_thread(
             analyze_and_score, filepath_std, feature_flags=FeatureFlags()
         )
@@ -497,6 +531,9 @@ async def compare_audio(
                 "standard": standard_result if standard_result.get("success") else None,
                 "user": user_result if user_result.get("success") else None,
                 "comparison": comparison,
+                "standard_pitch": standard_pitch,
+                "user_pitch": user_pitch,
+                "low_alignment_segments": low_alignment,
             },
         )
     except HTTPException:

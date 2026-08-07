@@ -30,20 +30,22 @@
  */
 
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
-import type { PitchPoint } from '@/types/pitch'
-import { alignPitchCurves, DEVIATION_COLORS, DEFAULT_USER_COLOR } from '@/utils/pitchDeviation'
+import type { PitchPoint, LowAlignmentSegment } from '@/types/pitch'
+import { alignPitchCurves, DEFAULT_USER_COLOR } from '@/utils/pitchDeviation'
 import { computeScrollWindow, autoViewportSeconds, autoTickStepSeconds, generateTimeTicks } from '@/utils/pitchScroll'
 import { generateNoteTicks, pitchRangeToMidi, type NoteTick } from '@/utils/pitchNotes'
 import { clampSeek, wrapInABLoop, type ABLoopRange } from '@/utils/pitchPlayback'
+import { heatmapClickToTime, type HeatmapSegment } from '@/utils/pitchHeatmap'
 import {
-  deviationTrend,
-  trendDisplay,
-  formatCentsDeviation,
-  latestDeviationCents,
-  dotAlpha,
-  freqAtCentsOffset,
-  LIVE_DOT_KEEP_SECONDS,
-} from '@/utils/pitchLive'
+  drawUserCurve,
+  drawDeviationCurve,
+  drawDeviationFillBands,
+  drawHeatmapBar,
+  drawLowAlignmentOverlay,
+  drawLiveOverlay,
+  drawThumbnail,
+} from '@/utils/pitchCompareDraw'
+import { deviationTrend, latestDeviationCents } from '@/utils/pitchLive'
 import {
   findProblemSegments,
   segmentPhrases,
@@ -70,6 +72,14 @@ const props = withDefaults(
     abLoop?: ABLoopRange | null
     /** 无参考时的标题提示 (feature: "绝对音高 (无参考)") */
     noRefTitle?: string
+    /** 性能模式 (Phase 5) — 抗锯齿关 / 着色每 3 帧 / 网格关 / 缩略条关 */
+    performanceMode?: boolean
+    /** 底部偏差热力图桶 (Phase 5) — 颜色密度表示跑调程度, 点击跳转 */
+    heatmapSegments?: readonly HeatmapSegment[]
+    /** DTW 低对齐段 (Phase 5) — 段内灰色虚线 + ⚠️ 对齐不确定 */
+    lowAlignmentSegments?: readonly LowAlignmentSegment[]
+    /** 缩略导航条 (Phase 5 长音频) — 全长预览 + 视口高亮 + 拖拽 seek */
+    showThumbnail?: boolean
   }>(),
   {
     refPitchData: () => [],
@@ -84,6 +94,10 @@ const props = withDefaults(
     liveMode: false,
     abLoop: null,
     noRefTitle: '绝对音高 (无参考)',
+    performanceMode: false,
+    heatmapSegments: () => [],
+    lowAlignmentSegments: () => [],
+    showThumbnail: false,
   },
 )
 
@@ -91,6 +105,8 @@ const emit = defineEmits<{
   (e: 'ready'): void
   /** 点击画布跳转播放位置 */
   (e: 'seek', time: number): void
+  /** 缩略导航条拖拽/点击 seek (Phase 5) */
+  (e: 'thumbnailSeek', time: number): void
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -98,6 +114,40 @@ let dpr = 1
 
 /** 绘图区边距 (px) — 左 Y 轴刻度 / 上 / 右 / 下 X 轴刻度 */
 const PLOT_PADDING = { top: 20, right: 16, bottom: 24, left: 44 }
+
+/** 偏差热力图条高度 (px) */
+const HEATMAP_BAR_HEIGHT = 20
+/** 缩略导航条高度 (px) */
+const THUMBNAIL_BAR_HEIGHT = 44
+/** 底部条与绘图区间距 (px) */
+const BAR_GAP = 6
+
+/** 底部条几何 — 依 props 动态计算绘图区 padding 与热力图/缩略条的 y 位置 (CSS px) */
+function bottomBarsGeometry(widthCss: number, heightCss: number): {
+  padding: { top: number; right: number; bottom: number; left: number }
+  plotW: number
+  plotH: number
+  heatmapY: number
+  thumbY: number
+  hasHeatmap: boolean
+  hasThumb: boolean
+} {
+  const hasHeatmap = props.heatmapSegments.length > 0
+  const hasThumb = props.showThumbnail && !props.performanceMode
+  const padding = {
+    ...PLOT_PADDING,
+    bottom:
+      PLOT_PADDING.bottom +
+      (hasHeatmap ? HEATMAP_BAR_HEIGHT + BAR_GAP : 0) +
+      (hasThumb ? THUMBNAIL_BAR_HEIGHT + BAR_GAP : 0),
+  }
+  const plotW = Math.max(0, widthCss - padding.left - padding.right)
+  const plotH = Math.max(0, heightCss - padding.top - padding.bottom)
+  const baseBottomY = padding.top + plotH
+  const heatmapY = hasHeatmap ? baseBottomY + PLOT_PADDING.bottom + BAR_GAP : 0
+  const thumbY = hasThumb ? heatmapY + HEATMAP_BAR_HEIGHT + BAR_GAP : 0
+  return { padding, plotW, plotH, heatmapY, thumbY, hasHeatmap, hasThumb }
+}
 
 /** 无参考判定 — 参考曲线为空 */
 const hasReference = computed(() => props.refPitchData.length > 0)
@@ -196,6 +246,8 @@ function draw(): void {
   const width = canvas.width / dpr
   const height = canvas.height / dpr
   ctx.clearRect(0, 0, width, height)
+  // 性能模式: 关闭抗锯齿 (feature: "抗锯齿关闭") — 降低低端设备渲染开销
+  ctx.imageSmoothingEnabled = !props.performanceMode
 
   // 空状态
   if (props.userPitchData.length === 0 && props.refPitchData.length === 0) {
@@ -206,9 +258,7 @@ function draw(): void {
     return
   }
 
-  const padding = PLOT_PADDING
-  const plotW = width - padding.left - padding.right
-  const plotH = height - padding.top - padding.bottom
+  const { padding, plotW, plotH, heatmapY, thumbY, hasHeatmap, hasThumb } = bottomBarsGeometry(width, height)
   const { windowStart, windowEnd, cursorXFraction } = windowInfo.value
   const winRange = Math.max(windowEnd - windowStart, 1e-6)
 
@@ -230,25 +280,27 @@ function draw(): void {
   ctx.fillStyle = '#0f172a'
   ctx.fillRect(padding.left, padding.top, plotW, plotH)
 
-  // ---- Y 轴: 钢琴键网格 + 白键高亮标注 ----
+  // ---- Y 轴: 钢琴键网格 + 白键高亮标注 (性能模式跳过网格线, 保留标注) ----
   ctx.lineWidth = 1
   for (const tick of noteTicks.value) {
     if (tick.midi < 0 || tick.midi > 127) continue
     const f = Math.pow(2, (tick.midi - 69) / 12) * 440
     const y = freqToY(f)
-    // 网格线
-    ctx.strokeStyle = tick.isWhite ? 'rgba(148, 163, 184, 0.22)' : 'rgba(148, 163, 184, 0.08)'
-    ctx.beginPath()
-    ctx.moveTo(padding.left, y)
-    ctx.lineTo(padding.left + plotW, y)
-    ctx.stroke()
+    // 网格线 (性能模式关闭 — feature: "网格关闭")
+    if (!props.performanceMode) {
+      ctx.strokeStyle = tick.isWhite ? 'rgba(148, 163, 184, 0.22)' : 'rgba(148, 163, 184, 0.08)'
+      ctx.beginPath()
+      ctx.moveTo(padding.left, y)
+      ctx.lineTo(padding.left + plotW, y)
+      ctx.stroke()
+    }
     // 白键标签 (黑键只画短刻度线, 不标文字避免拥挤)
     if (props.showYAxisLabels && tick.isWhite) {
       ctx.fillStyle = '#94a3b8'
       ctx.font = '10px sans-serif'
       ctx.textAlign = 'right'
       ctx.fillText(tick.name, padding.left - 4, y + 3)
-    } else if (props.showYAxisLabels) {
+    } else if (props.showYAxisLabels && !props.performanceMode) {
       ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)'
       ctx.beginPath()
       ctx.moveTo(padding.left - 5, y)
@@ -257,7 +309,7 @@ function draw(): void {
     }
   }
 
-  // ---- X 轴: 时间刻度 ----
+  // ---- X 轴: 时间刻度 (性能模式跳过纵向网格线, 保留刻度) ----
   if (props.showTimeAxis) {
     ctx.fillStyle = '#94a3b8'
     ctx.font = '10px sans-serif'
@@ -265,17 +317,32 @@ function draw(): void {
     for (const t of timeTicks.value) {
       const x = timeToX(t)
       if (x < padding.left || x > padding.left + plotW) continue
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)'
-      ctx.beginPath()
-      ctx.moveTo(x, padding.top)
-      ctx.lineTo(x, padding.top + plotH)
-      ctx.stroke()
+      if (!props.performanceMode) {
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)'
+        ctx.beginPath()
+        ctx.moveTo(x, padding.top)
+        ctx.lineTo(x, padding.top + plotH)
+        ctx.stroke()
+      }
       ctx.fillText(`${Math.round(t)}s`, x, height - 6)
     }
   }
 
   // ---- 问题段落红色半透明背景高亮 (Phase 4) — 曲线下方, 仅窗口相交部分 ----
   drawProblemSegments(ctx, timeToX, windowStart, windowEnd, padding.top, padding.top + plotH)
+
+  // ---- 偏差区域填色 (Phase 5 双轨叠加) — 标准↔用户 之间按偏差幅值三色填充, 曲线下方 ----
+  if (!props.liveMode && props.showReference && hasReference.value && deviationFrames.value.length > 0) {
+    drawDeviationFillBands({
+      ctx,
+      frames: deviationFrames.value,
+      timeToX,
+      freqToY,
+      windowStart,
+      windowEnd,
+      performanceMode: props.performanceMode,
+    })
+  }
 
   // ---- 标准参考曲线 — 虚线 #6366f1 (2px) ----
   if (props.showReference && hasReference.value) {
@@ -310,15 +377,45 @@ function draw(): void {
   // ---- 用户音高: live 模式实时圆点 (Phase 3) / 回放模式完整曲线 ----
   if (props.liveMode) {
     if (props.userPitchData.length > 0) {
-      drawLiveOverlay(ctx, timeToX, freqToY, windowStart, windowEnd, width)
+      drawLiveOverlay({
+        ctx,
+        refPoints: props.refPitchData,
+        userPoints: props.userPitchData,
+        deviationFrames: deviationFrames.value,
+        currentTime: props.currentTime,
+        liveDeviationCents: liveDeviation.value,
+        liveTrend: liveTrend.value,
+        timeToX,
+        freqToY,
+        windowStart,
+        windowEnd,
+        width,
+        padding,
+      })
     }
   } else if (props.userPitchData.length > 0) {
     if (!hasReference.value) {
       // 无参考: 单条蓝色实线, 不显示偏差
       drawUserCurve(ctx, props.userPitchData, DEFAULT_USER_COLOR, timeToX, freqToY, windowStart, windowEnd)
     } else {
-      drawDeviationCurve(ctx, deviationFrames.value, timeToX, freqToY, windowStart, windowEnd)
+      // 性能模式: 着色每 3 帧 (feature: 降低绘制开销)
+      drawDeviationCurve(ctx, deviationFrames.value, timeToX, freqToY, windowStart, windowEnd, props.performanceMode)
     }
+  }
+
+  // ---- DTW 未对齐段覆盖 (Phase 5) — 段内灰虚线 + ⚠️ 对齐不确定 ----
+  if (!props.liveMode && props.lowAlignmentSegments.length > 0) {
+    drawLowAlignmentOverlay({
+      ctx,
+      segments: props.lowAlignmentSegments,
+      userPoints: props.userPitchData,
+      timeToX,
+      freqToY,
+      windowStart,
+      windowEnd,
+      plotTop: padding.top,
+      plotBottom: padding.top + plotH,
+    })
   }
 
   // ---- 八度跳变 ⚠️ 标记 ----
@@ -354,120 +451,34 @@ function draw(): void {
     ctx.textAlign = 'left'
     ctx.fillText(props.noRefTitle, padding.left + 6, padding.top + 12)
   }
-}
 
-/** 绘制单色用户曲线 (无参考/通用) */
-function drawUserCurve(
-  ctx: CanvasRenderingContext2D,
-  points: PitchPoint[],
-  color: string,
-  timeToX: (t: number) => number,
-  freqToY: (f: number) => number,
-  windowStart: number,
-  windowEnd: number,
-): void {
-  ctx.strokeStyle = color
-  ctx.lineWidth = 3
-  ctx.lineJoin = 'round'
-  ctx.beginPath()
-  let started = false
-  for (const point of points) {
-    if (point.time < windowStart || point.time > windowEnd) continue
-    if (point.frequency <= 0) {
-      ctx.stroke()
-      started = false
-      continue
-    }
-    const x = timeToX(point.time)
-    const y = freqToY(point.frequency)
-    if (!started) {
-      ctx.beginPath()
-      ctx.moveTo(x, y)
-      started = true
-    } else {
-      ctx.globalAlpha = 0.3 + (point.confidence ?? 1) * 0.7
-      ctx.lineTo(x, y)
-    }
-  }
-  ctx.globalAlpha = 1
-  ctx.stroke()
-}
-
-/**
- * 绘制偏差着色曲线 — 逐段按颜色绘制, 静音段灰虚线。
- * 同一颜色连续帧合并为一段, 颜色在音符边界平滑过渡 (非逐帧跳变)。
- */
-function drawDeviationCurve(
-  ctx: CanvasRenderingContext2D,
-  frames: ReturnType<typeof alignPitchCurves>,
-  timeToX: (t: number) => number,
-  freqToY: (f: number) => number,
-  windowStart: number,
-  windowEnd: number,
-): void {
-  /** 最近一个有效音高频率 — 静音段 Y 轴延续 (feature: "不跳变"); 实例内局部变量, 支持多画布复用 */
-  let lastValidFreq = 0
-  let seg: { color: string; points: Array<{ x: number; y: number }> } | null = null
-  let silentPoints: Array<{ x: number; y: number }> = []
-
-  function flushSilent(): void {
-    if (silentPoints.length === 0) return
-    // 静音灰虚线 — 透明度 40% (feature: "#94a3b8, 透明度 40%")
-    ctx.save()
-    ctx.setLineDash([4, 3])
-    ctx.globalAlpha = 0.4
-    ctx.strokeStyle = DEVIATION_COLORS.silent
-    ctx.lineWidth = 3
-    ctx.lineJoin = 'round'
-    ctx.beginPath()
-    ctx.moveTo(silentPoints[0].x, silentPoints[0].y)
-    for (let i = 1; i < silentPoints.length; i++) {
-      ctx.lineTo(silentPoints[i].x, silentPoints[i].y)
-    }
-    ctx.stroke()
-    ctx.restore()
-    silentPoints = []
+  // ---- 底部偏差热力图条 (Phase 5) — 全时长, 颜色密度表示跑调程度 ----
+  if (hasHeatmap) {
+    drawHeatmapBar({
+      ctx,
+      segments: props.heatmapSegments,
+      totalDuration: effectiveDuration.value,
+      plotLeft: padding.left,
+      plotTop: heatmapY,
+      plotWidth: plotW,
+      barHeight: HEATMAP_BAR_HEIGHT,
+    })
   }
 
-  function flush(): void {
-    if (!seg) return
-    ctx.save()
-    ctx.strokeStyle = seg.color
-    ctx.lineWidth = 3
-    ctx.lineJoin = 'round'
-    ctx.beginPath()
-    if (seg.points.length > 0) {
-      ctx.moveTo(seg.points[0].x, seg.points[0].y)
-      for (let i = 1; i < seg.points.length; i++) {
-        ctx.lineTo(seg.points[i].x, seg.points[i].y)
-      }
-    }
-    ctx.stroke()
-    ctx.restore()
-    seg = null
+  // ---- 缩略导航条 (Phase 5 长音频) — 全长预览 + 视口高亮 (性能模式关闭 — feature: "缩略条关闭") ----
+  if (hasThumb) {
+    drawThumbnail({
+      ctx,
+      userPoints: props.userPitchData,
+      totalDuration: effectiveDuration.value,
+      viewport: { start: windowStart, end: windowEnd },
+      plotLeft: padding.left,
+      plotTop: thumbY,
+      plotWidth: plotW,
+      thumbHeight: THUMBNAIL_BAR_HEIGHT,
+      freqToY,
+    })
   }
-
-  for (const f of frames) {
-    if (f.time < windowStart || f.time > windowEnd) continue
-    if (f.isSilent) {
-      flush()
-      // 静音帧延续上一个有效音高的 Y 位置 (feature: "不跳变")
-      const y = freqToY(lastValidFreq || f.frequency || 220)
-      silentPoints.push({ x: timeToX(f.time), y })
-      continue
-    }
-    // 记录有效音高, 供后续静音帧延续
-    if (f.frequency > 0) lastValidFreq = f.frequency
-
-    flushSilent()
-    if (!seg || seg.color !== f.colorHex) {
-      flush()
-      seg = { color: f.colorHex, points: [] }
-    }
-    seg.points.push({ x: timeToX(f.time), y: freqToY(f.frequency) })
-  }
-  flushSilent()
-  flush()
 }
 
 /**
@@ -540,125 +551,6 @@ function drawPhraseScores(
   ctx.restore()
 }
 
-/**
- * live 模式绘制 (Phase 3, 录音中) — 偏差色带 + 实时圆点 + 趋势箭头 + 当前音分值。
- * 不绘制完整用户曲线 (feature: "不应显示完整的用户曲线 因为还没唱完")。
- */
-function drawLiveOverlay(
-  ctx: CanvasRenderingContext2D,
-  timeToX: (t: number) => number,
-  freqToY: (f: number) => number,
-  windowStart: number,
-  windowEnd: number,
-  width: number,
-): void {
-  const padding = PLOT_PADDING
-
-  // 1. 偏差背景色带 — 标准线上下 25/50 音分 (绿色/橙色半透明区域)
-  if (hasReference.value) {
-    drawDeviationBands(ctx, props.refPitchData, timeToX, freqToY, windowStart, windowEnd)
-  }
-
-  // 2. 用户实时音高点 — 3px 圆点, 2 秒后淡出; 无声帧不画 (检测不到 ≠ 跑调)
-  //    索引遍历 (O(n)): deviationFrames 与 userPitchData 1:1 对齐, 直接取帧避免 indexOf 全数组扫描
-  const now = props.currentTime
-  const cutoff = now - LIVE_DOT_KEEP_SECONDS
-  const frames = deviationFrames.value
-  const liveData = props.userPitchData
-  for (let i = 0; i < liveData.length; i++) {
-    const p = liveData[i]
-    if (p.time < cutoff || p.time > now) continue // 保留窗口 (visibleLivePoints 语义内联)
-    if (p.time < windowStart || p.time > windowEnd) continue
-    if (p.frequency <= 0) continue
-    const frame = frames[i]
-    if (frame && frame.isSilent) continue
-    const color = frame ? frame.colorHex : DEFAULT_USER_COLOR
-    ctx.save()
-    ctx.globalAlpha = dotAlpha(now - p.time)
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.arc(timeToX(p.time), freqToY(p.frequency), 3, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.restore()
-  }
-
-  // 3. 当前音分偏差数值 + 趋势箭头 (右上角)
-  if (liveDeviation.value !== null && liveTrend.value !== null) {
-    const { symbol, color, label } = trendDisplay(liveTrend.value)
-    ctx.fillStyle = color
-    ctx.font = 'bold 22px sans-serif'
-    ctx.textAlign = 'right'
-    ctx.fillText(
-      `${symbol} ${formatCentsDeviation(liveDeviation.value)}`,
-      width - padding.right,
-      padding.top + 26,
-    )
-    ctx.font = '11px sans-serif'
-    ctx.fillText(label, width - padding.right, padding.top + 42)
-
-    // 趋势箭头锚在最近有声点上方 (跟随演唱位置); 锚点在窗口外时跳过 (防绘制到可视区外)
-    const latestVoiced = findLatestVoicedPoint()
-    if (latestVoiced && latestVoiced.time >= windowStart && latestVoiced.time <= windowEnd) {
-      ctx.font = 'bold 16px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(symbol, timeToX(latestVoiced.time), freqToY(latestVoiced.frequency) - 10)
-    }
-  }
-}
-
-/** 最近一个有声用户点 — 趋势箭头锚点 (跳过无声帧, 与 latestDeviationCents 一致) */
-function findLatestVoicedPoint(): PitchPoint | null {
-  const frames = deviationFrames.value
-  for (let i = props.userPitchData.length - 1; i >= 0; i--) {
-    const f = frames[i]
-    if (f && !f.isSilent) return props.userPitchData[i]
-  }
-  return null
-}
-
-/** 偏差背景色带 — 围绕标准线 ±50 橙色外带 + ±25 绿色内带 (半透明填充) */
-function drawDeviationBands(
-  ctx: CanvasRenderingContext2D,
-  refPoints: PitchPoint[],
-  timeToX: (t: number) => number,
-  freqToY: (f: number) => number,
-  windowStart: number,
-  windowEnd: number,
-): void {
-  const pts = refPoints.filter((p) => p.frequency > 0 && p.time >= windowStart && p.time <= windowEnd)
-  if (pts.length < 2) return
-  drawBand(ctx, pts, 50, 'rgba(245, 158, 11, 0.07)', timeToX, freqToY)
-  drawBand(ctx, pts, 25, 'rgba(34, 197, 94, 0.10)', timeToX, freqToY)
-}
-
-/** 绘制一条音分偏移色带 — 上缘 +cents, 下缘 -cents 围成封闭填充 */
-function drawBand(
-  ctx: CanvasRenderingContext2D,
-  pts: PitchPoint[],
-  cents: number,
-  color: string,
-  timeToX: (t: number) => number,
-  freqToY: (f: number) => number,
-): void {
-  ctx.save()
-  ctx.fillStyle = color
-  ctx.beginPath()
-  pts.forEach((p, i) => {
-    const x = timeToX(p.time)
-    const y = freqToY(freqAtCentsOffset(p.frequency, cents))
-    if (i === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
-  })
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const x = timeToX(pts[i].time)
-    const y = freqToY(freqAtCentsOffset(pts[i].frequency, -cents))
-    ctx.lineTo(x, y)
-  }
-  ctx.closePath()
-  ctx.fill()
-  ctx.restore()
-}
-
 
 function initCanvas(): void {
   const canvas = canvasRef.value
@@ -673,22 +565,94 @@ function initCanvas(): void {
   emit('ready')
 }
 
+/** 缩略条拖拽状态 — pointerdown 进入, pointerup/leave 退出 */
+let thumbDragging = false
+
+/** 底部条 (热力图/缩略条) 命中检测 — 返回 'heatmap' | 'thumbnail' | null */
+function hitBottomBar(e: MouseEvent, rect: DOMRect): 'heatmap' | 'thumbnail' | null {
+  const { heatmapY, thumbY, hasHeatmap, hasThumb } = bottomBarsGeometry(rect.width, rect.height)
+  const y = e.offsetY
+  if (hasHeatmap && y >= heatmapY && y <= heatmapY + HEATMAP_BAR_HEIGHT) return 'heatmap'
+  if (hasThumb && y >= thumbY && y <= thumbY + THUMBNAIL_BAR_HEIGHT) return 'thumbnail'
+  return null
+}
+
 /** 画布点击 → 计算时间位置并 emit seek (Phase 2: 拖拽/点击跳转) */
 function onClickCanvas(e: MouseEvent): void {
   const canvas = canvasRef.value
   if (!canvas) return
   const rect = canvas.getBoundingClientRect()
-  const padding = PLOT_PADDING
-  const plotW = rect.width - padding.left - padding.right
+  const { padding, plotW, windowStart, windowEnd } = geometryForClick(rect)
   if (plotW <= 0) return
-  const { windowStart, windowEnd } = windowInfo.value
+
+  // 底部条点击: 热力图全时长 seek / 缩略条 seek (Phase 5)
+  const barHit = hitBottomBar(e, rect)
+  if (barHit === 'heatmap') {
+    const ratio = Math.max(0, Math.min(1, (e.offsetX - padding.left) / plotW))
+    emit('seek', Math.round(heatmapClickToTime(ratio, effectiveDuration.value) * 100) / 100)
+    return
+  }
+  if (barHit === 'thumbnail') {
+    seekFromThumbEvent(e, rect)
+    return
+  }
+
   const ratio = Math.max(0, Math.min(1, (e.offsetX - padding.left) / plotW))
   const target = windowStart + ratio * (windowEnd - windowStart)
   emit('seek', Math.round(target * 100) / 100)
 }
 
+/** 点击/拖拽几何 — 与 draw() 共享动态 padding 计算 */
+function geometryForClick(rect: DOMRect): {
+  padding: { top: number; right: number; bottom: number; left: number }
+  plotW: number
+  windowStart: number
+  windowEnd: number
+} {
+  const { padding, plotW } = bottomBarsGeometry(rect.width, rect.height)
+  const { windowStart, windowEnd } = windowInfo.value
+  return { padding, plotW, windowStart, windowEnd }
+}
+
+/** 缩略条拖拽 seek — 全时长比例 → emit thumbnailSeek */
+function seekFromThumbEvent(e: MouseEvent, rect: DOMRect): void {
+  const { padding, plotW } = bottomBarsGeometry(rect.width, rect.height)
+  if (plotW <= 0) return
+  const ratio = Math.max(0, Math.min(1, (e.offsetX - padding.left) / plotW))
+  emit('thumbnailSeek', Math.round(ratio * effectiveDuration.value * 100) / 100)
+}
+
+/** 缩略条按下 — 开始拖拽并立即 seek */
+function onPointerDown(e: PointerEvent): void {
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const rect = canvas.getBoundingClientRect()
+  if (hitBottomBar(e as MouseEvent, rect) === 'thumbnail') {
+    thumbDragging = true
+    seekFromThumbEvent(e as MouseEvent, rect)
+    canvas.setPointerCapture(e.pointerId)
+  }
+}
+
+/** 缩略条拖动 — 拖拽中持续 seek */
+function onPointerMove(e: PointerEvent): void {
+  if (!thumbDragging) return
+  const canvas = canvasRef.value
+  if (!canvas) return
+  seekFromThumbEvent(e as MouseEvent, canvas.getBoundingClientRect())
+}
+
+/** 结束拖拽 */
+function onPointerUp(e: PointerEvent): void {
+  thumbDragging = false
+  const canvas = canvasRef.value
+  if (canvas && canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId)
+}
+
 /** 键盘跳转 — 方向键 ±1s / Shift+方向键 ±5s (a11y, 与点击 seek 等效) */
 function onCanvasKeydown(e: KeyboardEvent): void {
+  // 修饰键组合 (Ctrl/Meta/Alt) 不拦截 — 交还浏览器 (如 Alt+← 后退), 与窗口层 mapKeyboardAction 一致
+  if (e.ctrlKey || e.metaKey || e.altKey) return
   let delta: number | null = null
   if (e.key === 'ArrowLeft') delta = e.shiftKey ? -5 : -1
   else if (e.key === 'ArrowRight') delta = e.shiftKey ? 5 : 1
@@ -721,7 +685,7 @@ onBeforeUnmount(() => {
   resizeObserver = null
 })
 
-// 重绘触发: 数据 / 播放位置 / 视口 / 循环区间 / live 模式
+// 重绘触发: 数据 / 播放位置 / 视口 / 循环区间 / live 模式 / 性能模式 / 底部条
 const drawTrigger = computed(() => ({
   user: props.userPitchData,
   ref: props.refPitchData,
@@ -729,6 +693,10 @@ const drawTrigger = computed(() => ({
   loop: props.abLoop,
   viewport: viewportSeconds.value,
   live: props.liveMode,
+  perf: props.performanceMode,
+  heatmap: props.heatmapSegments,
+  lowAlign: props.lowAlignmentSegments,
+  thumb: props.showThumbnail,
 }))
 
 watch(drawTrigger, () => {
@@ -746,9 +714,13 @@ watch(drawTrigger, () => {
     class="pitch-comparison-canvas"
     :style="{ height: height + 'px' }"
     role="img"
-    aria-label="音准对比曲线图，点击或使用方向键跳转播放位置"
+    aria-label="音准对比曲线图，点击或使用方向键跳转播放位置；底部热力图和缩略条支持点击拖拽"
     tabindex="0"
     @click="onClickCanvas"
+    @pointerdown="onPointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerUp"
     @keydown="onCanvasKeydown"
   />
 </template>

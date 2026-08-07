@@ -29,3 +29,13 @@ export interface DeviationFrame extends PitchPoint {
   /** 八度跳变 (可能误检) */
   isOctaveJump: boolean
 }
+
+/** 低对齐段落 — DTW 置信度 <0.5 的区间 (v7.13 Phase 5) */
+export interface LowAlignmentSegment {
+  /** 段起点 (秒) */
+  start: number
+  /** 段终点 (秒) */
+  end: number
+  /** 该段平均 DTW 置信度 (0-1) */
+  avgConfidence: number
+}
