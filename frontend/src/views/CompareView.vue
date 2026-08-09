@@ -19,7 +19,10 @@ import {
 } from '@element-plus/icons-vue'
 import { useGsap } from '@/composables/useGsap'
 import { apiClient } from '@/api/client'
+import { useSongMatchStore } from '@/stores/songMatch.store'
+import { useSongsStore } from '@/stores/songs.store'
 import { matchColor } from '@/utils/colors'
+import type { MatchCandidate } from '@/types/api'
 import FileUploader from '@/components/FileUploader.vue'
 import PitchComparisonCanvas from '@/components/PitchComparisonCanvas.vue'
 import {
@@ -43,6 +46,10 @@ const userFile = ref<File | null>(null)
 const isComparing = ref(false)
 const compareResult = ref<any>(null)
 const errorMsg = ref<string | null>(null)
+
+// ---- v7.14: 自动匹配标准歌曲 (上传录音 → 候选列表 → 一键 DTW 对比) ----
+const songMatchStore = useSongMatchStore()
+const songsStore = useSongsStore()
 
 // ---- Phase 5: 双轨叠加分析 (从 /api/v1/compare 响应映射的音高曲线) ----
 /** /api/v1/compare 响应中的音高曲线段 (snake_case, 映射为前端 camelCase) */
@@ -105,6 +112,40 @@ const canCompare = computed(
 const standardName = computed(() => standardFile.value?.name ?? '')
 const userName = computed(() => userFile.value?.name ?? '')
 
+// ---- v7.14: 自动匹配计算属性 ----
+/** 上传了录音且不在匹配中 → 可触发自动匹配 */
+const canAutoMatch = computed(
+  () => userFile.value !== null && !songMatchStore.isMatching,
+)
+/** 已选中候选歌曲 + 已上传录音 → 可一键对比 */
+const canAutoCompare = computed(
+  () => userFile.value !== null && songMatchStore.selectedSongId !== null,
+)
+/** 无匹配回退文案 (透传后端 fallback_reason) */
+const autoMatchFallbackText = computed(() => {
+  const reason = songMatchStore.fallbackReason
+  if (!reason) return ''
+  const reasonMap: Record<string, string> = {
+    no_match: '未匹配到足够相似的歌曲，可继续使用下方手动对比或绝对评分',
+    no_profiles: '歌曲库暂无特征数据，请先在歌曲库完成特征预计算',
+    audio_too_short: '录音过短，无法稳定匹配，请换一段更长的演唱',
+    timeout: '匹配超时，请重试或使用下方手动对比',
+  }
+  return reasonMap[reason] || `匹配未成功 (${reason})，可继续手动对比`
+})
+
+/** 置信度 → 展示百分比 */
+function pct(v: number): string {
+  return `${Math.round((v ?? 0) * 100)}%`
+}
+
+/** 置信度 → 标签色 (≥0.7 高 / ≥0.6 中 / <0.6 低) */
+function confidenceTagType(c: number): 'success' | 'warning' | 'danger' {
+  if (c >= 0.7) return 'success'
+  if (c >= 0.6) return 'warning'
+  return 'danger'
+}
+
 /** 是否有音高数据可分析 — 双轨叠加区展示开关 */
 const hasPitchData = computed(
   () => userPitchData.value.length > 0 || standardPitchData.value.length > 0,
@@ -160,12 +201,15 @@ function onStandardFile(file: File): void {
 
 function onUserFile(file: File): void {
   userFile.value = file
+  // v7.14: 更换录音 → 重置自动匹配结果 (候选/选中/对比结果失效)
+  songMatchStore.clearMatch()
   resetAnalysis()
 }
 
 function clearAll(): void {
   standardFile.value = null
   userFile.value = null
+  songMatchStore.clearMatch()
   resetAnalysis()
 }
 
@@ -217,6 +261,59 @@ async function startCompare(): Promise<void> {
     } else {
       throw new Error('对比失败')
     }
+  } catch (e) {
+    const msg = (e as Error).message || '对比分析失败'
+    errorMsg.value = msg
+    ElMessage.error(msg)
+  } finally {
+    isComparing.value = false
+  }
+}
+
+// ---- v7.14: 自动匹配 — 上传录音 → 候选 → 一键对比 ----
+
+/** 上传录音自动匹配标准歌曲 — 命中时自动选中最佳候选 */
+async function startAutoMatch(): Promise<void> {
+  if (!userFile.value) return
+  errorMsg.value = null
+  await songMatchStore.matchAudio(userFile.value)
+  if (songMatchStore.matchedSong) {
+    ElMessage.success(`已匹配: ${songMatchStore.matchedSong.title}`)
+  } else if (songMatchStore.fallbackReason) {
+    ElMessage.warning('未匹配到足够相似的歌曲，可手动对比')
+  }
+}
+
+/** 点击候选歌曲 → 选中 (作为对比标准) */
+function onSelectCandidate(candidate: MatchCandidate): void {
+  songMatchStore.selectCandidate(candidate.song_id)
+}
+
+/** 与选中的标准歌曲 DTW 对比 — 复用 Phase 5 双轨叠加 (标准参考音高 + 用户录音音高) */
+async function startAutoCompare(): Promise<void> {
+  const songId = songMatchStore.selectedSongId
+  if (!userFile.value || !songId) return
+
+  isComparing.value = true
+  errorMsg.value = null
+  compareResult.value = null
+  standardPitchData.value = []
+  userPitchData.value = []
+  lowAlignmentSegments.value = []
+
+  try {
+    const summary = await songMatchStore.compareWithSelected(userFile.value)
+    compareResult.value = summary
+    // 双轨叠加: 标准参考音高 (歌曲库) + 用户录音音高 (extract-pitch);
+    // 各自失败降级为空数组 (提取失败仍显示评分, 对齐手动对比行为)
+    const [stdPitch, usrPitch] = await Promise.all([
+      songsStore.fetchSongPitch(songId),
+      songMatchStore.fetchUserPitch(userFile.value),
+    ])
+    standardPitchData.value = stdPitch
+    userPitchData.value = usrPitch
+    lowAlignmentSegments.value = []
+    ElMessage.success('对比分析完成')
   } catch (e) {
     const msg = (e as Error).message || '对比分析失败'
     errorMsg.value = msg
@@ -365,6 +462,87 @@ function onWindowKeydown(e: KeyboardEvent): void {
       <h2 class="page-title">对比分析</h2>
       <p class="page-desc">上传标准音频与你的演唱录音，获取 DTW 对比评分</p>
     </div>
+
+    <!-- v7.14: 自动匹配标准歌曲 — 上传录音 → 候选 → 一键对比 -->
+    <section class="auto-match" data-test="auto-match-section">
+      <div class="auto-match-header">
+        <h3 class="section-title">自动匹配标准歌曲</h3>
+        <el-tag size="small" type="success" effect="light">v7.14</el-tag>
+      </div>
+      <p class="auto-match-desc">
+        在下方「我的演唱」上传录音后，点击匹配即可从歌曲库识别最相近的标准歌曲，一键进入 DTW 对比。
+      </p>
+
+      <div class="auto-match-actions">
+        <el-button
+          type="primary"
+          plain
+          :icon="Aim"
+          :loading="songMatchStore.isMatching"
+          :disabled="!canAutoMatch"
+          data-test="auto-match-run"
+          @click="startAutoMatch"
+        >
+          {{ userFile ? '匹配当前录音' : '请先上传录音' }}
+        </el-button>
+        <span v-if="!userFile" class="auto-match-hint">先在下方「我的演唱」面板上传演唱录音</span>
+      </div>
+
+      <!-- 无匹配回退提示 -->
+      <el-alert
+        v-if="songMatchStore.fallbackReason"
+        :title="autoMatchFallbackText"
+        type="warning"
+        show-icon
+        class="auto-match-alert"
+        data-test="auto-match-fallback"
+      />
+
+      <!-- 命中最佳匹配 -->
+      <div v-if="songMatchStore.matchedSong" class="match-badge" data-test="auto-match-hit">
+        <el-icon color="var(--el-color-success)"><CircleCheckFilled /></el-icon>
+        <span>
+          已匹配 <strong>{{ songMatchStore.matchedSong.title }}</strong> ·
+          {{ songMatchStore.matchedSong.artist }} (置信度
+          {{ pct(songMatchStore.matchedSong.confidence) }})
+        </span>
+      </div>
+
+      <!-- Top-N 候选列表 -->
+      <div v-if="songMatchStore.candidates.length" class="candidate-list" data-test="candidate-list">
+        <div
+          v-for="c in songMatchStore.candidates"
+          :key="c.song_id"
+          class="candidate-item"
+          :class="{ 'candidate-item--selected': c.song_id === songMatchStore.selectedSongId }"
+          data-test="candidate-item"
+          @click="onSelectCandidate(c)"
+        >
+          <div class="candidate-main">
+            <span class="candidate-title">{{ c.title }}</span>
+            <span class="candidate-artist">{{ c.artist }}</span>
+          </div>
+          <div class="candidate-meta">
+            <el-tag size="small" :type="confidenceTagType(c.confidence)">{{ pct(c.confidence) }}</el-tag>
+            <span class="candidate-bpm">BPM 差 {{ c.bpm_diff }}</span>
+            <span v-if="c.key_diff_semitones" class="candidate-key">调性差 {{ c.key_diff_semitones }} 半音</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 一键对比 -->
+      <div v-if="canAutoCompare" class="auto-match-actions">
+        <el-button
+          type="primary"
+          size="large"
+          :loading="isComparing"
+          data-test="auto-match-compare"
+          @click="startAutoCompare"
+        >
+          与选中歌曲对比
+        </el-button>
+      </div>
+    </section>
 
     <!-- 双文件上传区域 -->
     <div class="upload-dual">
@@ -644,6 +822,120 @@ function onWindowKeydown(e: KeyboardEvent): void {
   color: var(--el-text-color-secondary);
   font-size: 14px;
   margin: 0;
+}
+
+/* ---- v7.14: 自动匹配标准歌曲 ---- */
+.auto-match {
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  background: linear-gradient(180deg, var(--el-fill-color-blank), var(--el-fill-color-lighter));
+}
+
+.auto-match-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auto-match-header .section-title {
+  margin-bottom: 0;
+}
+
+.auto-match-desc {
+  margin: 8px 0 16px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.auto-match-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.auto-match-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.auto-match-alert {
+  margin-top: 16px;
+}
+
+.match-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--el-color-success);
+  background: var(--el-color-success-light-9);
+  border-radius: var(--el-border-radius-base);
+}
+
+.match-badge strong {
+  color: var(--el-color-success);
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.candidate-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.candidate-item:hover {
+  border-color: var(--el-color-primary-light-5);
+  background: var(--el-fill-color-light);
+}
+
+.candidate-item--selected {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+
+.candidate-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.candidate-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.candidate-artist {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.candidate-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 双上传区域 */

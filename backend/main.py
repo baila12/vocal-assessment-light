@@ -151,6 +151,7 @@ def create_app() -> FastAPI:
     from backend.interfaces.api.routes.flags import router as flags_router  # v7.7
     from backend.interfaces.api.routes.scoring import router as scoring_router  # v7.11
     from backend.interfaces.api.routes.songs_pitch import router as songs_pitch_router  # v7.13
+    from backend.interfaces.api.routes.song_match import router as song_match_router  # v7.14
 
     app.include_router(health_router, tags=["health"])
     app.include_router(assessment_router, prefix="/api/v1", tags=["assessment"])
@@ -160,6 +161,7 @@ def create_app() -> FastAPI:
     app.include_router(flags_router, prefix="/api/v1", tags=["flags"])  # v7.7
     app.include_router(scoring_router, prefix="/api/v1", tags=["scoring"])  # v7.11
     app.include_router(songs_pitch_router, prefix="/api/v1", tags=["songs-pitch"])  # v7.13
+    app.include_router(song_match_router, prefix="/api/v1", tags=["songs"])  # v7.14
 
     # ===== Phase 3: 注册 WebSocket 路由 =====
     from backend.interfaces.ws import router as ws_router

@@ -1,6 +1,6 @@
-# 系统架构 v7.13
+# 系统架构 v7.14
 
-> 更新: 2026-08-08 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1-5
+> 更新: 2026-08-09 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1-5 | v7.14 上传自动匹配 (song_match 领域)
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 
@@ -161,6 +161,12 @@ domain/
     ├── value_objects.py             # SongPitchCurve (frozen, NaN→0.0, 序列化)
     ├── repository.py                # PitchCacheRepository Protocol
     └── services.py                  # PitchExtractionService (librosa.yin 纯函数)
+
+└── song_match/                      # 🆕 v7.14: 自动匹配领域 (上传录音 → 标准歌曲)
+    ├── value_objects.py             # MatchFeatures/SongMatchProfile/MatchCandidate/MatchResult (frozen)
+    ├── feature_extractor.py         # MatchFeatureExtractor (librosa beat_track + chroma_stft 12-bin)
+    ├── services.py                  # KeyDetector (Krumhansl-Schmuckler 24 键) + AutoMatchService
+    └── repository.py                # SongMatchProfileRepository Protocol
 ```
 
 ### application/ — 应用层 (编排, 无领域逻辑)
@@ -383,7 +389,7 @@ vocal_assessment_light/
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
 ├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 551 tests (DDD 451 + 集成 65 + 扩展 21 + WS 14)
+├── tests/                           # 647 tests (DDD 541 + 集成 71 + 扩展 21 + WS 14)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)
@@ -411,4 +417,4 @@ vocal_assessment_light/
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings (FastAPI) |
-| 测试 | pytest 551 tests (DDD 451 + 集成 65 + 扩展 21 + WS 14) + Vitest 286 tests |
+| 测试 | pytest 647 tests (DDD 541 + 集成 71 + 扩展 21 + WS 14) + Vitest 297 tests |

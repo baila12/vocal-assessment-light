@@ -90,3 +90,30 @@ def sine_sweep():
         phase = 2 * np.pi * np.cumsum(freq) / sr
         return np.sin(phase) * 0.8
     return _make_audio(_signal)
+
+
+@pytest.fixture(scope="module")
+def metronome_120bpm():
+    """120 BPM 节拍器: 6秒, 每 0.5s 一个 50ms 1kHz 衰减 burst (v7.14 auto-match BPM 检测)"""
+    duration = 6.0
+    bpm = 120.0
+    def _signal(n_samples, sr):
+        y = np.zeros(n_samples)
+        hop = int(0.05 * sr)
+        beat_interval = 60.0 / bpm
+        for start in np.arange(0.0, duration, beat_interval):
+            i0 = int(start * sr)
+            i1 = min(i0 + hop, n_samples)
+            tt = np.arange(i1 - i0) / sr
+            y[i0:i1] += np.sin(2 * np.pi * 1000 * tt) * np.exp(-tt * 40) * 0.8
+        return y
+    return _make_audio(_signal, duration=duration)
+
+
+@pytest.fixture(scope="module")
+def sine_a3_220hz():
+    """A3 (220Hz) 纯正弦, 2秒 — chroma 主峰应位于 pitch class A (index 9)"""
+    def _signal(n_samples, sr):
+        t = np.linspace(0, n_samples / sr, n_samples, endpoint=False)
+        return np.sin(2 * np.pi * 220 * t) * 0.8
+    return _make_audio(_signal)

@@ -1,6 +1,6 @@
-# API 契约文档 v7.13
+# API 契约文档 v7.14
 
-> 更新: 2026-08-08 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 537 测试 GREEN (DDD 451 + 集成 65 + 扩展 21)
+> 更新: 2026-08-09 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 633 测试 GREEN (DDD 541 + 集成 71 + 扩展 21)
 
 ---
 
@@ -30,6 +30,7 @@
 | DELETE | `/api/v1/songs/{id}` | 删除歌曲 [v7.9] | ✅ | ✅ |
 | GET | `/api/v1/songs/{id}/pitch` | 歌曲参考 F0 曲线 (选歌录音参考线数据源; 缓存) [v7.13] | ✅ | ✅ |
 | POST | `/api/v1/songs/{id}/compare` | 上传录音与选中歌曲 DTW 对比 (multipart user_file+style) [v7.13] | ✅ | ✅ |
+| POST | `/api/v1/songs/match` | 上传录音自动匹配歌曲库标准歌曲 → 最佳匹配 + Top-N 候选 (multipart file+top_n; 无匹配 fallback_reason) [v7.14] | ✅ | ✅ |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | ✅ | ✅ |
 | GET | `/api/v1/scoring/presets` | 评分权重预设 — 默认 + 4 风格 (v7.11) | ✅ | ✅ |
 | POST | `/api/v1/scoring/apply-weights` | 维度分数+权重→总分/等级 — 纯前端重算 (v7.11) | ✅ | ✅ |
@@ -141,6 +142,73 @@
 - 缺失维度分数 → `"缺少维度分数: [维度名列表]"`
 - 未知预设名 → `"未知风格预设: XX"`
 - 负数权重 → `"[维度名] 权重不能为负: X.XX"`
+
+---
+
+## 自动匹配 API (v7.14)
+
+### POST `/api/v1/songs/match`
+
+上传用户演唱录音 → 提取 BPM/chroma/调性/时长特征 → 与歌曲库标准歌曲特征匹配 → 返回最佳匹配 + Top-N 候选。
+
+**请求** (multipart/form-data):
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|:--:|------|
+| `file` | File | ✅ | 用户演唱录音 (wav/mp3/m4a/flac) |
+| `top_n` | int | ❌ | 候选数量 (默认 3, 1-10) |
+
+**响应**:
+```json
+{
+  "success": true,
+  "matched": true,
+  "matched_song": { "id": "song-uuid", "title": "晴天", "artist": "周杰伦", "confidence": 0.94 },
+  "candidates": [
+    {
+      "song_id": "song-uuid", "title": "晴天", "artist": "周杰伦", "confidence": 0.94,
+      "factors": { "bpm": 0.95, "chroma": 0.96, "key": 1.0, "duration": 0.87 },
+      "bpm_diff": 1.2, "key_diff_semitones": 0, "detected_key": "C"
+    }
+  ],
+  "fallback_reason": "",
+  "detected_key": "C",
+  "partial": false,
+  "elapsed_ms": 234
+}
+```
+
+**字段说明**:
+- `matched`: 是否命中 (置信度 ≥ `MATCH_THRESHOLD = 0.60`)
+- `matched_song`: 最佳匹配摘要 (仅 matched=true 时非空); `null` 表示未命中
+- `candidates`: Top-N 候选 (按置信度降序), 每个含 `factors {bpm,chroma,key,duration}` 子分数 + `bpm_diff` (绝对差) + `key_diff_semitones` (+=高) + `detected_key` (检测调性)
+- `fallback_reason`: 未命中原因, 取值 `no_match` (全低于阈值) / `no_profiles` (歌曲库无匹配特征) / `audio_too_short` (< 3s) / `timeout` (特征预算超时, partial=true)
+- `partial`: 预计算超时导致部分歌曲未参与匹配
+
+**置信度公式** (确定性, 供单元测试构造验证):
+```
+confidence = 0.30*bpm + 0.40*chroma + 0.15*key + 0.15*duration
+bpm_score    = 1 / (1 + (|Δbpm| / max(user_bpm, profile_bpm)) / 0.10)   # 精确=1.0, ±9%≈0.53
+chroma_score = max over 12 rotations(cosine(user_chroma, rotate(profile_chroma)))  # 转调不变
+key_score    = max(0, 1 - pitch_class_distance/6)                        # 同调=1.0, +2 半音=0.667
+duration_score = 1 / (1 + |log2(user_dur / profile_dur)|)                # 0.9x≈0.87
+```
+
+**错误** (400 Bad Request): 空文件 / 解码失败 → `{"detail": "..."}`。
+
+### POST `/api/v1/upload` — 可选 `auto_match` 标志
+
+上传时传 `auto_match: true` (FormData 布尔), 响应额外注入 (路由层, 不侵入评分业务; 失败优雅降级不阻塞评分):
+```json
+{
+  "success": true,
+  "... 原有评分字段 ...",
+  "matched_song": { "id": "...", "title": "...", "artist": "...", "confidence": 0.91 },
+  "matched_candidates": [ { "song_id": "...", "title": "...", "artist": "...", "confidence": 0.91, "factors": {...}, "bpm_diff": 0.5, "key_diff_semitones": 0, "detected_key": "G" } ],
+  "fallback_reason": ""
+}
+```
+- `auto_match=false` (默认): 不注入上述字段
+- 歌曲库为空 / 匹配特征缺失 / 音频过短: `matched_song=null` + `fallback_reason` 透传
 
 ---
 

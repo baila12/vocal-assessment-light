@@ -162,6 +162,18 @@ class SqliteSongRepository:
         ).fetchone()
         return self._row_to_song(row) if row else None
 
+    def list_all_with_filepath(self) -> list[Song]:
+        """列出所有 filepath 非空且文件存在的歌曲 (供匹配特征预算式预计算)"""
+        rows = self._conn.execute(
+            "SELECT * FROM songs WHERE filepath != ''"
+        ).fetchall()
+        songs = []
+        for row in rows:
+            song = self._row_to_song(row)
+            if song.filepath and Path(song.filepath).exists():
+                songs.append(song)
+        return songs
+
     @staticmethod
     def _row_to_song(row: sqlite3.Row) -> Song:
         """数据库行 → 领域实体"""

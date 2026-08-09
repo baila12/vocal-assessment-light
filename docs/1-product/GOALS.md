@@ -124,10 +124,10 @@
 | 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag | 451 tests ✅ |
 | 集成测试 | pytest, FastAPI routes (assessment + songs + scoring + songs_pitch) | 65 tests ✅ |
 | 扩展测试 | pytest, DTW/repos/real_audio | 21 tests ✅ |
-| BDD | pytest-bdd, 17 step files, 21 .feature files, 179 scenarios collected | ✅ |
+| BDD | pytest-bdd, 18 step files, 21 .feature files, 187 scenarios collected | ✅ |
 | 真实音频回归 | pytest, 5 基准文件, 28 tests | ✅ |
-| **生产合计** | | **537 tests 100% GREEN** |
-| 前端测试 | Vitest, 286 tests, vue-tsc 0 errors | ✅ |
+| **生产合计** | | **633 tests 100% GREEN** |
+| 前端测试 | Vitest, 297 tests, vue-tsc 0 errors | ✅ |
 
 ---
 

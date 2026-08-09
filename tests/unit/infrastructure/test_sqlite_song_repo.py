@@ -119,3 +119,26 @@ class TestDuplicateDetection:
 
     def test_find_duplicate_empty_repo_returns_none(self, repo):
         assert repo.find_duplicate(SongMetadata(title='a', artist='b')) is None
+
+
+class TestListAllWithFilepath:
+    """供匹配特征预算式预计算枚举 — 仅返回 filepath 非空且文件存在"""
+
+    def test_returns_only_songs_with_existing_file(self, repo, tmp_path):
+        audio = tmp_path / 'song.wav'
+        audio.write_bytes(b'RIFF\x24\x00\x00\x00WAVE')  # 假 WAV 头, 仅测试文件存在性
+        repo.add(Song(
+            id='a', metadata=SongMetadata(title='有文件', artist='甲'),
+            filepath=str(audio),
+        ))
+        repo.add(_song(title='无路径', song_id='b'))
+        repo.add(Song(
+            id='c', metadata=SongMetadata(title='路径失效', artist='丙'),
+            filepath=str(tmp_path / 'missing.wav'),
+        ))
+
+        songs = repo.list_all_with_filepath()
+        assert [s.id for s in songs] == ['a']
+
+    def test_empty_repo_returns_empty(self, repo):
+        assert repo.list_all_with_filepath() == []

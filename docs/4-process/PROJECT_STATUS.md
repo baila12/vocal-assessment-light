@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-08 | 版本: **v7.13** | 分支: `main`
+> 更新: 2026-08-09 | 版本: **v7.14** | 分支: `main`
 
 ---
 
@@ -15,6 +15,8 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)
     │  domain/audio/ (14 模块自包含)   │  services/audio_service.py │
     │  domain/comparison/ (v7.3)      │  api/business/ (bridge)   │
     │  domain/songs/ (v7.9)           │                           │
+    │  domain/songs_pitch/ (v7.13)    │                           │
+    │  domain/song_match/ (v7.14)     │                           │
     │  application/ (orchestrator)    │  services/features/types.py│
     │  infrastructure/audio/ (4)      │                           │
     │  interfaces/api/ + ws/          │  (Flask /old 已移除 v7.6) │
@@ -83,6 +85,23 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 ---
 
 ## 二、完成功能
+
+### v7.14 (2026-08-09) — 上传音频自动匹配标准歌曲 (auto-match)
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **领域** | `backend/domain/song_match/`: `MatchFeatures` (bpm/key/chroma/duration) + `SongMatchProfile` + `MatchCandidate` + `MatchResult` 值对象 (frozen) + `SongMatchProfileRepository` Protocol | ✅ |
+| **领域** | `MatchFeatureExtractor` — librosa `beat_track` (BPM 标量) + `chroma_stft` 均值 12-bin + Krumhansl-Schmuckler 24 键调性检测 | ✅ |
+| **领域** | `AutoMatchService.match` — 置信度 = 0.30*bpm + 0.40*chroma + 0.15*key + 0.15*duration, `MATCH_THRESHOLD=0.60`; BPM 相对差 / chroma 12 旋转余弦 (转调不变) / 五度圈 key 距离 / 时长对数比 | ✅ |
+| **应用** | `AutoMatchUseCase.execute(audio_path, top_n=3, timeout_s=10.0)` — load → extract → 预算制 ensure_profiles (缺失 profile 歌曲预计算入 SQLite) → deadline 超时返回 partial | ✅ |
+| **基建** | `sqlite_song_match_profile_repo.py` — 新表 `song_match_profiles` (song_id PK, bpm/key/chroma JSON/duration/feature_version/updated_at) | ✅ |
+| **基建** | `SongRepository.list_all_with_filepath()` — 枚举 filepath 非空且文件存在的歌曲 (匹配预计算数据源) | ✅ |
+| **API** | `POST /api/v1/songs/match` — multipart `file` + `top_n` Form → `matched`/`matched_song`/`candidates`/`fallback_reason`/`detected_key`/`partial`/`elapsed_ms` | ✅ |
+| **API** | `POST /api/v1/upload` 可选 `auto_match=true` — 路由层注入 `matched_song/matched_candidates/fallback_reason` 到 UploadResponse (不侵入 api/business) | ✅ |
+| **DI** | deps.py `get_song_match_profile_repo` + `get_auto_match_use_case` (lru_cache 单例, 绑定 songs_db) | ✅ |
+| **前端** | `songMatch.store.ts` — `matchAudio` (POST /songs/match) + `selectCandidate` + `compareWithSelected` (复用 POST /songs/{id}/compare) + `fetchUserPitch` (POST /extract-pitch) | ✅ |
+| **前端** | CompareView 自动匹配区 (上传录音→候选列表 歌名/歌手/置信度/BPM 差/调性差→选中→一键 DTW 对比→复用 Phase 5 双轨叠加); 无匹配优雅回退提示 (fallback_reason 透传) | ✅ |
+| **测试** | 生产 537→**633** (+96: 领域 79 + 基建 11 + 集成 6, 含审查回归 +2); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄) | ✅ |
 
 ### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3 + Phase 4
 
@@ -246,29 +265,29 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.13)
+## 三、测试状态 (v7.14)
 
 ### 生产测试 (全部 GREEN)
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| DDD 领域 (scorers + value objects + comparison + songs + **songs_pitch** + ScoringWeights) | 273 | ✅ |
-| DDD 基建 (extractors + orchestrator + ABI + sqlite) | 132 | ✅ |
+| DDD 领域 (scorers + value objects + comparison + songs + **songs_pitch** + ScoringWeights + **song_match**) | 352 | ✅ |
+| DDD 基建 (extractors + orchestrator + ABI + sqlite + **sqlite_song_match_profile_repo**) | 143 | ✅ |
 | DDD 对齐 + Flag bridge (test_ddd_alignment/extraction_flag/flag_bridge) | 23 | ✅ |
 | 中间件 | 23 | ✅ |
-| **DDD 合计** | **451** | **100% GREEN** |
-| FastAPI 集成 | 65 | ✅ | (api_routes 19 + songs_api 20 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 3)
+| **DDD 合计** | **541** | **100% GREEN** |
+| FastAPI 集成 | 71 | ✅ | (api_routes 19 + songs_api 20 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 3 + **song_match_api 6**)
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
-| **生产代码总计** | **537** | **100% GREEN** |
+| **生产代码总计** | **633** | **100% GREEN** |
 
-> 注: 生产合计 = DDD 451 + 集成 65 + 扩展 21 = 537 (独立进程实测)。另含 WebSocket 集成 14 (v7.12 10 + v7.13 pitch_update 4) 与真实音频回归 28 (BASELINE_V7_6), 不计入生产代码合计。
+> 注: 生产合计 = DDD 541 + 集成 71 + 扩展 21 = 633 (独立进程实测, 含 WS 14 为 647)。另含 WebSocket 集成 14 (v7.12 10 + v7.13 pitch_update 4) 与真实音频回归 28 (BASELINE_V7_6), 不计入生产代码合计。
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| 真实音频 Quick + Pro | 28 | ⚠️ 24 PASS + 4 FAIL | 4 个失败均为 `test_dimension_scores_in_baseline_ranges` 的 **breath 维度**越界 0.1-0.8 分 (79.2/83.4/75.9/69.9 vs 基线 80/84/76/70) — BASELINE_V7_6 阈值过紧的既有漂移, 与 v7.13 改动无关 (评分管线零触碰; total/valid 范围测试全 PASS) |
-| BDD | 17 step files | ✅ | 179 scenarios collected + 5 features pending step defs |
+| 真实音频 Quick + Pro | 28 | ⚠️ 24 PASS + 4 FAIL | 4 个失败均为 `test_dimension_scores_in_baseline_ranges` 的 **breath 维度**越界 0.1-0.8 分 (79.2/83.4/75.9/69.9 vs 基线 80/84/76/70) — BASELINE_V7_6 阈值过紧的既有漂移, 与 v7.13/v7.14 改动无关 (评分管线零触碰; total/valid 范围测试全 PASS) |
+| BDD | 17 step files | ✅ | 179 scenarios collected + 4 features pending step defs |
 
 ### BDD (v7.12 浏览器基建 + 场景迁移)
 
@@ -280,12 +299,13 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | scoring-config.feature | ✅ API 级 PASS (v7.11) |
 | database.feature | ✅ 4 PASS + 6 XFAIL (v7.9) |
 | **pitch-realtime.feature (v7.13 P1-P5 骨架)** | ✅ 25 XFAIL (每条标注对应纯 TS 单元测试文件; P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计→pitchSegments.test.ts, P5 起双轨填色/热力图/截图/快捷键→pitchCompareDraw/pitchHeatmap/pitchScreenshot/pitchKeyboard; 浏览器 BDD 无真实音频/WS) |
+| **auto-match.feature (v7.14 上传自动匹配)** | ✅ 5 PASS + 3 XFAIL (短音频容错→test_extract_short_audio_tolerant, 嘈杂→test_extract_noise_robust, 超时→test_timeout_returns_partial/test_deadline_exceeded_returns_partial) |
 
 ### 前端测试
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| Vitest | 286 | ✅ 100% | (stores 74 + **pitch utils 212**; v7.13 P1 +34, P2 +64, P3 +31, P4 +33, P5 +56)
+| Vitest | 297 | ✅ 100% | (stores 85 + **pitch utils 212**; v7.13 P1-P5 +286, v7.14 songMatch.store +11)
 | vue-tsc type check | 0 errors | ✅ |
 | Vite build | ~16s | ✅ |
 
@@ -315,7 +335,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 四、已知问题
 
-> 更新: 2026-08-07 | v7.13
+> 更新: 2026-08-09 | v7.14
 
 ### 架构残留
 
@@ -361,7 +381,8 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | BDD 浏览器测试需服务运行 | 运行浏览器 BDD 需先 `python backend/main.py` (FastAPI :8000 服务 frontend/dist); 服务未启动时场景 skip |
 | 评分阈值联动 (风格预设) | scoring-config.feature: 各预设阈值微调 (MAE断点等) 未实现 — API 级 PASS, 阈值联动/自动风格检测/UI 面板仍 XFAIL (用户指定暂不开发) |
 | ~~选歌录音 (选歌→演唱页)~~ | ✅ v7.12 MVP + v7.13 Phase 1: `/sing/:songId` + WS song_id + vocal_range + 参考音高 API + WS pitch_update + 上传录音对比 + 再来一首 |
-| **实时音准对比 P1-P5** | pitch-realtime.feature 全量已落地 (P1 参考音高 API/WS pitch_update → P4 回放分析 → P5 CompareView 双轨叠加/热力图/性能降级/截图/快捷键/缩略条); auto-match 独立 feature 待开发 |
+| ~~实时音准对比 P1-P5~~ | ✅ v7.13 全量已落地 (P1 参考音高 API/WS pitch_update → P4 回放分析 → P5 CompareView 双轨叠加/热力图/性能降级/截图/快捷键/缩略条) |
+| ~~上传音频自动匹配 (auto-match)~~ | ✅ v7.14 全量已落地 (POST /songs/match + /upload?auto_match=true + CompareView 自动匹配区 + songMatch.store) |
 
 ---
 
@@ -397,7 +418,12 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | `frontend/src/utils/pitchCompareDraw.ts` | v7.13 P5 — 双轨绘制 (偏差着色/三色填色/热力条/缩略条/低对齐覆盖) |
 | `frontend/src/utils/pitchFps.ts` | v7.13 P5 — FPS 监控 + 降级状态机 |
 | `frontend/src/utils/pitchKeyboard.ts` | v7.13 P5 — 快捷键映射 + 可编辑/滑块守卫 |
-| `frontend/src/views/CompareView.vue` | v7.13 P5 — 对比分析页 (双文件→DTW→双轨叠加 + 性能模式/截图/快捷键) |
+| `frontend/src/views/CompareView.vue` | v7.13 P5 — 对比分析页 (双文件→DTW→双轨叠加 + 性能模式/截图/快捷键); v7.14 — 自动匹配区 (上传录音→候选→一键对比) |
+| `backend/domain/song_match/` | v7.14 — 自动匹配领域 (MatchFeatures/SongMatchProfile/MatchCandidate/MatchResult + 特征提取 + K-S 调性 + AutoMatchService) |
+| `backend/application/song_match/auto_match_use_case.py` | v7.14 — 应用层编排 (预算制 profile 预计算 + deadline 超时 partial) |
+| `backend/infrastructure/persistence/sqlite_song_match_profile_repo.py` | v7.14 — 匹配特征 SQLite 仓储 (song_match_profiles 表) |
+| `backend/interfaces/api/routes/song_match.py` | v7.14 — POST /api/v1/songs/match |
+| `frontend/src/stores/songMatch.store.ts` | v7.14 — 自动匹配 store (matchAudio/selectCandidate/compareWithSelected/fetchUserPitch) |
 | `backend/main.py` | FastAPI 入口 (Flask 已移除) |
 
 ### 启动命令
@@ -407,7 +433,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 默认测试 (451 tests, ~16s)
+# 默认测试 (541 tests, ~20s)
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \

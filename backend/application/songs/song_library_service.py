@@ -107,3 +107,7 @@ class SongLibraryService:
         if not self._repo.delete(song_id):
             raise SongNotFoundError(song_id)
         return True
+
+    def list_songs_with_filepath(self) -> list[Song]:
+        """列出所有带有效音频文件的歌曲 — 供匹配特征预算式预计算 (v7.14 auto-match)"""
+        return self._repo.list_all_with_filepath()

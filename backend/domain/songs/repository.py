@@ -46,3 +46,7 @@ class SongRepository(Protocol):
     def find_duplicate(self, metadata: SongMetadata) -> Song | None:
         """按 (歌名+歌手) 查找重复歌曲, 无则返回 None"""
         ...
+
+    def list_all_with_filepath(self) -> list[Song]:
+        """列出所有 filepath 非空且文件存在的歌曲 (供匹配特征预算式预计算)"""
+        ...

@@ -189,7 +189,7 @@
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings |
-| 测试 | pytest 537 + Vitest 286 |
+| 测试 | pytest 633 + Vitest 297 |
 
 ---
 

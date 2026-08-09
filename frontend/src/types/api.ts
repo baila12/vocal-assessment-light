@@ -25,6 +25,10 @@ export interface AssessmentResult {
     applied: boolean
     note: string
   }
+  /** v7.14: 上传时可选自动匹配 (auto_match=true 时由后端注入) */
+  matched_song?: MatchedSong | null
+  matched_candidates?: MatchCandidate[]
+  fallback_reason?: string
 }
 
 export interface HistoryRecord {
@@ -177,6 +181,58 @@ export interface SongCompareResponse {
   success: boolean
   data: SongCompareData
   error?: string
+}
+
+/** v7.14: 自动匹配 — 最佳匹配摘要 (对齐后端 matched_song) */
+export interface MatchedSong {
+  id: string
+  title: string
+  artist: string
+  confidence: number
+}
+
+/** v7.14: 自动匹配 — 单个候选 (对齐后端 MatchCandidate.to_dict) */
+export interface MatchCandidate {
+  song_id: string
+  title: string
+  artist: string
+  confidence: number
+  /** 各维度得分 {"bpm","chroma","key","duration"} */
+  factors: { bpm: number; chroma: number; key: number; duration: number }
+  bpm_diff: number
+  key_diff_semitones: number
+  detected_key: string
+}
+
+/** v7.14: POST /api/v1/songs/match 响应 */
+export interface MatchResultResponse {
+  success: boolean
+  matched: boolean
+  matched_song: MatchedSong | null
+  candidates: MatchCandidate[]
+  /** no_match / no_profiles / audio_too_short / timeout */
+  fallback_reason: string
+  detected_key: string
+  partial: boolean
+  elapsed_ms: number
+  error?: string | null
+}
+
+/** v7.14: POST /api/v1/extract-pitch 响应数据 (用户录音音高曲线) */
+export interface PitchExtractData {
+  duration: number
+  sample_rate: number
+  hop_length: number
+  frequencies: number[]
+  times: number[]
+  confidence: number[]
+  frame_count: number
+}
+
+export interface PitchExtractResponse {
+  success: boolean
+  data: PitchExtractData | null
+  error?: string | null
 }
 
 /** v7.11: apply-weights 请求/响应 (POST /api/v1/scoring/apply-weights) */

@@ -30,6 +30,10 @@ class UploadResponse(BaseModel):
     # 基础信息
     duration: Optional[float] = None
     duration_display: str = ""
+    # v7.14: 上传时可选自动匹配标准歌曲 (auto_match=true 时注入)
+    matched_song: Optional[dict] = None
+    matched_candidates: list[dict] = Field(default_factory=list)
+    fallback_reason: str = ""
 
 
 class AnalyzeRequest(BaseModel):

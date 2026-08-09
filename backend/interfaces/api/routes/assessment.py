@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse
 
 from backend.interfaces.api.deps import (
     get_separation_service, get_report_service, get_history_repo,
-    get_flask_config,
+    get_flask_config, get_auto_match_use_case,
 )
 from backend.interfaces.api.schemas.assessment import (
     UploadResponse, AnalyzeRequest, PitchExtractResponse,
@@ -123,8 +123,10 @@ async def upload_audio(
     file: UploadFile = File(...),
     mode: str = Form(default="quick"),
     reference_file: UploadFile | None = File(default=None),
+    auto_match: bool = Form(default=False),
     config=Depends(get_flask_config),
     repo=Depends(get_history_repo),
+    match_usecase=Depends(get_auto_match_use_case),
 ):
     """上传并分析音频文件"""
     if not file.filename:
@@ -184,6 +186,19 @@ async def upload_audio(
     else:
         normalization = {"applied": True, "note": ""}
 
+    # v7.14: 可选自动匹配标准歌曲 — 失败优雅降级, 不阻塞主分析
+    matched_song = None
+    matched_candidates: list[dict] = []
+    fallback_reason = ""
+    if auto_match:
+        try:
+            match_result = await asyncio.to_thread(match_usecase.execute, str(filepath))
+            matched_song = match_result.matched_song
+            matched_candidates = [c.to_dict() for c in match_result.candidates]
+            fallback_reason = match_result.fallback_reason
+        except Exception:
+            logger.warning("Auto-match failed for upload, degraded gracefully", exc_info=True)
+
     return UploadResponse(
         success=result.get("success", False),
         analysis_id=analysis_id,
@@ -201,6 +216,9 @@ async def upload_audio(
         normalization=normalization,
         duration=result.get("duration_seconds"),
         duration_display=result.get("duration", ""),
+        matched_song=matched_song,
+        matched_candidates=matched_candidates,
+        fallback_reason=fallback_reason,
     )
 
 

@@ -1,4 +1,4 @@
-# 声乐评估系统 v7.13
+# 声乐评估系统 v7.14
 
 基于 FastAPI + Vue 3 的本地 Web 应用，提供六维声乐评分、实时录音、对比分析、歌曲库管理等功能。
 
@@ -28,6 +28,7 @@
 - **对比分析双轨叠加** - CompareView 标准虚线 + 用户动态着色实线双轨叠加, 偏差三色填色 + 底部热力图条 + 缩略导航条, 点击跳转 (v7.13 Phase 5)
 - **性能降级保护** - 低帧率自动降级渲染 (抗锯齿关/着色降频/网格关), UI 性能模式指示器 + 手动切回 (v7.13 Phase 5)
 - **对比截图与快捷键** - 音准对比 PNG 截图导出 (时间戳水印 + DPR 原分辨率) + 键盘快捷键 (Space/←→/R/S/1/2) (v7.13 Phase 5)
+- **上传自动匹配** - 上传演唱录音 → 自动匹配歌曲库标准歌曲 → 返回最佳匹配 + Top-3 候选 → 一键 DTW 对比; 无匹配优雅回退绝对评分 (v7.14)
 - **导出报告** - PDF/图片格式报告
 
 ### 对比分析功能
@@ -95,7 +96,8 @@ vocal_assessment_light/
 │   │   ├── audio/        # 10 特征提取模块
 │   │   ├── comparison/   # 对比分析领域
 │   │   ├── songs/        # 歌曲库领域 (v7.9)
-│   │   └── songs_pitch/  # 参考音高领域 (v7.13: F0 曲线 + 缓存)
+│   │   ├── songs_pitch/  # 参考音高领域 (v7.13: F0 曲线 + 缓存)
+│   │   └── song_match/   # 自动匹配领域 (v7.14: 特征/BPM/调性/置信度)
 │   ├── application/      # 编排层
 │   ├── infrastructure/   # 基础设施 (SQLite 仓储)
 │   ├── interfaces/       # API + WebSocket
@@ -106,7 +108,7 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 537 tests (DDD 451 + integration 65 + extended 21) + 前端 286 Vitest
+└── tests/                # 633 tests (DDD 541 + integration 71 + extended 21) + 前端 297 Vitest
 ```
 
 ## API 接口
@@ -126,6 +128,7 @@ vocal_assessment_light/
 | `/api/v1/songs` | POST/GET/GET/DELETE | 歌曲库管理 (v7.9) |
 | `/api/v1/songs/{id}/pitch` | GET | 歌曲参考音高 F0 曲线 (v7.13) |
 | `/api/v1/songs/{id}/compare` | POST | 上传录音与选中歌曲 DTW 对比 (v7.13) |
+| `/api/v1/songs/match` | POST | 上传录音自动匹配歌曲库标准歌曲 → 最佳匹配 + Top-N 候选 (v7.14) |
 | `/api/v1/audio` | GET | 流式传输音频文件 |
 | `/ws/v1/score` | WebSocket | 实时评分推送 |
 
@@ -140,7 +143,35 @@ Content-Type: multipart/form-data
 - mode: 评估模式 (可选，默认: quick)
   - quick: 快速评估，跳过逐句评分、音色分析、可视化
   - professional: 专业评估，完整分析
+- auto_match: 自动匹配歌曲库标准歌曲 (可选，默认: false) — 为 true 时响应注入 matched_song/matched_candidates/fallback_reason (v7.14)
 ```
+
+### 自动匹配接口
+
+```
+POST /api/v1/songs/match
+Content-Type: multipart/form-data
+
+参数:
+- file: 用户演唱录音 (必需)
+- top_n: 候选数量 (可选，默认: 3)
+
+返回:
+{
+  "success": true,
+  "matched": true,
+  "matched_song": { "id": "...", "title": "...", "artist": "...", "confidence": 0.94 },
+  "candidates": [ { "song_id": "...", "title": "...", "artist": "...", "confidence": 0.94,
+                    "factors": {"bpm": ..., "chroma": ..., "key": ..., "duration": ...},
+                    "bpm_diff": 0.0, "key_diff_semitones": 0, "detected_key": "C" }, ... ],
+  "fallback_reason": "",
+  "detected_key": "C",
+  "partial": false,
+  "elapsed_ms": 234
+}
+```
+
+置信度 = `0.30*bpm + 0.40*chroma + 0.15*key + 0.15*duration`, `MATCH_THRESHOLD = 0.60`; 无匹配时 `matched=false`, `fallback_reason ∈ {no_match, no_profiles, audio_too_short, timeout}`。
 
 ### 对比分析接口
 
@@ -184,6 +215,7 @@ cd frontend && npx vitest run
 
 ## 版本历史
 
+- **v7.14** — 上传音频自动匹配标准歌曲: 新增 song_match DDD 子域 (BPM/Krumhansl-Schmuckler 调性/chroma/duration 特征 + 确定性置信度 = 0.30bpm+0.40chroma+0.15key+0.15duration, 阈值 0.60) + POST /songs/match (Top-N 候选 + fallback_reason) + upload 可选 auto_match 注入 + SQLite 匹配特征持久化 (预算式预计算, 超时 partial) + 前端 CompareView 自动匹配区 (候选列表/置信度/BPM差/调性差 → 一键 DTW 对比) (2026-08-09)
 - **v7.13** — 实时音准对比子系统 Phase 1-5: 参考音高 API (GET /songs/{id}/pitch) + 选歌录音增强 (参考线叠加/上传录音 DTW 对比/再来一首) + WS pitch_update 实时推送 + WS 权重 ScoringWeights 单一来源; Phase 2: 音准对比 Canvas 偏差着色 + 滚动窗口 + 回放控制 (播放/拖拽/倍速/A-B) + Y 轴音高/时间刻度; Phase 3: 录音中实时对比 (live 模式圆点/偏差色带/趋势); Phase 4: 录音后回放分析 (问题段落高亮/逐句评分/统计面板); Phase 5: CompareView 双轨叠加 (偏差三色填色/热力图/缩略条) + 性能降级 + 截图/快捷键 (2026-08-08)
 - **v7.12** — 选歌录音 MVP (/sing/:songId + WS song_id + vocal_range) + BDD 基建修复 (vocals.wav 数据 + animations/sing-song-select 迁移 Vue 3 + KMP 崩溃修复) + dl_services 死代码清理 (2026-08-06)
 - **v7.11** — 评分权重可配置: ScoringWeights 值对象 (单一来源) + 4 风格预设 + 权重面板 + 纯前端重算; BDD 浏览器基建修复 (2026-08-04)

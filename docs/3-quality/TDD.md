@@ -1,6 +1,6 @@
-# 测试驱动开发 (TDD) 规范 v7.13
+# 测试驱动开发 (TDD) 规范 v7.14
 
-> 更新: 2026-08-08 | 537 tests 100% GREEN | pytest + Vitest
+> 更新: 2026-08-09 | 633 tests 100% GREEN | pytest + Vitest
 
 ---
 
@@ -182,22 +182,24 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 | TimbreAdjuster | `test_timbre_adjuster.py` | ~12 |
 | ScoringWeights 🆕 v7.11 | `test_scoring_weights.py` | 25 |
 | SongsPitch 🆕 v7.13 | `test_song_pitch_vo.py` + `test_song_pitch_service.py` + `test_get_song_pitch_usecase.py` | 16 |
+| SongMatch 🆕 v7.14 | `test_song_match_value_objects.py` + `test_song_match_service.py` + `test_match_feature_extractor.py` + `test_auto_match_use_case.py` | 79 |
 | ScoringDomainService | `test_scoring_domain_service.py` | ~12 |
 | Comparison (DDD) | `test_comparison_scoring.py` + `test_comparison_value_objects.py` | ~30 |
 | Audiofeat enhancement | `test_audiofeat_extractor.py` + scorer audiofeat tests | ~40 |
 | 10 Extractors | `test_*_extractor.py` (7 files) + `test_orchestrator.py` + `test_audio_utils.py` + `test_batch4_extractors.py` | ~132 |
 | Middleware | `test_middleware.py` | 23 |
 | DDD Alignment + Flag | `test_ddd_alignment.py` + `test_ddd_extraction_flag.py` + `test_flag_bridge.py` | 23 |
-| **DDD Unit 合计** | | **451** |
+| **DDD Unit 合计** | | **541** |
 | FastAPI Integration | `test_api_routes.py` | 19 |
 | Songs API Integration | `test_songs_api.py` | 20 |
 | Scoring API Integration 🆕 v7.11 | `test_scoring_api.py` | 14 |
 | SongsPitch API Integration 🆕 v7.13 | `test_song_pitch_api.py` | 9 |
 | ComparePitch API Integration 🆕 v7.13 P5 | `test_compare_pitch_api.py` | 3 |
+| SongMatch API Integration 🆕 v7.14 | `test_song_match_api.py` | 6 |
 | WebSocket Integration | `test_ws_score.py` + `test_ws_pitch_update.py` | 10 + 4 |
 | Extended | `test_comparison_dtw.py` + `test_repositories.py` | 21 | (v7.12 删 test_score_calibrator)
 | Real Audio Regression | `test_real_audio_regression.py` | 28 |
-| **生产代码合计** | | **537** (DDD 451 + 集成 65 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
+| **生产代码合计** | | **633** (DDD 541 + 集成 71 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
 
 ---
 

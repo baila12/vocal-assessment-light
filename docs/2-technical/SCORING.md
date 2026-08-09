@@ -1,6 +1,6 @@
-# 评分算法文档 v7.13
+# 评分算法文档 v7.14
 
-> 更新: 2026-08-08 | DDD 唯一评分路径 | 537 测试 GREEN (DDD 451 + int 65 + ext 21)
+> 更新: 2026-08-09 | DDD 唯一评分路径 | 633 测试 GREEN (DDD 541 + int 71 + ext 21)
 >
 > **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md) | [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 

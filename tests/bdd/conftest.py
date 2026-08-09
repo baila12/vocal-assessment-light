@@ -56,6 +56,9 @@ def fastapi_client():
     from backend.interfaces.api import deps
     deps.get_settings.cache_clear()
     deps.get_song_service.cache_clear()
+    # v7.14: auto-match 单例也绑定 DB 路径, 必须一并清空 (否则跨场景复用旧 profile 库)
+    deps.get_song_match_profile_repo.cache_clear()
+    deps.get_auto_match_use_case.cache_clear()
 
     from backend.main import create_app
     from fastapi.testclient import TestClient

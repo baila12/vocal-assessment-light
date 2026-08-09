@@ -95,3 +95,24 @@ def get_song_pitch_usecase():
     from backend.application.songs_pitch.get_song_pitch import GetSongPitchUseCase
     from backend.domain.songs_pitch.services import PitchExtractionService
     return GetSongPitchUseCase(repo=get_pitch_cache(), extractor=PitchExtractionService)
+
+
+# ===== v7.14: 上传音频自动匹配标准歌曲 =====
+
+@lru_cache()
+def get_song_match_profile_repo():
+    """歌曲匹配特征 profile 仓储单例 — 与歌曲库同一数据库"""
+    from backend.infrastructure.persistence.sqlite_song_match_profile_repo import (
+        SqliteSongMatchProfileRepository,
+    )
+    return SqliteSongMatchProfileRepository(db_path=get_settings().songs_db)
+
+
+@lru_cache()
+def get_auto_match_use_case():
+    """自动匹配用例单例 — v7.14"""
+    from backend.application.song_match.auto_match_use_case import AutoMatchUseCase
+    return AutoMatchUseCase(
+        song_repo=get_song_repo(),
+        profile_repo=get_song_match_profile_repo(),
+    )

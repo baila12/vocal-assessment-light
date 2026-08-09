@@ -1,6 +1,50 @@
-# 变更日志 v7.13
+# 变更日志 v7.14
 
-> 更新: 2026-08-08 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+> 更新: 2026-08-09 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.14 — 上传音频自动匹配标准歌曲 (auto-match) (2026-08-09)
+
+### 概述
+
+完成 v6.0 规划轨道 A 的最后一块核心功能: 用户上传演唱录音 → 自动从歌曲库匹配最相近的标准歌曲 → 返回 `matched_song {id,title,artist,confidence}` + Top-N 候选 → 前端一键切入 DTW 对比; 无匹配时优雅回退绝对评分。新建 `song_match` DDD 子域 (特征提取 + Krumhansl-Schmuckler 调性 + 确定性置信度)。
+
+### ① 匹配算法 (确定性, 单元可构造验证)
+
+- 置信度 = `0.30*bpm + 0.40*chroma + 0.15*key + 0.15*duration`, `MATCH_THRESHOLD = 0.60`
+- `bpm_score = 1/(1 + (|Δbpm|/max(user, profile))/0.10)`; 双 0 BPM 边界: 相等=1.0 否则 0.0
+- `chroma_score = max over 12 rotations(cosine(user_chroma, rotate(profile_chroma)))` — 转调不变
+- `key_score = max(0, 1 - pitch_class_distance/6)` — 五度圈最小距离
+- `duration_score = 1/(1 + |log2(user_dur/profile_dur)|)`
+- `detected_key` 由 Krumhansl-Schmuckler 24 键 Pearson 相关给出 (仅标注 + key_score 输入)
+
+### ② 领域 + 应用层 (DDD)
+
+- 🆕 `backend/domain/song_match/`: `MatchFeatures`/`SongMatchProfile`/`MatchCandidate`/`MatchResult` (frozen) + `MatchFeatureExtractor` (librosa beat_track tempo 标量 + chroma_stft 均值 12-bin + K-S 调性) + `AutoMatchService` + `SongMatchProfileRepository` Protocol
+- 🆕 `backend/application/song_match/auto_match_use_case.py`: `execute(audio_path, top_n=3, timeout_s=10.0)` — load → extract → 预算制 ensure_profiles → deadline 超时 partial
+- 🆕 `backend/infrastructure/persistence/sqlite_song_match_profile_repo.py`: `song_match_profiles` 表 (stdlib sqlite3 + 线程锁)
+- 🔧 `SongRepository` + `SongLibraryService` + `SqliteSongRepository`: +`list_all_with_filepath()`
+
+### ③ API
+
+- 🆕 `POST /api/v1/songs/match`: multipart `file` + `top_n` → `MatchResultResponse` (matched/matched_song/candidates/fallback_reason/detected_key/partial/elapsed_ms); 无效格式 400
+- 🔧 `POST /api/v1/upload` 可选 `auto_match: bool = Form(False)`: 路由层注入 `matched_song/matched_candidates/fallback_reason` 到 UploadResponse (不侵入 api/business 旧层; 失败优雅降级不阻塞评分)
+- 🔧 deps.py: +`get_song_match_profile_repo` + `get_auto_match_use_case` (lru_cache 单例, 绑定 songs_db)
+
+### ④ 前端
+
+- 🆕 `frontend/src/stores/songMatch.store.ts`: `matchAudio`/`selectCandidate`/`compareWithSelected` (复用 POST /songs/{id}/compare)/`fetchUserPitch` (POST /extract-pitch)
+- 🔧 `frontend/src/views/CompareView.vue`: 双上传面板上方自动匹配区 — 上传录音 → 候选列表 (歌名/歌手/置信度/BPM 差/调性差) → 选中 → 一键 DTW 对比 → 复用 Phase 5 双轨叠加 (标准参考音高 + 用户录音音高); 无匹配回退提示 (fallback_reason 透传)
+- 🔧 `frontend/src/types/api.ts`: +`MatchedSong`/`MatchCandidate`/`MatchResultResponse`/`PitchExtractData` + `AssessmentResult.matched_song?`/`matched_candidates?`/`fallback_reason?`
+
+### 测试
+
+- 生产 537→**633** (+96): 领域 +79 (value_objects 13 + service 54 + extractor 6 + use_case 6) + 基建 +11 (profile_repo 9 + song_repo 2) + 集成 +6 (song_match_api)
+- 前端 286→**297** (+11 songMatch.store Vitest)
+- BDD auto-match.feature 8 场景: **5 PASS + 3 XFAIL** (短音频/嘈杂/超时 → 标注对应单元测试)
+- 全量回归 (默认单元+集成+扩展): **633 全绿 (实测 647 含 WS)**; 既有遗留: 21 Flask 迁移 BDD 失败 (compare/differentiation/history 用已移除 Flask 步骤/get_json) + 4 real-audio breath 基线漂移 (与 v7.14 无关, 见 PROJECT_STATUS 已知问题)
+- 代码审查修复 (code-reviewer): 读路径加锁 (get/list_all 与写串行化) + 非 12 维/空 chroma 行防御默认零向量 (含 2 回归测试) + 路由异常收窄 (仅音频错误→400, DB 错误→500)
 
 ---
 

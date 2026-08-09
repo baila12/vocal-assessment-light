@@ -1,6 +1,6 @@
-# 行为驱动开发 (BDD) 规范 v7.13
+# 行为驱动开发 (BDD) 规范 v7.14
 
-> 更新: 2026-08-08 | 17 step files | 21 feature files (16 已实现 + 5 规划中) | scoring-config.feature v7.11: 6 维契约更新, API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | **v7.12: upload.feature 数据补齐 (vocals.wav + KMP 修复) + animations/sing-song-select 迁移 Vue 3 data-test 选择器** | **v7.13: pitch-realtime.feature step defs 骨架落地 (25 XFAIL, 每条标注对应纯 TS Vitest 测试)**
+> 更新: 2026-08-09 | 18 step files | 21 feature files (17 已实现 + 4 规划中) | scoring-config.feature v7.11: 6 维契约更新, API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | **v7.12: upload.feature 数据补齐 (vocals.wav + KMP 修复) + animations/sing-song-select 迁移 Vue 3 data-test 选择器** | **v7.13: pitch-realtime.feature step defs 骨架落地 (25 XFAIL, 每条标注对应纯 TS Vitest 测试)** | **v7.14: auto-match.feature step defs 落地 (5 PASS + 3 XFAIL, 重度场景标注对应单元测试)**
 
 ---
 
@@ -44,7 +44,7 @@
 tests/bdd/
 ├── features/                         # Gherkin .feature 文件 (21 个)
 │   │
-│   │  === 已实现 (有 Step Defs, 16 个) ===
+│   │  === 已实现 (有 Step Defs, 17 个) ===
 │   ├── upload.feature                # 上传与六维评分
 │   ├── compare.feature               # DTW 对比分析
 │   ├── differentiation.feature       # 评分区分度验证
@@ -59,17 +59,17 @@ tests/bdd/
 │   ├── responsive.feature            # 响应式布局 (v7.3.1)
 │   ├── dtw-demotion.feature          # v7.8: DTW 降级为特征提供者 (18 scenarios)
 │   ├── scoring-config.feature        # v7.8: 评分配置可定制 (14 scenarios)
-│   ├── database.feature              # 🆕 v7.9: 标准歌曲数据库 (10 scenarios, 4P+6XF)
-│   └── pitch-realtime.feature        # 🆕 v7.13: 实时音准对比 (25 scenarios, 全部 XFAIL — 无真实音频, 每条标注对应纯 TS Vitest)
+│   ├── database.feature              # v7.9: 标准歌曲数据库 (10 scenarios, 4P+6XF)
+│   ├── pitch-realtime.feature        # v7.13: 实时音准对比 (25 scenarios, 全部 XFAIL — 无真实音频, 每条标注对应纯 TS Vitest)
+│   └── auto-match.feature            # 🆕 v7.14: 上传自动匹配 (8 scenarios, 5 PASS + 3 XFAIL — 重度场景标注对应单元测试)
 │   │
-│   │  === 规划中 (无 Step Defs, 5 个) ===
-│   ├── auto-match.feature            # 上传自动匹配
+│   │  === 规划中 (无 Step Defs, 4 个) ===
 │   ├── song-select.feature           # 选歌录音完整流程
 │   ├── nonblocking-analysis.feature  # 非阻塞分析 (SSE)
 │   ├── realtime-analysis.feature     # 录音实时后台分析
 │   └── multi-dim-analysis.feature    # 多维度对比分析
 │
-├── steps/                            # Step 实现 (17 files)
+├── steps/                            # Step 实现 (18 files)
 │   ├── test_upload_steps.py          # 上传 + 评分
 │   ├── test_compare_steps.py         # DTW 对比
 │   ├── test_compare_ui_steps.py      # 对比 UI
@@ -85,8 +85,9 @@ tests/bdd/
 │   ├── test_responsive_steps.py      # v7.3.1: 8 responsive scenarios
 │   ├── test_dtw_demotion_steps.py    # v7.8: 18 DTW scenarios
 │   ├── test_scoring_config_steps.py  # v7.8: 14 评分配置 scenarios
-│   ├── test_database_steps.py        # 🆕 v7.9: 10 歌曲库 scenarios (4PASS+6XFALL)
-│   └── test_pitch_realtime_steps.py  # 🆕 v7.13: 实时音准对比 step defs 骨架 (25 XFAIL, 指向纯 TS Vitest)
+│   ├── test_database_steps.py        # v7.9: 10 歌曲库 scenarios (4PASS+6XFALL)
+│   ├── test_pitch_realtime_steps.py  # v7.13: 实时音准对比 step defs 骨架 (25 XFAIL, 指向纯 TS Vitest)
+│   └── test_auto_match_steps.py      # 🆕 v7.14: 上传自动匹配 step defs (5 PASS + 3 XFAIL)
 │
 ├── conftest.py                       # BDD fixtures + Playwright
 └── __init__.py
@@ -213,6 +214,15 @@ def check_total_score_range(upload_with_mode):
 | 文件 | Scenarios | 内容 |
 |------|:--:|------|
 | `test_database_steps.py` | 10 | 标准歌曲数据库 (4 PASSED + 6 XFAIL) |
+
+### v7.14
+
+| 文件 | Scenarios | 内容 |
+|------|:--:|------|
+| `test_auto_match_steps.py` | 8 | 上传自动匹配 (5 PASSED + 3 XFAIL) |
+
+- **5 PASS**: 命中返回最佳匹配 + 候选排序、无匹配回退 `fallback_reason=no_match`、`top_n` 候选数量、歌曲库为空 → `no_profiles`
+- **3 XFAIL** (标注对应单元测试): 短音频/嘈杂音频/100+ 歌曲首次预计算 — 无法在 CI 生成稳定真实音频 → 由 `test_match_feature_extractor.py` / `test_auto_match_use_case.py` 单元覆盖
 
 标记: v7.3.1 animations/offline/responsive scenarios 使用 `@pytest.mark.browser` (需要 Playwright)
 

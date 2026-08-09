@@ -1,12 +1,46 @@
-# 测试结果记录 v7.13
+# 测试结果记录 v7.14
 
-> 更新: 2026-08-08 | 537 tests 100% GREEN | 分支: `main`
+> 更新: 2026-08-09 | 633 tests 100% GREEN (实测 647 含 WS) | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
 ---
 
-## v7.13 测试统计
+## v7.14 测试统计
+
+### 生产测试 (全部 GREEN)
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| DDD 领域 (scorers + value objects + comparison + songs + songs_pitch + song_match + ScoringWeights) | 352 | ✅ 100% | 6 scorers + 音色调整 + comparison + songs + songs_pitch (v7.13) + **song_match (v7.14: +79)** + ScoringWeights 值对象 |
+| DDD 基建 (extractors + orchestrator + ABI + sqlite) | 143 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 + **sqlite_song_match_profile_repo (v7.14: +11, 含审查回归 +2)** |
+| DDD 对齐 + Flag bridge | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
+| 中间件 | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
+| **DDD 合计** | **541** | **100% GREEN** | (~25s) |
+| FastAPI 集成 | 71 | ✅ 100% | test_api_routes (19) + test_songs_api (20) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (3) + **song_match_api (6, v7.14)** |
+| WebSocket 集成 | 14 | ✅ 100% | test_ws_score (10) + ws_pitch_update (4, v7.13) |
+| 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
+| **生产代码总计** | **633** | **100% GREEN** | (DDD 541 + 集成 71 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
+| 真实音频回归 | 28 | ⚠️ 24 PASS + 4 FAIL | 4 失败均为 breath 维度基线漂移 (BASELINE_V7_6 阈值过紧, 既有) — 见 PROJECT_STATUS |
+| BDD (18 step files) | 187 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; pitch-realtime 25X; **auto-match 5P+3X (v7.14)**; 4 features 缺 step defs |
+| 前端 Vitest | 297 | ✅ 100% | stores 85 + pitch utils 212 (v7.14 +11 songMatch.store) |
+| vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
+| Vite build | ~16s | ✅ | 生产构建 |
+
+### v7.14 新增/移除测试明细
+
+| 文件 | 变化 | 覆盖 |
+|------|:-----:|------|
+| `test_song_match_value_objects.py` | +13 | v7.14 MatchFeatures/SongMatchProfile/MatchCandidate/MatchResult (frozen/默认/序列化) |
+| `test_song_match_service.py` | +54 | v7.14 确定性置信度 (精确/BPM±9%/Key+2/Top-3 排序/no_match/空库/超时 partial/短音频) + K-S 24 键检测参数化 (13 键 + 升号/降号 + 混淆) |
+| `test_match_feature_extractor.py` | +6 | v7.14 合成音频 (节拍器 BPM + 正弦根音) 提取校验; 静音/噪声/短音频容错 |
+| `test_auto_match_use_case.py` | +6 | v7.14 编排/missing profile 生成/超时 partial/失败跳过/空库 fallback |
+| `test_sqlite_song_match_profile_repo.py` | +9 | v7.14 profile CRUD/upsert/chroma JSON 往返 + 审查回归 (非 12 维/空 chroma → 零向量) |
+| `test_sqlite_song_repo.py` | +2 | v7.14 list_all_with_filepath |
+| `test_song_match_api.py` | +6 | v7.14 POST /songs/match (成功/top_n/无匹配 fallback/400) + upload auto_match 开/关 |
+| `frontend/tests/unit/stores/songMatch.store.test.ts` | +11 | v7.14 matchAudio/selectCandidate/compareWithSelected/fetchUserPitch (mock apiClient) |
+
+## v7.13 测试统计 (历史)
 
 ### 生产测试 (全部 GREEN)
 
