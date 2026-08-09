@@ -1,4 +1,4 @@
-# API 接口文档 v7.12
+# API 接口文档 v7.13
 
 > FastAPI 为主 (Flask 已移除 v7.6)
 
@@ -27,6 +27,8 @@
 | GET | `/api/v1/songs/{id}` | 歌曲详情 | < 50ms |
 | POST | `/api/v1/songs` | 添加歌曲 (multipart; v7.12: +`vocal_range` 音域) | < 200ms |
 | DELETE | `/api/v1/songs/{id}` | 删除歌曲 | < 100ms |
+| GET | `/api/v1/songs/{id}/pitch` | 歌曲参考音高 F0 曲线 (v7.13, 提取 + 缓存) | < 500ms |
+| POST | `/api/v1/songs/{id}/compare` | 上传录音与选中歌曲 DTW 对比 (v7.13) | < 60s |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | < 50ms |
 | GET | `/api/v1/scoring/presets` | 评分权重预设 (v7.11): 默认 + 4 风格 | < 50ms |
 | POST | `/api/v1/scoring/apply-weights` | 维度分数+权重→总分/等级 (v7.11, 纯前端重算) | < 50ms |
@@ -50,7 +52,7 @@
 
 | 路径 | 说明 |
 |------|------|
-| `/ws/v1/score` | 实时流式评分 (AudioWorklet → Float32Array → numpy.frombuffer) |
+| `/ws/v1/score` | 实时流式评分 (AudioWorklet → Float32Array → numpy.frombuffer) + v7.13 `pitch_update` 事件 |
 
 ### WS start 消息 (v7.12: 选歌录音携带参考歌曲)
 
@@ -59,6 +61,10 @@
 ```
 
 `song_id` 可选 — 选歌录音时前端传入, 服务端存入 `StreamingSession.song_id` (后续用于参考音高对比/DTW 评分)。
+
+### WS pitch_update 事件 (v7.13)
+
+录音过程中服务端每 2s 增量推送 `pitch_update` (样本驱动 PYIN 提取, 绝对时间轴), 前端将用户音高曲线实时渲染到 Canvas。它是用户音高曲线的唯一数据源 (前端无本地音高检测), 与参考 F0 曲线 (`GET /songs/{id}/pitch`) 配合完成实时偏差对比。
 
 ## 基础端点
 

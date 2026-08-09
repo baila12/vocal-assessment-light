@@ -1,6 +1,6 @@
-# 测试驱动开发 (TDD) 规范 v7.11
+# 测试驱动开发 (TDD) 规范 v7.13
 
-> 更新: 2026-08-06 | 509 tests 100% GREEN | pytest + Vitest
+> 更新: 2026-08-08 | 537 tests 100% GREEN | pytest + Vitest
 
 ---
 
@@ -34,41 +34,43 @@
 
 ---
 
-## 2. 测试金字塔 (v7.11 实际)
+## 2. 测试金字塔 (v7.13 实际)
 
 ```
          ╱   E2E   ╲         Playwright, ~19 files, 按需
         ╱────────────╲
-       ╱   BDD        ╲       pytest-bdd, 16 step files, 21 feature files
+       ╱   BDD        ╲       pytest-bdd, 17 step files, 21 feature files
       ╱──────────────────╲
-     ╱   Integration +       ╲   FastAPI routes + Songs + Scoring, 50 tests (不含回归)
+     ╱   Integration +       ╲   FastAPI routes + Songs + Scoring + SongsPitch, 65 tests (不含回归)
     ╱    Extended              ╲  DTW/repos, 21 tests (v7.12 -calibrator)
    ╱──────────────────────────────╲
-  ╱   Unit (DDD domain + infra     ╲  435 tests — 核心, 最快
+  ╱   Unit (DDD domain + infra     ╲  451 tests — 核心, 最快
  ╱    + middleware + alignment)      ╲
 ╱──────────────────────────────────────╲
 ```
 
 | 层级 | 测试数 | 速度 | 通过率 |
 |------|:-----:|------|:---:|
-| Unit (DDD 领域: 7 scorers + comparison + songs + ScoringWeights) | 257 | < 14s | 100% |
+| Unit (DDD 领域: 6 scorers + 音色调整 + comparison + songs + songs_pitch + ScoringWeights) | 273 | < 14s | 100% |
 | Unit (DDD 基建: 10 extractors + orchestrator + audio_utils + ABI + sqlite) | 132 | < 10s | 100% |
 | Unit (中间件: SecurityHeaders + RateLimit + MaxBodySize) | 23 | < 1s | 100% |
 | Unit (DDD 对齐 + extraction flag + flag bridge) | 23 | < 1s | 100% |
 | Integration (FastAPI routes) | 19 | ~8s | 100% |
 | Integration (Songs API) | 20 | ~6s | 100% | (v7.12 +3 vocal_range)
 | Integration (Scoring API) 🆕 v7.11 | 14 | ~5s | 100% |
-| Integration (WebSocket) | 10 | ~5s | 100% | (v7.12 +2 song_id)
+| Integration (SongsPitch API) 🆕 v7.13 | 9 | ~5s | 100% | (test_song_pitch_api)
+| Integration (ComparePitch API) 🆕 v7.13 P5 | 3 | ~5s | 100% | (test_compare_pitch_api)
+| Integration (WebSocket) | 14 | ~5s | 100% | (v7.12 +2 song_id, v7.13 +4 pitch_update)
 | Extended (DTW/repos) | 21 | ~6s | 100% | (v7.12 删 test_score_calibrator)
 | Real Audio Regression | 28 | ~27min | 100% |
-| **生产代码合计** | **509** | **~55s (不含回归/WS)** | **100% GREEN** |
+| **生产代码合计** | **537** | **~55s (不含回归/WS)** | **100% GREEN** |
 | TDD (future features) | 1 skip + 4 xfail | < 1s | ⏭️ |
-| BDD | 16 step files | < 60s | ✅ |
-| Frontend (Vitest) | 68 | < 5s | 100% |
+| BDD | 17 step files | < 60s | ✅ |
+| Frontend (Vitest) | 286 | < 5s | 100% |
 
 ---
 
-## 3. 测试文件组织 (v7.11 实际)
+## 3. 测试文件组织 (v7.13 实际)
 
 ```
 tests/
@@ -104,20 +106,22 @@ tests/
 │
 ├── integration/
 │   ├── test_api_routes.py                # FastAPI endpoints (19 tests)
-│   ├── test_songs_api.py                 # v7.9 歌曲库 API (17 tests, 含 TestAudioPlayback)
+│   ├── test_songs_api.py                 # v7.9 歌曲库 API (20 tests, 含 TestAudioPlayback)
 │   ├── test_scoring_api.py               # 🆕 v7.11 评分权重 API (14 tests)
-│   ├── test_ws_score.py                  # WebSocket 实时评分 (8 tests)
+│   ├── test_song_pitch_api.py            # 🆕 v7.13 参考音高 API (9 tests)
+│   ├── test_compare_pitch_api.py         # 🆕 v7.13 P5 compare 音高曲线 (3 tests)
+│   ├── test_ws_score.py                  # WebSocket 实时评分 (10 tests)
+│   ├── test_ws_pitch_update.py           # 🆕 v7.13 WS pitch_update (4 tests)
 │   └── test_real_audio_regression.py     # 真实音频基线 (28 tests)
 │
 ├── extended/                             # 需完整音频栈
 │   ├── test_comparison_dtw.py
-│   ├── test_repositories.py
-│   └── test_score_calibrator.py
+│   └── test_repositories.py
 │
 ├── bdd/                                  # BDD (见 BDD.md)
 │   ├── conftest.py
 │   ├── features/ (21 .feature 文件)
-│   └── steps/ (16 step files)
+│   └── steps/ (17 step files)
 │
 ├── tdd/                                  # 未来特性 (按需实现)
 │   ├── conftest.py
@@ -165,7 +169,7 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 
 ---
 
-## 5. 覆盖率矩阵 (v7.11 实际)
+## 5. 覆盖率矩阵 (v7.13 实际)
 
 | 模块 | 测试文件 | 测试数 |
 |------|---------|:-----:|
@@ -177,27 +181,30 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 | ArtistryScorer | `test_artistry_scorer.py` | ~12 |
 | TimbreAdjuster | `test_timbre_adjuster.py` | ~12 |
 | ScoringWeights 🆕 v7.11 | `test_scoring_weights.py` | 25 |
+| SongsPitch 🆕 v7.13 | `test_song_pitch_vo.py` + `test_song_pitch_service.py` + `test_get_song_pitch_usecase.py` | 16 |
 | ScoringDomainService | `test_scoring_domain_service.py` | ~12 |
 | Comparison (DDD) | `test_comparison_scoring.py` + `test_comparison_value_objects.py` | ~30 |
 | Audiofeat enhancement | `test_audiofeat_extractor.py` + scorer audiofeat tests | ~40 |
 | 10 Extractors | `test_*_extractor.py` (7 files) + `test_orchestrator.py` + `test_audio_utils.py` + `test_batch4_extractors.py` | ~132 |
 | Middleware | `test_middleware.py` | 23 |
 | DDD Alignment + Flag | `test_ddd_alignment.py` + `test_ddd_extraction_flag.py` + `test_flag_bridge.py` | 23 |
-| **DDD Unit 合计** | | **435** |
+| **DDD Unit 合计** | | **451** |
 | FastAPI Integration | `test_api_routes.py` | 19 |
-| Songs API Integration | `test_songs_api.py` | 17 |
+| Songs API Integration | `test_songs_api.py` | 20 |
 | Scoring API Integration 🆕 v7.11 | `test_scoring_api.py` | 14 |
-| WebSocket Integration | `test_ws_score.py` | 8 |
+| SongsPitch API Integration 🆕 v7.13 | `test_song_pitch_api.py` | 9 |
+| ComparePitch API Integration 🆕 v7.13 P5 | `test_compare_pitch_api.py` | 3 |
+| WebSocket Integration | `test_ws_score.py` + `test_ws_pitch_update.py` | 10 + 4 |
 | Extended | `test_comparison_dtw.py` + `test_repositories.py` | 21 | (v7.12 删 test_score_calibrator)
 | Real Audio Regression | `test_real_audio_regression.py` | 28 |
-| **生产代码合计** | | **509** (DDD 435 + 集成 53 + 扩展 21; 不含 WS 10 / 真实音频回归 28) |
+| **生产代码合计** | | **537** (DDD 451 + 集成 65 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
 
 ---
 
 ## 6. 运行命令
 
 ```bash
-# DDD 核心 (435 tests, ~25s) — 默认单元测试命令
+# DDD 核心 (451 tests, ~25s) — 默认单元测试命令
 # ⚠️ 不直接运行 pytest tests/unit/ (PyTorch C 扩展冲突 → 崩溃), 必须使用分组命令:
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
@@ -357,16 +364,33 @@ class ScoringWeights:
 ## 9. 前端测试 (Vitest)
 
 ```
-frontend/tests/unit/stores/
+frontend/tests/unit/stores/            # 6 store suites (74 tests)
 ├── assessment.test.ts    # Assessment store
 ├── preferences.test.ts   # Preferences store
+├── history.test.ts       # History store
 ├── songs.test.ts         # v7.10 Songs store (24 tests)
-└── scoring.test.ts       # 🆕 v7.11 Scoring store (11 tests)
+├── scoring.test.ts       # 🆕 v7.11 Scoring store (11 tests)
+└── songsPitch.test.ts    # 🆕 v7.13 songs.store 音准增强 (fetchSongPitch/compareWithSong)
 
-68/68 tests passed (5 suites)
+frontend/tests/unit/utils/             # 13 pure-TS suites (212 tests)
+├── pitchDeviation.test.ts    # 🆕 v7.13 偏差着色/八度跳变/对齐
+├── pitchScroll.test.ts       # 🆕 v7.13 滚动窗口
+├── pitchScrollTicks.test.ts  # 🆕 v7.13 Y 轴刻度
+├── pitchNotes.test.ts        # 🆕 v7.13 钢琴键映射
+├── pitchStats.test.ts        # 🆕 v7.13 统计面板 + 低对齐排除
+├── pitchPlayback.test.ts     # 🆕 v7.13 回放控制/降级目标
+├── pitchLive.test.ts         # 🆕 v7.13 录音中实时对比
+├── pitchSegments.test.ts     # 🆕 v7.13 回放分析 (问题段/逐句)
+├── pitchKeyboard.test.ts     # 🆕 v7.13 P5 键盘快捷键
+├── pitchFps.test.ts          # 🆕 v7.13 P5 FPS 监控/降级状态机
+├── pitchHeatmap.test.ts      # 🆕 v7.13 P5 热力图分桶
+├── pitchScreenshot.test.ts   # 🆕 v7.13 P5 截图导出
+└── pitchCompareDraw.test.ts  # 🆕 v7.13 P5 双轨绘制/性能模式
+
+286 tests passed (19 files: stores 74 + utils 212)
 ```
 
-> vue-tsc: **0 errors** | Vite build: **8.9s**
+> vue-tsc: **0 errors** | Vite build: **~16s**
 
 ---
 

@@ -19,7 +19,7 @@
 | 文档 | 说明 |
 |------|------|
 | [2-technical/ARCHITECTURE.md](2-technical/ARCHITECTURE.md) | v7.13 DDD 四层架构 + 评分权重领域 + 歌曲库领域 + 选歌录音 + 实时音准对比 + GSAP 动效 + 安全中间件 |
-| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | API 契约 (21 paths + WebSocket) |
+| [2-technical/API_CONTRACT.md](2-technical/API_CONTRACT.md) | API 契约 (22 paths + WebSocket) |
 | [2-technical/SCORING.md](2-technical/SCORING.md) | 六维评分 + audiofeat + GNE 增强 + v7.9 真实音频基线 |
 | [2-technical/API.md](2-technical/API.md) | API 参考文档 |
 | [2-technical/PERFORMANCE_ANALYSIS_AND_OPTIMIZATION.md](2-technical/PERFORMANCE_ANALYSIS_AND_OPTIMIZATION.md) | 性能分析与优化 |
@@ -33,13 +33,13 @@
 | 文档 | 说明 |
 |------|------|
 | [3-quality/TDD.md](3-quality/TDD.md) | TDD 规范 |
-| [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景 (21 Feature files, 16 step files) |
+| [3-quality/BDD.md](3-quality/BDD.md) | BDD 场景 (21 Feature files, 17 step files) |
 
 ### 测试体系状态 (v7.13)
 
 | 层级 | 测试数 | 通过率 | 说明 |
 |------|:-----:|--------|------|
-| DDD 单元测试 (domain + infrastructure + alignment + flag + middleware) | 451 | ✅ 100% | 7 scorers + 10 extractors + songs/songs_pitch domain + ScoringWeights + ABI + middleware |
+| DDD 单元测试 (domain + infrastructure + alignment + flag + middleware) | 451 | ✅ 100% | 6 scorers + 音色调整 + 10 extractors + songs/songs_pitch domain + ScoringWeights + ABI + middleware |
 | FastAPI 集成测试 | 65 | ✅ 100% | test_api_routes (19) + test_songs_api (20) + scoring API (14) + songs_pitch_api (9) + compare_pitch_api (3, v7.13 P5) (独立进程) |
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ (独立进程; v7.12 删 test_score_calibrator) |
 | **生产代码总计** | **537** | **100% GREEN** | |

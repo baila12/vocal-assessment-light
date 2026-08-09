@@ -25,6 +25,9 @@
 - **音准回放控制** - 录音后回放: 播放/暂停/点击拖拽跳转/倍速 (0.5x/1x/1.5x)/A-B 循环, 滚动窗口播放位置居中 (v7.13 Phase 2)
 - **录音中实时对比** - 演唱中 live 模式: 用户音高圆点 2s 淡出 + 偏差背景色带 + 当前偏差值/趋势箭头 (v7.13 Phase 3)
 - **录音后回放分析** - 回放时问题段落红色高亮 + 逐句评分药丸 + 音准统计面板 (精准/略偏/跑调, 最高/最低音) (v7.13 Phase 4)
+- **对比分析双轨叠加** - CompareView 标准虚线 + 用户动态着色实线双轨叠加, 偏差三色填色 + 底部热力图条 + 缩略导航条, 点击跳转 (v7.13 Phase 5)
+- **性能降级保护** - 低帧率自动降级渲染 (抗锯齿关/着色降频/网格关), UI 性能模式指示器 + 手动切回 (v7.13 Phase 5)
+- **对比截图与快捷键** - 音准对比 PNG 截图导出 (时间戳水印 + DPR 原分辨率) + 键盘快捷键 (Space/←→/R/S/1/2) (v7.13 Phase 5)
 - **导出报告** - PDF/图片格式报告
 
 ### 对比分析功能
@@ -88,7 +91,7 @@ python backend/main.py              # FastAPI :8000
 vocal_assessment_light/
 ├── backend/              # FastAPI DDD 后端
 │   ├── domain/           # 领域层
-│   │   ├── assessment/   # 7 scorers (六维+音色)
+│   │   ├── assessment/   # 6 scorers (六维) + 音色调整
 │   │   ├── audio/        # 10 特征提取模块
 │   │   ├── comparison/   # 对比分析领域
 │   │   ├── songs/        # 歌曲库领域 (v7.9)
@@ -117,6 +120,8 @@ vocal_assessment_light/
 | `/api/v1/extract-pitch` | POST | 基频提取 |
 | `/api/v1/report` | POST | 生成评估报告 |
 | `/api/v1/flags` | GET | Feature Flags 状态 |
+| `/api/v1/scoring/presets` | GET | 评分权重预设 — 默认 + 4 风格 (v7.11) |
+| `/api/v1/scoring/apply-weights` | POST | 维度分数+权重→总分/等级 — 纯前端重算 (v7.11) |
 | `/api/v1/history` | GET/POST/DELETE | 历史记录 CRUD |
 | `/api/v1/songs` | POST/GET/GET/DELETE | 歌曲库管理 (v7.9) |
 | `/api/v1/songs/{id}/pitch` | GET | 歌曲参考音高 F0 曲线 (v7.13) |

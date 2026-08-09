@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-07 | 版本: **v7.13** | 分支: `main`
+> 更新: 2026-08-08 | 版本: **v7.13** | 分支: `main`
 
 ---
 
@@ -11,7 +11,7 @@ Vue 3 SPA (frontend/dist/)  →  FastAPI (:8000)
                                       │
     ┌─────────────────────────────────┼──────────────────────────┐
     │  backend/ (DDD 四层)            │  旧服务层 (残留)           │
-    │  domain/assessment/ (7 scorers) │  services/dl_services/ (11)│
+    │  domain/assessment/ (6 scorers)  │  services/dl_services/ (11)│
     │  domain/audio/ (14 模块自包含)   │  services/audio_service.py │
     │  domain/comparison/ (v7.3)      │  api/business/ (bridge)   │
     │  domain/songs/ (v7.9)           │                           │
@@ -257,11 +257,11 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | DDD 对齐 + Flag bridge (test_ddd_alignment/extraction_flag/flag_bridge) | 23 | ✅ |
 | 中间件 | 23 | ✅ |
 | **DDD 合计** | **451** | **100% GREEN** |
-| FastAPI 集成 | 62 | ✅ | (api_routes 19 + songs_api 20 + scoring_api 14 + **songs_pitch_api 9**)
+| FastAPI 集成 | 65 | ✅ | (api_routes 19 + songs_api 20 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 3)
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
-| **生产代码总计** | **534** | **100% GREEN** |
+| **生产代码总计** | **537** | **100% GREEN** |
 
-> 注: 生产合计 = DDD 451 + 集成 62 + 扩展 21 = 534 (独立进程实测)。另含 WebSocket 集成 14 (v7.12 10 + v7.13 pitch_update 4) 与真实音频回归 28 (BASELINE_V7_6), 不计入生产代码合计。
+> 注: 生产合计 = DDD 451 + 集成 65 + 扩展 21 = 537 (独立进程实测)。另含 WebSocket 集成 14 (v7.12 10 + v7.13 pitch_update 4) 与真实音频回归 28 (BASELINE_V7_6), 不计入生产代码合计。
 
 ### 真实音频回归
 
@@ -407,7 +407,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 默认测试 (435 tests, ~16s)
+# 默认测试 (451 tests, ~16s)
 pytest tests/unit/domain/ tests/unit/infrastructure/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
@@ -418,7 +418,7 @@ pytest tests/unit/domain/ tests/unit/infrastructure/ \
 pytest tests/integration/test_api_routes.py -v         # FastAPI (19 tests)
 
 # 扩展测试 (独立进程, ~5s)
-pytest tests/extended/ -v                              # DTW/repos/etc (34 tests)
+pytest tests/extended/ -v                              # DTW/repos/etc (21 tests)
 
 # 真实音频回归 (独立进程, ~27min)
 pytest tests/integration/test_real_audio_regression.py -v

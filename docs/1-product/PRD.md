@@ -1,6 +1,6 @@
-# 声乐评估系统 (VAS) — 产品需求文档 v7.12
+# 声乐评估系统 (VAS) — 产品需求文档 v7.13
 
-> 版本: v7.12 | 日期: 2026-08-06 | 状态: 活跃开发
+> 版本: v7.13 | 日期: 2026-08-08 | 状态: 活跃开发
 >
 > **关联文档**: [GOALS.md](GOALS.md) | [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | [SCORING.md](../2-technical/SCORING.md)
 
@@ -102,7 +102,7 @@
 - 每 2s 计算 incremental score
 - 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL)
 
-### 3.5 近期新增 (v7.10 + v7.11)
+### 3.5 近期新增 (v7.9 → v7.13)
 
 | 功能 | 说明 |
 |------|------|
@@ -111,14 +111,13 @@
 | 前端权重面板 | scoring.store.ts + ScoringWeightsPanel.vue (预设单选 + 六维滑块 + 实时总和校验 + 自动归一化 + 对比重算含 vs 原总分差值) + ReportView 集成 (v7.11) |
 | BDD 基建修复 | conftest base_url :5000→:8000 (FastAPI 服务 frontend/dist) + api_client Flask→FastAPI TestClient + 前端 window.__store 测试钩子 (v7.11) |
 | 选歌录音 MVP | 曲库选歌 → `/sing/:songId` → WS 携带 song_id; 后端 `SongMetadata.vocal_range` (v7.12) |
+| 实时音准对比子系统 | 参考音高 API (GET /songs/{id}/pitch) + 上传录音 DTW 对比 (POST /songs/{id}/compare) + WS pitch_update 实时推送 + 音准偏差着色/滚动窗口/回放控制 + 录音中实时对比 + 录音后回放分析 + CompareView 双轨叠加/热力图/性能降级/截图/快捷键 (v7.13 Phase 1-5) |
 | 自动曲库匹配 (auto-match) | 计划中：SQLite 预提取特征 + 自动匹配用户翻唱 |
 
 ### 3.6 计划中 (未实现)
 
 | 功能 | 说明 |
 |------|------|
-| 选歌录音完整版 | 选歌 → 录音 → 实时音高参考线叠加 → DTW 流式评分 (v7.12 已 MVP: 选歌+携带 song_id; 参考线/DTW 后续增强) |
-| 实时音准对比 | 类似全民K歌：双曲线叠加，偏差绿/橙/红着色 |
 | 非阻塞分析 | SSE 进度推送，分析中可播放音频，跨页面不中断 |
 | Electron 桌面打包 | electron-builder + 嵌入式 Python，<2s 启动 |
 
@@ -151,7 +150,7 @@
 | 指标 | 当前 |
 |------|:---:|
 | 非人声归零率 | 10/10 (100%) |
-| 单元测试通过率 | 509/509 (100%) |
+| 单元测试通过率 | 537/537 (100%) |
 | Quick/Pro 同音频分差 | < 10% |
 
 ### 4.3 兼容性
@@ -175,7 +174,7 @@
 
 ## 5. 技术栈
 
-| 层 | 当前 (v7.11) |
+| 层 | 当前 (v7.13) |
 |------|------|
 | 后端框架 | FastAPI (uvicorn, workers=1) |
 | 音频处理 | librosa + parselmouth + pyworld |
@@ -190,7 +189,7 @@
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings |
-| 测试 | pytest 509 + Vitest 68 |
+| 测试 | pytest 537 + Vitest 286 |
 
 ---
 
@@ -198,6 +197,8 @@
 
 | 版本 | 日期 | 主题 |
 |------|------|------|
+| **v7.13** | **2026-08-08** | **实时音准对比子系统 Phase 1-5: 参考音高 API + WS pitch_update + 偏差着色/滚动/回放 + 录音中实时对比 + 回放分析 + CompareView 双轨叠加/热力图/性能降级/截图/快捷键** |
+| **v7.12** | **2026-08-06** | **选歌录音 MVP (/sing/:songId + WS song_id + vocal_range) + BDD 基建修复 + dl_services 死代码清理** |
 | v6.3 | 2026-07-20 | 项目结构重组 (删除 PyQt5, 清理根目录) |
 | v7.0 | 2026-07-21 | FastAPI + Vue 3 + Element Plus + 六维评分 + DDD 四层 |
 | v7.1 | 2026-07-23 | 绞杀者内部化 (13/13 提取器自包含) + FCPE 集成 |

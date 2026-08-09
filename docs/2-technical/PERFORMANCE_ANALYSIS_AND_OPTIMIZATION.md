@@ -67,7 +67,7 @@ HTTP POST /api/upload  (或 /api/v1/assessment)
 │     └─ 3f. [optional] audiofeat (130+ features, ~3-5s)
 │
 ├─ 4. 评分计算 (ScoringOrchestrator)          ← <0.5s
-│     └─ 7 scorers + weighted total + level + timbre
+│     └─ 6 scorers + weighted total + level + timbre
 │
 ├─ 5. [Pro only] 辅助分析
 │     ├─ 可视化生成 (matplotlib, ~8s)
@@ -156,11 +156,12 @@ Total GPU        █████████████████████
 | `demucs htdemucs_ft` | Hybrid Transformer Demucs | 120s CPU / 25s GPU | ~800MB |
 | `demucs htdemucs` | Hybrid Transformer Demucs (full) | 300s+ CPU / 60s GPU | ~1.2GB |
 
-**当前状态**: ❌ 最大 Pro 瓶颈。通过**子进程 (subprocess.run)** 调用 CLI，而非 Python API。这导致：
-- 额外进程启动开销
-- 结果通过文件系统 I/O 传递 (而非内存)
-- 无法利用 in-process GPU 共享
-- 超时硬编码 600s (对短音频浪费)
+**当前状态**: ❌ 最大 Pro 瓶颈。Demucs 通过**进程内 Python API** 调用 (`from demucs import separate; separate.main([...])`, 见 `backend/infrastructure/audio/demucs_separator.py`)——非子进程 CLI, 无额外进程启动开销; 但存在:
+- **模型冷启动重载**: 每次分离请求重新加载 htdemucs_ft 权重 (~800MB), CPU 加载 + 推理合计 120s / GPU 25s
+- **文件系统传递**: 分离结果经输出目录写入再读取 (vocals.wav/no_vocals.wav), 未走内存通道
+- 无跨请求模型复用 (每次调用重新 `import demucs` + GPU 检测), 无法利用 in-process GPU 共享
+
+**优化方向**: 将 Demucs 模型提升为进程级单例 (懒加载, 首次加载后跨请求复用), 消除每次请求的权重重载开销; 分离调用无显式超时兜底, 短音频可按需裁剪处理预算。
 
 ### 2.5 DDD 特征提取
 

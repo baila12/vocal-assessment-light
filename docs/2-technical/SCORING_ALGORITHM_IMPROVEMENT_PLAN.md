@@ -192,7 +192,7 @@ Technique 系统性低于其他维度 40-60 分。根因分析：
 
 [backend/domain/assessment/technique_scorer.py](backend/domain/assessment/technique_scorer.py)
 
-### 当前代码 (L164-195)
+### 修改前代码 (v7.5 基线, L164-195)
 
 ```python
 @staticmethod
@@ -455,7 +455,7 @@ def _calc_articulation(
 
 [backend/domain/assessment/artistry_scorer.py](backend/domain/assessment/artistry_scorer.py)
 
-### 当前代码 (L66-71)
+### 修改前代码 (v7.5 基线, L66-71)
 
 ```python
 @staticmethod
@@ -527,7 +527,7 @@ def _calc_vibrato(
 
 [backend/domain/assessment/value_objects.py](backend/domain/assessment/value_objects.py)
 
-### 当前代码
+### 修改前代码 (v7.5 基线)
 
 ```python
 class MuscleStrengthScore:

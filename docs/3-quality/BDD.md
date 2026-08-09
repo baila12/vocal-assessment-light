@@ -1,6 +1,6 @@
-# 行为驱动开发 (BDD) 规范 v7.12
+# 行为驱动开发 (BDD) 规范 v7.13
 
-> 更新: 2026-08-06 | 16 step files | 21 feature files (15 已实现 + 6 规划中) | scoring-config.feature v7.11: 6 维契约更新, API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | **v7.12: upload.feature 数据补齐 (vocals.wav + KMP 修复) + animations/sing-song-select 迁移 Vue 3 data-test 选择器**
+> 更新: 2026-08-08 | 17 step files | 21 feature files (16 已实现 + 5 规划中) | scoring-config.feature v7.11: 6 维契约更新, API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | **v7.12: upload.feature 数据补齐 (vocals.wav + KMP 修复) + animations/sing-song-select 迁移 Vue 3 data-test 选择器** | **v7.13: pitch-realtime.feature step defs 骨架落地 (25 XFAIL, 每条标注对应纯 TS Vitest 测试)**
 
 ---
 
@@ -38,13 +38,13 @@
 
 ---
 
-## 2. 目录结构 (v7.12 实际)
+## 2. 目录结构 (v7.13 实际)
 
 ```
 tests/bdd/
 ├── features/                         # Gherkin .feature 文件 (21 个)
 │   │
-│   │  === 已实现 (有 Step Defs, 15 个) ===
+│   │  === 已实现 (有 Step Defs, 16 个) ===
 │   ├── upload.feature                # 上传与六维评分
 │   ├── compare.feature               # DTW 对比分析
 │   ├── differentiation.feature       # 评分区分度验证
@@ -59,17 +59,17 @@ tests/bdd/
 │   ├── responsive.feature            # 响应式布局 (v7.3.1)
 │   ├── dtw-demotion.feature          # v7.8: DTW 降级为特征提供者 (18 scenarios)
 │   ├── scoring-config.feature        # v7.8: 评分配置可定制 (14 scenarios)
-│   └── database.feature              # 🆕 v7.9: 标准歌曲数据库 (10 scenarios, 4P+6XF)
+│   ├── database.feature              # 🆕 v7.9: 标准歌曲数据库 (10 scenarios, 4P+6XF)
+│   └── pitch-realtime.feature        # 🆕 v7.13: 实时音准对比 (25 scenarios, 全部 XFAIL — 无真实音频, 每条标注对应纯 TS Vitest)
 │   │
-│   │  === 规划中 (无 Step Defs, 6 个) ===
+│   │  === 规划中 (无 Step Defs, 5 个) ===
 │   ├── auto-match.feature            # 上传自动匹配
 │   ├── song-select.feature           # 选歌录音完整流程
 │   ├── nonblocking-analysis.feature  # 非阻塞分析 (SSE)
-│   ├── pitch-realtime.feature        # 实时音准对比
 │   ├── realtime-analysis.feature     # 录音实时后台分析
 │   └── multi-dim-analysis.feature    # 多维度对比分析
 │
-├── steps/                            # Step 实现 (16 files)
+├── steps/                            # Step 实现 (17 files)
 │   ├── test_upload_steps.py          # 上传 + 评分
 │   ├── test_compare_steps.py         # DTW 对比
 │   ├── test_compare_ui_steps.py      # 对比 UI
@@ -80,12 +80,13 @@ tests/bdd/
 │   ├── test_sing_song_select_steps.py # 演唱选歌
 │   ├── test_song_library_steps.py    # 曲库管理
 │   ├── test_spa_steps.py             # SPA 通用步骤
-│   ├── test_animations_steps.py      # v7.3.1: 16 GSAP scenarios (⚠️ 旧架构)
+│   ├── test_animations_steps.py      # GSAP 动画 (v7.12: 迁移 Vue 3 data-test, 7 PASS + 9 XFAIL)
 │   ├── test_offline_steps.py         # v7.3.1: 5 offline scenarios
 │   ├── test_responsive_steps.py      # v7.3.1: 8 responsive scenarios
 │   ├── test_dtw_demotion_steps.py    # v7.8: 18 DTW scenarios
 │   ├── test_scoring_config_steps.py  # v7.8: 14 评分配置 scenarios
-│   └── test_database_steps.py        # 🆕 v7.9: 10 歌曲库 scenarios (4PASS+6XFALL)
+│   ├── test_database_steps.py        # 🆕 v7.9: 10 歌曲库 scenarios (4PASS+6XFALL)
+│   └── test_pitch_realtime_steps.py  # 🆕 v7.13: 实时音准对比 step defs 骨架 (25 XFAIL, 指向纯 TS Vitest)
 │
 ├── conftest.py                       # BDD fixtures + Playwright
 └── __init__.py

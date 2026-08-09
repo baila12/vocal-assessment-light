@@ -1,4 +1,4 @@
-# 前端技术文档 v7.12
+# 前端技术文档 v7.13
 
 > Vue 3.5 + Element Plus 2.14 + Pinia 2.3 + GSAP 3.15 + Chart.js 4.5 + Electron 28
 
@@ -33,7 +33,7 @@
 
 ---
 
-## GSAP 动效系统 (v7.8 全站, v7.12 保持)
+## GSAP 动效系统 (v7.8 全站, v7.13 保持)
 
 ### Composable: `useGsap.ts`
 
@@ -64,9 +64,8 @@
 | `history.store.ts` | 历史记录 (records, filter, pagination, batch select) |
 | `preferences.store.ts` | 用户偏好 (theme, evalMode, autoPlay) — localStorage 持久化 |
 | `flags.store.ts` | 算法状态 (GPU, audiofeat, DL models, weights) — v7.7 |
-| `songs.store.ts` | 标准歌曲库 (songs, pagination, filters, CRUD) — v7.10 |
+| `songs.store.ts` | 标准歌曲库 (songs, pagination, filters, CRUD) — v7.10; 选歌录音复用 — SingView 选歌区候选列表 (v7.12); fetchSongPitch/compareWithSong 音准增强 (v7.13) |
 | `scoring.store.ts` | 评分权重可配置 (presets, sliders, validation, recalc) — v7.11 |
-| `songs.store.ts` | 选歌录音复用 — SingView 选歌区候选列表 (v7.12) |
 
 ---
 
@@ -82,9 +81,9 @@
 ## 构建基准
 
 ```
-Vitest: 68/68 tests passed (5 suites: songs ×24 + scoring ×11 + 33 others)
+Vitest: 286 tests passed (19 files: stores 74 + pitch/utils 212)
 TypeScript: Zero errors (vue-tsc --noEmit)
-Vite build: ~8.9s
+Vite build: ~16s
 ```
 
 ## 性能要求

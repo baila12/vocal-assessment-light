@@ -12,7 +12,7 @@
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| DDD 领域 (scorers + value objects + comparison + songs + songs_pitch + ScoringWeights) | 273 | ✅ 100% | 7 scorers + comparison + songs + songs_pitch (v7.13) + ScoringWeights 值对象 |
+| DDD 领域 (scorers + value objects + comparison + songs + songs_pitch + ScoringWeights) | 273 | ✅ 100% | 6 scorers + 音色调整 + comparison + songs + songs_pitch (v7.13) + ScoringWeights 值对象 |
 | DDD 基建 (extractors + orchestrator + ABI + sqlite) | 132 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 |
 | DDD 对齐 + Flag bridge | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
 | 中间件 | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |

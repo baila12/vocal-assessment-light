@@ -35,7 +35,7 @@
 │  │  ├─ audio/             └─ history/                         │ │
 │  │  │   ├─ librosa_loader                                     │ │
 │  │  │   ├─ pyin_extractor  domain/                            │ │
-│  │  │   ├─ demucs_sep.     ├─ assessment/ (7 scorers)         │ │
+│  │  │   ├─ demucs_sep.     ├─ assessment/ (6 scorers)          │ │
 │  │  │   ├─ fcpe_extractor  ├─ audio/ (13 extractors)          │ │
 │  │  │   └─ protocols.py    └─ comparison/ (entities+services) │ │
 │  │  └─ persistence/                                            │ │
@@ -298,7 +298,7 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
 | 层 | 状态 | 说明 |
 |------|:--:|------|
 | DDD domain/audio/ | ✅ 13/13 模块自包含 | 零 `services/features/` 依赖 |
-| DDD domain/assessment/ | ✅ 7 scorers | DDD 唯一评分路径 |
+| DDD domain/assessment/ | ✅ 6 scorers | DDD 唯一评分路径 |
 | DDD domain/comparison/ | ✅ v7.3 完成 | 实体 + 值对象 + 领域服务 |
 | `services/features/` | ✅ 已移除 (v7.12) | types.py 死代码已删 |
 | `services/dl_services/` | ⚠️ 4 活跃 | Style/VAD/自参照DTW 仍在 Pro 模式; v7.12 已删 8 个死文件 (model_manager 子包等), DDD 迁移为独立工程 |
@@ -333,13 +333,13 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
 
 ---
 
-## 九、目录结构 (v7.12 实际)
+## 九、目录结构 (v7.13 实际)
 
 ```
 vocal_assessment_light/
 ├── backend/                         # DDD 四层架构 ★主代码
 │   ├── main.py                      # FastAPI 入口 + GPU 检测 + 中间件
-│   ├── domain/                      # 领域层 (纯逻辑): assessment/audio/comparison/songs
+│   ├── domain/                      # 领域层 (纯逻辑): assessment/audio/comparison/songs/songs_pitch
 │   ├── application/                 # 应用层 (编排)
 │   ├── infrastructure/              # 基础设施层 (librosa/Demucs/DB)
 │   ├── interfaces/                  # 接口层 (REST + WebSocket)
@@ -349,11 +349,11 @@ vocal_assessment_light/
 │
 ├── frontend/                        # Vue 3 SPA ★当前前端
 │   ├── src/
-│   │   ├── views/                   # 7 页面 (Home/Report/History/Compare/Sing/Songs)
-│   │   │   ├── SingView.vue        #   v7.12 选歌录音 (选歌区/歌曲信息/WS song_id)
+│   │   ├── views/                   # 6 页面 (Home/Report/History/Compare/Sing/Songs)
+│   │   │   ├── SingView.vue        #   v7.12 选歌录音 + v7.13 实时音准对比 (参考线叠加/录音中 live 对比/回放控制/统计面板)
 │   │   │   ├── SongsView.vue        #   v7.10 曲库卡片网格页 (v7.12: 选择此歌按钮)
 │   │   │   └── CompareView.vue      #   v7.13 P5 对比分析页 (双文件→DTW→双轨叠加/性能模式/截图/快捷键)
-│   │   ├── components/              # 8 共享 + 3 布局组件
+│   │   ├── components/              # 8 共享 + 3 布局 + 1 评分组件
 │   │   │   ├── scoring/             # v7.11: ScoringWeightsPanel.vue 权重配置面板
 │   │   │   └── PitchComparisonCanvas.vue # v7.13 P2-P5 音准对比画布 (双曲线/热力条/缩略条/性能模式)
 │   │   ├── stores/                  # 6 Pinia stores
@@ -411,4 +411,4 @@ vocal_assessment_light/
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings (FastAPI) |
-| 测试 | pytest 509 tests (DDD 435 + 集成 53 + 扩展 21) + Vitest 68 tests |
+| 测试 | pytest 551 tests (DDD 451 + 集成 65 + 扩展 21 + WS 14) + Vitest 286 tests |
