@@ -290,7 +290,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 |------|:-----:|------|------|
 | 真实音频 Quick + Pro | 28 | ✅ **全 PASS** (v7.14 P2 轮) | v7.14 P2 轮修复 sr 错配 bug (P2-11) 后基线重校准 BASELINE_V7_6→V7_14 — 旧 4 个 breath 基线漂移 FAIL 为 sr 错配虚高值 (基线 80/84/76/70), 真实值校准后自然消除; 区分度断言改为总分排序 + 单维 gap ≥10 (与 BDD differentiation.feature 一致) |
 
-### BDD (2026-08-11 P2 轮后: 121 scenarios → **12F / 28P / 43S / 38X** — differentiation/history 已修复, compare 12 既有失败保留)
+### BDD (2026-08-11 P2 续轮后: 112 scenarios → **0F / 30P / 43S / 39X** — 残余 Flask 迁移失败全部清除, compare 重写对齐 v7.13 P5 契约)
 
 | Feature | 状态 |
 |------|------|
@@ -301,7 +301,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | database.feature | ✅ **v7.14 修复轮后通过** (P0-2 DI 缓存隔离修复前 5 FAIL) |
 | **auto-match.feature (v7.14 上传自动匹配)** | ✅ **5 PASS + 3 XFAIL** (v7.14 修复轮从 1P+7F 恢复; 短音频容错→test_extract_short_audio_tolerant, 嘈杂→test_extract_noise_robust, 超时→test_timeout_returns_partial/test_deadline_exceeded_returns_partial) |
 | **pitch-realtime.feature (v7.13 P1-P5 骨架)** | ⚠️ 文档化 stub — 25 XFAIL, 非"已完成" (v7.14 审查 T1): 浏览器 BDD 未实现 (无真实音频/WS); 每条标注对应纯 TS 单元测试文件 — P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计→pitchSegments.test.ts, P5 起双轨填色/热力图/截图/快捷键→pitchCompareDraw/pitchHeatmap/pitchScreenshot/pitchKeyboard |
-| compare.feature | ❌ **12 FAIL (既有, 未改)** — `StepDefinitionNotFoundError`: feature 仍用 Flask step 名称 (`Given "Flask 服务已启动"`), FastAPI 未迁移; DTW 融合语义过时, 已决定延期 |
+| compare.feature | ✅ **2 PASS + 1 XFAIL** (v7.14 P2 续轮重写: 原 12 场景全为 Flask 遗留 `StepDefinitionNotFoundError` + DTW 融合假想架构; 重写为 3 场景对齐真实 v7.13 P5 契约 — 契约核心字段 + 相同音频 DTW 接近完美 (置信度断言实测校准 0.938>0.90) + 移调音频 xfail; 9 纯 spec 场景删除并转移文档至 dtw-demotion.feature) |
 | differentiation.feature | ✅ **6 PASS + 1 XFAIL** (v7.14 P2 轮修复: 断言与实测一致化 — 总分 gap 不可达 → 单维区分度不变量) |
 | history.feature | ✅ **4 PASS** (v7.14 P2 轮修复: Flask 遗留 `get_json()` → FastAPI `.json()`) |
 
@@ -382,9 +382,9 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | 问题 | 说明 |
 |------|------|
 | ~~真实音频 breath 基线漂移~~ | ✅ v7.14 P2 轮: 根因实为 sr 错配 bug (P2-11) 造成的虚高值 — `librosa.load(sr=None)` 后只更新局部变量, `AudioAnalysisResult.sample_rate` 保持原生 sr, DDD 提取器收到 (16k 音频, 原生 sr) 不一致。sr 修复 + 基线重校准 BASELINE_V7_6→V7_14 后 28 例全 PASS |
-| **乱码孤儿文件删除 (P2-14 遗留)** | uploads/ 中 2 个 GBK 乱码文件名历史残留 (`1£¨¸ß·Ö£©.mp3`, `³ÂÞÈÑ¸ÄÑÌýÖ®Éù£¨µÍ·Ö£©.mp3`) — `sanitize_filename` 已支持乱码恢复 (新上传自动迁移), 但**已落盘孤儿文件删除待显式授权** (未获用户批准前不得删除) |
+| ~~乱码孤儿文件删除 (P2-14 遗留)~~ | ✅ v7.14 P2 轮: 2 个 GBK 乱码文件名历史残留 (`1£¨¸ß·Ö£©.mp3`, `³ÂÞÈÑ¸ÄÑÌýÖ®Éù£¨µÍ·Ö£©.mp3`) 于 2026-08-11 经用户授权删除。删除前 sha256 验证与正常名文件 (`1（高分）.mp3`/`陈奕迅难听之声（低分）.mp3`) **逐字节相同**, 零数据丢失; DB (songs.db) 无引用; `sanitize_filename` 乱码恢复已保证新上传自动迁移 |
 | BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; v7.13: pitch-realtime step defs 骨架已创建; 5 features 仍待实现 |
-| **BDD API 级 12 既有失败 (Flask 迁移遗留)** | compare.feature 12 `StepDefinitionNotFoundError` (feature 仍用 `Given "Flask 服务已启动"` 等 Flask step) — 与 v7.14 功能无关; DTW 融合语义过时已决定延期; 深度审查遗留 P2, 见 DEEP_REVIEW_v7.14 待修复清单。~~history 3 get_json~~ ✅ v7.14 P2 修复; ~~differentiation 6~~ ✅ v7.14 P2 修复 (断言与实测一致化) |
+| ~~**BDD API 级 12 既有失败 (Flask 迁移遗留)**~~ | ✅ **v7.14 P2 续轮全部清除 (12→0)**: compare.feature 原 12 `StepDefinitionNotFoundError` (feature 仍用 `Given "Flask 服务已启动"` 等 Flask step + DTW 融合假想架构) — 重写为 3 场景对齐真实 v7.13 P5 契约 (2 PASS + 1 XFAIL), 9 纯 spec 场景删除并转移文档至 dtw-demotion.feature。~~history 3 get_json~~ ✅ v7.14 P2 修复; ~~differentiation 6~~ ✅ v7.14 P2 修复 (断言与实测一致化) |
 | ~~BDD animations.feature 旧架构~~ | ✅ v7.12: 迁移 Vue 3 (data-test 钩子 + 类选择器); 无 UI 场景 xfail 带理由 |
 | ~~BDD 浏览器基建指向旧 Flask~~ | ✅ v7.11: conftest base_url→:8000 + api_client→FastAPI + 前端 `window.__store` 钩子 |
 | ~~upload.feature 数据缺失 (vocals.wav)~~ | ✅ v7.12: `scripts/gen_bdd_test_data.py` 生成 + KMP_DUPLICATE_LIB_OK 崩溃修复; 5 PASS + 3 SKIP |

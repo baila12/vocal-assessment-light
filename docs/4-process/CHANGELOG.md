@@ -95,7 +95,7 @@
 | P2-11 | 性能+正确性 | 3 处 `sr=None` → `sr=16000` 一步加载（消除双次重采样峰值内存 ~2.7x 与 sr 错配） |
 | P2-12a | 性能 | `_preprocess_for_scoring` 改只跑 `_compute_hpss`+`_detect_mixed_audio`，不再全量 `extract`（HNR/CPP/spectral_tilt/voicing 白算, 随后由 DDD extract_all 对同一音频重复计算） |
 | P2-13 | 性能 | `StreamingSession.audio_buffer` 惰性拼接+缓存（dirty 标志），每 2s 周期 3 次全量 `np.concatenate` → 1 次; `cleanup` 释放缓存防泄漏 |
-| P2-14 | 债务 | `sanitize_filename` 增 GBK 乱码往返恢复 `_recover_garbled_name`（latin-1 编码回字节再 GBK 解码, 仅接受含 CJK 结果）+ Unicode NFC 规范化; ⏸ 乱码孤儿文件删除待显式授权（见 PROJECT_STATUS 已知问题） |
+| P2-14 | 债务 | `sanitize_filename` 增 GBK 乱码往返恢复 `_recover_garbled_name`（latin-1 编码回字节再 GBK 解码, 仅接受含 CJK 结果）+ Unicode NFC 规范化; 2 个乱码孤儿文件 (`1£¨¸ß·Ö£©.mp3`/`³ÂÞÈÑ¸ÄÑÌýÖ®Éù£¨µÍ·Ö£©.mp3`) 经用户授权删除 — 删除前 sha256 与正常名文件逐字节相同, 零数据丢失 |
 | P2-15 | 债务 | 删 `backend/legacy/`（`__init__`/`models`）+ `backend/shared/result.py`, `shared/__init__.py` `Result` 从 `__all__` 移除; 全库 grep 确认零引用 |
 | P2-16 | 校准 | ⏸ 未执行 (breath/timbre/artistry 校准, 大改, 按用户决定择机) |
 
@@ -105,6 +105,33 @@
 - 🔧 **真实音频回归基线重校准**: BASELINE_V7_6 → V7_14 + 区分度断言重构; **28 例全 PASS** (含 quick_pro 单测; 原 4 个 breath 基线漂移 FAIL 由 sr 修复自然消除)
 - 真实音频实测 (独立进程确定性复现): 恋人 63.7/rhythm 43.8、陈奕迅 58.9/rhythm 9.3 — 总分排序正确 + rhythm gap 34.5
 - 🐛 **BDD differentiation/history 修复**: 断言与实测一致化 (总分 gap 不可达 → 单维区分度不变量) + Flask 遗留 `get_json()`→`.json()` — BDD API 级 21F → **12F** (仅剩 compare Flask step, 已决定延期)
+
+---
+
+## v7.14 (续) — P2 续轮: compare.feature 重写 (BDD 0 失败) + P2-16/Demucs 决策评估 (2026-08-11)
+
+按 [DEEP_REVIEW_v7.14.md](../3-quality/DEEP_REVIEW_v7.14.md) 第十三章 **P2 清单**续行: compare.feature 12 个 Flask 遗留失败全量修复 + P2-16 评分校准与 Demucs 崩溃隔离的决策评估 (Workflow 并行研究 + 真实音频探针实证)。
+
+### 修复: compare.feature 残余失败 (12 → 0)
+
+- **根因**: 原 12 场景全部为 Flask→FastAPI 迁移遗留 (`StepDefinitionNotFoundError` — feature 写 `Given "Flask 服务已启动"`/`.get_json()`/`/api/compare` 前缀) + **DTW 融合假想架构** (逐段置信度加权/DTW 权重上限/UI 权重面板/双曲线叠加 UI 未实现), 非功能回归。
+- **修复**: `tests/bdd/features/compare.feature` + `steps/test_compare_steps.py` 整体重写, 对齐真实 v7.13 P5 契约 (`POST /api/v1/compare` → `{success, data:{score, level, confidence, pitch_match_rate, rhythm_match_rate, avg_cents_error, diagnosis, suggestions, dimensions, method, standard, user, comparison, standard_pitch, user_pitch, low_alignment_segments}}`)。**9 个纯 spec 场景删除** (文档转移至 `dtw-demotion.feature`); 跨步骤状态改场景级 `compare_state` fixture (pytest-bdd 8 兼容); `_vocal_file` 缺失即 skip。
+- **验证**: 3 场景 = 契约核心字段 **1P** + 相同音频 DTW 接近完美 **1P** + 移调音频 xfail **1X**。实测校准: 完全相同音频 DTW 置信度 **0.938** (非 1.0, 有微小对齐噪声), 断言 `> 0.95` → `> 0.90`。
+- **BDD API 级聚合**: 121 scenarios → **112 scenarios; 12F/28P/38X → 0F/30P/39X/43S** — 残余失败全清。
+
+### 决策评估 (Workflow 并行研究 + 实证)
+
+| 项 | 决策 | 依据 |
+|----|------|------|
+| **P2-16 S1** breath 公式重调 | ⏸ **延期** | sr 修复已消除虚高急性症状 (28/28 回归 PASS); 公式重调需基线重校准且常数为任意调参, 稳定性风险 > 边际收益; 具体方案已记录 DEEP_REVIEW |
+| **P2-16 S2** timbre confidence 门控 | ✅ **非问题, 延期** | 真实音频探针 (3 文件): `mfcc_cluster_purity` ≈0.01 确如预判退化, 但 v7.4 双源置信度 `max(purity, harmonic_stability/100)` 生效 — harmonic_stability 78.9/82.2/84.5 → confidence 0.79-0.85 ≥ 0.6, 门控未归零; 实测 adjustment: 低分文件 +1.0, 高分文件 0.0 (quality 落 [40,60) 自然映射)。**维度非死代码, 无代码变更** |
+| **P2-16 S3** artistry 80 上限 | ⏸ **延期** | 产品决策 (无颤音歌手不得满分), 延期待产品方向 |
+| **Demucs 崩溃隔离** | ⏸ **延期** | subprocess 隔离已在 `separation_service.py` 落地 (~3s 开销 < CPU 延迟 3%); 崩溃隔离 (PyTorch/CUDA segfault) 有价值; 更高收益的性能目标在 compare 路由 (P3/P4/P1) |
+
+### 测试
+
+- ✅ compare.feature 3 场景: **2 PASS + 1 XFAIL** (验证耗时 ~73s/场景, 真实音频 DTW)
+- ✅ BDD API 级全量: **0 failed / 30 passed / 43 skipped / 39 xfailed**
 
 ---
 

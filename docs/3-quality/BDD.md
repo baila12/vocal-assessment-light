@@ -1,8 +1,8 @@
 # 行为驱动开发 (BDD) 规范 v7.14
 
-> 更新: 2026-08-11 | 18 step files | 21 feature files (17 已实现 + 4 规划中) | **187 scenarios collected (121 API 级 + 66 browser)** | API 级运行实测: **12 failed / 28 passed / 43 skipped / 38 xfailed** | scoring-config.feature v7.11: API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | v7.12: upload 数据补齐 + animations/sing-song-select 迁移 Vue 3 data-test | v7.13: pitch-realtime.feature step defs 骨架 (25 XFAIL, 标注对应纯 TS Vitest) | **v7.14: auto-match.feature step defs 落地 (5 PASS + 3 XFAIL) + conftest DI 缓存隔离修复 (P0-2: API 级失败 33→21)** | **v7.14 P2: differentiation/history 修复 (断言一致化 + get_json), 失败 21→12**
+> 更新: 2026-08-11 | 18 step files | 21 feature files (17 已实现 + 4 规划中) | **178 scenarios collected (112 API 级 + 66 browser)** | API 级运行实测: **0 failed / 30 passed / 43 skipped / 39 xfailed** | scoring-config.feature v7.11: API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | v7.12: upload 数据补齐 + animations/sing-song-select 迁移 Vue 3 data-test | v7.13: pitch-realtime.feature step defs 骨架 (25 XFAIL, 标注对应纯 TS Vitest) | **v7.14: auto-match.feature step defs 落地 (5 PASS + 3 XFAIL) + conftest DI 缓存隔离修复 (P0-2: API 级失败 33→21)** | **v7.14 P2: differentiation/history 修复 (断言一致化 + get_json), 失败 21→12** | **v7.14 P2 续: compare.feature 重写对齐 v7.13 P5 契约, 残余失败 12→0**
 >
-> ⚠️ **BDD 真实状态 (2026-08-11 v7.14 P2 轮后)**: 12 个既有失败均为 Flask→FastAPI 迁移遗留 (compare.feature `StepDefinitionNotFoundError`, 已决定延期); differentiation/history 已在 v7.14 P2 修复 (断言与实测一致化 + `get_json()`→`.json()`)。详见第 5 节版本演进。
+> ⚠️ **BDD 真实状态 (2026-08-11 v7.14 P2 续轮后)**: API 级 **0 失败**。残余 Flask→FastAPI 迁移失败已全部清除 — compare.feature 重写 (原 12 场景全为 Flask 遗留 `StepDefinitionNotFoundError` + DTW 融合假想架构; 重写为 3 场景对齐真实 v7.13 P5 契约: 2 PASS + 1 XFAIL, 9 纯 spec 场景删除并转移文档至 dtw-demotion.feature)。详见第 5 节版本演进。
 
 ---
 
@@ -49,7 +49,7 @@ tests/bdd/
 │   │
 │   │  === 已实现 (有 Step Defs, 17 个) ===
 │   ├── upload.feature                # 上传与六维评分 ✅ 5 PASS + 3 SKIP
-│   ├── compare.feature               # DTW 对比分析 ❌ 12 FAIL (Flask 遗留 step, 见下)
+│   ├── compare.feature               # DTW 对比分析 ✅ 2 PASS + 1 XFAIL (v7.14 P2 续: 重写对齐 v7.13 P5 契约)
 │   ├── differentiation.feature       # 评分区分度验证 ✅ 6 PASS + 1 XFAIL (v7.14 P2: 断言与实测一致化)
 │   ├── history.feature               # 历史记录管理 ✅ 4 PASS (v7.14 P2: get_json → .json())
 │   ├── navigation.feature            # SPA 路由导航
@@ -74,7 +74,7 @@ tests/bdd/
 │
 ├── steps/                            # Step 实现 (18 files)
 │   ├── test_upload_steps.py          # 上传 + 评分
-│   ├── test_compare_steps.py         # DTW 对比 (12 scenarios 失败: Flask 遗留 step defs)
+│   ├── test_compare_steps.py         # DTW 对比 (v7.14 P2 续: 重写, 2 PASS + 1 XFAIL)
 │   ├── test_compare_ui_steps.py      # 对比 UI
 │   ├── test_differentiation_steps.py # 评分区分度 (6 失败: 真实音频)
 │   ├── test_history_steps.py         # 历史记录 (3 失败: get_json 遗留)
@@ -96,8 +96,8 @@ tests/bdd/
 └── __init__.py
 ```
 
-> **12 个既有失败 — Flask→FastAPI 迁移遗留 (v7.14 P2 轮后)**:
-> - `compare.feature` (12): `StepDefinitionNotFoundError` — feature 文件第 7 行仍写 `Given "Flask 服务已启动"`, FastAPI 未迁移 (DTW 融合语义过时, 已决定延期)
+> **残余失败**: 无 (v7.14 P2 续轮后 API 级 **0 failed / 30 passed / 43 skipped / 39 xfailed**) — 3 个 Flask→FastAPI 迁移遗留全部清除:
+> - ~~`compare.feature` (12)~~ ✅ **v7.14 P2 续**: 原 12 场景全为 Flask 遗留 `StepDefinitionNotFoundError` (feature 写 `Given "Flask 服务已启动"` + DTW 融合假想架构); 重写为 3 场景对齐真实 v7.13 P5 契约 (2 PASS + 1 XFAIL), 9 纯 spec 场景删除并转移文档至 `dtw-demotion.feature`
 > - ~~`history.feature` (3)~~ ✅ **v7.14 P2**: `api_client.get_json()` → FastAPI TestClient `.json()` (4 PASS)
 > - ~~`differentiation.feature` (6)~~ ✅ **v7.14 P2**: 断言与实测一致化 (总分 gap 不可达 → 单维区分度不变量, 6 PASS + 1 XFAIL)
 
@@ -241,9 +241,10 @@ def check_total_score_range(upload_with_mode):
 | auto-match.feature | ✅ 恢复 | 修复前降级 1P+7F → 恢复 **5P+3X** |
 | API 级全量 (121 scenarios) | 33F/13P/32X → **21F/20P/37X** | 净改善: -12 failed, +7 passed, +5 xfailed |
 | **v7.14 P2 轮 (2026-08-11)** | **21F/20P/37X → 12F/28P/38X** | 净改善: -9 failed, +8 passed, +1 xfailed — differentiation (断言一致化) + history (get_json 修复) |
+| **v7.14 P2 续轮 (2026-08-11)** | **12F/28P/38X → 0F/30P/39X/43S (112 scenarios)** | **残余 12 失败全部清除** — compare.feature 重写: 对齐真实 v7.13 P5 契约 (POST /api/v1/compare, .json(), 删 9 纯 spec 场景; 契约场景 1P + 相同音频场景 1P (置信度断言实测校准 0.938>0.90) + 移调音频 xfail 1X) |
 
-**12 个残余既有失败** (v7.14 P2 轮后, 非本次修复范围, Flask 迁移遗留):
-- compare.feature ×12 — `StepDefinitionNotFoundError` (feature 用 Flask step 名称; DTW 融合语义过时, 已决定延期)
+**残余既有失败**: 无 — v7.14 P2 续轮已全部清除 (12→0)。
+- ~~compare.feature ×12~~ ✅ v7.14 P2 续轮修复 — 原 12 场景全为 Flask 遗留 (`StepDefinitionNotFoundError`, DTW 融合假想架构); 重写为 3 场景对齐真实契约 (2P+1X), 9 纯 spec 场景删除并转移文档至 dtw-demotion.feature
 - ~~history.feature ×3~~ ✅ v7.14 P2 修复 — `api_client.get_json()` 应为 `.json()`
 - ~~differentiation.feature ×6~~ ✅ v7.14 P2 修复 — 断言与实测一致化 (总分 gap 不可达 → 单维区分度不变量)
 
