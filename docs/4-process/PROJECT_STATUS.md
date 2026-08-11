@@ -101,7 +101,7 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **DI** | deps.py `get_song_match_profile_repo` + `get_auto_match_use_case` (lru_cache 单例, 绑定 songs_db) | ✅ |
 | **前端** | `songMatch.store.ts` — `matchAudio` (POST /songs/match) + `selectCandidate` + `compareWithSelected` (复用 POST /songs/{id}/compare) + `fetchUserPitch` (POST /extract-pitch) | ✅ |
 | **前端** | CompareView 自动匹配区 (上传录音→候选列表 歌名/歌手/置信度/BPM 差/调性差→选中→一键 DTW 对比→复用 Phase 5 双轨叠加); 无匹配优雅回退提示 (fallback_reason 透传) | ✅ |
-| **测试** | v7.14 特性发布: 生产 537→633 (+96: 领域 79 + 基建 11 + 集成 6); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄)。**v7.14 深度审查修复轮 (2026-08-10): 633→714 collected (+81: fallback 11 + streaming 7 + pitch cache 7 + deps 2 + 集成/WS 13 + 断言同步等), 686 生产 GREEN**。**P2 完善修复轮 (2026-08-11): sr 错配根因修复 (P2-11, 3 处 sr=None→16000) + HPSS 去重 (P2-12a) + audio_buffer 缓存 (P2-13) + 乱码文件名恢复 (P2-14) + legacy 死代码删除 (P2-15); 🆕 +25 单元测试; 真实音频基线重校准 BASELINE_V7_6→V7_14** | ✅ |
+| **测试** | v7.14 特性发布: 生产 537→633 (+96: 领域 79 + 基建 11 + 集成 6); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄)。**v7.14 深度审查修复轮 (2026-08-10): 633→714 collected (+81: fallback 11 + streaming 7 + pitch cache 7 + deps 2 + 集成/WS 13 + 断言同步等), 686 生产 GREEN**。**P2 完善修复轮 (2026-08-11): sr 错配根因修复 (P2-11, 3 处 sr=None→16000) + HPSS 去重 (P2-12a) + audio_buffer 缓存 (P2-13) + 乱码文件名恢复 (P2-14) + legacy 死代码删除 (P2-15); 🆕 +25 单元测试; 真实音频基线重校准 BASELINE_V7_6→V7_14**。**P2 续轮 (2026-08-11): compare.feature 重写对齐 v7.13 P5 契约 → BDD 残余失败 12→0; 当前权威计数 (实测): 生产 **709** / collected **737** (见下节测试表)** | ✅ |
 
 ### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3 + Phase 4
 
@@ -271,18 +271,20 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| Unit 领域 (scorers + value objects + comparison + songs + **songs_pitch** + ScoringWeights + **song_match** + **fallback**) | 363 | ✅ |
+| Unit 领域 (scorers + value objects + comparison + songs + **songs_pitch** + ScoringWeights + **song_match** + **fallback**) | 364 | ✅ |
 | Unit 基建 (extractors + orchestrator + ABI + sqlite + **sqlite_song_match_profile_repo** + **pitch_cache + deps 单例**) | 159 | ✅ |
 | Unit 对齐 + Flag bridge (test_ddd_alignment/extraction_flag/flag_bridge) | 23 | ✅ |
 | Unit 中间件 | 23 | ✅ |
-| Unit WS streaming 会话 (v7.14 审查修复轮) | 7 | ✅ |
-| **Unit 合计** | **575** | **100% GREEN** |
-| API 集成 | 73 | ✅ | (api_routes 19 + songs_api 21 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 4 + **song_match_api 6**)
+| Unit WS streaming 会话 (v7.14 审查修复轮) | 12 | ✅ |
+| Unit 接口 sanitize_filename (v7.14 P2) | 14 | ✅ | (test_sanitize_filename: GBK 乱码恢复 + NFC + 非法字符 + 路径穿越)
+| Unit 根目录 mixed_detection | 2 | ✅ | (test_audio_service_mixed_detection, 混合/纯声检测)
+| **Unit 合计** | **597** | **100% GREEN** |
+| API 集成 | 74 | ✅ | (api_routes 20 + songs_api 21 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 4 + **song_match_api 6**)
 | WebSocket 集成 | 17 | ✅ | (ws_score 13 + ws_pitch_update 4)
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
-| **生产代码总计** | **686** | **100% GREEN** |
+| **生产代码总计** | **709** | **100% GREEN** |
 
-> 注: 生产合计 = Unit 575 + API 73 + WS 17 + 扩展 21 = **686** (独立进程实测)。另含真实音频回归 28 (BASELINE_V7_14, v7.14 P2 轮重校准)。**后端 collected = 714 + P2 轮新增 25 = 739 (基线重校准后无既有 breath 失败)**。
+> 注: 生产合计 = Unit 597 + API 74 + WS 17 + 扩展 21 = **709** (独立进程实测)。另含真实音频回归 28 (BASELINE_V7_14, v7.14 P2 轮重校准)。**后端 collected = 737 (709 生产 + 28 真实音频, 基线重校准后全 PASS)**。
 
 ### 真实音频回归
 
@@ -290,7 +292,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 |------|:-----:|------|------|
 | 真实音频 Quick + Pro | 28 | ✅ **全 PASS** (v7.14 P2 轮) | v7.14 P2 轮修复 sr 错配 bug (P2-11) 后基线重校准 BASELINE_V7_6→V7_14 — 旧 4 个 breath 基线漂移 FAIL 为 sr 错配虚高值 (基线 80/84/76/70), 真实值校准后自然消除; 区分度断言改为总分排序 + 单维 gap ≥10 (与 BDD differentiation.feature 一致) |
 
-### BDD (2026-08-11 P2 续轮后: 112 scenarios → **0F / 30P / 43S / 39X** — 残余 Flask 迁移失败全部清除, compare 重写对齐 v7.13 P5 契约)
+### BDD (2026-08-11 P2 续轮后: **178 scenarios** (112 API 级 + 66 browser) → API 级 **0F / 30P / 43S / 39X** — 残余 Flask 迁移失败全部清除, compare 重写对齐 v7.13 P5 契约)
 
 | Feature | 状态 |
 |------|------|
@@ -443,7 +445,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 默认测试 (575 tests, ~28s)
+# 默认测试 (597 tests, ~28s)
 pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/interfaces/ws/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
@@ -451,7 +453,7 @@ pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/interfaces/ws/ \
        tests/unit/test_flag_bridge.py
 
 # 集成测试 (独立进程, ~5s)
-pytest tests/integration/test_api_routes.py -v         # FastAPI (19 tests)
+pytest tests/integration/test_api_routes.py -v         # FastAPI (20 tests)
 
 # 扩展测试 (独立进程, ~5s)
 pytest tests/extended/ -v                              # DTW/repos/etc (21 tests)

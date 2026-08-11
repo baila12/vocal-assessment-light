@@ -1,6 +1,6 @@
 # 产品目标与设计原则 v7.14
 
-> 更新: 2026-08-10 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
+> 更新: 2026-08-11 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
 
 ---
 
@@ -121,14 +121,14 @@
 
 | 层级 | 方法 | 当前 |
 |------|------|:---:|
-| 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag + WS 会话 | 575 tests ✅ |
+| 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag + WS 会话 + API 接口 | 597 tests ✅ |
 | FastAPI 集成 (API 层) | pytest, assessment + songs + scoring + songs_pitch + song_match + compare | 74 tests ✅ |
 | WebSocket 集成 | pytest, ws_score + ws_pitch_update | 17 tests ✅ |
 | 扩展测试 | pytest, DTW/repos | 21 tests ✅ |
-| BDD | pytest-bdd, 18 step files, 21 .feature files, 187 scenarios collected (121 API 级 + 66 browser) | ⚠️ 见 PROJECT_STATUS (12 既有失败: compare Flask 遗留 step; differentiation/history 已修复) |
+| BDD | pytest-bdd, 18 step files, 21 .feature files, 178 scenarios collected (112 API 级 + 66 browser) | ⚠️ 见 PROJECT_STATUS (0 failed; compare.feature v7.14 P2 续轮重写通过) |
 | 真实音频回归 | pytest, 5 基准文件, 28 tests | ✅ 全 PASS (v7.14 P2: BASELINE_V7_14 重校准) |
-| **生产代码合计** | | **706 tests 100% GREEN** (unit 594 + API 74 + WS 17 + 扩展 21) |
-| **后端 collected** | | **734 tests** (706 + 真实音频 28; 实测 734 passed) |
+| **生产代码合计** | | **709 tests 100% GREEN** (unit 597 + API 74 + WS 17 + 扩展 21) |
+| **后端 collected** | | **737 tests** (709 + 真实音频 28; 实测 737 passed) |
 | 前端测试 | Vitest, 297 tests, vue-tsc 0 errors | ✅ |
 
 ---
@@ -145,7 +145,7 @@
 | 状态管理 | Pinia 2.3 |
 | 桌面 | Electron 28 (配置就绪) |
 | 数据 | JSON + SQLite |
-| 测试 | pytest 734 (collected) + Vitest 297 |
+| 测试 | pytest 737 (collected) + Vitest 297 |
 
 ---
 

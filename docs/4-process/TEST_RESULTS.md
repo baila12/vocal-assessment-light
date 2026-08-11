@@ -1,6 +1,6 @@
 # 测试结果记录 v7.14
 
-> 更新: 2026-08-11 | 后端 **734 collected / 734 passed** + 前端 297 Vitest GREEN | 分支: `main`
+> 更新: 2026-08-11 | 后端 **737 collected / 737 passed** + 前端 297 Vitest GREEN | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
@@ -13,19 +13,20 @@
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
 | Unit (DDD 领域: 6 scorers + 音色调整 + comparison + songs + songs_pitch + song_match + ScoringWeights + fallback) | 364 | ✅ 100% | 6 scorers + 音色调整 + comparison + songs + songs_pitch (v7.13) + **song_match (v7.14: +79)** + ScoringWeights 值对象 + **fallback_marking (v7.14 修复轮: +11)** + **song_pitch_service sr 契约 (+1, v7.14 P2)** |
-| Unit (DDD 基建: extractors + orchestrator + ABI + sqlite + pitch cache + deps) | 161 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 + sqlite_song_match_profile_repo + **in_memory_pitch_cache (+7) + deps_singleton (+2) (v7.14 修复轮)** + **audio_service_mixed_detection (+2, v7.14 P2)** |
+| Unit (DDD 基建: extractors + orchestrator + ABI + sqlite + pitch cache + deps) | 159 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 + sqlite_song_match_profile_repo + **in_memory_pitch_cache (+7) + deps_singleton (+2) (v7.14 修复轮)** |
 | Unit (DDD 对齐 + Flag bridge) | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
 | Unit (中间件) | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
 | Unit (WS streaming 会话) | 12 | ✅ 100% | test_streaming_session (compute_partial 等) + **P2-13 audio_buffer 缓存 (+5)** |
-| Unit (接口 sanitize_filename) 🆕 v7.14 P2 | 11 | ✅ 100% | test_sanitize_filename (P2-14: GBK 乱码恢复 + NFC + 非法字符 + 路径穿越) |
-| **Unit 合计** | **594** | **100% GREEN** | (~30s) |
-| API 集成 (6 文件) | 74 | ✅ 100% | test_api_routes (19 + **sr=16000 契约断言, v7.14 P2**) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + **song_match_api (6, v7.14)** |
+| Unit (接口 sanitize_filename) 🆕 v7.14 P2 | 14 | ✅ 100% | test_sanitize_filename (P2-14: GBK 乱码恢复 + NFC + 非法字符 + 路径穿越) |
+| Unit (混合检测, 根目录) | 2 | ✅ 100% | test_audio_service_mixed_detection (audio_service 混合/纯声检测) |
+| **Unit 合计** | **597** | **100% GREEN** | (~30s) |
+| API 集成 (6 文件) | 74 | ✅ 100% | test_api_routes (20 + **sr=16000 契约断言, v7.14 P2**) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + **song_match_api (6, v7.14)** |
 | WebSocket 集成 | 17 | ✅ 100% | test_ws_score (13) + ws_pitch_update (4, v7.13) |
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
-| **生产代码总计** | **706** | **100% GREEN** | (unit 594 + API 74 + WS 17 + 扩展 21) |
+| **生产代码总计** | **709** | **100% GREEN** | (unit 597 + API 74 + WS 17 + 扩展 21) |
 | 真实音频回归 | 28 | ✅ **全 PASS** (v7.14 P2) | **BASELINE_V7_6 → V7_14 重校准** (sr 错配 bug 修复后真实值); 旧 4 个 breath 基线漂移 FAIL 自然消除; 区分度断言改"总分排序 + 单维 gap ≥10" (实测 rhythm 34.5) — 含 quick_pro 单测 |
-| **后端 collected** | **734** | ✅ | 706 生产 + 28 真实音频 (unit 594 + API 74 + WS 17 + 扩展 21 = 706) |
-| BDD (18 step files) | 187 scenarios collected (121 API) | ⚠️ **12F/28P/43S/38X** (v7.14 P2) | API 级既有失败仅剩 compare 12 (Flask 遗留 step, 已决定延期); **differentiation 6F→6P+1X 与 history 3F→4P 已修复 (v7.14 P2: 断言一致化 + get_json 修复)**; upload 5P+3S; animations 7P+9X; auto-match **5P+3X**; database ✅ — 详见 BDD.md |
+| **后端 collected** | **737** | ✅ | 709 生产 + 28 真实音频 (unit 597 + API 74 + WS 17 + 扩展 21 = 709) |
+| BDD (18 step files) | 178 scenarios collected (112 API + 66 browser) | ✅ **0F/30P/43S/39X** (v7.14 P2 续轮) | **compare.feature 重写 (2P+1X), Flask 遗留失败全部清除**; **differentiation 6F→6P+1X 与 history 3F→4P 已修复 (v7.14 P2: 断言一致化 + get_json 修复)**; upload 5P+3S; animations 7P+9X; auto-match **5P+3X**; database ✅ — 详见 BDD.md |
 | 前端 Vitest | 297 | ✅ 100% | stores 85 + pitch utils 212 (v7.14 +11 songMatch.store) |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | ~16s | ✅ | 生产构建 |
@@ -232,7 +233,7 @@
 ## 运行命令
 
 ```bash
-# DDD 核心 (575 tests, ~28s)
+# DDD 核心 (597 tests, ~28s)
 # ⚠️ 不直接运行 pytest tests/unit/ (PyTorch C 扩展冲突 → 崩溃), 必须使用分组命令:
 pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/interfaces/ws/ \
        tests/unit/test_middleware.py \
@@ -241,12 +242,12 @@ pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/interfaces/ws/ \
        tests/unit/test_flag_bridge.py
 
 # 集成测试 (独立进程)
-pytest tests/integration/test_api_routes.py -v     # FastAPI (19 tests)
+pytest tests/integration/test_api_routes.py -v     # FastAPI (20 tests)
 pytest tests/integration/test_songs_api.py -v      # Songs API (21 tests)
 pytest tests/integration/test_scoring_api.py -v    # Scoring API (14 tests)
 pytest tests/integration/test_song_pitch_api.py -v # Songs Pitch API (9 tests, v7.13)
 pytest tests/integration/test_song_match_api.py -v # SongMatch API (6 tests, v7.14)
-pytest tests/integration/test_ws_score.py -v       # WebSocket (17 tests: ws_score 13 + ws_pitch_update 4)
+pytest tests/integration/test_ws_score.py tests/integration/test_ws_pitch_update.py -v   # WebSocket (17 tests: ws_score 13 + ws_pitch_update 4)
 
 # 扩展测试 (独立进程, ~6s)
 pytest tests/extended/ -v                           # 21 tests (DTW/repos; v7.12 -calibrator)

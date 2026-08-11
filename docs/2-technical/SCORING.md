@@ -1,6 +1,6 @@
 # 评分算法文档 v7.14
 
-> 更新: 2026-08-11 | DDD 唯一评分路径 | 734 tests collected GREEN (unit 594 + 集成 119 + 扩展 21)
+> 更新: 2026-08-11 | DDD 唯一评分路径 | 737 tests collected GREEN (709 生产: unit 597 + 集成 91 + 扩展 21; + 真实音频 28)
 >
 > **关联文档**: [ARCHITECTURE.md](ARCHITECTURE.md) | [TECH_RESEARCH.md](TECH_RESEARCH.md) | [改进计划](SCORING_ALGORITHM_IMPROVEMENT_PLAN.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 
@@ -13,7 +13,7 @@
 | Pitch (音准) | **13%** | MAE指数衰减(40%) + RPA(25%) + RCA(10%) + Gross Error(15%) + Smoothness(5%) + Octave(5%) | A |
 | Rhythm (节奏) | **12%** | Onset间隔CV + irregularity惩罚 + is_clean_vocal重校准 | B |
 | Breath (气息) | **22%** | 长音支撑(40%) + 动态控制(25%) + 气口设计(20%) + 气声技巧(15%) | B |
-| Technique (技术) | **25%** | 咬字清晰度(50%) + 气声比(50%), CPPS主特征 + ZCR/Centroid增强 + HNR单调 + 实谱HF | B |
+| Technique (技术) | **25%** | 咬字清晰度(50%) + 气声比(50%), CPPS主特征 + ZCR/Centroid增强 + HNR单调 + 实谱HF | C |
 | Muscle (肌肉) ⚠️ | **15%** | 身体力量(50%) + 面部力量(50%) + 五维代理(MPT/Crest/SPR/F1F2/Alpha) + 校准formant/overtone | C |
 | Artistry (艺术) | **13%** | 颤音品质(30%) + 动态控制(30%) + 乐句表现力(25%) + 音高变化(15%), 无颤音fallback + **真实F0 CV** | D |
 | **Total** | **100%** | | |

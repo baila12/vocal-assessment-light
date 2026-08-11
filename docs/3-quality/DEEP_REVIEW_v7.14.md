@@ -6,6 +6,8 @@
 > **审查结论**: **63 条成立发现 (52 CONFIRMED / 10 PLAUSIBLE / 3 REFUTED)** + 6 个死模块 + 6 项架构核查通过
 >
 > **⚠️ 修复状态 (2026-08-10)**: 按第十三章 **P0+P1 共 10 项已全部修复** (P2 性能/债务/评分校准除外)，修复详情见 [第十五章](#十五修复状态跟踪-2026-08-10-p0p1-修复轮)。修复后测试规模: 后端 **714 collected / 710 passed** (unit 575 + integration 118 + extended 21; 4 个真实音频 breath 基线失败为既有问题) + 前端 Vitest **297 passed**。
+>
+> **后续 (2026-08-11 P2 完善轮 + P2 续轮)**: 测试规模进一步推进至 生产 **709** / collected **737** (unit 597 + 集成 91 + 扩展 21 + 真实音频 28)，真实音频基线重校准 `BASELINE_V7_14` 全 PASS，BDD 残余失败 12→0。当前权威计数见 [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)。
 
 ---
 

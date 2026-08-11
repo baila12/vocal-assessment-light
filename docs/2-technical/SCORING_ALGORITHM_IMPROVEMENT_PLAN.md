@@ -4,7 +4,7 @@
 >
 > **关联文档**: [TECH_RESEARCH.md](TECH_RESEARCH.md) | [SCORING.md](SCORING.md) | [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md)
 >
-> **实施状态**: P0 ✅ v7.4-v7.5 | P1 ✅ v7.6 | P2 ⏭️ 按需 (ABI 9参数 + 艺术表现重构; Flask + Legacy 代码清理已于 v7.6 完成)
+> **实施状态**: P0 ✅ v7.4-v7.5 | P1 ✅ v7.6 | P2 ◐ 部分落地 v7.6 (ABI 9参数计算器已实现但未接入评分路径; 艺术表现 rubato/crescendo 连续化已落地, SongEval 集成仍按需; Flask + Legacy 代码清理已于 v7.6 完成)
 >
 > **v7.11 补充**: 本文档中"六维权重"相关设计已收敛为 `ScoringWeights` 值对象 (单一数据来源, 支持风格预设/自定义), 详见 [SCORING.md](SCORING.md)。权重数值保持不变 (v7.4 定稿 13/12/22/25/15/13)。
 
@@ -177,8 +177,8 @@ Technique 系统性低于其他维度 40-60 分。根因分析：
 | M3 | 面部肌肉缺失 F1/F2 元音空间               | `muscle_scorer.py:145`                                |  **MEDIUM**  | 面部肌肉文献 §2.1         | ✅ P1-1 |
 | M4 | 音色缺失 hardness/depth/sharpness/booming | `timbre_adjuster.py`                                  |  **MEDIUM**  | 音色文献 §1.1             | ⏭️ P1-2b |
 | M5 | 咬字缺失 C-V 能量比                       | `technique_scorer.py:139`                             |  **MEDIUM**  | Hecker 1974                | ✅ P0-2 |
-| L1 | ABI 9 参数模型                            | 新文件                                                  |   **LOW**   | Barsties 2017              | ⏭️ P2 |
-| L2 | 艺术表现根本性重构                        | `artistry_scorer.py`                                  |   **LOW**   | TECH_RESEARCH §2.6        | ⏭️ P2 |
+| L1 | ABI 9 参数模型                            | 新文件                                                  |   **LOW**   | Barsties 2017              | ◐ v7.6 (计算器已落地 `abi_calculator.py`, 未接入评分) |
+| L2 | 艺术表现根本性重构                        | `artistry_scorer.py`                                  |   **LOW**   | TECH_RESEARCH §2.6        | ◐ v7.6 (rubato/crescendo 连续化已落地, SongEval 未接入) |
 
 ---
 
@@ -705,11 +705,15 @@ else:
 
 ## 九、P2: 中长期演进
 
+> **v7.6 提前落地**: 本 P2 中的两项已在 v7.6 部分实现 — ABI 9 参数计算器 (`backend/domain/audio/abi_calculator.py`, `test_abi_calculator` 16 测试) 与艺术表现 rubato/crescendo 连续化。剩余按需推进见下方各节。
+
 ### 9.1 ABI 9 参数模型
 
 基于 Barsties v. Latoszek (2017)，将 9 个声学参数组合为单一气息感指数:
 CPPS + Jitter + GNE + 高频噪声(6kHz) + HNR + H1-H2 + Shimmer + Period SD
 → 分数 0-10，AUC=0.94，跨 4 种语言验证。
+
+> **v7.6 现状**: `compute_abi()` 已实现于 `backend/domain/audio/abi_calculator.py` (含测试 16)。但**尚未接入** `TechniqueScorer._calc_breath_voice_ratio()` 评分路径 — 接入需 TDD (先写接入测试, 再改 technique_scorer 融合)。
 
 ### 9.2 艺术表现根本性重构
 
@@ -717,6 +721,8 @@ CPPS + Jitter + GNE + 高频噪声(6kHz) + HNR + H1-H2 + Shimmer + Period SD
 
 - SongEval (A 级) 5 维美学评分中的 Musicality 维度
 - QwenFeat-Vocal-Score (B 级) 4 维美学评分
+
+> **v7.6 现状**: rubato_score (表现性节奏变化) + crescendo/diminuendo 动态连续化已落地 `artistry_scorer.py` (乐句处理 rubato 权重 10%)。SongEval/QwenFeat 美学模型集成仍未接入, 按需推进。
 
 ### 9.3 歌声特定数据标注
 
@@ -765,8 +771,8 @@ CPPS + Jitter + GNE + 高频噪声(6kHz) + HNR + H1-H2 + Shimmer + Period SD
 ### Phase C: P2 演进 (按需)
 
 ```
-- ABI 9 参数模型 (新文件 services/features/abi.py)
-- 艺术表现 SongEval 集成
+- ◐ ABI 9 参数模型 — 计算器已落地 backend/domain/audio/abi_calculator.py (v7.6, 16 测试); 接入 technique 评分路径仍按需
+- ◐ 艺术表现增强 — rubato/crescendo 连续化已落地 (v7.6); SongEval 美学集成仍按需
 - 歌声标注数据收集计划
 ```
 

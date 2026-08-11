@@ -125,12 +125,12 @@ domain/
 │   ├── events.py                   # AssessmentCompleted 领域事件
 │   ├── errors.py                   # InvalidScoreError
 │   ├── feature_flags.py            # DimensionFlags (独立开关每个维度)
-│   ├── pitch_scorer.py             # 六指标加权融合 (10%)
-│   ├── rhythm_scorer.py            # Onset CV + irregularity (10%)
-│   ├── breath_scorer.py            # 四子维度 + audiofeat GNE/CPPS (20%)
+│   ├── pitch_scorer.py             # 六指标加权融合 (13%)
+│   ├── rhythm_scorer.py            # Onset CV + irregularity (12%)
+│   ├── breath_scorer.py            # 四子维度 + audiofeat GNE/CPPS (22%)
 │   ├── technique_scorer.py         # 咬字 + 气声比 + audiofeat Jitter/Shimmer/CQ (25%)
-│   ├── muscle_scorer.py            # 五维身体/面部代理 ⚠️ (25%)
-│   ├── artistry_scorer.py          # 四维独立声学信号 (10%)
+│   ├── muscle_scorer.py            # 五维身体/面部代理 ⚠️ (15%)
+│   ├── artistry_scorer.py          # 四维独立声学信号 (13%)
 │   └── timbre_adjuster.py          # 音色加减分 ⚠️ (±3~-5)
 │
 ├── audio/                           # 音频特征领域
@@ -395,7 +395,7 @@ vocal_assessment_light/
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
 ├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 734 tests collected (unit 594 + 集成 119 + 扩展 21)
+├── tests/                           # 737 tests collected (709 生产: unit 597 + 集成 91 + 扩展 21; + 真实音频 28)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)
@@ -423,4 +423,4 @@ vocal_assessment_light/
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings (FastAPI) |
-| 测试 | pytest 734 tests collected (unit 594 + 集成 119 + 扩展 21; 实测 734 passed) + Vitest 297 tests |
+| 测试 | pytest 737 tests collected (709 生产: unit 597 + 集成 91 + 扩展 21; + 真实音频 28) + Vitest 297 tests |

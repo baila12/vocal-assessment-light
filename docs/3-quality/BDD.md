@@ -76,8 +76,8 @@ tests/bdd/
 │   ├── test_upload_steps.py          # 上传 + 评分
 │   ├── test_compare_steps.py         # DTW 对比 (v7.14 P2 续: 重写, 2 PASS + 1 XFAIL)
 │   ├── test_compare_ui_steps.py      # 对比 UI
-│   ├── test_differentiation_steps.py # 评分区分度 (6 失败: 真实音频)
-│   ├── test_history_steps.py         # 历史记录 (3 失败: get_json 遗留)
+│   ├── test_differentiation_steps.py # 评分区分度 (6 PASS + 1 XFAIL, v7.14 P2 修复)
+│   ├── test_history_steps.py         # 历史记录 (4 PASS, v7.14 P2 修复)
 │   ├── test_mode_select_steps.py     # 模式选择
 │   ├── test_navigation_steps.py      # SPA 导航
 │   ├── test_sing_song_select_steps.py # 演唱选歌

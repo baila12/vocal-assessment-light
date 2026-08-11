@@ -1,6 +1,6 @@
 # 声乐评估系统 (VAS) — 产品需求文档 v7.14
 
-> 版本: v7.14 | 日期: 2026-08-10 | 状态: 活跃开发
+> 版本: v7.14 | 日期: 2026-08-11 | 状态: 活跃开发
 >
 > **关联文档**: [GOALS.md](GOALS.md) | [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | [SCORING.md](../2-technical/SCORING.md)
 
@@ -102,7 +102,7 @@
 - 每 2s 计算 incremental score
 - 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL)
 
-### 3.5 近期新增 (v7.9 → v7.13)
+### 3.5 近期新增 (v7.9 → v7.14)
 
 | 功能 | 说明 |
 |------|------|
@@ -150,7 +150,7 @@
 | 指标 | 当前 |
 |------|:---:|
 | 非人声归零率 | 10/10 (100%) |
-| 单元测试通过率 | 594/594 (100%); 后端 collected 734 (734 passed, 含真实音频回归 28 全 PASS, BASELINE_V7_14) |
+| 单元测试通过率 | 597/597 (100%); 后端 collected 737 (737 passed, 含真实音频回归 28 全 PASS, BASELINE_V7_14) |
 | Quick/Pro 同音频分差 | < 10% |
 
 ### 4.3 兼容性
@@ -174,7 +174,7 @@
 
 ## 5. 技术栈
 
-| 层 | 当前 (v7.13) |
+| 层 | 当前 (v7.14) |
 |------|------|
 | 后端框架 | FastAPI (uvicorn, workers=1) |
 | 音频处理 | librosa + parselmouth + pyworld |
@@ -189,7 +189,7 @@
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings |
-| 测试 | pytest 734 (collected) + Vitest 297 |
+| 测试 | pytest 737 (collected) + Vitest 297 |
 
 ---
 
