@@ -150,7 +150,7 @@
 | 指标 | 当前 |
 |------|:---:|
 | 非人声归零率 | 10/10 (100%) |
-| 单元测试通过率 | 575/575 (100%); 后端 collected 714 (710 passed, 4 个 real-audio breath 基线失败为既有) |
+| 单元测试通过率 | 594/594 (100%); 后端 collected 734 (734 passed, 含真实音频回归 28 全 PASS, BASELINE_V7_14) |
 | Quick/Pro 同音频分差 | < 10% |
 
 ### 4.3 兼容性
@@ -189,7 +189,7 @@
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings |
-| 测试 | pytest 714 (collected) + Vitest 297 |
+| 测试 | pytest 734 (collected) + Vitest 297 |
 
 ---
 

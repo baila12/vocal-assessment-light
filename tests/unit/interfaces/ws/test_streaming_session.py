@@ -45,6 +45,51 @@ class TestPartialRhythm:
         assert "elapsed_s" in partial
 
 
+class TestAudioBufferCache:
+    """audio_buffer 缓存行为 — P2-13 (审查性能专项: 每周期 3 次全量重建 → 增量缓存)"""
+
+    def test_audio_buffer_none_when_empty(self):
+        """无音频块 → None"""
+        session = StreamingSession()
+        assert session.audio_buffer is None
+
+    def test_audio_buffer_returns_cached_object(self):
+        """未追加新音频时重复访问返回同一对象 (证明不再全量 np.concatenate 重建)"""
+        session = StreamingSession()
+        session.append_audio(_sine(2.0))
+        first = session.audio_buffer
+        second = session.audio_buffer
+        assert first is second, "未追加音频时 audio_buffer 应命中缓存返回同一数组对象"
+
+    def test_audio_buffer_invalidated_on_append(self):
+        """追加新音频 → 缓存失效, 返回反映最新数据的新数组"""
+        session = StreamingSession()
+        session.append_audio(_sine(2.0))
+        cached = session.audio_buffer
+        session.append_audio(_sine(2.0))
+        refreshed = session.audio_buffer
+        assert refreshed is not cached, "追加音频后 audio_buffer 必须重建"
+        assert len(refreshed) == len(cached) * 2
+
+    def test_audio_buffer_content_matches_chunks(self):
+        """内容正确性: 等于所有音频块首尾拼接"""
+        session = StreamingSession()
+        c1 = _sine(1.0)
+        c2 = _sine(1.0)
+        session.append_audio(c1)
+        session.append_audio(c2)
+        buffer = session.audio_buffer
+        np.testing.assert_array_equal(buffer, np.concatenate([c1, c2]))
+
+    def test_audio_buffer_none_after_cleanup(self):
+        """cleanup 释放缓存 → None (防泄漏)"""
+        session = StreamingSession()
+        session.append_audio(_sine(2.0))
+        session.cleanup()
+        assert session.audio_buffer is None
+        assert session._audio_chunks == []
+
+
 class TestPartialPitch:
     """中性音准公式 — 低音歌手不因绝对频率被歧视"""
 

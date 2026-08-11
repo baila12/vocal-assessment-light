@@ -29,10 +29,8 @@ class PitchExtractionService:
         """WAV 文件 → SongPitchCurve (librosa.yin, NaN→0.0)"""
         import librosa
 
-        y, sr = librosa.load(wav_path, sr=None, mono=True)
-        if sr != TARGET_SR:
-            y = librosa.resample(y, orig_sr=sr, target_sr=TARGET_SR)
-            sr = TARGET_SR
+        # P2-11: 一步加载到 TARGET_SR (原 sr=None 原生加载再两次重采样, 峰值内存 ~2.7x)
+        y, sr = librosa.load(wav_path, sr=TARGET_SR, mono=True)
 
         f0 = librosa.yin(y, fmin=fmin, fmax=fmax, sr=sr, hop_length=hop_length)
         times = librosa.times_like(f0, sr=sr, hop_length=hop_length)

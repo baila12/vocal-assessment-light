@@ -33,6 +33,11 @@ class StreamingSession:
         self._total_samples = 0
         self._sample_rate = 16000
 
+        # P2-13: audio_buffer 增量缓存 — 避免每 2s 周期全量 np.concatenate 重建
+        # (60s 录音 ~469 块, 每周期 3 次全量重建 → 1 次惰性重建)
+        self._cached_buffer: Optional[np.ndarray] = None
+        self._buffer_dirty: bool = True
+
         # 增量特征缓存
         self._pitch_data: list[dict] = []   # [{frequencies, times, confidence}, ...]
         self._last_partial_at: float = 0.0
@@ -50,10 +55,17 @@ class StreamingSession:
 
     @property
     def audio_buffer(self) -> Optional[np.ndarray]:
-        """获取完整的音频数据 (用于最终评分)"""
+        """获取完整的音频数据 (用于最终评分) — 惰性拼接 + 缓存 (P2-13)
+
+        仅当有新音频追加 (dirty) 时才重建; 重复访问命中缓存返回同一数组。
+        返回的数组是内部缓存, 调用方必须以只读方式使用 (既有调用方均 astype 拷贝)。
+        """
         if not self._audio_chunks:
             return None
-        return np.concatenate(self._audio_chunks)
+        if self._buffer_dirty or self._cached_buffer is None:
+            self._cached_buffer = np.concatenate(self._audio_chunks)
+            self._buffer_dirty = False
+        return self._cached_buffer
 
     def append_audio(self, pcm: np.ndarray) -> None:
         """添加一帧 PCM 数据 (Float32, 16kHz, 2048 samples)"""
@@ -62,6 +74,8 @@ class StreamingSession:
 
         self._audio_chunks.append(pcm.astype(np.float32))
         self._total_samples += len(pcm)
+        # P2-13: 追加使缓存失效 — 下次 audio_buffer 访问时重建
+        self._buffer_dirty = True
 
     def ready_for_partial(self) -> bool:
         """是否应该发送增量评分"""
@@ -137,5 +151,7 @@ class StreamingSession:
     def cleanup(self) -> None:
         """释放资源 — WebSocket 断开时调用"""
         self._audio_chunks.clear()
+        self._cached_buffer = None  # P2-13: 释放缓存防泄漏
+        self._buffer_dirty = True
         self._pitch_data.clear()
         self.is_active = False

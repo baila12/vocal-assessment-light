@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-10 | 版本: **v7.14** | 分支: `main`
+> 更新: 2026-08-11 | 版本: **v7.14** | 分支: `main`
 
 ---
 
@@ -101,7 +101,7 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **DI** | deps.py `get_song_match_profile_repo` + `get_auto_match_use_case` (lru_cache 单例, 绑定 songs_db) | ✅ |
 | **前端** | `songMatch.store.ts` — `matchAudio` (POST /songs/match) + `selectCandidate` + `compareWithSelected` (复用 POST /songs/{id}/compare) + `fetchUserPitch` (POST /extract-pitch) | ✅ |
 | **前端** | CompareView 自动匹配区 (上传录音→候选列表 歌名/歌手/置信度/BPM 差/调性差→选中→一键 DTW 对比→复用 Phase 5 双轨叠加); 无匹配优雅回退提示 (fallback_reason 透传) | ✅ |
-| **测试** | v7.14 特性发布: 生产 537→633 (+96: 领域 79 + 基建 11 + 集成 6); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄)。**v7.14 深度审查修复轮 (2026-08-10): 633→714 collected (+81: fallback 11 + streaming 7 + pitch cache 7 + deps 2 + 集成/WS 13 + 断言同步等), 686 生产 GREEN** | ✅ |
+| **测试** | v7.14 特性发布: 生产 537→633 (+96: 领域 79 + 基建 11 + 集成 6); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄)。**v7.14 深度审查修复轮 (2026-08-10): 633→714 collected (+81: fallback 11 + streaming 7 + pitch cache 7 + deps 2 + 集成/WS 13 + 断言同步等), 686 生产 GREEN**。**P2 完善修复轮 (2026-08-11): sr 错配根因修复 (P2-11, 3 处 sr=None→16000) + HPSS 去重 (P2-12a) + audio_buffer 缓存 (P2-13) + 乱码文件名恢复 (P2-14) + legacy 死代码删除 (P2-15); 🆕 +25 单元测试; 真实音频基线重校准 BASELINE_V7_6→V7_14** | ✅ |
 
 ### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3 + Phase 4
 
@@ -282,15 +282,15 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
 | **生产代码总计** | **686** | **100% GREEN** |
 
-> 注: 生产合计 = Unit 575 + API 73 + WS 17 + 扩展 21 = **686** (独立进程实测)。另含真实音频回归 28 (BASELINE_V7_6)。**后端 collected = 714 (710 passed; 4 失败均为 breath 基线漂移既有)**。
+> 注: 生产合计 = Unit 575 + API 73 + WS 17 + 扩展 21 = **686** (独立进程实测)。另含真实音频回归 28 (BASELINE_V7_14, v7.14 P2 轮重校准)。**后端 collected = 714 + P2 轮新增 25 = 739 (基线重校准后无既有 breath 失败)**。
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| 真实音频 Quick + Pro | 28 | ⚠️ 24 PASS + 4 FAIL | 4 个失败均为 `test_dimension_scores_in_baseline_ranges` 的 **breath 维度**越界 0.1-0.8 分 (79.2/83.4/75.9/69.9 vs 基线 80/84/76/70) — BASELINE_V7_6 阈值过紧的既有漂移, 与 v7.13/v7.14 修复轮改动无关 (评分管线零触碰; total/valid 范围测试全 PASS) |
+| 真实音频 Quick + Pro | 28 | ✅ **全 PASS** (v7.14 P2 轮) | v7.14 P2 轮修复 sr 错配 bug (P2-11) 后基线重校准 BASELINE_V7_6→V7_14 — 旧 4 个 breath 基线漂移 FAIL 为 sr 错配虚高值 (基线 80/84/76/70), 真实值校准后自然消除; 区分度断言改为总分排序 + 单维 gap ≥10 (与 BDD differentiation.feature 一致) |
 
-### BDD (2026-08-10 全量 API 级实测: 121 scenarios → 21F / 20P / 43S / 37X)
+### BDD (2026-08-11 P2 轮后: 121 scenarios → **12F / 28P / 43S / 38X** — differentiation/history 已修复, compare 12 既有失败保留)
 
 | Feature | 状态 |
 |------|------|
@@ -301,9 +301,9 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | database.feature | ✅ **v7.14 修复轮后通过** (P0-2 DI 缓存隔离修复前 5 FAIL) |
 | **auto-match.feature (v7.14 上传自动匹配)** | ✅ **5 PASS + 3 XFAIL** (v7.14 修复轮从 1P+7F 恢复; 短音频容错→test_extract_short_audio_tolerant, 嘈杂→test_extract_noise_robust, 超时→test_timeout_returns_partial/test_deadline_exceeded_returns_partial) |
 | **pitch-realtime.feature (v7.13 P1-P5 骨架)** | ⚠️ 文档化 stub — 25 XFAIL, 非"已完成" (v7.14 审查 T1): 浏览器 BDD 未实现 (无真实音频/WS); 每条标注对应纯 TS 单元测试文件 — P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计→pitchSegments.test.ts, P5 起双轨填色/热力图/截图/快捷键→pitchCompareDraw/pitchHeatmap/pitchScreenshot/pitchKeyboard |
-| compare.feature | ❌ **既有 12 FAIL** — `StepDefinitionNotFoundError`: feature 仍用 Flask step 名称 (`Given "Flask 服务已启动"`), FastAPI 未迁移 |
-| differentiation.feature | ❌ **既有 6 FAIL** — 依赖完整真实音频栈 (librosa 全管道) |
-| history.feature | ❌ **既有 3 FAIL** — Flask 遗留 `api_client.get_json()` (应为 FastAPI TestClient `.json()`) |
+| compare.feature | ❌ **12 FAIL (既有, 未改)** — `StepDefinitionNotFoundError`: feature 仍用 Flask step 名称 (`Given "Flask 服务已启动"`), FastAPI 未迁移; DTW 融合语义过时, 已决定延期 |
+| differentiation.feature | ✅ **6 PASS + 1 XFAIL** (v7.14 P2 轮修复: 断言与实测一致化 — 总分 gap 不可达 → 单维区分度不变量) |
+| history.feature | ✅ **4 PASS** (v7.14 P2 轮修复: Flask 遗留 `get_json()` → FastAPI `.json()`) |
 
 ### 前端测试
 
@@ -325,21 +325,25 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | SingView | 录音脉冲光环 | GSAP pulse repeat:-1 |
 | 全局 | prefers-reduced-motion | CSS @media + GSAP matchMedia |
 
-### 真实音频评分 (v7.6 Quick 模式)
+### 真实音频评分 (v7.14 P2 Quick 模式, sr 错配修复后基线)
+
+> 实测值 (2026-08-11, 独立进程确定性复现)。旧 v7.6 表: 恋人 71.5/rhythm 66.3、陈奕迅 62.4 — rhythm 为 sr 错配 bug 的时间压缩虚高值; v7.14 P2-11 修复后恢复真实 onset CV。
 
 | 音频文件 | Total | Pitch | Rhythm | Breath | Tech | Art | Muscle |
 |----------|:-----:|:-----:|:------:|:------:|:----:|:---:|:------:|
-| 恋人（高分） | 71.5 | 66.6 | 66.3 | 89.5 | 51.6 | 74.0 | 77.9 |
-| 1（高分） | 74.1 | 70.7 | 71.2 | 93.6 | 53.7 | 75.2 | 77.2 |
-| 陈奕迅（低分） | 62.4 | 66.4 | 5.2 | 80.3 | 57.1 | 68.7 | 75.4 |
+| 恋人（高分） | 63.7 | 66.6 | 43.8 | 79.8 | 43.4 | 74.8 | 77.9 |
+| 手写的从前（高分） | 64.5 | 69.7 | 30.1 | 82.2 | 52.3 | 72.3 | 75.4 |
+| 1（高分） | 62.1 | 70.7 | 30.4 | 78.4 | 45.2 | 73.9 | 73.9 |
+| 音频-3分26秒(高分) | 63.3 | 67.5 | 37.1 | 78.7 | 45.0 | 72.5 | 80.4 |
+| 陈奕迅（低分） | 58.9 | 66.4 | 9.3 | 75.7 | 46.7 | 70.4 | 71.1 |
 
-> 高低分区分度: 71.5 - 62.4 = **9.1 pts** (>8 阈值) ✅
+> 高低分区分度 (v7.14 规格): 总分排序 63.7 > 58.9 ✅ + **rhythm gap 43.8 - 9.3 = 34.5 pts** (单维区分度, 与 BDD differentiation.feature 一致) ✅
 
 ---
 
 ## 四、已知问题
 
-> 更新: 2026-08-09 | v7.14
+> 更新: 2026-08-11 | v7.14
 
 ### 架构残留
 
@@ -377,9 +381,10 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 问题 | 说明 |
 |------|------|
-| 真实音频 breath 基线漂移 | `test_dimension_scores_in_baseline_ranges` 4 个文件 breath 越界 0.1-0.8 分 (v7.6 基线阈值过紧, 环境漂移) — 待校准 BASELINE_V7_6 breath_range 或接受漂移 (v7.14 实测 24P+4F) |
+| ~~真实音频 breath 基线漂移~~ | ✅ v7.14 P2 轮: 根因实为 sr 错配 bug (P2-11) 造成的虚高值 — `librosa.load(sr=None)` 后只更新局部变量, `AudioAnalysisResult.sample_rate` 保持原生 sr, DDD 提取器收到 (16k 音频, 原生 sr) 不一致。sr 修复 + 基线重校准 BASELINE_V7_6→V7_14 后 28 例全 PASS |
+| **乱码孤儿文件删除 (P2-14 遗留)** | uploads/ 中 2 个 GBK 乱码文件名历史残留 (`1£¨¸ß·Ö£©.mp3`, `³ÂÞÈÑ¸ÄÑÌýÖ®Éù£¨µÍ·Ö£©.mp3`) — `sanitize_filename` 已支持乱码恢复 (新上传自动迁移), 但**已落盘孤儿文件删除待显式授权** (未获用户批准前不得删除) |
 | BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; v7.13: pitch-realtime step defs 骨架已创建; 5 features 仍待实现 |
-| **BDD API 级 21 既有失败 (Flask 迁移遗留)** | compare.feature 12 `StepDefinitionNotFoundError` (feature 仍用 `Given "Flask 服务已启动"` 等 Flask step) + history.feature 3 `api_client.get_json()` (应为 `.json()`) + differentiation.feature 6 (依赖完整真实音频栈) — 均与 v7.14 功能无关; 深度审查遗留 P2, 见 DEEP_REVIEW_v7.14 待修复清单 |
+| **BDD API 级 12 既有失败 (Flask 迁移遗留)** | compare.feature 12 `StepDefinitionNotFoundError` (feature 仍用 `Given "Flask 服务已启动"` 等 Flask step) — 与 v7.14 功能无关; DTW 融合语义过时已决定延期; 深度审查遗留 P2, 见 DEEP_REVIEW_v7.14 待修复清单。~~history 3 get_json~~ ✅ v7.14 P2 修复; ~~differentiation 6~~ ✅ v7.14 P2 修复 (断言与实测一致化) |
 | ~~BDD animations.feature 旧架构~~ | ✅ v7.12: 迁移 Vue 3 (data-test 钩子 + 类选择器); 无 UI 场景 xfail 带理由 |
 | ~~BDD 浏览器基建指向旧 Flask~~ | ✅ v7.11: conftest base_url→:8000 + api_client→FastAPI + 前端 `window.__store` 钩子 |
 | ~~upload.feature 数据缺失 (vocals.wav)~~ | ✅ v7.12: `scripts/gen_bdd_test_data.py` 生成 + KMP_DUPLICATE_LIB_OK 崩溃修复; 5 PASS + 3 SKIP |

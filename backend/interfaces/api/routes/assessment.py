@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import re
 import time
+import unicodedata
 from pathlib import Path
 from datetime import datetime
 import uuid
@@ -25,7 +26,7 @@ from backend.interfaces.api.schemas.assessment import (
     SeparateRequest, SeparateResponse, ReportRequest, ReportResponse,
     CompareRequest, CompareResponse,
 )
-from backend.domain.songs_pitch.services import PitchExtractionService
+from backend.domain.songs_pitch.services import PitchExtractionService, TARGET_SR
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -36,11 +37,42 @@ _INVALID_PATH = "无效的文件路径"
 _FORBIDDEN_PATH = "无权访问此文件"
 
 
+def _recover_garbled_name(name: str) -> str:
+    """GBK 字节被误按 Latin-1 解码的乱码往返恢复 (P2-14)
+
+    历史编码 bug 残留: `1£¨¸ß·Ö£©` 实为 `1（高分）` 的 GBK 字节
+    (0xA3A8...) 被误按 Latin-1 解码。恢复 = latin-1 编码回原字节,
+    再按 GBK 解码。仅当往返成功且结果含 CJK 才接受, 否则原样返回
+    (不误伤合法 Latin-1 文件名如 `café`)。
+    """
+    try:
+        recovered = name.encode("latin-1").decode("gbk")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return name
+    if recovered == name:
+        return name
+    # CJK 统一表意文字基本区 + 扩展 A (U+3400-U+4DBF) + 兼容表意文字 (U+F900-U+FAFF)
+    if not any(
+        "㐀" <= ch <= "鿿" or "豈" <= ch <= "﫿" for ch in recovered
+    ):
+        return name
+    return recovered
+
+
 def sanitize_filename(filename: str) -> str:
-    """安全处理文件名，保留中文字符"""
+    """安全处理文件名，保留中文字符
+
+    处理顺序: GBK 乱码往返恢复 → Unicode NFC 规范化 (macOS NFD/Windows NFC
+    落盘字节统一) → 剥离 Windows 非法字符 → 去首尾空白/点 (防 `..` 裸点
+    stem 解析为父目录) → 空名回退。
+    Path.stem 语义保留: `/` `\\` 视为路径分隔符取 basename (防路径穿越)。
+    """
     name_part = Path(filename).stem
     ext_part = Path(filename).suffix
+    name_part = _recover_garbled_name(name_part)
+    name_part = unicodedata.normalize("NFC", name_part)
     safe_name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', name_part)
+    safe_name = safe_name.strip().strip(".")
     if not safe_name:
         safe_name = f"audio_{int(time.time())}"
     return safe_name + ext_part
@@ -318,11 +350,8 @@ async def extract_pitch(
         raise HTTPException(status_code=400, detail="需要上传音频文件")
 
     try:
-        TARGET_SR = 16000
-        y, sr = await asyncio.to_thread(librosa.load, filepath_str, sr=None, mono=True)
-        if sr > TARGET_SR:
-            y = librosa.resample(y, orig_sr=sr, target_sr=TARGET_SR)
-            sr = TARGET_SR
+        # P2-11: 一步加载到 TARGET_SR (原 sr=None 原生加载再两次重采样, 峰值内存 ~2.7x)
+        y, sr = await asyncio.to_thread(librosa.load, filepath_str, sr=TARGET_SR, mono=True)
 
         hop_length = 512
         f0 = librosa.yin(y, fmin=65.0, fmax=1047.0, sr=sr, hop_length=hop_length)

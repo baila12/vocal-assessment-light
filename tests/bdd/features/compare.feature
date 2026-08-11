@@ -1,3 +1,15 @@
+# ═══════════════════════════════════════════════════════════════════════
+# v7.14 状态: 本 feature 已标记【延期】, 非当前回归范围。
+# 原因 (见 docs/4-process/PROJECT_STATUS.md):
+#   1. 端点过时: /api/compare, /api/upload → 现为 /api/v1/* 前缀
+#   2. 步骤过时: Flask-era content_type= / .get_json() → httpx TestClient
+#      files= / .json(); @given 返回值不再注册为 fixture (pytest-bdd 8)
+#   3. DTW 融合语义过时: 本 feature 假设 5 维 + 逐段置信度 + 双曲线叠加,
+#      当前实现返回 dtw_dims {pitch_diff/rhythm_diff/total_diff}, 需业务确认
+#      融合语义后重写 (当前 12 个场景全部因端点/API 错配失败, 非功能回归)。
+# 对应 steps: tests/bdd/steps/test_compare_steps.py (同批过期)。
+# ═══════════════════════════════════════════════════════════════════════
+
 Feature: DTW 对比分析 — DTW 作为特征提供者, ScoreServiceV4 统一评分
   As a 声乐学生
   I want to 将我的演唱与标准版本对比

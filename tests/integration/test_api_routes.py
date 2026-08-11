@@ -111,6 +111,49 @@ class TestAssessmentEndpoints:
         resp = client.post("/api/v1/extract-pitch")
         assert resp.status_code == 400
 
+    def test_extract_pitch_positive_loads_at_target_sr(self, client, monkeypatch, tmp_path):
+        """P2-11 + T3: /extract-pitch 正向路径 — librosa.load 以 sr=16000 一步加载 (非 sr=None 两次重采样)
+
+        同时填补 T3 缺口 (该端点此前只有 400 负向测试)。上传写入重定向到 tmp_path 防污染 uploads/。
+        """
+        import io
+        import wave
+        import librosa
+        import numpy as np
+        from config import Config
+
+        monkeypatch.setattr(Config, "get_upload_path", lambda self, name: tmp_path / name)
+
+        captured: dict = {}
+
+        def spy_load(path, **kwargs):
+            captured["sr"] = kwargs.get("sr")
+            n = 16000
+            t = np.linspace(0, 1, n, endpoint=False)
+            return (np.sin(2 * np.pi * 440 * t) * 0.5).astype(np.float32), 16000
+
+        monkeypatch.setattr(librosa, "load", spy_load)
+
+        n = 16000
+        t = np.linspace(0, 1, n, endpoint=False)
+        samples = (np.sin(2 * np.pi * 440 * t) * 0.5 * 32767).astype(np.int16)
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(16000)
+            w.writeframes(samples.tobytes())
+
+        resp = client.post(
+            "/api/v1/extract-pitch",
+            files={"file": ("user.wav", buf.getvalue(), "audio/wav")},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()["data"]
+        assert data["sample_rate"] == 16000
+        assert captured["sr"] == 16000, \
+            f"load 应直接以 sr=16000 加载 (内存峰值 ~2.7x 来源), 实际 {captured['sr']}"
+
     def test_separate_missing_filepath(self, client):
         resp = client.post("/api/v1/separate", json={})
         assert resp.status_code == 422

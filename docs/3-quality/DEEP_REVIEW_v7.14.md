@@ -560,15 +560,15 @@ total = (
 | 前端 Vitest | 297 | 297 ✅ | stores 85 + pitch utils 212 |
 | BDD API 级全量 (2026-08-10) | 121 | 20 | **21F / 20P / 43S / 37X**; 21 个既有失败均为 Flask 迁移遗留 (compare 12 `StepDefinitionNotFoundError` + history 3 `get_json` + differentiation 6 真实音频), 与本次修复无关; P0-2 fixture 修复使失败 33→21 (database/auto-match 恢复) |
 
-### 15.3 剩余未修复 (P2, 按用户决定排除)
+### 15.3 P2 修复状态 (2026-08-11 完成轮)
 
-| # | 修复项 | 工作量 |
-|---|--------|:---:|
-| 11 | 3 处 `sr=None` 改 `sr=16000` | 小 |
-| 12 | HPSS 去重、Demucs 改 in-process | 中 |
-| 13 | `audio_buffer` 缓存拼接结果 | 小 |
-| 14 | uploads/ 自动清理 + 乱码文件名迁移 | 中 |
-| 15 | legacy `api/business`+`services` 收敛进 DDD, 删 `backend/legacy/` + 6 死模块 | 大 |
-| 16 | breath/timbre/artistry 评分校准 (S1/S2/S3) | 大 |
+| # | 修复项 | 工作量 | 状态 |
+|---|--------|:---:|:---:|
+| 11 | 3 处 `sr=None` 改 `sr=16000` | 小 | ✅ **已修复** (3 处一步加载; 揭示并修复 sr 错配 bug — `AudioAnalysisResult.sample_rate` 从未更新, DDD 提取器收到 (16k 音频, 原生 sr) 不一致 → rhythm/tech/muscle 全偏; 基线重校准 BASELINE_V7_14) |
+| 12 | HPSS 去重、Demucs 改 in-process | 中 | 🔶 **P2-12a 完成** (HPSS 去重: `_preprocess_for_scoring` 只跑 HPSS+混合检测); Demucs in-process 未做 (保留 subprocess) |
+| 13 | `audio_buffer` 缓存拼接结果 | 小 | ✅ **已修复** (惰性拼接 + dirty 缓存, 每周期 3 次全量 concatenate → 1 次) |
+| 14 | uploads/ 自动清理 + 乱码文件名迁移 | 中 | 🔶 **部分** (`sanitize_filename` 增 GBK 乱码往返恢复 + NFC); 已落盘乱码孤儿文件删除 ⏸ 待显式授权; uploads/ 自动清理未做 |
+| 15 | legacy `api/business`+`services` 收敛进 DDD | 大 | 🔶 **部分** (删 `backend/legacy/` + `backend/shared/result.py`, 全库零引用); `api/business`+`services` 完全收敛未做 |
+| 16 | breath/timbre/artistry 评分校准 (S1/S2/S3) | 大 | ⏸ 未执行 (大改, 按用户决定择机) |
 
-> 已记录为后续迭代候选。P0-1 至 P1-10 的修复使本报告第五章 (三套评分模型)、第六章 (静默崩溃)、第九章 (内存泄漏) 中标注的**核心用户信任风险**已消除; 剩余 P2 主要是性能优化与债务清理, 不改变评分正确性与崩溃可见性。
+> P2 轮附带收益: **sr 错配 bug 根因修复** (P2-11) 使 4 个历史 breath 基线漂移 FAIL 自然消除 (真实值校准), 真实音频回归 28 例全 PASS; BDD differentiation/history 修复使 API 级失败 21→12。

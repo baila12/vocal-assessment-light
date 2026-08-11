@@ -27,6 +27,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# P2-11: 统一加载采样率 — 人声基频 65-1047Hz, 16kHz 奈奎斯特 8kHz 足够。
+# 所有消费方均按 16000 处理, 直接一步加载避免 sr=None 两次重采样 (峰值内存 ~2.7x)。
+TARGET_SR = 16000
+
 
 @dataclass
 class WaveformData:
@@ -153,8 +157,8 @@ class AudioService:
             AudioAnalysisResult: 分析结果
         """
         try:
-            # 加载音频
-            audio_data, sample_rate = librosa.load(filepath, sr=None, mono=True)
+            # 加载音频 (P2-11: 一步加载到 TARGET_SR, 替代 sr=None + 两次重采样)
+            audio_data, sample_rate = librosa.load(filepath, sr=TARGET_SR, mono=True)
             duration = len(audio_data) / sample_rate
             file_size = Path(filepath).stat().st_size / (1024 * 1024)
             filename = Path(filepath).name
@@ -168,14 +172,6 @@ class AudioService:
                 sample_rate=sample_rate,
                 file_size=file_size
             )
-
-            # ========== 性能优化：降采样到16kHz ==========
-            # 人声基频范围65-1047Hz，16kHz采样率足够（奈奎斯特频率8kHz）
-            TARGET_SR = 16000
-            original_sr = sample_rate
-            if sample_rate > TARGET_SR:
-                audio_data = librosa.resample(audio_data, orig_sr=sample_rate, target_sr=TARGET_SR)
-                sample_rate = TARGET_SR
 
             # 存储原始数据供后续使用
             result._audio_data = audio_data
@@ -753,10 +749,13 @@ class AudioService:
 
         # 检测是否为混合音频
         # 使用已加载的音频数据 (16kHz) 进行检测, 避免额外 I/O
+        # P2-12a: 只做 HPSS + _detect_mixed_audio 投票 — 不跑全量 extract
+        # (HNR/CPP/spectral_tilt/voicing 白算, 该全量随后由 DDD extract_all 对同一音频重复计算)
         try:
-            ac_result = LibrosaAcousticExtractor(sample_rate).extract(audio_data, sample_rate)
-            is_mixed = ac_result.is_mixed_audio
-            confidence = ac_result.mixed_audio_confidence
+            _, hpss_ratio = LibrosaAcousticExtractor._compute_hpss(audio_data)
+            is_mixed, confidence = LibrosaAcousticExtractor._detect_mixed_audio(
+                audio_data, sample_rate, hpss_ratio
+            )
         except Exception:
             logger.warning("Mixed audio detection failed, skipping separation", exc_info=True)
             return audio_data, sample_rate, None, False, False, 0.0
@@ -792,13 +791,8 @@ class AudioService:
                 logger.warning(f"分离文件不存在: {vocals_full_path}, 回退到原始音频")
                 return audio_data, sample_rate, None, False, is_mixed, confidence
 
-            vocals_audio, vocals_sr = librosa.load(str(vocals_full_path), sr=None, mono=True)
-
-            # 降采样到16kHz（与主流程一致）
-            TARGET_SR = 16000
-            if vocals_sr > TARGET_SR:
-                vocals_audio = librosa.resample(vocals_audio, orig_sr=vocals_sr, target_sr=TARGET_SR)
-                vocals_sr = TARGET_SR
+            # P2-11: 一步加载到 TARGET_SR（与主流程一致）
+            vocals_audio, vocals_sr = librosa.load(str(vocals_full_path), sr=TARGET_SR, mono=True)
 
             logger.info(
                 f"Demucs 分离成功: 原始={len(audio_data)/sample_rate:.1f}s, "

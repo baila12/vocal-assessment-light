@@ -108,7 +108,7 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 714 tests collected (unit 575 + integration 118 + extended 21) + 前端 297 Vitest
+└── tests/                # 734 tests collected (unit 594 + integration 119 + extended 21) + 前端 297 Vitest
 ```
 
 ## API 接口

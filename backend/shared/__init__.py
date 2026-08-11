@@ -2,7 +2,6 @@
 
 from .domain_types import PositiveFloat, ScoreValue, ScoreLevel
 from .event_bus import EventBus, DomainEvent
-from .result import Result
 
 __all__ = [
     "PositiveFloat",
@@ -10,5 +9,4 @@ __all__ = [
     "ScoreLevel",
     "EventBus",
     "DomainEvent",
-    "Result",
 ]

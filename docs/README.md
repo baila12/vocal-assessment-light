@@ -1,7 +1,7 @@
 # 声乐评估系统文档索引
 
-> **v7.14 | 2026-08-10** | 分支: `main`
-> 上传音频自动匹配标准歌曲 (song_match DDD 子域: BPM/调性/chroma/duration 特征 + 确定性置信度 + POST /songs/match + upload auto_match + CompareView 自动匹配区) | 714 后端测试 collected (710 passed) + 297 前端 GREEN
+> **v7.14 | 2026-08-11** | 分支: `main`
+> 上传音频自动匹配标准歌曲 (song_match DDD 子域: BPM/调性/chroma/duration 特征 + 确定性置信度 + POST /songs/match + upload auto_match + CompareView 自动匹配区) + **P2 完善修复轮 (sr 错配根因修复 + 基线重校准 + BDD differentiation/history 修复)** | 734 后端测试 collected (734 passed) + 297 前端 GREEN
 
 本目录按产品、技术、质量、过程和归档五类组织。
 
@@ -41,16 +41,16 @@
 | 层级 | 测试数 | 通过率 | 说明 |
 |------|:-----:|--------|------|
 | DDD 单元测试 (domain + infrastructure + alignment + flag + middleware + WS 会话) | 575 | ✅ 100% | 领域 363 (含 song_match/ScoringWeights/fallback) + 基建 159 (含 pitch cache LRU/deps 单例) + 对齐/flag 23 + 中间件 23 + WS 会话 7 |
-| FastAPI 集成测试 (API 层) | 73 | ✅ 100% | test_api_routes (19) + test_songs_api (21) + scoring API (14) + songs_pitch_api (9) + compare_pitch_api (4) + song_match_api (6, v7.14) (独立进程) |
+| FastAPI 集成测试 (API 层) | 74 | ✅ 100% | test_api_routes (19 + sr=16000 契约断言, v7.14 P2) + test_songs_api (21) + scoring API (14) + songs_pitch_api (9) + compare_pitch_api (4) + song_match_api (6, v7.14) (独立进程) |
 | WebSocket 集成 | 17 | ✅ 100% | test_ws_score (13) + ws_pitch_update (4, v7.13) |
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ (独立进程; v7.12 删 test_score_calibrator) |
-| **生产代码总计** | **686** | **100% GREEN** | (unit 575 + API 73 + WS 17 + 扩展 21) |
-| 真实音频回归 | 28 | ⚠️ 24P+4F | BASELINE_V7_6 (4 breath 基线漂移 0.1-0.8 分, 既有, 见已知问题) |
-| **后端 collected** | **714** | **710 passed** | 686 生产 + 28 真实音频; 4 失败均为 breath 基线漂移 |
+| **生产代码总计** | **706** | **100% GREEN** | (unit 594 + API 74 + WS 17 + 扩展 21) |
+| 真实音频回归 | 28 | ✅ 全 PASS | BASELINE_V7_14 (v7.14 P2 重校准: sr 错配 bug 修复后真实值) |
+| **后端 collected** | **734** | **734 passed** | 706 生产 + 28 真实音频 |
 | Vue 3 前端 (Vitest) | 297 | ✅ 100% | stores 85 + pitch utils 212 (v7.14 +11 songMatch.store) |
 | 前端 vue-tsc | 0 errors | ✅ | TypeScript 类型检查 |
 | 前端 Vite build | ~16s | ✅ | 生产构建 |
-| BDD | 18 step files, 21 feature files | ⚠️ 见 BDD.md | 187 scenarios collected (121 API 级 + 66 browser); API 级存在既有失败 (Flask 遗留 step 文件), 详见 BDD.md/PROJECT_STATUS |
+| BDD | 18 step files, 21 feature files | ⚠️ 见 BDD.md | 187 scenarios collected (121 API 级 + 66 browser); API 级 12 既有失败 (compare Flask 遗留 step), differentiation/history 已修复, 详见 BDD.md/PROJECT_STATUS |
 
 ## 4. 过程文档
 
@@ -58,7 +58,7 @@
 |------|------|
 | [4-process/PROJECT_STATUS.md](4-process/PROJECT_STATUS.md) | 当前项目状态、v7.14 进度、已知问题、测试详情 |
 | [4-process/CHANGELOG.md](4-process/CHANGELOG.md) | 版本变更记录 (v5.0 → v7.14) |
-| [4-process/TEST_RESULTS.md](4-process/TEST_RESULTS.md) | 测试结果记录 (v7.14: 714 collected / 710 passed) |
+| [4-process/TEST_RESULTS.md](4-process/TEST_RESULTS.md) | 测试结果记录 (v7.14: 734 collected / 734 passed) |
 | [4-process/V7_MIGRATION_PLAN.md](4-process/V7_MIGRATION_PLAN.md) | v7.0 全栈重构计划 (历史参考) |
 | [4-process/audits/README.md](4-process/audits/README.md) | 项目审计与优化计划 |
 

@@ -77,6 +77,37 @@
 
 ---
 
+## v7.14 (续) — P2 完善修复轮: sr 错配根因修复 + 基线重校准 (2026-08-11)
+
+按 [DEEP_REVIEW_v7.14.md](../3-quality/DEEP_REVIEW_v7.14.md) 第十三章 **P2 清单（性能与债务清理，择机项）执行 P2-11~P2-15**。全部 TDD (RED→GREEN) + DDD 不可变模式。关键发现：**P2-11 修复了一个潜伏的 sr 错配 bug**，使真实音频评分基线从虚高值校准到真实值（BASELINE_V7_6 → BASELINE_V7_14）。
+
+### 根因: sr 错配 bug（P2-11 修复对象，本轮的实质核心）
+
+- **旧代码**: `librosa.load(sr=None)` 以原生 sr (44.1k/48k) 加载 → `AudioAnalysisResult.sample_rate` 存原生 sr → 条件 resample 到 16k 时**只更新局部变量**，`result.sample_rate` 保持原生。
+- **后果**: DDD 各提取器收到 **(16k 音频, 原生 sr)** 不一致: rhythm 内部按 orig_sr=原生 重采样到 22.05k → 时间轴 ~2.76x 压缩、onset CV 失真（rhythm 虚高: 恋人 66→真实 43.8、1高分 71→30.4）; technique/muscle 频谱轴错位 (spectral_centroid/hf_energy 全偏); **pitch 不受影响**（F0 提取在重采样后使用已修正的局部 sr）。
+- **修复**: 3 处 `sr=None` 统一为一步 `librosa.load(sr=16000)`（`services/audio_service.py` + `backend/domain/songs_pitch/services.py` + `backend/interfaces/api/routes/assessment.py:extract_pitch`），峰值内存 ~2.7x → 1x。`test_api_routes.py` `sample_rate==16000` 契约本就存在，本轮验证一致。
+- **基线重校准**: 修复后 rhythm/breath/tech/muscle 恢复真实值, total 压缩到 58-65（实测区分度 diff=4.8）; BASELINE_V7_6 → **BASELINE_V7_14**（新范围注释含完整根因分析）。区分度断言改为 **总分排序 + 核心维度 gap ≥10**（与 BDD differentiation.feature 一致的可验证不变量）。4 个历史 breath 基线漂移 FAIL 由 sr 修复自然消除。
+
+### 修复内容
+
+| 项 | 严重度 | 修复 |
+|----|:---:|------|
+| P2-11 | 性能+正确性 | 3 处 `sr=None` → `sr=16000` 一步加载（消除双次重采样峰值内存 ~2.7x 与 sr 错配） |
+| P2-12a | 性能 | `_preprocess_for_scoring` 改只跑 `_compute_hpss`+`_detect_mixed_audio`，不再全量 `extract`（HNR/CPP/spectral_tilt/voicing 白算, 随后由 DDD extract_all 对同一音频重复计算） |
+| P2-13 | 性能 | `StreamingSession.audio_buffer` 惰性拼接+缓存（dirty 标志），每 2s 周期 3 次全量 `np.concatenate` → 1 次; `cleanup` 释放缓存防泄漏 |
+| P2-14 | 债务 | `sanitize_filename` 增 GBK 乱码往返恢复 `_recover_garbled_name`（latin-1 编码回字节再 GBK 解码, 仅接受含 CJK 结果）+ Unicode NFC 规范化; ⏸ 乱码孤儿文件删除待显式授权（见 PROJECT_STATUS 已知问题） |
+| P2-15 | 债务 | 删 `backend/legacy/`（`__init__`/`models`）+ `backend/shared/result.py`, `shared/__init__.py` `Result` 从 `__all__` 移除; 全库 grep 确认零引用 |
+| P2-16 | 校准 | ⏸ 未执行 (breath/timbre/artistry 校准, 大改, 按用户决定择机) |
+
+### 测试
+
+- 🆕 新增单元测试: `test_audio_service_mixed_detection` (+2) + `test_sanitize_filename` (+11) + `test_streaming_session` P2-13 (+5) + `test_song_pitch_service` sr 契约 (+1) = **+19 单元**; `test_api_routes` sr=16000 契约断言 → 生产代码 **686 → 706 collected**
+- 🔧 **真实音频回归基线重校准**: BASELINE_V7_6 → V7_14 + 区分度断言重构; **28 例全 PASS** (含 quick_pro 单测; 原 4 个 breath 基线漂移 FAIL 由 sr 修复自然消除)
+- 真实音频实测 (独立进程确定性复现): 恋人 63.7/rhythm 43.8、陈奕迅 58.9/rhythm 9.3 — 总分排序正确 + rhythm gap 34.5
+- 🐛 **BDD differentiation/history 修复**: 断言与实测一致化 (总分 gap 不可达 → 单维区分度不变量) + Flask 遗留 `get_json()`→`.json()` — BDD API 级 21F → **12F** (仅剩 compare Flask step, 已决定延期)
+
+---
+
 ## v7.13 — 实时音准对比子系统 Phase 1: 参考音高 API + WS pitch_update + 选歌录音增强 (2026-08-07)
 
 ### 概述

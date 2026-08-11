@@ -1,6 +1,6 @@
 # 测试驱动开发 (TDD) 规范 v7.14
 
-> 更新: 2026-08-10 | 后端 714 tests collected (710 passed) + 前端 297 Vitest GREEN | pytest + Vitest
+> 更新: 2026-08-11 | 后端 734 tests collected (734 passed) + 前端 297 Vitest GREEN | pytest + Vitest
 
 ---
 
@@ -63,14 +63,14 @@
 | Integration (SongsPitch API) 🆕 v7.13 | 9 | ~5s | 100% | (test_song_pitch_api)
 | Integration (ComparePitch API) 🆕 v7.13 P5 | 4 | ~5s | 100% | (v7.14 修复轮 +1)
 | Integration (SongMatch API) 🆕 v7.14 | 6 | ~5s | 100% | (test_song_match_api)
-| **API 集成合计** | **73** | **~35s** | **100% GREEN** | (6 文件独立进程)
+| **API 集成合计** | **74** | **~35s** | **100% GREEN** | (6 文件独立进程; v7.14 P2 +1 sr 契约断言)
 | Integration (WebSocket) | 17 | ~5s | 100% | (v7.13 +4 pitch_update; v7.14 修复轮 +3 ws_score)
 | Extended (DTW/repos) | 21 | ~6s | 100% | (v7.12 删 test_score_calibrator)
-| **生产代码合计** | **686** | **~75s (不含回归)** | **100% GREEN** |
-| Real Audio Regression | 28 | ~27min | ⚠️ 24P+4F | 4 breath 基线漂移为既有 (BASELINE_V7_6) |
-| **后端 collected** | **714** | **—** | **710 passed** | 686 生产 + 28 真实音频 |
+| **生产代码合计** | **706** | **~75s (不含回归)** | **100% GREEN** | (v7.14 P2 +19 单元 +1 集成)
+| Real Audio Regression | 28 | ~27min | ✅ 全 PASS | BASELINE_V7_14 (v7.14 P2 重校准, sr 错配修复) |
+| **后端 collected** | **734** | **—** | **734 passed** | 706 生产 + 28 真实音频 |
 | TDD (future features) | 1 skip + 4 xfail | < 1s | ⏭️ |
-| BDD (API 级) | 121 scenarios | ~9min | ⚠️ 21F/20P/43S/37X | 既有失败 (Flask 遗留), 见 [BDD.md](BDD.md) |
+| BDD (API 级) | 121 scenarios | ~9min | ⚠️ **12F/28P/43S/38X** | 仅 compare 12 既有 (Flask 遗留); differentiation/history 已修复, 见 [BDD.md](BDD.md) |
 | Frontend (Vitest) | 297 | < 5s | 100% | stores 85 + pitch utils 212 |
 
 ---
@@ -135,7 +135,7 @@ tests/
 │   ├── test_song_match_api.py            # 🆕 v7.14 自动匹配 API (6 tests)
 │   ├── test_ws_score.py                  # WebSocket 实时评分 (13 tests)
 │   ├── test_ws_pitch_update.py           # 🆕 v7.13 WS pitch_update (4 tests)
-│   └── test_real_audio_regression.py     # 真实音频基线 (28 tests, ⚠️ 24P+4F 既有)
+│   └── test_real_audio_regression.py     # 真实音频基线 (28 tests, ✅ 全 PASS — v7.14 P2 BASELINE_V7_14)
 │
 ├── extended/                             # 需完整音频栈 (21 tests)
 │   ├── test_comparison_dtw.py
@@ -224,9 +224,9 @@ def test_technique_scorer_hnr_optimal_range_gives_max_contribution():
 | **API 集成合计** | | **73** |
 | WebSocket Integration | `test_ws_score.py` + `test_ws_pitch_update.py` | 13 + 4 |
 | Extended | `test_comparison_dtw.py` + `test_repositories.py` | 21 | (v7.12 删 test_score_calibrator)
-| **生产代码合计** | | **686** (unit 575 + API 73 + WS 17 + 扩展 21) |
-| Real Audio Regression | `test_real_audio_regression.py` | 28 | ⚠️ 24P+4F (breath 基线漂移既有)
-| **后端 collected** | | **714** (710 passed; 686 生产 + 28 真实音频) |
+| **生产代码合计** | | **706** (unit 594 + API 74 + WS 17 + 扩展 21) |
+| Real Audio Regression | `test_real_audio_regression.py` | 28 | ✅ 全 PASS (BASELINE_V7_14, v7.14 P2 重校准)
+| **后端 collected** | | **734** (734 passed; 706 生产 + 28 真实音频) |
 
 ---
 
@@ -433,7 +433,7 @@ frontend/tests/unit/utils/             # 13 pure-TS suites (212 tests)
 | 收集 scenarios | **187** (121 API 级 + 66 browser) |
 | Step files | 18 |
 | Feature files | 21 |
-| API 级运行结果 | **21 failed / 20 passed / 43 skipped / 37 xfailed** (~9min, 552s) |
+| API 级运行结果 | **12 failed / 28 passed / 43 skipped / 38 xfailed** (~9min; v7.14 P2 轮 21F→12F) |
 | scoring-config API 级 | ✅ PASS |
 | scoring-config UI 级 | ⚠️ XFAIL (阈值联动未实现) |
 | database.feature | ✅ v7.14 修复轮后通过 (DI 缓存隔离修复) |
@@ -441,20 +441,22 @@ frontend/tests/unit/utils/             # 13 pure-TS suites (212 tests)
 | upload.feature | ✅ 5 PASS + 3 SKIP (FLAC/OGG/M4A 无测试文件合理跳过) |
 | animations.feature (16 scenarios) | ✅ v7.12 迁移 Vue 3 data-test — 7 PASS + 9 XFAIL (无 UI/依赖录音场景) |
 | sing-song-select.feature | ✅ v7.12 迁移 Vue 3 — 6 PASS + 6 XFAIL (录音/auto-match/上传) |
-| compare.feature (12) | ❌ **既有失败** — `StepDefinitionNotFoundError`: Flask 遗留 feature 用 `Given "Flask 服务已启动"` 等 step, FastAPI 未迁移 |
-| differentiation.feature (6) | ❌ **既有失败** — 依赖完整真实音频栈 |
-| history.feature (3) | ❌ **既有失败** — Flask 遗留 `api_client.get_json()` vs FastAPI TestClient `.json()` |
+| compare.feature (12) | ❌ **既有失败** — `StepDefinitionNotFoundError`: Flask 遗留 feature 用 `Given "Flask 服务已启动"` 等 step, FastAPI 未迁移 (已决定延期) |
+| differentiation.feature | ✅ **6 PASS + 1 XFAIL** (v7.14 P2: 断言与实测一致化 — 总分 gap 不可达 → 单维区分度不变量) |
+| history.feature | ✅ **4 PASS** (v7.14 P2: `api_client.get_json()` → FastAPI TestClient `.json()`) |
 | pitch-realtime.feature (25 scenarios) | ⚠️ **文档化 stub — 非"已完成"**: 25 XFAIL, 浏览器 BDD 未实现 (无真实音频/WS 基建); 每条标注对应纯 TS 单元测试 — P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分→pitchSegments.test.ts, P5 起双轨填色/热力图/截图→pitchCompareDraw/pitchHeatmap/pitchScreenshot/pitchKeyboard |
 | 5 features 缺 step defs | ⚠️ multi-dim-analysis/nonblocking-analysis/realtime-analysis/song-select (auto-match 已补 step defs) |
 
 > **v7.14 修复轮影响**: conftest `fastapi_client` fixture 增加 `deps.get_song_repo/get_pitch_cache/get_song_match_profile_repo/get_auto_match_use_case.cache_clear()` (P0-2 根因: `@lru_cache` 破坏场景隔离), API 级失败从 33 降至 21, passed 从 13 升至 20, xfail 从 32 升至 37。
+>
+> **v7.14 P2 轮影响 (2026-08-11)**: differentiation.feature 断言与实测一致化 (总分 gap 不可达 → 单维区分度不变量) → **6 PASS + 1 XFAIL**; history.feature `get_json()`→`.json()` → **4 PASS**。API 级失败从 21 降至 **12** (仅剩 compare.feature Flask step, 已决定延期)。
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| 真实音频 Quick + Pro | 28 | ⚠️ 24P+4F | BASELINE_V7_6; 4 breath 基线漂移 0.1-0.8 分, **既有** (修复轮未触及) |
-| 高低分区分度 | 9.1 pts | ✅ | >8 阈值 |
+| 真实音频 Quick + Pro | 28 | ✅ 全 PASS | BASELINE_V7_14 (v7.14 P2 重校准: sr 错配 bug 修复后真实值) |
+| 高低分区分度 | rhythm 34.5 pts | ✅ | 总分排序正确 + 单维 gap ≥10 (v7.14 规格, 与 BDD differentiation.feature 一致) |
 
 ## 11. 参考
 

@@ -13,6 +13,13 @@ from backend.domain.songs_pitch.value_objects import SongPitchCurve
 from backend.domain.songs_pitch.services import PitchExtractionService
 
 
+def _sine_float32(duration_s=1.0, sr=16000, freq=440.0):
+    """float32 正弦波数组 (模拟 librosa.load 返回)"""
+    n = int(sr * duration_s)
+    t = np.linspace(0, duration_s, n, endpoint=False)
+    return (np.sin(2 * np.pi * freq * t) * 0.5).astype(np.float32)
+
+
 def _write_sine_wav(path, duration_s=1.0, sr=16000, freq=440.0):
     """写入最小正弦波 WAV (16-bit PCM mono)"""
     n = int(sr * duration_s)
@@ -59,6 +66,27 @@ class TestPitchExtractionService:
 
         voiced = [f for f in curve.frequencies if f > 0]
         assert len(voiced) / max(curve.frame_count, 1) > 0.5
+
+    def test_extract_loads_directly_at_target_sr(self, tmp_path, monkeypatch):
+        """P2-11: librosa.load 应以 sr=16000 一步加载 (非 sr=None 原生加载再两次重采样)"""
+        import librosa
+
+        wav = tmp_path / 'sine.wav'
+        _write_sine_wav(wav, duration_s=1.0, freq=440.0)
+
+        captured: dict = {}
+        real_load = librosa.load
+
+        def spy_load(path, **kwargs):
+            captured['sr'] = kwargs.get('sr')
+            return _sine_float32(), 16000
+
+        monkeypatch.setattr(librosa, 'load', spy_load)
+
+        curve = PitchExtractionService.extract(str(wav), song_id='moon_love')
+        assert captured['sr'] == 16000, \
+            f"load 应直接以 sr=16000 加载 (内存峰值 ~2.7x 来源), 实际 {captured['sr']}"
+        assert curve.sample_rate == 16000
 
     def test_extract_missing_file_raises(self, tmp_path):
         """不存在的文件 → 抛出异常 (不静默)"""

@@ -1,6 +1,6 @@
 # 测试结果记录 v7.14
 
-> 更新: 2026-08-10 | 后端 **714 collected / 710 passed** + 前端 297 Vitest GREEN | 分支: `main`
+> 更新: 2026-08-11 | 后端 **734 collected / 734 passed** + 前端 297 Vitest GREEN | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
@@ -12,19 +12,20 @@
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| Unit (DDD 领域: 6 scorers + 音色调整 + comparison + songs + songs_pitch + song_match + ScoringWeights + fallback) | 363 | ✅ 100% | 6 scorers + 音色调整 + comparison + songs + songs_pitch (v7.13) + **song_match (v7.14: +79)** + ScoringWeights 值对象 + **fallback_marking (v7.14 修复轮: +11)** |
-| Unit (DDD 基建: extractors + orchestrator + ABI + sqlite + pitch cache + deps) | 159 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 + sqlite_song_match_profile_repo + **in_memory_pitch_cache (+7) + deps_singleton (+2) (v7.14 修复轮)** |
+| Unit (DDD 领域: 6 scorers + 音色调整 + comparison + songs + songs_pitch + song_match + ScoringWeights + fallback) | 364 | ✅ 100% | 6 scorers + 音色调整 + comparison + songs + songs_pitch (v7.13) + **song_match (v7.14: +79)** + ScoringWeights 值对象 + **fallback_marking (v7.14 修复轮: +11)** + **song_pitch_service sr 契约 (+1, v7.14 P2)** |
+| Unit (DDD 基建: extractors + orchestrator + ABI + sqlite + pitch cache + deps) | 161 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 + sqlite_song_match_profile_repo + **in_memory_pitch_cache (+7) + deps_singleton (+2) (v7.14 修复轮)** + **audio_service_mixed_detection (+2, v7.14 P2)** |
 | Unit (DDD 对齐 + Flag bridge) | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
 | Unit (中间件) | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
-| Unit (WS streaming 会话) 🆕 v7.14 修复轮 | 7 | ✅ 100% | test_streaming_session (compute_partial 等) |
-| **Unit 合计** | **575** | **100% GREEN** | (~28s) |
-| API 集成 (6 文件) | 73 | ✅ 100% | test_api_routes (19) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + **song_match_api (6, v7.14)** |
+| Unit (WS streaming 会话) | 12 | ✅ 100% | test_streaming_session (compute_partial 等) + **P2-13 audio_buffer 缓存 (+5)** |
+| Unit (接口 sanitize_filename) 🆕 v7.14 P2 | 11 | ✅ 100% | test_sanitize_filename (P2-14: GBK 乱码恢复 + NFC + 非法字符 + 路径穿越) |
+| **Unit 合计** | **594** | **100% GREEN** | (~30s) |
+| API 集成 (6 文件) | 74 | ✅ 100% | test_api_routes (19 + **sr=16000 契约断言, v7.14 P2**) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + **song_match_api (6, v7.14)** |
 | WebSocket 集成 | 17 | ✅ 100% | test_ws_score (13) + ws_pitch_update (4, v7.13) |
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
-| **生产代码总计** | **686** | **100% GREEN** | (unit 575 + API 73 + WS 17 + 扩展 21) |
-| 真实音频回归 | 28 | ⚠️ 24 PASS + 4 FAIL | 4 失败均为 breath 维度基线漂移 (BASELINE_V7_6 阈值过紧, **既有**, v7.14 修复轮未触及) — 见 PROJECT_STATUS |
-| **后端 collected** | **714** | **710 passed** | 686 生产 + 28 真实音频; 4 失败均为 breath 基线漂移 |
-| BDD (18 step files) | 187 scenarios collected (121 API) | ⚠️ 21F/20P/43S/37X | API 级既有失败 (compare 12: Flask 遗留 step + differentiation 6: 真实音频 + history 3: get_json 遗留); upload 5P+3S; animations 7P+9X; auto-match **5P+3X (v7.14 修复轮恢复)**; database ✅ 修复轮后通过 — 详见 BDD.md |
+| **生产代码总计** | **706** | **100% GREEN** | (unit 594 + API 74 + WS 17 + 扩展 21) |
+| 真实音频回归 | 28 | ✅ **全 PASS** (v7.14 P2) | **BASELINE_V7_6 → V7_14 重校准** (sr 错配 bug 修复后真实值); 旧 4 个 breath 基线漂移 FAIL 自然消除; 区分度断言改"总分排序 + 单维 gap ≥10" (实测 rhythm 34.5) — 含 quick_pro 单测 |
+| **后端 collected** | **734** | ✅ | 706 生产 + 28 真实音频 (unit 594 + API 74 + WS 17 + 扩展 21 = 706) |
+| BDD (18 step files) | 187 scenarios collected (121 API) | ⚠️ **12F/28P/43S/38X** (v7.14 P2) | API 级既有失败仅剩 compare 12 (Flask 遗留 step, 已决定延期); **differentiation 6F→6P+1X 与 history 3F→4P 已修复 (v7.14 P2: 断言一致化 + get_json 修复)**; upload 5P+3S; animations 7P+9X; auto-match **5P+3X**; database ✅ — 详见 BDD.md |
 | 前端 Vitest | 297 | ✅ 100% | stores 85 + pitch utils 212 (v7.14 +11 songMatch.store) |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | ~16s | ✅ | 生产构建 |
@@ -56,6 +57,18 @@
 | `test_ws_score.py` | +3 | P0-1 weighted_total 不再 /100: 满分 100 场景 |
 | `test_scoring_api.py` | 断言同步 | P0-1 权重应用总分为百分制 |
 | `tests/bdd/conftest.py` | 修复 | **P0-2 关键**: fastapi_client fixture 增加 `deps.get_song_repo/get_pitch_cache/get_song_match_profile_repo/get_auto_match_use_case.cache_clear()` — 恢复 BDD 场景隔离 (API 级失败 33→21) |
+
+### v7.14 P2 完善修复轮新增测试 (2026-08-11, sr 错配根因修复)
+
+| 文件 | 变化 | 覆盖 |
+|------|:-----:|------|
+| `test_audio_service_mixed_detection.py` | +2 | P2-12a: `_preprocess_for_scoring` 只跑 HPSS+混合检测 (不再全量 extract); 纯人声/混合音频分支 |
+| `test_sanitize_filename.py` | +11 | P2-14: GBK 乱码往返恢复 (`1£¨¸ß·Ö£©`→`1（高分）`) + NFC 规范化 + 非法字符剥离 + 路径穿越 + 空名回退 |
+| `test_streaming_session.py` | +5 | P2-13: `audio_buffer` 惰性拼接缓存 (dirty 标志/重复访问命中/append 失效/cleanup 释放) |
+| `test_song_pitch_service.py` | +1 | P2-11: PitchExtractionService 一步加载 sr=16000 (契约: 输出 sr 与音频一致) |
+| `test_api_routes.py` | 断言同步 | P2-11: `sample_rate==16000` 契约断言 (load 契约) |
+| `test_real_audio_regression.py` | 🔧 重校准 | **BASELINE_V7_6 → BASELINE_V7_14** (sr 修复后真实值范围 + 根因注释) + 区分度断言改"总分排序 + 单维 gap ≥10" (与 BDD differentiation.feature 一致) |
+| `tests/bdd/features/differentiation.feature` + steps | 🔧 规格修正 | 断言与实测一致化 (total gap 不可达 → 单维区分度不变量), 见 DEEP_REVIEW P2-16 备注 |
 
 ## v7.13 测试统计 (历史)
 

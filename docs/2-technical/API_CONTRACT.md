@@ -1,6 +1,6 @@
 # API 契约文档 v7.14
 
-> 更新: 2026-08-10 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 后端 714 tests collected (710 passed; 686 生产 GREEN + 28 真实音频 24P+4F) + 前端 297 Vitest
+> 更新: 2026-08-11 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 后端 734 tests collected (734 passed; 706 生产 GREEN + 28 真实音频全 PASS) + 前端 297 Vitest
 
 ---
 

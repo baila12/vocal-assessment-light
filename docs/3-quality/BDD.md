@@ -1,8 +1,8 @@
 # 行为驱动开发 (BDD) 规范 v7.14
 
-> 更新: 2026-08-10 | 18 step files | 21 feature files (17 已实现 + 4 规划中) | **187 scenarios collected (121 API 级 + 66 browser)** | API 级运行实测: **21 failed / 20 passed / 43 skipped / 37 xfailed** | scoring-config.feature v7.11: API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | v7.12: upload 数据补齐 + animations/sing-song-select 迁移 Vue 3 data-test | v7.13: pitch-realtime.feature step defs 骨架 (25 XFAIL, 标注对应纯 TS Vitest) | **v7.14: auto-match.feature step defs 落地 (5 PASS + 3 XFAIL) + conftest DI 缓存隔离修复 (P0-2: API 级失败 33→21)**
+> 更新: 2026-08-11 | 18 step files | 21 feature files (17 已实现 + 4 规划中) | **187 scenarios collected (121 API 级 + 66 browser)** | API 级运行实测: **12 failed / 28 passed / 43 skipped / 38 xfailed** | scoring-config.feature v7.11: API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | v7.12: upload 数据补齐 + animations/sing-song-select 迁移 Vue 3 data-test | v7.13: pitch-realtime.feature step defs 骨架 (25 XFAIL, 标注对应纯 TS Vitest) | **v7.14: auto-match.feature step defs 落地 (5 PASS + 3 XFAIL) + conftest DI 缓存隔离修复 (P0-2: API 级失败 33→21)** | **v7.14 P2: differentiation/history 修复 (断言一致化 + get_json), 失败 21→12**
 >
-> ⚠️ **BDD 真实状态 (2026-08-10 全量 API 级实测)**: 21 个既有失败全部为 Flask→FastAPI 迁移遗留, 与 v7.14 功能无关 — compare.feature 12 个 `StepDefinitionNotFoundError` (feature 仍用 `Given "Flask 服务已启动"` 等 Flask 步骤), history.feature 3 个 `api_client.get_json()` AttributeError (应为 FastAPI TestClient `.json()`), differentiation.feature 6 个依赖完整真实音频栈。详见第 5 节版本演进。
+> ⚠️ **BDD 真实状态 (2026-08-11 v7.14 P2 轮后)**: 12 个既有失败均为 Flask→FastAPI 迁移遗留 (compare.feature `StepDefinitionNotFoundError`, 已决定延期); differentiation/history 已在 v7.14 P2 修复 (断言与实测一致化 + `get_json()`→`.json()`)。详见第 5 节版本演进。
 
 ---
 
@@ -50,8 +50,8 @@ tests/bdd/
 │   │  === 已实现 (有 Step Defs, 17 个) ===
 │   ├── upload.feature                # 上传与六维评分 ✅ 5 PASS + 3 SKIP
 │   ├── compare.feature               # DTW 对比分析 ❌ 12 FAIL (Flask 遗留 step, 见下)
-│   ├── differentiation.feature       # 评分区分度验证 ❌ 6 FAIL (真实音频)
-│   ├── history.feature               # 历史记录管理 ❌ 3 FAIL (get_json 遗留)
+│   ├── differentiation.feature       # 评分区分度验证 ✅ 6 PASS + 1 XFAIL (v7.14 P2: 断言与实测一致化)
+│   ├── history.feature               # 历史记录管理 ✅ 4 PASS (v7.14 P2: get_json → .json())
 │   ├── navigation.feature            # SPA 路由导航
 │   ├── compare-ui.feature            # 对比 UI 交互
 │   ├── mode-select.feature           # 模式选择
@@ -96,10 +96,10 @@ tests/bdd/
 └── __init__.py
 ```
 
-> **21 个既有失败 — 均为 Flask→FastAPI 迁移遗留 (与 v7.14 功能无关)**:
-> - `compare.feature` (12): `StepDefinitionNotFoundError` — feature 文件第 7 行仍写 `Given "Flask 服务已启动"`, FastAPI 未迁移
-> - `history.feature` (3): `api_client.get_json()` AttributeError — 应为 FastAPI TestClient `.json()`
-> - `differentiation.feature` (6): 依赖完整真实音频栈 (librosa 全管道), CI 无法稳定生成
+> **12 个既有失败 — Flask→FastAPI 迁移遗留 (v7.14 P2 轮后)**:
+> - `compare.feature` (12): `StepDefinitionNotFoundError` — feature 文件第 7 行仍写 `Given "Flask 服务已启动"`, FastAPI 未迁移 (DTW 融合语义过时, 已决定延期)
+> - ~~`history.feature` (3)~~ ✅ **v7.14 P2**: `api_client.get_json()` → FastAPI TestClient `.json()` (4 PASS)
+> - ~~`differentiation.feature` (6)~~ ✅ **v7.14 P2**: 断言与实测一致化 (总分 gap 不可达 → 单维区分度不变量, 6 PASS + 1 XFAIL)
 
 ---
 
@@ -240,11 +240,12 @@ def check_total_score_range(upload_with_mode):
 | database.feature | ✅ 恢复 | 修复前 5 FAIL ("63 vs 14" 等跨场景污染), 修复轮后全部通过 |
 | auto-match.feature | ✅ 恢复 | 修复前降级 1P+7F → 恢复 **5P+3X** |
 | API 级全量 (121 scenarios) | 33F/13P/32X → **21F/20P/37X** | 净改善: -12 failed, +7 passed, +5 xfailed |
+| **v7.14 P2 轮 (2026-08-11)** | **21F/20P/37X → 12F/28P/38X** | 净改善: -9 failed, +8 passed, +1 xfailed — differentiation (断言一致化) + history (get_json 修复) |
 
-**21 个残余既有失败** (非本次修复范围, 均为 Flask 迁移遗留):
-- compare.feature ×12 — `StepDefinitionNotFoundError` (feature 用 Flask step 名称)
-- history.feature ×3 — `api_client.get_json()` 应为 `.json()`
-- differentiation.feature ×6 — 依赖完整真实音频栈
+**12 个残余既有失败** (v7.14 P2 轮后, 非本次修复范围, Flask 迁移遗留):
+- compare.feature ×12 — `StepDefinitionNotFoundError` (feature 用 Flask step 名称; DTW 融合语义过时, 已决定延期)
+- ~~history.feature ×3~~ ✅ v7.14 P2 修复 — `api_client.get_json()` 应为 `.json()`
+- ~~differentiation.feature ×6~~ ✅ v7.14 P2 修复 — 断言与实测一致化 (总分 gap 不可达 → 单维区分度不变量)
 
 标记: v7.3.1 animations/offline/responsive scenarios 使用 `@pytest.mark.browser` (需要 Playwright)
 

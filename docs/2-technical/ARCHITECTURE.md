@@ -395,7 +395,7 @@ vocal_assessment_light/
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
 ├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 714 tests collected (unit 575 + 集成 118 + 扩展 21)
+├── tests/                           # 734 tests collected (unit 594 + 集成 119 + 扩展 21)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)
@@ -423,4 +423,4 @@ vocal_assessment_light/
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings (FastAPI) |
-| 测试 | pytest 714 tests collected (unit 575 + 集成 118 + 扩展 21; 实测 710 passed) + Vitest 297 tests |
+| 测试 | pytest 734 tests collected (unit 594 + 集成 119 + 扩展 21; 实测 734 passed) + Vitest 297 tests |
