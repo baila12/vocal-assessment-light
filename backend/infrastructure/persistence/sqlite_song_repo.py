@@ -50,10 +50,15 @@ class SqliteSongRepository:
         # check_same_thread=False: FastAPI 线程池在不同线程调用
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        # v7.14 审查 C2/C3: WAL + busy_timeout — 同库多连接并发 (与
+        # SqliteSongMatchProfileRepository 共享 songs.db), 锁竞争时等待而非
+        # SQLITE_BUSY。:memory: 库上 PRAGMA 无副作用 (journal 保持 memory)。
+        self._conn.execute('PRAGMA journal_mode=WAL').fetchone()
+        self._conn.execute('PRAGMA busy_timeout=5000')
         self._conn.execute(_SCHEMA)
         self._apply_migrations()
         self._conn.commit()
-        self._lock = threading.Lock()  # 串行化并发写
+        self._lock = threading.Lock()  # 串行化同一连接上的所有读写
 
     def _apply_migrations(self) -> None:
         """轻量列迁移 — 旧库 (v7.11-) 无 vocal_range 列时 ALTER TABLE 补齐."""
@@ -102,10 +107,11 @@ class SqliteSongRepository:
 
     def get_by_id(self, song_id: str) -> Song | None:
         """按 ID 查询"""
-        row = self._conn.execute(
-            'SELECT * FROM songs WHERE id = ?', (song_id,)
-        ).fetchone()
-        return self._row_to_song(row) if row else None
+        with self._lock:  # v7.14 审查 C2: 读同样持锁, 与写并发时防读到半提交行
+            row = self._conn.execute(
+                'SELECT * FROM songs WHERE id = ?', (song_id,)
+            ).fetchone()
+            return self._row_to_song(row) if row else None
 
     def list(
         self,
@@ -117,34 +123,35 @@ class SqliteSongRepository:
         search: str | None = None,
     ) -> tuple[list[Song], int]:
         """分页列表 + 筛选 + 搜索 (参数化查询)"""
-        where: list[str] = []
-        params: list = []
+        with self._lock:  # v7.14 审查 C2: 读持锁; COUNT+SELECT 同一快照
+            where: list[str] = []
+            params: list = []
 
-        if style:
-            where.append('style = ?')
-            params.append(style)
-        if difficulty:
-            where.append('difficulty = ?')
-            params.append(difficulty)
-        if search:
-            where.append('(LOWER(title) LIKE ? OR LOWER(artist) LIKE ?)')
-            like = f'%{search.strip().lower()}%'
-            params.extend([like, like])
+            if style:
+                where.append('style = ?')
+                params.append(style)
+            if difficulty:
+                where.append('difficulty = ?')
+                params.append(difficulty)
+            if search:
+                where.append('(LOWER(title) LIKE ? OR LOWER(artist) LIKE ?)')
+                like = f'%{search.strip().lower()}%'
+                params.extend([like, like])
 
-        where_sql = f'WHERE {" AND ".join(where)}' if where else ''
+            where_sql = f'WHERE {" AND ".join(where)}' if where else ''
 
-        total = self._conn.execute(
-            f'SELECT COUNT(*) FROM songs {where_sql}', params
-        ).fetchone()[0]
+            total = self._conn.execute(
+                f'SELECT COUNT(*) FROM songs {where_sql}', params
+            ).fetchone()[0]
 
-        offset = (page - 1) * limit
-        rows = self._conn.execute(
-            f'SELECT * FROM songs {where_sql} '
-            'ORDER BY created_at DESC, rowid ASC LIMIT ? OFFSET ?',
-            params + [limit, offset],
-        ).fetchall()
+            offset = (page - 1) * limit
+            rows = self._conn.execute(
+                f'SELECT * FROM songs {where_sql} '
+                'ORDER BY created_at DESC, rowid ASC LIMIT ? OFFSET ?',
+                params + [limit, offset],
+            ).fetchall()
 
-        return [self._row_to_song(r) for r in rows], int(total)
+            return [self._row_to_song(r) for r in rows], int(total)
 
     def delete(self, song_id: str) -> bool:
         """删除歌曲"""
@@ -155,24 +162,26 @@ class SqliteSongRepository:
 
     def find_duplicate(self, metadata: SongMetadata) -> Song | None:
         """按 (歌名+歌手) 查找重复歌曲"""
-        row = self._conn.execute(
-            'SELECT * FROM songs '
-            'WHERE LOWER(TRIM(title)) = ? AND LOWER(TRIM(artist)) = ? LIMIT 1',
-            (metadata.title.strip().lower(), metadata.artist.strip().lower()),
-        ).fetchone()
-        return self._row_to_song(row) if row else None
+        with self._lock:  # v7.14 审查 C2: 读持锁
+            row = self._conn.execute(
+                'SELECT * FROM songs '
+                'WHERE LOWER(TRIM(title)) = ? AND LOWER(TRIM(artist)) = ? LIMIT 1',
+                (metadata.title.strip().lower(), metadata.artist.strip().lower()),
+            ).fetchone()
+            return self._row_to_song(row) if row else None
 
     def list_all_with_filepath(self) -> list[Song]:
         """列出所有 filepath 非空且文件存在的歌曲 (供匹配特征预算式预计算)"""
-        rows = self._conn.execute(
-            "SELECT * FROM songs WHERE filepath != ''"
-        ).fetchall()
-        songs = []
-        for row in rows:
-            song = self._row_to_song(row)
-            if song.filepath and Path(song.filepath).exists():
-                songs.append(song)
-        return songs
+        with self._lock:  # v7.14 审查 C2: 读持锁
+            rows = self._conn.execute(
+                "SELECT * FROM songs WHERE filepath != ''"
+            ).fetchall()
+            songs = []
+            for row in rows:
+                song = self._row_to_song(row)
+                if song.filepath and Path(song.filepath).exists():
+                    songs.append(song)
+            return songs
 
     @staticmethod
     def _row_to_song(row: sqlite3.Row) -> Song:

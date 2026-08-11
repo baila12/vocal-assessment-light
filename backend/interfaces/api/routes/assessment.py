@@ -213,6 +213,7 @@ async def upload_audio(
         filepath=str(filepath),
         basic_info=result.get("basic_info"),
         heuristic_dimensions=result.get("heuristic_dimensions", []),
+        scoring_warnings=result.get("scoring_warnings", []),
         normalization=normalization,
         duration=result.get("duration_seconds"),
         duration_display=result.get("duration", ""),
@@ -288,6 +289,7 @@ async def analyze_file(
         filepath=str(filepath_obj),
         basic_info=result.get("basic_info"),
         heuristic_dimensions=result.get("heuristic_dimensions", []),
+        scoring_warnings=result.get("scoring_warnings", []),
         normalization=normalization,
         duration=result.get("duration_seconds"),
         duration_display=result.get("duration", ""),
@@ -515,11 +517,12 @@ async def compare_audio(
                 "avg_confidence": dtw_result["confidence"],
             }]
 
+        # 审查 P4/P1-7: 用 quick 标志而非默认 Pro (FeatureFlags() 全部 True → Demucs 串行 ~310s)
         standard_result = await asyncio.to_thread(
-            analyze_and_score, filepath_std, feature_flags=FeatureFlags()
+            analyze_and_score, filepath_std, feature_flags=FeatureFlags.for_quick()
         )
         user_result = await asyncio.to_thread(
-            analyze_and_score, filepath_user, feature_flags=FeatureFlags()
+            analyze_and_score, filepath_user, feature_flags=FeatureFlags.for_quick()
         )
 
         dtw_dims = dtw_result.get("dimensions", {})

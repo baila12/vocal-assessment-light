@@ -1,4 +1,4 @@
-# 前端技术文档 v7.13
+# 前端技术文档 v7.14
 
 > Vue 3.5 + Element Plus 2.14 + Pinia 2.3 + GSAP 3.15 + Chart.js 4.5 + Electron 28
 
@@ -11,7 +11,7 @@
 | 页面 | `views/` (6 pages) | Vue 3 Composition API + Element Plus + GSAP |
 | 布局 | `components/layout/` (3 components) | Element Plus |
 | 共享组件 | `components/` (8 components) | Element Plus + Chart.js + Canvas |
-| 状态管理 | `stores/` (6 stores) | Pinia setup stores |
+| 状态管理 | `stores/` (7 stores) | Pinia setup stores |
 | 组合函数 | `composables/` (5 composables) | Vue Composition API + GSAP |
 | API 层 | `api/` (1 client) | Fetch API + 零硬编码 URL |
 | 路由 | `router/` (1 file) | Vue Router 4.6 (hash history) |
@@ -27,7 +27,7 @@
 | `#/` | HomeView | ✅ 5阶段入场序列 | FileUploader + el-radio-group + ElDrawer |
 | `#/report/:id?` | ReportView | ✅ score-reveal Timeline | ScoreRadar + ScoreCard + AudioPlayer + WaveformCanvas + ScoringWeightsPanel |
 | `#/history` | HistoryView | ✅ 容器淡入 | ElTable + ElPagination + ElPopconfirm |
-| `#/compare` | CompareView | ✅ 双面板滑入 | FileUploader × 2 + DTW 结果卡片 |
+| `#/compare` | CompareView | ✅ 双面板滑入 | FileUploader × 2 + DTW 结果卡片 + **自动匹配区 (v7.14)** |
 | `#/sing` | SingView | ✅ 录音按钮 GSAP 脉冲 | Canvas + AudioWorklet + WebSocket |
 | `#/songs` | SongsView | ✅ 卡片网格入场 | AudioPlayer + FileUploader + el-select |
 
@@ -64,8 +64,9 @@
 | `history.store.ts` | 历史记录 (records, filter, pagination, batch select) |
 | `preferences.store.ts` | 用户偏好 (theme, evalMode, autoPlay) — localStorage 持久化 |
 | `flags.store.ts` | 算法状态 (GPU, audiofeat, DL models, weights) — v7.7 |
-| `songs.store.ts` | 标准歌曲库 (songs, pagination, filters, CRUD) — v7.10; 选歌录音复用 — SingView 选歌区候选列表 (v7.12); fetchSongPitch/compareWithSong 音准增强 (v7.13) |
+| `songs.store.ts` | 标准歌曲库 (songs, pagination, filters, CRUD) — v7.10; 选歌录音复用 — SingView 选歌区候选列表 (v7.12); fetchSongPitch/compareWithSong 音准增强 (v7.13); pitchCache **LRU 容量 20** (PITCH_CACHE_MAX, 满则逐出最旧歌曲 F0, 防止无限增长) |
 | `scoring.store.ts` | 评分权重可配置 (presets, sliders, validation, recalc) — v7.11 |
+| `songMatch.store.ts` | 🆕 v7.14 上传自动匹配 (matchAudio/selectCandidate/compareWithSelected/fetchUserPitch) |
 
 ---
 
@@ -81,7 +82,7 @@
 ## 构建基准
 
 ```
-Vitest: 286 tests passed (19 files: stores 74 + pitch/utils 212)
+Vitest: 297 tests passed (20 files: stores 85 + pitch/utils 212)
 TypeScript: Zero errors (vue-tsc --noEmit)
 Vite build: ~16s
 ```

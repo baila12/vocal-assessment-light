@@ -1,6 +1,6 @@
 # 变更日志 v7.14
 
-> 更新: 2026-08-09 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+> 更新: 2026-08-10 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
 
 ---
 
@@ -45,6 +45,35 @@
 - BDD auto-match.feature 8 场景: **5 PASS + 3 XFAIL** (短音频/嘈杂/超时 → 标注对应单元测试)
 - 全量回归 (默认单元+集成+扩展): **633 全绿 (实测 647 含 WS)**; 既有遗留: 21 Flask 迁移 BDD 失败 (compare/differentiation/history 用已移除 Flask 步骤/get_json) + 4 real-audio breath 基线漂移 (与 v7.14 无关, 见 PROJECT_STATUS 已知问题)
 - 代码审查修复 (code-reviewer): 读路径加锁 (get/list_all 与写串行化) + 非 12 维/空 chroma 行防御默认零向量 (含 2 回归测试) + 路由异常收窄 (仅音频错误→400, DB 错误→500)
+
+---
+
+## v7.14 (续) — 深度审查 P0+P1 修复轮 (2026-08-10)
+
+按 [DEEP_REVIEW_v7.14.md](../3-quality/DEEP_REVIEW_v7.14.md) 第十三章执行 **P0+P1 共 10 项修复**（P2 性能/债务/评分校准按用户决定排除）。全部 TDD (RED→GREEN) + DDD 不可变模式，既有测试保持绿色。
+
+### 修复内容
+
+| 项 | 严重度 | 修复 |
+|----|:---:|------|
+| P0-1 | CRITICAL | **WS 总分 100x**: `score_handler.py` 删除遗留 `/100.0`，改 `ScoringWeights.weighted_total_from_scores()`；test_ws_score 新增总分**量纲**断言 |
+| P0-2 | CRITICAL | **SQLite 一致性**: `sqlite_song_repo`/`sqlite_song_match_profile_repo` 读写统一持锁 + `PRAGMA journal_mode=WAL` + `busy_timeout=5000`；`deps.py` `get_song_repo`/`get_pitch_cache` 加 `@lru_cache()` 共享单连接（消除双连接写锁冲突）|
+| P0-3 | CRITICAL | **WS 录音中 partial 假节奏/低音歧视**: `compute_partial` rhythm → `None`（无参考不可评，前端显示 `--`）；音准改 voiced 覆盖率中性公式（去除 261.6Hz C4 绝对基准）；`WsServerPartialScore.rhythm: Optional[float]` |
+| P0-4 | CRITICAL | **WS 无全局兜底**: `ws/__init__.py` 全局异常处理器 — 崩溃先发 `{event:"error"}` 帧再关闭连接 |
+| P1-5 | HIGH | **50.0 假分可见化**: fallback 维度打 `is_heuristic` + `scoring_warnings`（描述性告警）+ `exc_info=True` 日志；契约 `UploadResponse.scoring_warnings` + `WsServerFinalScore.scoring_warnings` 透出 |
+| P1-6 | HIGH | **PitchCache LRU + 契约补全**: `InMemoryPitchCacheRepository` 重写 OrderedDict LRU (`max_entries=50` + 线程锁)；`DELETE /songs/{song_id}` 注入 `pitch_cache.invalidate()`；前端 songs.store pitchCache 上限 20 + LRU 驱逐 + 删除歌曲清缓存 |
+| P1-7 | HIGH | **Compare 默认降级 quick**: `assessment.py` 两文件改 `FeatureFlags.for_quick()`（禁用 multiscale_hnr + reverb_compensation） |
+| P1-8 | HIGH | **契约统一**: README compare 字段统一 `user_file`/`standard_file`；API_CONTRACT 统一 `{song_id}`（改文档对齐代码） |
+| P1-9 | HIGH | **BDD XFAIL 文档诚实化**: TDD.md/PROJECT_STATUS.md 标 "文档化 stub — 非已完成" (25 XFAIL, 浏览器 BDD 未实现) |
+| P1-10 | HIGH | **版本单一来源**: `main.py` `APP_VERSION = "7.14.0"`；`health.py` 导入 APP_VERSION（删硬编码 7.13.0）；`package.json` 7.14.0 |
+
+### 测试
+
+- 生产 **633→714 collected** (+81): 新增 `test_fallback_marking` (11) + `test_streaming_session` (7) + `test_in_memory_pitch_cache` (7) + `test_deps_singleton` (2) + 集成 +13 (test_songs_api 21、compare_pitch_api 4、api_routes 版本断言、WS 量纲/异常) 
+- 实测 **710 passed + 4 pre-existing FAIL**（真实音频 breath 维度基线漂移, 与修复无关, HEAD worktree 复现）
+- 前端 Vitest **297 passed**
+- 🔧 附带修复: `tests/bdd/conftest.py` `fastapi_client` 隔离 fixture 补清 `get_song_repo`/`get_pitch_cache` 缓存 — P0-2 给 `get_song_repo` 加 `@lru_cache` 后未清理导致 BDD 场景间复用旧 DB 连接 (auto_match 409, 恢复 5P+3X)
+- BDD API 级全量实测 (2026-08-10): 121 scenarios → **21 failed / 20 passed / 43 skipped / 37 xfailed**; 修复前 33F/13P/32X → 修复后 21F/20P/37X (database 恢复通过, auto-match 恢复 5P+3X); 21 个残余失败均为 Flask 迁移遗留 (compare 12 `StepDefinitionNotFoundError` + history 3 `get_json` + differentiation 6 真实音频), 与本次修复无关
 
 ---
 

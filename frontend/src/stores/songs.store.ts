@@ -34,6 +34,14 @@ export const useSongsStore = defineStore('songs', () => {
   const uploading = ref(false)
   /** v7.13: 歌曲参考音高缓存 (song_id → PitchPoint[], 选歌录音参考线) */
   const pitchCache = ref<Record<string, PitchPoint[]>>({})
+  /** v7.14 审查 7.4 M7: 前端缓存上限 — 超出按 LRU 淘汰最久未访问的歌曲 */
+  const PITCH_CACHE_MAX = 20
+  let pitchCacheOrder: string[] = []
+
+  function touchPitchOrder(id: string): void {
+    pitchCacheOrder = pitchCacheOrder.filter((k) => k !== id)
+    pitchCacheOrder.push(id)
+  }
 
   // ---- 计算属性 ----
   // 后端不返回 total_pages, 前端计算 (至少 1 页)
@@ -113,6 +121,13 @@ export const useSongsStore = defineStore('songs', () => {
   function removeSongLocally(id: string): void {
     songs.value = songs.value.filter((s) => s.id !== id)
     total.value = Math.max(0, total.value - 1)
+    // 审查 7.4 M8: 删除歌曲时同步清除前端音高缓存
+    pitchCacheOrder = pitchCacheOrder.filter((k) => k !== id)
+    if (pitchCache.value[id]) {
+      const next = { ...pitchCache.value }
+      delete next[id]
+      pitchCache.value = next
+    }
   }
 
   function goToPage(page: number): void {
@@ -164,7 +179,10 @@ export const useSongsStore = defineStore('songs', () => {
   // ---- v7.13: 选歌录音参考音高 + 选歌对比 ----
 
   async function fetchSongPitch(id: string): Promise<PitchPoint[]> {
-    if (pitchCache.value[id]) return pitchCache.value[id]
+    if (pitchCache.value[id]) {
+      touchPitchOrder(id) // 刷新为最近访问
+      return pitchCache.value[id]
+    }
     try {
       const resp = await apiClient.get<SongPitchResponse>(`/api/v1/songs/${id}/pitch`)
       if (!resp.success || !resp.data) return []
@@ -174,7 +192,14 @@ export const useSongsStore = defineStore('songs', () => {
         frequency: f,
         confidence: data.confidence[i] ?? 0,
       }))
-      pitchCache.value = { ...pitchCache.value, [id]: points }
+      // 写缓存 + LRU 上限 (审查 7.4 M7: 防长期使用内存无界增长)
+      touchPitchOrder(id)
+      const next = { ...pitchCache.value, [id]: points }
+      while (pitchCacheOrder.length > PITCH_CACHE_MAX) {
+        const oldest = pitchCacheOrder.shift()
+        if (oldest !== undefined) delete next[oldest]
+      }
+      pitchCache.value = next
       return points
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : '加载参考音高失败'

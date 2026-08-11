@@ -148,6 +148,8 @@ class TestUploadAutoMatchFlag:
         assert data['matched_song'] is None
         assert data['matched_candidates'] == []
         assert data['fallback_reason'] == ''
+        # v7.14 审查 TEST_GAP: HTTP 响应契约字段 scoring_warnings 恒存在 (成功时为空)
+        assert data['scoring_warnings'] == []
 
     def test_upload_auto_match_on_injects_fields(self, client, monkeypatch):
         """auto_match=true → 注入匹配结果字段 (同源音频确定命中, 标题不保证唯一)"""

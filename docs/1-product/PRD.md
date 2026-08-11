@@ -1,6 +1,6 @@
-# 声乐评估系统 (VAS) — 产品需求文档 v7.13
+# 声乐评估系统 (VAS) — 产品需求文档 v7.14
 
-> 版本: v7.13 | 日期: 2026-08-08 | 状态: 活跃开发
+> 版本: v7.14 | 日期: 2026-08-10 | 状态: 活跃开发
 >
 > **关联文档**: [GOALS.md](GOALS.md) | [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md) | [SCORING.md](../2-technical/SCORING.md)
 
@@ -112,7 +112,7 @@
 | BDD 基建修复 | conftest base_url :5000→:8000 (FastAPI 服务 frontend/dist) + api_client Flask→FastAPI TestClient + 前端 window.__store 测试钩子 (v7.11) |
 | 选歌录音 MVP | 曲库选歌 → `/sing/:songId` → WS 携带 song_id; 后端 `SongMetadata.vocal_range` (v7.12) |
 | 实时音准对比子系统 | 参考音高 API (GET /songs/{id}/pitch) + 上传录音 DTW 对比 (POST /songs/{id}/compare) + WS pitch_update 实时推送 + 音准偏差着色/滚动窗口/回放控制 + 录音中实时对比 + 录音后回放分析 + CompareView 双轨叠加/热力图/性能降级/截图/快捷键 (v7.13 Phase 1-5) |
-| 自动曲库匹配 (auto-match) | 计划中：SQLite 预提取特征 + 自动匹配用户翻唱 |
+| 自动曲库匹配 (auto-match) | ✅ v7.14 已落地：song_match DDD 子域 (BPM/Krumhansl-Schmuckler 调性/chroma/duration 特征 + 确定性置信度 0.30bpm+0.40chroma+0.15key+0.15duration, 阈值 0.60) + POST /songs/match (Top-N 候选 + fallback_reason) + upload 可选 auto_match 注入 + SQLite 匹配特征持久化 (预算式预计算, 超时 partial) + CompareView 自动匹配区 (候选列表 → 一键 DTW 对比) |
 
 ### 3.6 计划中 (未实现)
 
@@ -150,7 +150,7 @@
 | 指标 | 当前 |
 |------|:---:|
 | 非人声归零率 | 10/10 (100%) |
-| 单元测试通过率 | 537/537 (100%) |
+| 单元测试通过率 | 575/575 (100%); 后端 collected 714 (710 passed, 4 个 real-audio breath 基线失败为既有) |
 | Quick/Pro 同音频分差 | < 10% |
 
 ### 4.3 兼容性
@@ -189,7 +189,7 @@
 | 桌面 | Electron 28 (配置就绪) |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings |
-| 测试 | pytest 633 + Vitest 297 |
+| 测试 | pytest 714 (collected) + Vitest 297 |
 
 ---
 
@@ -197,6 +197,7 @@
 
 | 版本 | 日期 | 主题 |
 |------|------|------|
+| **v7.14** | **2026-08-09** | **上传音频自动匹配标准歌曲 (auto-match: BPM/调性/chroma/duration 特征 + 确定性置信度 + POST /songs/match + upload auto_match + CompareView 自动匹配区)** |
 | **v7.13** | **2026-08-08** | **实时音准对比子系统 Phase 1-5: 参考音高 API + WS pitch_update + 偏差着色/滚动/回放 + 录音中实时对比 + 回放分析 + CompareView 双轨叠加/热力图/性能降级/截图/快捷键** |
 | **v7.12** | **2026-08-06** | **选歌录音 MVP (/sing/:songId + WS song_id + vocal_range) + BDD 基建修复 + dl_services 死代码清理** |
 | v6.3 | 2026-07-20 | 项目结构重组 (删除 PyQt5, 清理根目录) |

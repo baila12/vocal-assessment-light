@@ -134,3 +134,49 @@ class TestComparePitchApi:
         """缺文件 → 400 (回归保护, JSON 路径缺路径)"""
         resp = client.post('/api/v1/compare', json={})
         assert resp.status_code == 400
+
+    def test_compare_uses_quick_flags_not_pro(self, client, monkeypatch):
+        """审查 P4/P1-7: Compare 两文件都应用 quick 标志 (for_quick), 而非默认 Pro
+
+        FeatureFlags() 默认全部 True (含 Demucs 的 multiscale_hnr + 混响补偿) —
+        两个文件串行跑 ~310s CPU。应改用 FeatureFlags.for_quick()。
+        """
+        # ⚠️ 审查 P1-7: spy 依赖 assessment.py 中 FeatureFlags 的「函数局部 import」
+        # (backend/interfaces/api/routes/assessment.py:472)。若未来改为模块级 import,
+        # 该 spy 会静默失效 (calls 空列表却仍断言通过)。重构时须同步更新本测试。
+        import services.feature_flags as ff_module
+
+        original = ff_module.FeatureFlags
+        calls: list[str] = []
+
+        class _SpyFeatureFlags:
+            def __init__(self, *a, **k):
+                calls.append('default')
+                self._flags = original(*a, **k)
+
+            @classmethod
+            def for_quick(cls):
+                calls.append('for_quick')
+                return original.for_quick()
+
+            @classmethod
+            def for_professional(cls):
+                calls.append('for_professional')
+                return original.for_professional()
+
+        monkeypatch.setattr(ff_module, 'FeatureFlags', _SpyFeatureFlags)
+        monkeypatch.setattr(CompareAudioUseCase, 'execute_lightweight',
+                            lambda self, std, user, style='pop': _fake_dto(confidence=0.9))
+        monkeypatch.setattr('api.business.analyze_and_score', _fake_analyze)
+
+        resp = client.post(
+            '/api/v1/compare',
+            files={
+                'standard_file': ('std.wav', io.BytesIO(_sine_wav()), 'audio/wav'),
+                'user_file': ('user.wav', io.BytesIO(_sine_wav()), 'audio/wav'),
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert calls == ['for_quick', 'for_quick'], (
+            f'Compare 每文件应使用 for_quick 标志, 实际 {calls}'
+        )

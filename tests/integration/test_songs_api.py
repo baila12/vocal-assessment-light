@@ -174,6 +174,30 @@ class TestGetAndDeleteSong:
     def test_delete_missing_returns_404(self, client):
         assert client.delete('/api/v1/songs/not-exist').status_code == 404
 
+    def test_delete_invalidates_pitch_cache(self, client):
+        """删除歌曲后音高缓存条目应被清除 (审查 7.4 M8)"""
+        from backend.interfaces.api.deps import get_pitch_cache
+        from backend.domain.songs_pitch.value_objects import SongPitchCurve
+
+        created = _post(client, title='缓存失效曲目').json()['song']
+        song_id = created['id']
+
+        cache = get_pitch_cache()
+        cache.set(
+            song_id,
+            SongPitchCurve(
+                song_id=song_id,
+                frequencies=(440.0, 440.0),
+                times=(0.0, 1.0),
+                confidence=(1.0, 1.0),
+            ),
+        )
+        assert cache.get(song_id) is not None  # 前置: 缓存已填充
+
+        resp = client.delete(f'/api/v1/songs/{song_id}')
+        assert resp.status_code == 200
+        assert cache.get(song_id) is None, '删除歌曲后音高缓存应失效'
+
 
 class TestAudioPlayback:
     """v7.10: 歌曲音频可通过 /api/v1/audio 流式播放 (RED: 当前 songs_dir 不在白名单)"""

@@ -6,11 +6,14 @@
 """
 
 from __future__ import annotations
+import logging
 import time
 import uuid
 from typing import Optional
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class StreamingSession:
@@ -87,19 +90,23 @@ class StreamingSession:
     def compute_partial(self) -> dict:
         """
         计算增量评分 (简化版: 仅实时音高)
-        Phase 4 完整版: 实时六维评分
+
+        v7.14 审查 5.2 修复:
+        - 节奏: 无参考歌曲不可评 → `rhythm: None` (原硬编码 50.0 假分, 前端 ?? 0 安全)
+        - 音准: 去除绝对频率偏置 (旧公式 261.6Hz C4 基准歧视男低音) →
+          改为 voiced 覆盖率 (与 `_score_lightweight` 同款中性公式)
         """
         buffer = self.audio_buffer
         if buffer is None or len(buffer) < self._sample_rate:
             return {
                 "event": "partial_score",
                 "pitch": 0.0,
-                "rhythm": 0.0,
+                "rhythm": None,
                 "progress": min(1.0, self.duration / 60.0),
                 "elapsed_s": self.duration,
             }
 
-        # 简单音高检测 (留作 Phase 4 完整实现)
+        # 中性音高代理: voiced 覆盖率 (无参考歌曲, 无法评绝对音准, 只评发声稳定度)
         try:
             import librosa
             f0, voiced_flag, _ = librosa.pyin(
@@ -111,17 +118,18 @@ class StreamingSession:
             )
             valid = f0[~np.isnan(f0)]
             if len(valid) > 10:
-                median_freq = float(np.median(valid))
-                pitch_score = min(100.0, max(0.0, 50.0 + 30.0 * np.log2(median_freq / 261.6)))
+                detection_rate = len(valid) / max(len(f0), 1)
+                pitch_score = min(100.0, max(0.0, detection_rate * 80.0 + 20.0))
             else:
                 pitch_score = 0.0
-        except Exception:
+        except Exception as e:
+            logger.warning("WS partial pitch failed: %s, using 0.0", e, exc_info=True)
             pitch_score = 0.0
 
         return {
             "event": "partial_score",
             "pitch": round(pitch_score, 1),
-            "rhythm": 50.0,
+            "rhythm": None,
             "progress": min(1.0, self.duration / 60.0),
             "elapsed_s": round(self.duration, 1),
         }

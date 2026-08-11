@@ -227,6 +227,7 @@ class ScoreWebSocketHandler:
                 grade=result.get("grade", ""),
                 advice=result.get("advice", []),
                 duration_s=round(session.duration, 1),
+                scoring_warnings=result.get("scoring_warnings", []),
             ).model_dump())
 
         except Exception:
@@ -245,6 +246,18 @@ class ScoreWebSocketHandler:
         # 初始化变量 (防 except 后未绑定)
         valid = np.array([])
         rms_energy = np.array([0.0])
+        # v7.14 审查 6.3: 维度失败 fallback 告警 (假 50.0 可辨识)
+        # 注: 此处含 muscle 与 orchestrator (经 _DESIGN_HEURISTIC_KEYS 排除) 语义不同 —
+        # WS `_score_lightweight` 独立计算 muscle 代理, 可单独失败, 故正确保留在告警内。
+        scoring_warnings: list[str] = []
+        _FALLBACK_LABELS = {
+            "pitch": "音准评分失败，已使用默认值",
+            "breath": "气息评分失败，已使用默认值",
+            "rhythm": "节奏评分失败，已使用默认值",
+            "technique": "发声技术评分失败，已使用默认值",
+            "muscle": "肌肉力量评分失败，已使用默认值",
+            "artistry": "艺术表现评分失败，已使用默认值",
+        }
 
         # 1. 音高检测 (librosa PYIN)
         try:
@@ -254,17 +267,21 @@ class ScoreWebSocketHandler:
             valid = f0[~np.isnan(f0)]
             detection_rate = len(valid) / max(len(f0), 1) if len(f0) > 0 else 0
             pitch_score = min(100, max(0, detection_rate * 80 + 20))
-        except Exception:
+        except Exception as e:
+            logger.warning("WS pitch scoring failed: %s, using defaults", e, exc_info=True)
             pitch_score = 50.0
             detection_rate = 0.0
+            scoring_warnings.append(_FALLBACK_LABELS["pitch"])
 
         # 2. RMS 能量 (气息代理)
         try:
             rms = librosa.feature.rms(y=buffer.astype(np.float64), frame_length=2048, hop_length=512)[0]
             rms_cv = float(np.std(rms) / (np.mean(rms) + 1e-10))
             breath_score = min(100, max(0, 100 - rms_cv * 50))
-        except Exception:
+        except Exception as e:
+            logger.warning("WS breath scoring failed: %s, using defaults", e, exc_info=True)
             breath_score = 50.0
+            scoring_warnings.append(_FALLBACK_LABELS["breath"])
 
         # 3. 节奏 (onset 密度)
         try:
@@ -272,8 +289,10 @@ class ScoreWebSocketHandler:
             onsets = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr)
             onset_density = len(onsets) / max(duration, 1)
             rhythm_score = min(100, max(0, 50 + (onset_density - 2) * 10))
-        except Exception:
+        except Exception as e:
+            logger.warning("WS rhythm scoring failed: %s, using defaults", e, exc_info=True)
             rhythm_score = 50.0
+            scoring_warnings.append(_FALLBACK_LABELS["rhythm"])
 
         # 4. 发声技术代理 (spectral flatness + formant dispersion)
         try:
@@ -283,8 +302,10 @@ class ScoreWebSocketHandler:
             flatness_mean = float(np.mean(spectral_flatness))
             # 较低平坦度=较清晰的共振峰结构=较好的发声技术
             technique_score = min(100, max(0, 95 - flatness_mean * 120))
-        except Exception:
+        except Exception as e:
+            logger.warning("WS technique scoring failed: %s, using defaults", e, exc_info=True)
             technique_score = 50.0
+            scoring_warnings.append(_FALLBACK_LABELS["technique"])
 
         # 5. 肌肉力量代理 (能量稳定性 + RMS 变异)
         try:
@@ -292,8 +313,10 @@ class ScoreWebSocketHandler:
             rms_range = float(np.max(rms_energy) / (np.mean(rms_energy) + 1e-10))
             rms_stability = 1.0 - min(1.0, float(np.std(np.diff(rms_energy)) / (np.mean(rms_energy) + 1e-10)))
             muscle_score = min(100, max(0, rms_range * 30 + rms_stability * 40 + 20))
-        except Exception:
+        except Exception as e:
+            logger.warning("WS muscle scoring failed: %s, using defaults", e, exc_info=True)
             muscle_score = 50.0
+            scoring_warnings.append(_FALLBACK_LABELS["muscle"])
 
         # 6. 艺术表现代理 (pitch variation + dynamics)
         try:
@@ -303,20 +326,23 @@ class ScoreWebSocketHandler:
                 artistry_score = min(100, max(0, pitch_variation * 240 + dynamic_range * 300 + 25))
             else:
                 artistry_score = 30.0
-        except Exception:
+        except Exception as e:
+            logger.warning("WS artistry scoring failed: %s, using defaults", e, exc_info=True)
             artistry_score = 50.0
+            scoring_warnings.append(_FALLBACK_LABELS["artistry"])
 
-        # 六维加权 — v7.13: 单一权重来源 ScoringWeights (此前硬编码旧权重)
+        # 六维加权 — 单一权重来源 ScoringWeights (v7.14 审查 C1: 移除遗留 /100.0)
+        # 权重总和 = 1.0, 各维度 ∈ [0,100] ⇒ 总分天然 ∈ [0,100], 无需再除 100。
         from backend.domain.assessment.scoring_weights import ScoringWeights
         _w = ScoringWeights.default()
-        total = (
-            pitch_score * _w.pitch
-            + rhythm_score * _w.rhythm
-            + breath_score * _w.breath
-            + technique_score * _w.technique
-            + muscle_score * _w.muscle
-            + artistry_score * _w.artistry
-        ) / 100.0
+        total = _w.weighted_total_from_scores({
+            "pitch": pitch_score,
+            "rhythm": rhythm_score,
+            "breath": breath_score,
+            "technique": technique_score,
+            "muscle": muscle_score,
+            "artistry": artistry_score,
+        })
 
         # 等级判定 — 委托到共享内核 ScoreLevel (单一权威来源)
         from backend.shared.domain_types import ScoreLevel
@@ -337,6 +363,7 @@ class ScoreWebSocketHandler:
             "level": level,
             "grade": grade,
             "advice": [],
+            "scoring_warnings": scoring_warnings,
         }
 
     @staticmethod

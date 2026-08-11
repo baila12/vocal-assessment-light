@@ -277,6 +277,8 @@ def _build_success_result(
     result['scores']['muscle_strength'] = float(_s(score_result, 'muscle_strength_score'))
     result['timbre_adjustment'] = float(_s(score_result, 'timbre_adjustment'))
     result['heuristic_dimensions'] = _s(score_result, 'heuristic_dimensions', [])
+    # v7.14 审查 6.3: 评分失败 fallback 告警透传 (假 50.0 可辨识)
+    result['scoring_warnings'] = _s(score_result, 'scoring_warnings', [])
     result['mode'] = mode  # Quick / Professional
 
     # v7.1: analysis_id 始终生成 (API 层 + 业务层双重保障)

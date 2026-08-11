@@ -40,6 +40,10 @@ class SqliteSongMatchProfileRepository:
     def __init__(self, db_path: str | Path = ':memory:'):
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        # v7.14 审查 C3: WAL + busy_timeout — 与 SqliteSongRepository 同库
+        # (songs.db) 两个连接并发, WAL 允许单写+多读, busy_timeout 防锁竞争报错。
+        self._conn.execute('PRAGMA journal_mode=WAL').fetchone()
+        self._conn.execute('PRAGMA busy_timeout=5000')
         self._conn.execute(_SCHEMA)
         self._conn.commit()
         self._lock = threading.Lock()

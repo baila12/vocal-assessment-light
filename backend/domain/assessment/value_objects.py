@@ -30,6 +30,8 @@ class PitchScore:
     detection_rate: float
     pitch_breaks: int
     diagnosis: tuple[str, ...] = ()
+    # v7.14 审查 6.3: 评分失败 fallback 时标记 True (默认 False — 真实评分非启发式)
+    is_heuristic: bool = False
 
     def weighted(self) -> float:
         # v7.11: 委托 ScoringWeights 单一数据来源 (v7.4: 13%)
@@ -49,6 +51,7 @@ class RhythmScore:
     irregularity_penalty: float
     is_clean_vocal: bool
     diagnosis: tuple[str, ...] = ()
+    is_heuristic: bool = False  # v7.14 审查 6.3: 失败 fallback 标记
 
     def weighted(self) -> float:
         return self.raw_score * ScoringWeights.default().rhythm  # v7.4: 12%
@@ -70,6 +73,7 @@ class BreathScore:
     hnr_stability: float | None = None
     dynamic_range_db: float = 0.0
     diagnosis: tuple[str, ...] = ()
+    is_heuristic: bool = False  # v7.14 审查 6.3: 失败 fallback 标记
 
     def weighted(self) -> float:
         return self.raw_score * ScoringWeights.default().breath  # v7.4: 22%
@@ -88,6 +92,7 @@ class TechniqueScore:
     hnr_mean: float = 0.0
     cpp_mean: float = 0.0
     diagnosis: tuple[str, ...] = ()
+    is_heuristic: bool = False  # v7.14 审查 6.3: 失败 fallback 标记
 
     def weighted(self) -> float:
         return self.raw_score * ScoringWeights.default().technique  # 25%
@@ -127,6 +132,7 @@ class ArtistryScore:
     phrase_expression: float
     pitch_variation: float
     diagnosis: tuple[str, ...] = ()
+    is_heuristic: bool = False  # v7.14 审查 6.3: 失败 fallback 标记
 
     def weighted(self) -> float:
         return self.raw_score * ScoringWeights.default().artistry  # v7.4: 13%

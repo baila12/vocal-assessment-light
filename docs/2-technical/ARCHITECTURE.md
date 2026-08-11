@@ -1,6 +1,6 @@
 # 系统架构 v7.14
 
-> 更新: 2026-08-09 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1-5 | v7.14 上传自动匹配 (song_match 领域)
+> 更新: 2026-08-10 | 分支: `main` | Flask 已移除 (v7.6) | GSAP 动效系统 | v7.11 评分权重可配置 | v7.12 选歌录音 MVP | v7.13 实时音准对比子系统 Phase 1-5 | v7.14 上传自动匹配 (song_match 领域)
 >
 > **关联文档**: [PROJECT_STATUS.md](../4-process/PROJECT_STATUS.md) | [SCORING.md](SCORING.md) | [frontend/README.md](frontend/README.md)
 
@@ -221,7 +221,9 @@ interfaces/
 │   │   ├── scoring.py               # v7.11: ApplyWeightsRequest/ScoringPresetsResponse
 │   │   └── common.py                # ErrorResponse
 │   ├── middleware.py                 # SecurityHeaders + RateLimit + MaxBodySize
-│   └── deps.py                      # FastAPI Depends (Settings, EventBus)
+│   └── deps.py                      # FastAPI Depends (Settings, EventBus); 仓储/缓存 @lru_cache 单例
+│                                     #   (get_song_repo/get_song_service/get_pitch_cache/
+│                                     #    get_song_match_profile_repo/get_auto_match_use_case — v7.14 审查 P0-2)
 └── ws/
     ├── score_handler.py             # WebSocket 实时评分
     ├── schemas.py                   # WS 消息类型
@@ -292,9 +294,13 @@ AudioWorklet → Float32Array → ws.send() → numpy.frombuffer (零拷贝)
   ├─ 每 2048 samples (~128ms) 推送一帧
   ├─ StreamingSession 累积 (<120s buffer)
   ├─ 每 2s 计算 incremental score
+  │    └─ compute_partial: rhythm → null (无参考不可评, v7.14 审查 P0-3);
+  │        音准 → voiced 覆盖率中性公式 (detection_rate*80+20, 去除 261.6Hz C4 绝对基准)
   ├─ 每 2s 新音频段 PYIN → pitch_update (v7.13: 样本驱动, 绝对时间轴)
   ├─ start 消息可携带 song_id (v7.12: 选歌录音参考歌曲, 存入 session)
-  └─ 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL; v7.13: ScoringWeights 单一权重来源)
+  └─ 录音完成 → 轻量评分 (<1s, 纯 NumPy, 无 DL; v7.13: ScoringWeights 单一权重来源;
+       v7.14 审查 P0-1: weighted_total_from_scores 删除遗留 /100.0 → 总分量纲修复;
+       P1-5: fallback 维度透出 scoring_warnings; P0-4: 全局异常先发 {event:"error"} 再关连接)
 ```
 
 ---
@@ -389,7 +395,7 @@ vocal_assessment_light/
 ├── repositories/                    # 数据层 (JSON history + SQLite songs)
 ├── web/static/                      # 旧前端已移除 (v7.1.4), 目录可能为空
 │
-├── tests/                           # 647 tests (DDD 541 + 集成 71 + 扩展 21 + WS 14)
+├── tests/                           # 714 tests collected (unit 575 + 集成 118 + 扩展 21)
 ├── docs/                            # 文档
 ├── models/                          # 预训练模型文件
 ├── data/                            # 应用数据 (history.json)
@@ -417,4 +423,4 @@ vocal_assessment_light/
 | f0 检测 | PYIN (librosa) + TorchCREPE fallback + FCPE |
 | 数据存储 | JSON 文件 + SQLite (曲库) |
 | 配置 | Pydantic Settings (FastAPI) |
-| 测试 | pytest 647 tests (DDD 541 + 集成 71 + 扩展 21 + WS 14) + Vitest 297 tests |
+| 测试 | pytest 714 tests collected (unit 575 + 集成 118 + 扩展 21; 实测 710 passed) + Vitest 297 tests |

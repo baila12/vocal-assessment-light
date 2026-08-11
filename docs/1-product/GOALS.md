@@ -1,6 +1,6 @@
-# 产品目标与设计原则 v7.13
+# 产品目标与设计原则 v7.14
 
-> 更新: 2026-08-08 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
+> 更新: 2026-08-10 | 功能详情见 [PRD.md](PRD.md) | 架构见 [ARCHITECTURE.md](../2-technical/ARCHITECTURE.md)
 
 ---
 
@@ -22,7 +22,7 @@
 ## 二、功能全景
 
 ```
-离线声乐评估系统 v7.13
+离线声乐评估系统 v7.14
 │
 ├── 模块1: 音频采集
 │   ├── 多格式上传 (WAV/MP3/FLAC/OGG/M4A/AAC, 拖拽)
@@ -121,12 +121,14 @@
 
 | 层级 | 方法 | 当前 |
 |------|------|:---:|
-| 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag | 451 tests ✅ |
-| 集成测试 | pytest, FastAPI routes (assessment + songs + scoring + songs_pitch) | 65 tests ✅ |
-| 扩展测试 | pytest, DTW/repos/real_audio | 21 tests ✅ |
-| BDD | pytest-bdd, 18 step files, 21 .feature files, 187 scenarios collected | ✅ |
-| 真实音频回归 | pytest, 5 基准文件, 28 tests | ✅ |
-| **生产合计** | | **633 tests 100% GREEN** |
+| 单元测试 (DDD 全套) | pytest, domain + infrastructure + middleware + alignment + flag + WS 会话 | 575 tests ✅ |
+| FastAPI 集成 (API 层) | pytest, assessment + songs + scoring + songs_pitch + song_match + compare | 73 tests ✅ |
+| WebSocket 集成 | pytest, ws_score + ws_pitch_update | 17 tests ✅ |
+| 扩展测试 | pytest, DTW/repos | 21 tests ✅ |
+| BDD | pytest-bdd, 18 step files, 21 .feature files, 187 scenarios collected (121 API 级 + 66 browser) | ⚠️ 见 PROJECT_STATUS (21 既有失败: Flask 遗留 step 文件) |
+| 真实音频回归 | pytest, 5 基准文件, 28 tests | ⚠️ 24 PASS + 4 FAIL (breath 基线漂移, 既有) |
+| **生产代码合计** | | **686 tests 100% GREEN** (unit 575 + API 73 + WS 17 + 扩展 21) |
+| **后端 collected** | | **714 tests** (686 + 真实音频 28; 实测 710 passed) |
 | 前端测试 | Vitest, 297 tests, vue-tsc 0 errors | ✅ |
 
 ---
@@ -143,7 +145,7 @@
 | 状态管理 | Pinia 2.3 |
 | 桌面 | Electron 28 (配置就绪) |
 | 数据 | JSON + SQLite |
-| 测试 | pytest 537 + Vitest 286 |
+| 测试 | pytest 714 (collected) + Vitest 297 |
 
 ---
 

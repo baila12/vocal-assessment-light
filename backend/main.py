@@ -77,11 +77,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # shutdown: 清理资源
 
 
+# 单一版本来源 (v7.14 审查 D2: main.py 与 /health 曾各写一份导致漂移)
+APP_VERSION = "7.14.0"
+
+
 def create_app() -> FastAPI:
     """FastAPI 应用工厂 — 绞杀者模式主入口"""
     app = FastAPI(
-        title="VAS v7.13",
-        version="7.13.0",
+        title="VAS v7.14",
+        version=APP_VERSION,
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",

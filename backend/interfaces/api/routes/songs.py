@@ -2,8 +2,8 @@
 
 POST   /api/v1/songs        — 添加歌曲 (音频文件 + 元数据)
 GET    /api/v1/songs        — 列表 (page/limit/style/difficulty/search)
-GET    /api/v1/songs/{id}   — 详情
-DELETE /api/v1/songs/{id}   — 删除
+GET    /api/v1/songs/{song_id}   — 详情
+DELETE /api/v1/songs/{song_id}   — 删除
 """
 
 from __future__ import annotations
@@ -17,7 +17,13 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from backend.infrastructure.config import Settings
-from backend.interfaces.api.deps import get_settings, get_song_service, get_flask_config
+from backend.interfaces.api.deps import (
+    get_settings,
+    get_song_service,
+    get_pitch_cache,
+    get_flask_config,
+)
+from backend.infrastructure.persistence.in_memory_pitch_cache import InMemoryPitchCacheRepository
 from backend.application.songs.song_library_service import (
     SongLibraryService,
     SongNotFoundError,
@@ -149,12 +155,14 @@ async def get_song(
 async def delete_song(
     song_id: str,
     service: SongLibraryService = Depends(get_song_service),
+    pitch_cache: InMemoryPitchCacheRepository = Depends(get_pitch_cache),
 ) -> SongDeleteResponse:
-    """删除歌曲"""
+    """删除歌曲 — 同步清除音高缓存 (审查 7.4 M8: 删除后残留 F0 曲线)"""
     try:
         service.delete_song(song_id)
     except SongNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    pitch_cache.invalidate(song_id)
     return SongDeleteResponse(deleted=True)
 
 

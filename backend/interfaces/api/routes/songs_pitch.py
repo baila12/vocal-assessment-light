@@ -1,6 +1,6 @@
 """歌曲音高路由 v7.13 — 参考 F0 曲线 (选歌录音参考线数据源)
 
-GET /api/v1/songs/{id}/pitch — 歌曲 F0 曲线
+GET /api/v1/songs/{song_id}/pitch — 歌曲 F0 曲线
 
 说明: 不走 validate_filepath (白名单仅含 upload/test)。
 歌曲文件路径来自歌曲库入库时已验证的 song.filepath (songs_dir 子树)。

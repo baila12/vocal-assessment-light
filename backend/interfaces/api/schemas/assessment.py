@@ -26,6 +26,8 @@ class UploadResponse(BaseModel):
     filepath: Optional[str] = None
     basic_info: Optional[dict] = None
     heuristic_dimensions: list[str] = Field(default_factory=list)
+    # v7.14 审查 6.3: 维度评分失败 fallback 告警 (假 50.0 可辨识)
+    scoring_warnings: list[str] = Field(default_factory=list)
     normalization: NormalizationInfo = Field(default_factory=NormalizationInfo)
     # 基础信息
     duration: Optional[float] = None

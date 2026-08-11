@@ -711,14 +711,19 @@ onBeforeUnmount(() => {
           class="partial-bar"
         />
       </div>
-      <div class="partial-row">
+      <!-- v7.14: 节奏无参考歌曲不可评 (后端 rhythm=null), 显示"分析中"而非假 0 分 -->
+      <div v-if="partialScore.rhythm != null" class="partial-row">
         <span class="partial-label">节奏</span>
         <el-progress
-          :percentage="partialScore.rhythm ?? 0"
+          :percentage="partialScore.rhythm"
           :stroke-width="6"
           :show-text="true"
           class="partial-bar"
         />
+      </div>
+      <div v-else class="partial-row">
+        <span class="partial-label">节奏</span>
+        <span class="partial-pending">分析中…</span>
       </div>
       <div class="partial-row">
         <span class="partial-label">进度</span>
@@ -838,6 +843,7 @@ onBeforeUnmount(() => {
 .partial-row { display: flex; align-items: center; gap: 12px; }
 .partial-label { font-size: 13px; font-weight: 600; color: var(--el-text-color-secondary); min-width: 36px; }
 .partial-bar { flex: 1; }
+.partial-pending { flex: 1; font-size: 13px; color: var(--el-text-color-placeholder); }
 .final-result { margin-top: 8px; }
 .final-score-hero { display: flex; align-items: baseline; justify-content: center; gap: 4px; margin-bottom: 16px; }
 .final-total { font-size: 56px; font-weight: 800; line-height: 1; }

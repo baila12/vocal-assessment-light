@@ -18,13 +18,18 @@ def client():
         yield c
 
 
+# v7.14 审查 TEST_GAP: 版本断言引用单一来源 APP_VERSION, 而非硬编码字符串
+# (防止未来升版本后此处静默失配)
+from backend.main import APP_VERSION
+
+
 class TestHealthEndpoint:
     def test_health_returns_200(self, client):
         resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "healthy"
-        assert data["version"] == "7.13.0"
+        assert data["version"] == APP_VERSION
         assert "gpu" in data
 
     def test_docs_accessible(self, client):
@@ -35,7 +40,7 @@ class TestHealthEndpoint:
         resp = client.get("/openapi.json")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["info"]["title"] == "VAS v7.13"
+        assert data["info"]["title"] == "VAS v7.14"
         # 验证路由已注册
         paths = list(data["paths"].keys())
         assert any("/api/v1/upload" in p for p in paths)

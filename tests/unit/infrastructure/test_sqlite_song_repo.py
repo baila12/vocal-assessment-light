@@ -1,5 +1,7 @@
 """SqliteSongRepository 单元测试 — TDD RED (内存数据库)"""
 
+import threading
+
 import pytest
 
 from backend.domain.songs.value_objects import SongMetadata
@@ -142,3 +144,63 @@ class TestListAllWithFilepath:
 
     def test_empty_repo_returns_empty(self, repo):
         assert repo.list_all_with_filepath() == []
+
+
+class TestPragmas:
+    """P0-2 (审查 C2): 文件库启用 WAL + busy_timeout — 并发安全基线"""
+
+    def test_file_db_uses_wal_journal_mode(self, tmp_path):
+        """文件库 journal_mode 应为 wal (并发读写下防 SQLITE_BUSY/死锁)"""
+        repo = SqliteSongRepository(db_path=tmp_path / 'songs.db')
+        mode = repo._conn.execute('PRAGMA journal_mode').fetchone()[0]
+        assert mode == 'wal', f'文件库 journal_mode 应为 wal, 实际 {mode}'
+
+    def test_busy_timeout_is_set(self, tmp_path):
+        """busy_timeout=5000ms — 锁竞争时等待而非立即报 SQLITE_BUSY"""
+        repo = SqliteSongRepository(db_path=tmp_path / 'songs.db')
+        timeout = repo._conn.execute('PRAGMA busy_timeout').fetchone()[0]
+        assert timeout == 5000
+
+    def test_memory_db_unaffected(self, repo):
+        """:memory: 库不受 WAL pragma 影响, 仍正常读写"""
+        repo.add(_song(song_id='s1'))
+        assert repo.get_by_id('s1') is not None
+
+
+class TestConcurrency:
+    """P0-2 (审查 C2): 读写并发 — 同一连接持锁串行化, 无异常/无脏读"""
+
+    def test_concurrent_reads_and_writes_no_crash(self, tmp_path):
+        """3 写线程 + 3 读线程并发 — 不抛异常且数据一致 (读锁缺失时可能崩溃)"""
+        repo = SqliteSongRepository(db_path=tmp_path / 'songs.db')
+        errors: list[Exception] = []
+        lock = threading.Lock()
+
+        def _writer(i: int) -> None:
+            try:
+                for k in range(10):
+                    repo.add(_song(title=f'歌{i}-{k}', artist='邓丽君', song_id=f'w{i}_{k}'))
+            except Exception as exc:  # pragma: no cover - 仅记录并发异常
+                with lock:
+                    errors.append(exc)
+
+        def _reader() -> None:
+            try:
+                for _ in range(20):
+                    repo.list(page=1, limit=50)
+                    repo.get_by_id('w1_0')
+                    repo.find_duplicate(SongMetadata(title='歌1-0', artist='邓丽君'))
+            except Exception as exc:  # pragma: no cover - 仅记录并发异常
+                with lock:
+                    errors.append(exc)
+
+        threads = [threading.Thread(target=_writer, args=(i,)) for i in range(3)]
+        threads += [threading.Thread(target=_reader) for _ in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f'并发访问异常: {errors}'
+        items, total = repo.list(page=1, limit=200)
+        assert total == 30

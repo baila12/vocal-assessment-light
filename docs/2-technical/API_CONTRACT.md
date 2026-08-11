@@ -1,6 +1,6 @@
 # API 契约文档 v7.14
 
-> 更新: 2026-08-09 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 633 测试 GREEN (DDD 541 + 集成 71 + 扩展 21)
+> 更新: 2026-08-10 | FastAPI `/api/v1/` (Flask 已移除 v7.6) | 后端 714 tests collected (710 passed; 686 生产 GREEN + 28 真实音频 24P+4F) + 前端 297 Vitest
 
 ---
 
@@ -26,10 +26,10 @@
 | GET | `/api/v1/audio?file=...` | 音频文件流 (路径安全校验; v7.10: 白名单新增 songs_dir，支持歌曲库音频播放) | ✅ | ✅ |
 | POST | `/api/v1/songs` | 添加歌曲 (multipart 文件+元数据; v7.12: +`vocal_range` 音域) [v7.9] | ✅ | ✅ |
 | GET | `/api/v1/songs` | 曲库列表 (page/limit/style/difficulty/search) [v7.9] | ✅ | ✅ |
-| GET | `/api/v1/songs/{id}` | 歌曲详情 [v7.9] | ✅ | ✅ |
-| DELETE | `/api/v1/songs/{id}` | 删除歌曲 [v7.9] | ✅ | ✅ |
-| GET | `/api/v1/songs/{id}/pitch` | 歌曲参考 F0 曲线 (选歌录音参考线数据源; 缓存) [v7.13] | ✅ | ✅ |
-| POST | `/api/v1/songs/{id}/compare` | 上传录音与选中歌曲 DTW 对比 (multipart user_file+style) [v7.13] | ✅ | ✅ |
+| GET | `/api/v1/songs/{song_id}` | 歌曲详情 [v7.9] | ✅ | ✅ |
+| DELETE | `/api/v1/songs/{song_id}` | 删除歌曲 [v7.9] | ✅ | ✅ |
+| GET | `/api/v1/songs/{song_id}/pitch` | 歌曲参考 F0 曲线 (选歌录音参考线数据源; 缓存) [v7.13] | ✅ | ✅ |
+| POST | `/api/v1/songs/{song_id}/compare` | 上传录音与选中歌曲 DTW 对比 (multipart user_file+style) [v7.13] | ✅ | ✅ |
 | POST | `/api/v1/songs/match` | 上传录音自动匹配歌曲库标准歌曲 → 最佳匹配 + Top-N 候选 (multipart file+top_n; 无匹配 fallback_reason) [v7.14] | ✅ | ✅ |
 | GET | `/api/v1/flags` | Feature Flag + GPU + 模型状态 (v7.7) | ✅ | ✅ |
 | GET | `/api/v1/scoring/presets` | 评分权重预设 — 默认 + 4 风格 (v7.11) | ✅ | ✅ |
@@ -63,9 +63,14 @@
   "voice_quality": { "is_voice": true, "voice_ratio": 0.85 },
   "basic_info": { "filename": "song.mp3", "duration": 180.5 },
   "advice": ["长音支撑优秀", "咬字清晰度偏低"],
+  "scoring_warnings": [],                        // v7.14 审查 6.3: 维度评分失败 fallback 告警
   "analysis_id": "abc123"
 }
 ```
+
+> **v7.14 审查 6.3 (P1-5)**: `scoring_warnings: list[str]` — 非设计启发式维度 (pitch/rhythm/breath/technique/artistry) 评分失败 fallback 时的告警标签, 与设计启发式维度 (muscle/timbre, 恒启发式不告警) 区分。典型值: `["音准评分失败，已使用默认值", "节奏评分失败，已使用默认值", ...]` (对应 `_FALLBACK_WARNING_LABELS`)。正常评分时为 `[]`。
+>
+> **v7.14 auto_match**: 上传分析响应在 `auto_match=true` 时额外注入 `matched_song` (最佳匹配, 或 null) / `matched_candidates` (Top-N 候选列表) / `fallback_reason` (无匹配时 ∈ {no_match, no_profiles, audio_too_short, timeout}, 命中时为空字符串)。
 
 ### 评分权重 API (v7.11)
 
@@ -207,7 +212,7 @@ duration_score = 1 / (1 + |log2(user_dur / profile_dur)|)                # 0.9x�
   "fallback_reason": ""
 }
 ```
-- `auto_match=false` (默认): 不注入上述字段
+- `auto_match=false` (默认): 上述字段返回默认值 (`matched_song=null`, `matched_candidates=[]`, `fallback_reason=""`) — 响应 schema 恒含这些字段
 - 歌曲库为空 / 匹配特征缺失 / 音频过短: `matched_song=null` + `fallback_reason` 透传
 
 ---

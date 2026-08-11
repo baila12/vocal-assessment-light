@@ -1,6 +1,8 @@
 # 行为驱动开发 (BDD) 规范 v7.14
 
-> 更新: 2026-08-09 | 18 step files | 21 feature files (17 已实现 + 4 规划中) | scoring-config.feature v7.11: 6 维契约更新, API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | **v7.12: upload.feature 数据补齐 (vocals.wav + KMP 修复) + animations/sing-song-select 迁移 Vue 3 data-test 选择器** | **v7.13: pitch-realtime.feature step defs 骨架落地 (25 XFAIL, 每条标注对应纯 TS Vitest 测试)** | **v7.14: auto-match.feature step defs 落地 (5 PASS + 3 XFAIL, 重度场景标注对应单元测试)**
+> 更新: 2026-08-10 | 18 step files | 21 feature files (17 已实现 + 4 规划中) | **187 scenarios collected (121 API 级 + 66 browser)** | API 级运行实测: **21 failed / 20 passed / 43 skipped / 37 xfailed** | scoring-config.feature v7.11: API 级 PASS, 阈值联动+UI 级 XFAIL | 浏览器基建 v7.11 已修 (base_url→:8000 + `window.__store` 钩子) | v7.12: upload 数据补齐 + animations/sing-song-select 迁移 Vue 3 data-test | v7.13: pitch-realtime.feature step defs 骨架 (25 XFAIL, 标注对应纯 TS Vitest) | **v7.14: auto-match.feature step defs 落地 (5 PASS + 3 XFAIL) + conftest DI 缓存隔离修复 (P0-2: API 级失败 33→21)**
+>
+> ⚠️ **BDD 真实状态 (2026-08-10 全量 API 级实测)**: 21 个既有失败全部为 Flask→FastAPI 迁移遗留, 与 v7.14 功能无关 — compare.feature 12 个 `StepDefinitionNotFoundError` (feature 仍用 `Given "Flask 服务已启动"` 等 Flask 步骤), history.feature 3 个 `api_client.get_json()` AttributeError (应为 FastAPI TestClient `.json()`), differentiation.feature 6 个依赖完整真实音频栈。详见第 5 节版本演进。
 
 ---
 
@@ -23,6 +25,7 @@
 │  Fixtures (conftest.py)                       │
 │  pytest fixtures: api_client (Flask 兼容旧步) + │
 │  fastapi_client (v7 API) + test data          │
+│  v7.14: DI 缓存清空 (deps 6 个 @lru_cache)      │
 └──────────────────────────────────────────────┘
 ```
 
@@ -38,17 +41,17 @@
 
 ---
 
-## 2. 目录结构 (v7.13 实际)
+## 2. 目录结构 (v7.14 实际)
 
 ```
 tests/bdd/
 ├── features/                         # Gherkin .feature 文件 (21 个)
 │   │
 │   │  === 已实现 (有 Step Defs, 17 个) ===
-│   ├── upload.feature                # 上传与六维评分
-│   ├── compare.feature               # DTW 对比分析
-│   ├── differentiation.feature       # 评分区分度验证
-│   ├── history.feature               # 历史记录管理
+│   ├── upload.feature                # 上传与六维评分 ✅ 5 PASS + 3 SKIP
+│   ├── compare.feature               # DTW 对比分析 ❌ 12 FAIL (Flask 遗留 step, 见下)
+│   ├── differentiation.feature       # 评分区分度验证 ❌ 6 FAIL (真实音频)
+│   ├── history.feature               # 历史记录管理 ❌ 3 FAIL (get_json 遗留)
 │   ├── navigation.feature            # SPA 路由导航
 │   ├── compare-ui.feature            # 对比 UI 交互
 │   ├── mode-select.feature           # 模式选择
@@ -59,7 +62,7 @@ tests/bdd/
 │   ├── responsive.feature            # 响应式布局 (v7.3.1)
 │   ├── dtw-demotion.feature          # v7.8: DTW 降级为特征提供者 (18 scenarios)
 │   ├── scoring-config.feature        # v7.8: 评分配置可定制 (14 scenarios)
-│   ├── database.feature              # v7.9: 标准歌曲数据库 (10 scenarios, 4P+6XF)
+│   ├── database.feature              # v7.9: 标准歌曲数据库 ✅ v7.14 修复轮后通过
 │   ├── pitch-realtime.feature        # v7.13: 实时音准对比 (25 scenarios, 全部 XFAIL — 无真实音频, 每条标注对应纯 TS Vitest)
 │   └── auto-match.feature            # 🆕 v7.14: 上传自动匹配 (8 scenarios, 5 PASS + 3 XFAIL — 重度场景标注对应单元测试)
 │   │
@@ -71,10 +74,10 @@ tests/bdd/
 │
 ├── steps/                            # Step 实现 (18 files)
 │   ├── test_upload_steps.py          # 上传 + 评分
-│   ├── test_compare_steps.py         # DTW 对比
+│   ├── test_compare_steps.py         # DTW 对比 (12 scenarios 失败: Flask 遗留 step defs)
 │   ├── test_compare_ui_steps.py      # 对比 UI
-│   ├── test_differentiation_steps.py # 评分区分度
-│   ├── test_history_steps.py         # 历史记录
+│   ├── test_differentiation_steps.py # 评分区分度 (6 失败: 真实音频)
+│   ├── test_history_steps.py         # 历史记录 (3 失败: get_json 遗留)
 │   ├── test_mode_select_steps.py     # 模式选择
 │   ├── test_navigation_steps.py      # SPA 导航
 │   ├── test_sing_song_select_steps.py # 演唱选歌
@@ -85,13 +88,18 @@ tests/bdd/
 │   ├── test_responsive_steps.py      # v7.3.1: 8 responsive scenarios
 │   ├── test_dtw_demotion_steps.py    # v7.8: 18 DTW scenarios
 │   ├── test_scoring_config_steps.py  # v7.8: 14 评分配置 scenarios
-│   ├── test_database_steps.py        # v7.9: 10 歌曲库 scenarios (4PASS+6XFALL)
+│   ├── test_database_steps.py        # v7.9: 10 歌曲库 scenarios (v7.14 修复轮后通过)
 │   ├── test_pitch_realtime_steps.py  # v7.13: 实时音准对比 step defs 骨架 (25 XFAIL, 指向纯 TS Vitest)
 │   └── test_auto_match_steps.py      # 🆕 v7.14: 上传自动匹配 step defs (5 PASS + 3 XFAIL)
 │
-├── conftest.py                       # BDD fixtures + Playwright
+├── conftest.py                       # BDD fixtures + Playwright + v7.14 DI 缓存清空
 └── __init__.py
 ```
+
+> **21 个既有失败 — 均为 Flask→FastAPI 迁移遗留 (与 v7.14 功能无关)**:
+> - `compare.feature` (12): `StepDefinitionNotFoundError` — feature 文件第 7 行仍写 `Given "Flask 服务已启动"`, FastAPI 未迁移
+> - `history.feature` (3): `api_client.get_json()` AttributeError — 应为 FastAPI TestClient `.json()`
+> - `differentiation.feature` (6): 依赖完整真实音频栈 (librosa 全管道), CI 无法稳定生成
 
 ---
 
@@ -223,6 +231,20 @@ def check_total_score_range(upload_with_mode):
 
 - **5 PASS**: 命中返回最佳匹配 + 候选排序、无匹配回退 `fallback_reason=no_match`、`top_n` 候选数量、歌曲库为空 → `no_profiles`
 - **3 XFAIL** (标注对应单元测试): 短音频/嘈杂音频/100+ 歌曲首次预计算 — 无法在 CI 生成稳定真实音频 → 由 `test_match_feature_extractor.py` / `test_auto_match_use_case.py` 单元覆盖
+
+### v7.14 深度审查修复轮 (2026-08-10)
+
+| 项 | 变化 | 说明 |
+|----|:--:|------|
+| `conftest.py` fastapi_client | **关键修复** | **P0-2 根因**: deps.py 的 `get_song_repo`/`get_pitch_cache` 等 6 个 `@lru_cache` 单例跨场景复用首个临时 DB → 重复添加 409。fixture 增加 `deps.get_song_repo/get_pitch_cache/get_song_match_profile_repo/get_auto_match_use_case.cache_clear()`, 恢复场景隔离 |
+| database.feature | ✅ 恢复 | 修复前 5 FAIL ("63 vs 14" 等跨场景污染), 修复轮后全部通过 |
+| auto-match.feature | ✅ 恢复 | 修复前降级 1P+7F → 恢复 **5P+3X** |
+| API 级全量 (121 scenarios) | 33F/13P/32X → **21F/20P/37X** | 净改善: -12 failed, +7 passed, +5 xfailed |
+
+**21 个残余既有失败** (非本次修复范围, 均为 Flask 迁移遗留):
+- compare.feature ×12 — `StepDefinitionNotFoundError` (feature 用 Flask step 名称)
+- history.feature ×3 — `api_client.get_json()` 应为 `.json()`
+- differentiation.feature ×6 — 依赖完整真实音频栈
 
 标记: v7.3.1 animations/offline/responsive scenarios 使用 `@pytest.mark.browser` (需要 Playwright)
 

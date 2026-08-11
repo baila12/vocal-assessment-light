@@ -100,3 +100,24 @@ class TestCrud:
         got = repo.get('s1')
         assert got is not None
         assert got.chroma == (0.0,) * 12
+
+
+class TestPragmas:
+    """P0-2 (审查 C3): 文件库启用 WAL + busy_timeout — 与歌曲仓储同库多连接并发安全"""
+
+    def test_file_db_uses_wal_journal_mode(self, tmp_path):
+        """文件库 journal_mode 应为 wal (两个仓储连接同一 songs.db)"""
+        repo = SqliteSongMatchProfileRepository(db_path=tmp_path / 'songs.db')
+        mode = repo._conn.execute('PRAGMA journal_mode').fetchone()[0]
+        assert mode == 'wal', f'文件库 journal_mode 应为 wal, 实际 {mode}'
+
+    def test_busy_timeout_is_set(self, tmp_path):
+        """busy_timeout=5000ms — 跨连接锁竞争时等待而非立即报 SQLITE_BUSY"""
+        repo = SqliteSongMatchProfileRepository(db_path=tmp_path / 'songs.db')
+        timeout = repo._conn.execute('PRAGMA busy_timeout').fetchone()[0]
+        assert timeout == 5000
+
+    def test_memory_db_unaffected(self, repo):
+        """:memory: 库不受 WAL pragma 影响, 仍正常读写"""
+        repo.save(_profile(song_id='s1'))
+        assert repo.get('s1') is not None

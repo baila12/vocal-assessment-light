@@ -55,7 +55,9 @@ def fastapi_client():
     # 重置 DI 缓存 — 让仓储/设置重新读取新的 DB 路径
     from backend.interfaces.api import deps
     deps.get_settings.cache_clear()
+    deps.get_song_repo.cache_clear()   # v7.14 审查 C3: get_song_repo 已 @lru_cache, 必须清 (否则跨场景复用旧 DB 连接 → 重复添加 409)
     deps.get_song_service.cache_clear()
+    deps.get_pitch_cache.cache_clear() # 内存缓存无 DB 绑定, 但清空避免跨场景 song_id 复用返回陈旧音高
     # v7.14: auto-match 单例也绑定 DB 路径, 必须一并清空 (否则跨场景复用旧 profile 库)
     deps.get_song_match_profile_repo.cache_clear()
     deps.get_auto_match_use_case.cache_clear()

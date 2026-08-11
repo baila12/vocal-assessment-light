@@ -70,8 +70,13 @@ def get_flask_config():
     return flask_config
 
 
+@lru_cache()
 def get_song_repo():
-    """歌曲仓储 — SQLite 实现 (VAS_SONGS_DB 环境变量可覆盖)"""
+    """歌曲仓储 — SQLite 实现 (VAS_SONGS_DB 环境变量可覆盖).
+
+    v7.14 审查 C3: @lru_cache() 共享单连接 — 此前 get_song_service() 与
+    get_auto_match_use_case() 各自 connect 同一 songs.db (双连接写锁冲突)。
+    """
     from backend.infrastructure.persistence.sqlite_song_repo import SqliteSongRepository
     return SqliteSongRepository(db_path=get_settings().songs_db)
 

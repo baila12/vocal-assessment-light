@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-09 | 版本: **v7.14** | 分支: `main`
+> 更新: 2026-08-10 | 版本: **v7.14** | 分支: `main`
 
 ---
 
@@ -101,7 +101,7 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **DI** | deps.py `get_song_match_profile_repo` + `get_auto_match_use_case` (lru_cache 单例, 绑定 songs_db) | ✅ |
 | **前端** | `songMatch.store.ts` — `matchAudio` (POST /songs/match) + `selectCandidate` + `compareWithSelected` (复用 POST /songs/{id}/compare) + `fetchUserPitch` (POST /extract-pitch) | ✅ |
 | **前端** | CompareView 自动匹配区 (上传录音→候选列表 歌名/歌手/置信度/BPM 差/调性差→选中→一键 DTW 对比→复用 Phase 5 双轨叠加); 无匹配优雅回退提示 (fallback_reason 透传) | ✅ |
-| **测试** | 生产 537→**633** (+96: 领域 79 + 基建 11 + 集成 6, 含审查回归 +2); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄) | ✅ |
+| **测试** | v7.14 特性发布: 生产 537→633 (+96: 领域 79 + 基建 11 + 集成 6); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄)。**v7.14 深度审查修复轮 (2026-08-10): 633→714 collected (+81: fallback 11 + streaming 7 + pitch cache 7 + deps 2 + 集成/WS 13 + 断言同步等), 686 生产 GREEN** | ✅ |
 
 ### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3 + Phase 4
 
@@ -271,25 +271,26 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| DDD 领域 (scorers + value objects + comparison + songs + **songs_pitch** + ScoringWeights + **song_match**) | 352 | ✅ |
-| DDD 基建 (extractors + orchestrator + ABI + sqlite + **sqlite_song_match_profile_repo**) | 143 | ✅ |
-| DDD 对齐 + Flag bridge (test_ddd_alignment/extraction_flag/flag_bridge) | 23 | ✅ |
-| 中间件 | 23 | ✅ |
-| **DDD 合计** | **541** | **100% GREEN** |
-| FastAPI 集成 | 71 | ✅ | (api_routes 19 + songs_api 20 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 3 + **song_match_api 6**)
+| Unit 领域 (scorers + value objects + comparison + songs + **songs_pitch** + ScoringWeights + **song_match** + **fallback**) | 363 | ✅ |
+| Unit 基建 (extractors + orchestrator + ABI + sqlite + **sqlite_song_match_profile_repo** + **pitch_cache + deps 单例**) | 159 | ✅ |
+| Unit 对齐 + Flag bridge (test_ddd_alignment/extraction_flag/flag_bridge) | 23 | ✅ |
+| Unit 中间件 | 23 | ✅ |
+| Unit WS streaming 会话 (v7.14 审查修复轮) | 7 | ✅ |
+| **Unit 合计** | **575** | **100% GREEN** |
+| API 集成 | 73 | ✅ | (api_routes 19 + songs_api 21 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 4 + **song_match_api 6**)
+| WebSocket 集成 | 17 | ✅ | (ws_score 13 + ws_pitch_update 4)
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
-| **生产代码总计** | **633** | **100% GREEN** |
+| **生产代码总计** | **686** | **100% GREEN** |
 
-> 注: 生产合计 = DDD 541 + 集成 71 + 扩展 21 = 633 (独立进程实测, 含 WS 14 为 647)。另含 WebSocket 集成 14 (v7.12 10 + v7.13 pitch_update 4) 与真实音频回归 28 (BASELINE_V7_6), 不计入生产代码合计。
+> 注: 生产合计 = Unit 575 + API 73 + WS 17 + 扩展 21 = **686** (独立进程实测)。另含真实音频回归 28 (BASELINE_V7_6)。**后端 collected = 714 (710 passed; 4 失败均为 breath 基线漂移既有)**。
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| 真实音频 Quick + Pro | 28 | ⚠️ 24 PASS + 4 FAIL | 4 个失败均为 `test_dimension_scores_in_baseline_ranges` 的 **breath 维度**越界 0.1-0.8 分 (79.2/83.4/75.9/69.9 vs 基线 80/84/76/70) — BASELINE_V7_6 阈值过紧的既有漂移, 与 v7.13/v7.14 改动无关 (评分管线零触碰; total/valid 范围测试全 PASS) |
-| BDD | 17 step files | ✅ | 179 scenarios collected + 4 features pending step defs |
+| 真实音频 Quick + Pro | 28 | ⚠️ 24 PASS + 4 FAIL | 4 个失败均为 `test_dimension_scores_in_baseline_ranges` 的 **breath 维度**越界 0.1-0.8 分 (79.2/83.4/75.9/69.9 vs 基线 80/84/76/70) — BASELINE_V7_6 阈值过紧的既有漂移, 与 v7.13/v7.14 修复轮改动无关 (评分管线零触碰; total/valid 范围测试全 PASS) |
 
-### BDD (v7.12 浏览器基建 + 场景迁移)
+### BDD (2026-08-10 全量 API 级实测: 121 scenarios → 21F / 20P / 43S / 37X)
 
 | Feature | 状态 |
 |------|------|
@@ -297,9 +298,12 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | animations.feature (迁移 Vue 3 data-test) | ✅ 7 PASS + 9 XFAIL (无 UI/依赖录音场景带理由) |
 | sing-song-select.feature (迁移 Vue 3) | ✅ 6 PASS + 6 XFAIL (依赖 WebSocket 录音/auto-match/上传) |
 | scoring-config.feature | ✅ API 级 PASS (v7.11) |
-| database.feature | ✅ 4 PASS + 6 XFAIL (v7.9) |
-| **pitch-realtime.feature (v7.13 P1-P5 骨架)** | ✅ 25 XFAIL (每条标注对应纯 TS 单元测试文件; P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计→pitchSegments.test.ts, P5 起双轨填色/热力图/截图/快捷键→pitchCompareDraw/pitchHeatmap/pitchScreenshot/pitchKeyboard; 浏览器 BDD 无真实音频/WS) |
-| **auto-match.feature (v7.14 上传自动匹配)** | ✅ 5 PASS + 3 XFAIL (短音频容错→test_extract_short_audio_tolerant, 嘈杂→test_extract_noise_robust, 超时→test_timeout_returns_partial/test_deadline_exceeded_returns_partial) |
+| database.feature | ✅ **v7.14 修复轮后通过** (P0-2 DI 缓存隔离修复前 5 FAIL) |
+| **auto-match.feature (v7.14 上传自动匹配)** | ✅ **5 PASS + 3 XFAIL** (v7.14 修复轮从 1P+7F 恢复; 短音频容错→test_extract_short_audio_tolerant, 嘈杂→test_extract_noise_robust, 超时→test_timeout_returns_partial/test_deadline_exceeded_returns_partial) |
+| **pitch-realtime.feature (v7.13 P1-P5 骨架)** | ⚠️ 文档化 stub — 25 XFAIL, 非"已完成" (v7.14 审查 T1): 浏览器 BDD 未实现 (无真实音频/WS); 每条标注对应纯 TS 单元测试文件 — P3 起录音中对比→pitchLive.test.ts, P4 起回放对比/问题段落/逐句评分/统计→pitchSegments.test.ts, P5 起双轨填色/热力图/截图/快捷键→pitchCompareDraw/pitchHeatmap/pitchScreenshot/pitchKeyboard |
+| compare.feature | ❌ **既有 12 FAIL** — `StepDefinitionNotFoundError`: feature 仍用 Flask step 名称 (`Given "Flask 服务已启动"`), FastAPI 未迁移 |
+| differentiation.feature | ❌ **既有 6 FAIL** — 依赖完整真实音频栈 (librosa 全管道) |
+| history.feature | ❌ **既有 3 FAIL** — Flask 遗留 `api_client.get_json()` (应为 FastAPI TestClient `.json()`) |
 
 ### 前端测试
 
@@ -373,8 +377,9 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 问题 | 说明 |
 |------|------|
-| 真实音频 breath 基线漂移 | `test_dimension_scores_in_baseline_ranges` 4 个文件 breath 越界 0.1-0.8 分 (v7.6 基线阈值过紧, 环境漂移) — 待校准 BASELINE_V7_6 breath_range 或接受漂移 (v7.13 实测 24P+4F) |
+| 真实音频 breath 基线漂移 | `test_dimension_scores_in_baseline_ranges` 4 个文件 breath 越界 0.1-0.8 分 (v7.6 基线阈值过紧, 环境漂移) — 待校准 BASELINE_V7_6 breath_range 或接受漂移 (v7.14 实测 24P+4F) |
 | BDD v6.0 规划 features 部分实现 | v7.8: dtw-demotion + scoring-config step defs 已创建; v7.13: pitch-realtime step defs 骨架已创建; 5 features 仍待实现 |
+| **BDD API 级 21 既有失败 (Flask 迁移遗留)** | compare.feature 12 `StepDefinitionNotFoundError` (feature 仍用 `Given "Flask 服务已启动"` 等 Flask step) + history.feature 3 `api_client.get_json()` (应为 `.json()`) + differentiation.feature 6 (依赖完整真实音频栈) — 均与 v7.14 功能无关; 深度审查遗留 P2, 见 DEEP_REVIEW_v7.14 待修复清单 |
 | ~~BDD animations.feature 旧架构~~ | ✅ v7.12: 迁移 Vue 3 (data-test 钩子 + 类选择器); 无 UI 场景 xfail 带理由 |
 | ~~BDD 浏览器基建指向旧 Flask~~ | ✅ v7.11: conftest base_url→:8000 + api_client→FastAPI + 前端 `window.__store` 钩子 |
 | ~~upload.feature 数据缺失 (vocals.wav)~~ | ✅ v7.12: `scripts/gen_bdd_test_data.py` 生成 + KMP_DUPLICATE_LIB_OK 崩溃修复; 5 PASS + 3 SKIP |
@@ -433,8 +438,8 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 默认测试 (541 tests, ~20s)
-pytest tests/unit/domain/ tests/unit/infrastructure/ \
+# 默认测试 (575 tests, ~28s)
+pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/interfaces/ws/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
        tests/unit/test_ddd_extraction_flag.py \

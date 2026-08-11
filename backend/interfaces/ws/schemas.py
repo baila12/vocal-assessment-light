@@ -38,10 +38,13 @@ class WsServerPitchUpdate(BaseModel):
 
 
 class WsServerPartialScore(BaseModel):
-    """服务器→客户端: 增量评分 (每2秒)"""
+    """服务器→客户端: 增量评分 (每2秒)
+
+    v7.14 审查 5.2: rhythm 无参考歌曲不可评 → None (不再硬编码 50.0 假分)
+    """
     event: Literal["partial_score"] = "partial_score"
     pitch: float = 0.0
-    rhythm: float = 0.0
+    rhythm: Optional[float] = None
     progress: float = 0.0  # 0.0-1.0
     elapsed_s: float = 0.0
 
@@ -63,6 +66,8 @@ class WsServerFinalScore(BaseModel):
     grade: str = ""
     advice: list[str] = Field(default_factory=list)
     duration_s: float = 0.0
+    # v7.14 审查 6.3: 维度评分失败 fallback 告警 (假 50.0 可辨识)
+    scoring_warnings: list[str] = Field(default_factory=list)
 
 
 class WsServerError(BaseModel):

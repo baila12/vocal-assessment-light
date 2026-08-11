@@ -1,6 +1,6 @@
 # 测试结果记录 v7.14
 
-> 更新: 2026-08-09 | 633 tests 100% GREEN (实测 647 含 WS) | 分支: `main`
+> 更新: 2026-08-10 | 后端 **714 collected / 710 passed** + 前端 297 Vitest GREEN | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
@@ -12,22 +12,24 @@
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| DDD 领域 (scorers + value objects + comparison + songs + songs_pitch + song_match + ScoringWeights) | 352 | ✅ 100% | 6 scorers + 音色调整 + comparison + songs + songs_pitch (v7.13) + **song_match (v7.14: +79)** + ScoringWeights 值对象 |
-| DDD 基建 (extractors + orchestrator + ABI + sqlite) | 143 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 + **sqlite_song_match_profile_repo (v7.14: +11, 含审查回归 +2)** |
-| DDD 对齐 + Flag bridge | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
-| 中间件 | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
-| **DDD 合计** | **541** | **100% GREEN** | (~25s) |
-| FastAPI 集成 | 71 | ✅ 100% | test_api_routes (19) + test_songs_api (20) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (3) + **song_match_api (6, v7.14)** |
-| WebSocket 集成 | 14 | ✅ 100% | test_ws_score (10) + ws_pitch_update (4, v7.13) |
+| Unit (DDD 领域: 6 scorers + 音色调整 + comparison + songs + songs_pitch + song_match + ScoringWeights + fallback) | 363 | ✅ 100% | 6 scorers + 音色调整 + comparison + songs + songs_pitch (v7.13) + **song_match (v7.14: +79)** + ScoringWeights 值对象 + **fallback_marking (v7.14 修复轮: +11)** |
+| Unit (DDD 基建: extractors + orchestrator + ABI + sqlite + pitch cache + deps) | 159 | ✅ 100% | 10 extractors + audio_utils + ABI + songs 仓储 + sqlite_song_match_profile_repo + **in_memory_pitch_cache (+7) + deps_singleton (+2) (v7.14 修复轮)** |
+| Unit (DDD 对齐 + Flag bridge) | 23 | ✅ 100% | alignment + extraction flag + flag bridge |
+| Unit (中间件) | 23 | ✅ 100% | SecurityHeaders + RateLimit + MaxBodySize |
+| Unit (WS streaming 会话) 🆕 v7.14 修复轮 | 7 | ✅ 100% | test_streaming_session (compute_partial 等) |
+| **Unit 合计** | **575** | **100% GREEN** | (~28s) |
+| API 集成 (6 文件) | 73 | ✅ 100% | test_api_routes (19) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + **song_match_api (6, v7.14)** |
+| WebSocket 集成 | 17 | ✅ 100% | test_ws_score (13) + ws_pitch_update (4, v7.13) |
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
-| **生产代码总计** | **633** | **100% GREEN** | (DDD 541 + 集成 71 + 扩展 21; 不含 WS 14 / 真实音频回归 28) |
-| 真实音频回归 | 28 | ⚠️ 24 PASS + 4 FAIL | 4 失败均为 breath 维度基线漂移 (BASELINE_V7_6 阈值过紧, 既有) — 见 PROJECT_STATUS |
-| BDD (18 step files) | 187 scenarios collected | ✅ | upload 5P+3S; animations 7P+9X; sing-song-select 6P+6X; scoring-config API 级 PASS; database 4P+6X; pitch-realtime 25X; **auto-match 5P+3X (v7.14)**; 4 features 缺 step defs |
+| **生产代码总计** | **686** | **100% GREEN** | (unit 575 + API 73 + WS 17 + 扩展 21) |
+| 真实音频回归 | 28 | ⚠️ 24 PASS + 4 FAIL | 4 失败均为 breath 维度基线漂移 (BASELINE_V7_6 阈值过紧, **既有**, v7.14 修复轮未触及) — 见 PROJECT_STATUS |
+| **后端 collected** | **714** | **710 passed** | 686 生产 + 28 真实音频; 4 失败均为 breath 基线漂移 |
+| BDD (18 step files) | 187 scenarios collected (121 API) | ⚠️ 21F/20P/43S/37X | API 级既有失败 (compare 12: Flask 遗留 step + differentiation 6: 真实音频 + history 3: get_json 遗留); upload 5P+3S; animations 7P+9X; auto-match **5P+3X (v7.14 修复轮恢复)**; database ✅ 修复轮后通过 — 详见 BDD.md |
 | 前端 Vitest | 297 | ✅ 100% | stores 85 + pitch utils 212 (v7.14 +11 songMatch.store) |
 | vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
 | Vite build | ~16s | ✅ | 生产构建 |
 
-### v7.14 新增/移除测试明细
+### v7.14 新增/移除测试明细 (v7.13 → v7.14)
 
 | 文件 | 变化 | 覆盖 |
 |------|:-----:|------|
@@ -39,6 +41,21 @@
 | `test_sqlite_song_repo.py` | +2 | v7.14 list_all_with_filepath |
 | `test_song_match_api.py` | +6 | v7.14 POST /songs/match (成功/top_n/无匹配 fallback/400) + upload auto_match 开/关 |
 | `frontend/tests/unit/stores/songMatch.store.test.ts` | +11 | v7.14 matchAudio/selectCandidate/compareWithSelected/fetchUserPitch (mock apiClient) |
+
+### v7.14 深度审查修复轮新增测试 (2026-08-10, P0+P1)
+
+| 文件 | 变化 | 覆盖 |
+|------|:-----:|------|
+| `test_fallback_marking.py` | +11 | P0-3 回归: rhythm None→fallback; voiced coverage 公式 (0 分母/空 voiced → 0.0) |
+| `test_streaming_session.py` | +7 | P0-3 compute_partial 边界: 空帧/半帧/0 分母/时长钳制 |
+| `test_in_memory_pitch_cache.py` | +7 | P1-6 新增 LRU 缓存单测: 容量/LRU 逐出/None 不缓存/clear |
+| `test_deps_singleton.py` | +2 | P1-6 deps 单例 (@lru_cache get_song_repo/get_pitch_cache) |
+| `test_api_routes.py` | 断言同步 | P1-9 APP_VERSION 7.13.0 → 7.14.0 |
+| `test_songs_api.py` | +1 | P1-4 删除歌曲级联清理 pitch 缓存 |
+| `test_compare_pitch_api.py` | +1 | P1-6 删除歌曲后 404 校验 |
+| `test_ws_score.py` | +3 | P0-1 weighted_total 不再 /100: 满分 100 场景 |
+| `test_scoring_api.py` | 断言同步 | P0-1 权重应用总分为百分制 |
+| `tests/bdd/conftest.py` | 修复 | **P0-2 关键**: fastapi_client fixture 增加 `deps.get_song_repo/get_pitch_cache/get_song_match_profile_repo/get_auto_match_use_case.cache_clear()` — 恢复 BDD 场景隔离 (API 级失败 33→21) |
 
 ## v7.13 测试统计 (历史)
 
@@ -202,9 +219,9 @@
 ## 运行命令
 
 ```bash
-# DDD 核心 (451 tests, ~25s)
+# DDD 核心 (575 tests, ~28s)
 # ⚠️ 不直接运行 pytest tests/unit/ (PyTorch C 扩展冲突 → 崩溃), 必须使用分组命令:
-pytest tests/unit/domain/ tests/unit/infrastructure/ \
+pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/interfaces/ws/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
        tests/unit/test_ddd_extraction_flag.py \
@@ -212,10 +229,11 @@ pytest tests/unit/domain/ tests/unit/infrastructure/ \
 
 # 集成测试 (独立进程)
 pytest tests/integration/test_api_routes.py -v     # FastAPI (19 tests)
-pytest tests/integration/test_songs_api.py -v      # Songs API (20 tests)
+pytest tests/integration/test_songs_api.py -v      # Songs API (21 tests)
 pytest tests/integration/test_scoring_api.py -v    # Scoring API (14 tests)
 pytest tests/integration/test_song_pitch_api.py -v # Songs Pitch API (9 tests, v7.13)
-pytest tests/integration/test_ws_score.py -v       # WebSocket (14 tests: ws_score 10 + ws_pitch_update 4)
+pytest tests/integration/test_song_match_api.py -v # SongMatch API (6 tests, v7.14)
+pytest tests/integration/test_ws_score.py -v       # WebSocket (17 tests: ws_score 13 + ws_pitch_update 4)
 
 # 扩展测试 (独立进程, ~6s)
 pytest tests/extended/ -v                           # 21 tests (DTW/repos; v7.12 -calibrator)

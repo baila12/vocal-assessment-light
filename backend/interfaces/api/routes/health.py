@@ -9,12 +9,12 @@ router = APIRouter()
 @router.get("/health")
 async def health_check():
     """系统健康检查"""
-    from backend.main import _detect_gpu
+    from backend.main import _detect_gpu, APP_VERSION
 
     gpu_info = _detect_gpu()
     return {
         "status": "healthy",
-        "version": "7.13.0",
+        "version": APP_VERSION,
         "timestamp": time.time(),
         "gpu": gpu_info,
     }
