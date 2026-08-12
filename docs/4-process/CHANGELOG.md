@@ -40,7 +40,18 @@
 ### ⑤ P2-15 httpx2 迁移
 
 - starlette 1.3+ TestClient 倾向 `httpx2` 包; `httpx` 触发外部 deprecation 告警 (非本项目代码) → 按项目惯例 `tests/pytest.ini` filterwarnings 消除
-- 正式修复 = 安装 `httpx2` 依赖 — **待用户批准** (默认不安装, 规避供应链风险); 安装后移除 filterwarnings 行
+- ✅ 2026-08-12 已安装 `httpx2>=2.0.0` (经联网核实为 starlette 官方背书真实包 — PR #3291 优先 httpx2, PR #3323 钉入 starlette[full]); 已移除 `tests/pytest.ini` 对应 filterwarnings 抑制行 (详见 ⑥ 环境维护)
+
+### ⑥ 环境维护 — 删除废弃环境 + pytorch2 依赖清理与兼容修复 (2026-08-12)
+
+> 按用户指示: "删除 vocal_build 环境 + 修复 pytorch2 兼容问题 (删不必要的包 + 换不兼容版本)"。全部回归 GREEN。
+
+- 🗑️ **删除废弃打包环境 `vocal_build`** (1.7G) — PyInstaller 打包方案已被 ADR-1 (嵌入式 Python + Electron) 取代, 该环境缺 pytest/fastapi 本就无法跑测试; `start.bat` 移除其 fallback 激活行 (仅保留 pytorch2)
+- 🧹 **pytorch2 卸载 21 个冗余包** (环境 7.2G→6.6G) — 全部经代码库 import 扫描 (零引用) + pip Required-by 链验证 (无保留包依赖): `speechbrain` / `s3prl` / `ultralytics`+`ultralytics-thop` / `wvmos` / `PyQt6`+`Qt6`+`sip` / `polars`+`polars-runtime-32` / `opencv-python` / `python-docx` / `retrying` / `lap` / `sentencepiece` + 传递依赖 `pytorch-lightning` / `torchmetrics` / `lightning-utilities` / `HyperPyYAML` / `ruamel.yaml`+`ruamel.yaml.clib`
+- 🔧 **兼容修复**: 安装 `httpx2>=2.0.0` (starlette 1.3+ TestClient 官方依赖 — 原 `httpx` 外部 deprecation 告警消除, `tests/pytest.ini` filterwarnings 抑制行移除; `httpx` 保留供 huggingface_hub/transformers 下载, 与 httpx2 共存) + `pytest-cov>=4.0` (requirements 声明但缺失, 补装)
+- ⚠️ **torchfcpe 不安装** — dry-run 证实 `torchfcpe>=0.0.4` 要求 `torch>=2.10`, 安装会强制升级 torch 2.0.1+cu118→2.13.0 (破坏 GPU 构建 + torchcrepe/demucs/audiofeat 兼容); FCPE 默认关闭 (`flags.py` `"fcpe": False`) + `fcpe_extractor.py` 懒加载降级 (PitchExtractionError 提示), requirements.txt 已标注可选注释
+- 🛡️ **保留 torch 2.0.1+cu118** — RTX 4060 Laptop GPU 实测 `torch.cuda.is_available()==True`, 与硬件匹配; torchaudio 2.0.2/torchcrepe/demucs 4.0.1 全链兼容。换 torch 是最高风险操作且无已证明不兼容, 不执行
+- ✅ **回归 (改动后全量)**: 单元 626 + 集成 112 (API 74+WS 17+扩展 21) + 前端 307 Vitest + BDD API 级 31P/42S/39X/0F + **真实音频回归 28 全 PASS** (BASELINE_V7_14, demucs/audiofeat 链完整)
 
 ### 测试
 

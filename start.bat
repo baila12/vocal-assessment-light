@@ -15,7 +15,7 @@ if not exist "%CONDA_BASE%\Scripts\activate.bat" (
 
 :: Activate environment
 call "%CONDA_BASE%\Scripts\activate.bat" "%CONDA_BASE%"
-call conda activate pytorch2 2>nul || call conda activate vocal_build 2>nul || (
+call conda activate pytorch2 2>nul || (
     echo ERROR: Cannot activate conda environment
     pause
     exit /b 1

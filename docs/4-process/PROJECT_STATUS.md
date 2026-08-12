@@ -116,7 +116,7 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **前端** (H-B14) | `utils/matchFeedback.ts` — songMatch.store 错误/命中/回退 → 反馈文案 + severity 映射 | ✅ |
 | **前端** (H-B15) | `composables/useWsDisconnectGuard.ts` — SingView WS 断连 4 状态机 (open 中断连→置灰 + 重连提示; 主动关闭/空引用/未 open 不误报) | ✅ |
 | **前端** (H-B14) | CompareView 自动匹配区错误告警渲染 (`[data-test=auto-match-error]`) + 命中徽标 + 无命中回退提示 | ✅ |
-| **测试** | 🆕 +29 单元 (M3 7 + M4 3 + M5 4 + uploads 清理 15); BDD +4 browser 场景 (compare-automatch 3 + sing-song-select 1) → **182 collected**; 前端 +10 Vitest (matchFeedback 6 + ws 4) → **307**。**集成隔离修复 (pre-existing)**: 单进程组合运行 8 模块 119 全绿 (模块级清 deps 缓存 + client 重断言 env)。httpx2 迁移: deprecation 告警已过滤 (见已知问题, 包安装待批准)。**权威计数 (实测): 生产 738 / collected 766 (见下节测试表)** | ✅ |
+| **测试** | 🆕 +29 单元 (M3 7 + M4 3 + M5 4 + uploads 清理 15); BDD +4 browser 场景 (compare-automatch 3 + sing-song-select 1) → **182 collected**; 前端 +10 Vitest (matchFeedback 6 + ws 4) → **307**。**集成隔离修复 (pre-existing)**: 单进程组合运行 8 模块 119 全绿 (模块级清 deps 缓存 + client 重断言 env)。httpx2 迁移: ✅ 2026-08-12 已安装 `httpx2>=2.0.0`, 移除 filterwarnings 抑制 (见已知问题)。**权威计数 (实测): 生产 738 / collected 766 (见下节测试表)** | ✅ |
 
 ### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3 + Phase 4
 
@@ -414,7 +414,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | ~~实时音准对比 P1-P5~~ | ✅ v7.13 全量已落地 (P1 参考音高 API/WS pitch_update → P4 回放分析 → P5 CompareView 双轨叠加/热力图/性能降级/截图/快捷键/缩略条) |
 | ~~上传音频自动匹配 (auto-match)~~ | ✅ v7.14 全量已落地 (POST /songs/match + /upload?auto_match=true + CompareView 自动匹配区 + songMatch.store) |
 | ~~集成测试跨模块隔离 (pre-existing)~~ | ✅ **v7.15 修复**: deps 6 个 lru_cache 单例跨模块持久 → 组合运行时后续模块绑定上一模块临时 DB (test_match_no_match_fallback 误命中)。修复: ① tests/integration/conftest.py 模块级 autouse `_reset_deps_caches` 清缓存; ② 4 个 env-setting 模块 client fixture 重断言 VAS_SONGS_DB/VAS_SONGS_DIR。**单进程全量组合运行 119 全绿** (HEAD 亦复现, 与代码无关) |
-| **httpx2 迁移 (starlette 1.3+ TestClient)** | ⚠️ v7.15: starlette 测试客户端倾向 `httpx2` 包, `httpx` 触发外部 deprecation 告警 — 已按项目惯例在 tests/pytest.ini filterwarnings 消除 (非本项目代码)。**正式修复 = 安装 httpx2 依赖 (需用户批准, 默认未安装以规避供应链风险)**; 安装后移除 filterwarnings 行 |
+| ~~httpx2 迁移 (starlette 1.3+ TestClient)~~ | ✅ 2026-08-12 已安装 `httpx2>=2.0.0` (联网核实为 starlette 官方背书真实包, PR #3291/#3323 钉入 starlette[full]); `tests/pytest.ini` filterwarnings 抑制行已移除; `httpx` 保留 (huggingface_hub/transformers 下载依赖, 与 httpx2 共存) |
 | ~~M3/M4/M5 后端静默错误~~ | ✅ v7.15: acoustic_extractor (异常保留不静默返回空特征) + audio_service (analyze 失败可见化) + audio_dl_helpers (异常显式传播) — 14 单元测试 RED→GREEN |
 | ~~uploads/ 孤儿文件残留 (P2-14 余项)~~ | ✅ v7.15: 启动扫描 + 历史逐出/删除联动 unlink (路径锁 `is_relative_to`); 实测 dry-run 36 文件 11 被引用 → 25 孤儿可清理; 生产仅清理未被历史引用的文件 |
 
