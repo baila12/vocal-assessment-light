@@ -20,6 +20,7 @@ import { ElMessage, type UploadFile } from 'element-plus'
 import { Microphone, VideoPause, CaretRight, Headset, ArrowRight, Upload } from '@element-plus/icons-vue'
 import { useGsap } from '@/composables/useGsap'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { useWsDisconnectGuard } from '@/composables/useWsDisconnectGuard'
 import { useAudioContext } from '@/composables/useAudioContext'
 import { useSongsStore } from '@/stores/songs.store'
 import { apiClient, ApiError } from '@/api/client'
@@ -144,6 +145,20 @@ let pulseTween: gsap.core.Tween | null = null
 // ---- 状态 ----
 const isConnected = ref(false)
 const isSinging = ref(false)
+/** v7.15 H-B15: WS 断连反馈 — 录音中断连时的常驻告警横幅 */
+const wsDisconnected = ref(false)
+
+// v7.15 H-B15: WS 断连守卫 — 连接状态同步 + 录音中断连自动停止录音并明确告知
+// (初始未连接 / 显式 close 不触发; 仅"连接建立后中途断开"触发)
+useWsDisconnectGuard(wsManager.isConnected, isConnected, () => {
+  if (isSinging.value) {
+    isSinging.value = false
+    audioManager.stop()
+    stopReplay()
+    wsDisconnected.value = true
+    ElMessage.error('连接已断开，录音已自动停止')
+  }
+})
 
 // ---- GSAP 录音脉冲 (watch 必须在 isSinging 声明之后) ----
 watch(isSinging, (singing) => {
@@ -247,7 +262,7 @@ function formatElapsed(seconds: number): string {
 async function initConnection(): Promise<void> {
   try {
     await wsManager.connect()
-    isConnected.value = true
+    // v7.15 H-B15: UI 连接状态由 useWsDisconnectGuard 单点同步 (含断连回落)
   } catch {
     ElMessage.error('无法连接到评分引擎，请确认后端已启动')
   }
@@ -265,6 +280,7 @@ async function startSinging(): Promise<void> {
     partialScore.value = null
     finalResult.value = null
     qualityWarning.value = null
+    wsDisconnected.value = false
     elapsedTime.value = 0
     singStartWall.value = performance.now()
     stopReplay()
@@ -456,6 +472,8 @@ onMounted(() => {
 // ⚠️ 清理法 — 防止内存泄露
 onBeforeUnmount(() => {
   stopReplay()
+  // v7.15 H-B15: 先复位录音态, 避免 close() 触发断连守卫误报 "录音已自动停止"
+  isSinging.value = false
   audioManager.stop()
   if (elapsedTimer) {
     clearInterval(elapsedTimer)
@@ -698,6 +716,17 @@ onBeforeUnmount(() => {
       show-icon
       :closable="false"
       class="warning-alert"
+    />
+
+    <!-- v7.15 H-B15: WS 断连反馈 — 录音中断连的常驻告警 (toast 可能被错过) -->
+    <el-alert
+      v-if="wsDisconnected"
+      title="连接已断开，录音已自动停止"
+      type="error"
+      show-icon
+      :closable="false"
+      class="ws-disconnect-alert"
+      data-test="ws-disconnect-alert"
     />
 
     <!-- 实时评分预览 -->

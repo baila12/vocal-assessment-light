@@ -162,7 +162,8 @@ class LibrosaAcousticExtractor:
                 return float(max(0.0, min(40.0, hnr)))
             return 0.0
         except Exception:
-            logger.debug("HNR calculation failed")
+            # v7.15 M3: 静默降级 → WARNING 可观测 (优雅降级, 不崩溃评分管线)
+            logger.warning("HNR calculation failed, returning 0.0", exc_info=True)
             return 0.0
 
     # ================================================================
@@ -213,6 +214,8 @@ class LibrosaAcousticExtractor:
                 return float(np.median(mid_bands))
             return None
         except Exception:
+            # v7.15 M3: 静默降级 → WARNING 可观测
+            logger.warning("Multi-scale HNR calculation failed, returning None", exc_info=True)
             return None
 
     # ================================================================
@@ -254,7 +257,8 @@ class LibrosaAcousticExtractor:
 
             return float(np.mean(cpp_values)) if cpp_values else 0.0
         except Exception:
-            logger.debug("CPP calculation failed")
+            # v7.15 M3: 静默降级 → WARNING 可观测 (优雅降级, 不崩溃评分管线)
+            logger.warning("CPP calculation failed, returning 0.0", exc_info=True)
             return 0.0
 
     # ================================================================
@@ -280,6 +284,8 @@ class LibrosaAcousticExtractor:
             logger.debug("parselmouth not available, Praat CPP disabled")
             return None
         except Exception:
+            # v7.15 M3: 静默降级 → WARNING 可观测 (ImportError 分支为有意禁用)
+            logger.warning("Praat CPP calculation failed, returning None", exc_info=True)
             return None
 
     # ================================================================
@@ -321,6 +327,8 @@ class LibrosaAcousticExtractor:
                 return float(np.clip(slope, -20.0, 10.0))
             return -10.0
         except Exception:
+            # v7.15 M3: 静默降级 → WARNING 可观测
+            logger.warning("Spectral tilt calculation failed, returning -10.0", exc_info=True)
             return -10.0
 
     # ================================================================
@@ -408,6 +416,8 @@ class LibrosaAcousticExtractor:
 
             return voice_ratio, confidence
         except Exception:
+            # v7.15 M3: 静默降级 → WARNING 可观测 (ImportError 分支为有意 librosa 回落)
+            logger.warning("Voicing detection failed, returning (0.0, 0.0)", exc_info=True)
             return 0.0, 0.0
 
     # ================================================================
@@ -494,4 +504,6 @@ class LibrosaAcousticExtractor:
 
             return confidence > 0.5, float(confidence)
         except Exception:
+            # v7.15 M3: 静默降级 → WARNING 可观测
+            logger.warning("Mixed audio detection failed, returning (False, 0.0)", exc_info=True)
             return False, 0.0

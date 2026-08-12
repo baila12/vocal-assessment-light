@@ -33,6 +33,7 @@ import {
   isShortAudio,
 } from '@/utils/pitchPlayback'
 import { alignPitchCurves } from '@/utils/pitchDeviation'
+import { evaluateMatchResult } from '@/utils/matchFeedback'
 import { computeDeviationStats, excludeLowAlignmentFrames } from '@/utils/pitchStats'
 import { computeHeatmapSegments, type HeatmapSegment } from '@/utils/pitchHeatmap'
 import { createFpsMonitor } from '@/utils/pitchFps'
@@ -277,10 +278,25 @@ async function startAutoMatch(): Promise<void> {
   if (!userFile.value) return
   errorMsg.value = null
   await songMatchStore.matchAudio(userFile.value)
-  if (songMatchStore.matchedSong) {
-    ElMessage.success(`已匹配: ${songMatchStore.matchedSong.title}`)
-  } else if (songMatchStore.fallbackReason) {
-    ElMessage.warning('未匹配到足够相似的歌曲，可手动对比')
+  // v7.15 H-B14: 统一评估匹配结果 — 错误优先可见 (此前 store.error 死信被静默吞掉)
+  const feedback = evaluateMatchResult({
+    matchedSongTitle: songMatchStore.matchedSong?.title ?? null,
+    fallbackReason: songMatchStore.fallbackReason,
+    error: songMatchStore.error,
+  })
+  switch (feedback.kind) {
+    case 'error':
+      errorMsg.value = feedback.message
+      ElMessage.error(feedback.message)
+      break
+    case 'matched':
+      ElMessage.success(`已匹配: ${feedback.title}`)
+      break
+    case 'fallback':
+      ElMessage.warning('未匹配到足够相似的歌曲，可手动对比')
+      break
+    case 'none':
+      break
   }
 }
 
@@ -487,6 +503,16 @@ function onWindowKeydown(e: KeyboardEvent): void {
         </el-button>
         <span v-if="!userFile" class="auto-match-hint">先在下方「我的演唱」面板上传演唱录音</span>
       </div>
+
+      <!-- v7.15 H-B14: 匹配失败错误可见化 — store.error 常驻告警 (此前死信被静默吞掉) -->
+      <el-alert
+        v-if="songMatchStore.error"
+        :title="songMatchStore.error"
+        type="error"
+        show-icon
+        class="auto-match-alert"
+        data-test="auto-match-error"
+      />
 
       <!-- 无匹配回退提示 -->
       <el-alert

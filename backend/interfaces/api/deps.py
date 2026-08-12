@@ -44,10 +44,17 @@ def get_scoring_service() -> ScoringDomainService:
 # ===== 旧模块延迟导入 — 绞杀者模式委托到现有 business 层 =====
 
 def get_history_repo():
-    """JSON 历史记录仓储 — 委托到旧 repositories 模块"""
+    """JSON 历史记录仓储 — 委托到旧 repositories 模块
+
+    v7.15 P2-14: 传入 upload_dir, 记录删除/淘汰时同步清理其上传文件 (防孤儿残留)。
+    """
     from repositories import JsonHistoryRepository
     from config import config as flask_config
-    return JsonHistoryRepository(flask_config.HISTORY_FILE, flask_config.HISTORY_MAX_RECORDS)
+    return JsonHistoryRepository(
+        flask_config.HISTORY_FILE,
+        flask_config.HISTORY_MAX_RECORDS,
+        upload_dir=flask_config.UPLOAD_FOLDER,
+    )
 
 
 def get_separation_service():

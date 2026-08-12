@@ -59,8 +59,9 @@ class AudioDLHelpers:
         try:
             detector = self._get_voice_quality_detector()
             return detector.detect(filepath)
-        except Exception as e:
-            logger.warning(f"Voice quality detection failed: {e}")
+        except Exception:
+            # v7.15 M5: 保留根因 — 完整 traceback 入日志, 生产可诊断 DL 失败堆栈
+            logger.warning("Voice quality detection failed", exc_info=True)
             return None
 
     def run_style_classification(self, filepath: str):
@@ -68,8 +69,9 @@ class AudioDLHelpers:
         try:
             classifier = self._get_style_classifier()
             return classifier.classify(filepath)
-        except Exception as e:
-            logger.warning(f"Style classification failed: {e}")
+        except Exception:
+            # v7.15 M5: 保留根因
+            logger.warning("Style classification failed", exc_info=True)
             return None
 
     def run_self_referenced_dtw(self, filepath: str):
@@ -77,8 +79,9 @@ class AudioDLHelpers:
         try:
             dtw = self._get_self_ref_dtw()
             return dtw.analyze(filepath)
-        except Exception as e:
-            logger.warning(f"Self-referenced DTW failed: {e}")
+        except Exception:
+            # v7.15 M5: 保留根因
+            logger.warning("Self-referenced DTW failed", exc_info=True)
             return None
 
     def run_music_style_analysis(self, filepath: str):
@@ -88,6 +91,7 @@ class AudioDLHelpers:
             style, style_features = analyzer.analyze(filepath)
             profile = analyzer.get_style_profile(style)
             return style, profile, style_features
-        except Exception as e:
-            logger.warning(f"Music style analysis failed: {e}")
+        except Exception:
+            # v7.15 M5: 保留根因
+            logger.warning("Music style analysis failed", exc_info=True)
             return None

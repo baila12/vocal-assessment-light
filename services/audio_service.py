@@ -300,6 +300,8 @@ class AudioService:
             return result
 
         except Exception as e:
+            # v7.15 M4: 保留根因 — 失败点记录完整 traceback, 生产可诊断真实原因
+            logger.exception("Audio analysis failed for %s", filepath)
             return AudioAnalysisResult(
                 success=False,
                 filepath=filepath,

@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-11 | 版本: **v7.14** | 分支: `main`
+> 更新: 2026-08-12 | 版本: **v7.15** | 分支: `main`
 
 ---
 
@@ -102,6 +102,21 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **前端** | `songMatch.store.ts` — `matchAudio` (POST /songs/match) + `selectCandidate` + `compareWithSelected` (复用 POST /songs/{id}/compare) + `fetchUserPitch` (POST /extract-pitch) | ✅ |
 | **前端** | CompareView 自动匹配区 (上传录音→候选列表 歌名/歌手/置信度/BPM 差/调性差→选中→一键 DTW 对比→复用 Phase 5 双轨叠加); 无匹配优雅回退提示 (fallback_reason 透传) | ✅ |
 | **测试** | v7.14 特性发布: 生产 537→633 (+96: 领域 79 + 基建 11 + 集成 6); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄)。**v7.14 深度审查修复轮 (2026-08-10): 633→714 collected (+81: fallback 11 + streaming 7 + pitch cache 7 + deps 2 + 集成/WS 13 + 断言同步等), 686 生产 GREEN**。**P2 完善修复轮 (2026-08-11): sr 错配根因修复 (P2-11, 3 处 sr=None→16000) + HPSS 去重 (P2-12a) + audio_buffer 缓存 (P2-13) + 乱码文件名恢复 (P2-14) + legacy 死代码删除 (P2-15); 🆕 +25 单元测试; 真实音频基线重校准 BASELINE_V7_6→V7_14**。**P2 续轮 (2026-08-11): compare.feature 重写对齐 v7.13 P5 契约 → BDD 残余失败 12→0; 当前权威计数 (实测): 生产 **709** / collected **737** (见下节测试表)** | ✅ |
+
+### v7.15 (2026-08-12) — 错误可见化 + uploads 自动清理 + 集成隔离修复 (DEEP_REVIEW 收尾)
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **后端** (M3) | `acoustic_feature_extractor.py` — HNR/CPP/HPSS/mixed_audio 提取异常**不再静默返回空特征**, 异常保留并传播 (静默失败 → 可观测) | ✅ |
+| **后端** (M4) | `audio_service.py` — analyze 静默异常路径可见化 (异常根因保留, 前端可收到失败状态而非空结果) | ✅ |
+| **后端** (M5) | `audio_dl_helpers.py` — 下载/加载 helper 异常显式传播 (不再吞掉) | ✅ |
+| **后端** (P2-14 余项) | `services/upload_cleaner.py` — `unlink_files` (uploads 目录内路径锁 `is_relative_to` + missing_ok + OSError→warning) + `collect_referenced_files` + `cleanup_orphans` (顶层扫描) + `run_startup_upload_cleanup` (repo=None 安全 no-op) | ✅ |
+| **后端** (P2-14 余项) | `repositories/history_repository.py` — delete/delete_batch/save 逐出联动 unlink 文件 (仅删除不再被引用的; 共享文件保留; upload_dir=None 向后兼容) | ✅ |
+| **后端** (P2-14 余项) | `backend/main.py` lifespan 启动孤儿扫描 (VAS_SKIP_UPLOAD_CLEANUP 可跳过; 实测 dry-run 36 文件 11 被引用 → **25 孤儿**) | ✅ |
+| **前端** (H-B14) | `utils/matchFeedback.ts` — songMatch.store 错误/命中/回退 → 反馈文案 + severity 映射 | ✅ |
+| **前端** (H-B15) | `composables/useWsDisconnectGuard.ts` — SingView WS 断连 4 状态机 (open 中断连→置灰 + 重连提示; 主动关闭/空引用/未 open 不误报) | ✅ |
+| **前端** (H-B14) | CompareView 自动匹配区错误告警渲染 (`[data-test=auto-match-error]`) + 命中徽标 + 无命中回退提示 | ✅ |
+| **测试** | 🆕 +29 单元 (M3 7 + M4 3 + M5 4 + uploads 清理 15); BDD +4 browser 场景 (compare-automatch 3 + sing-song-select 1) → **182 collected**; 前端 +10 Vitest (matchFeedback 6 + ws 4) → **307**。**集成隔离修复 (pre-existing)**: 单进程组合运行 8 模块 119 全绿 (模块级清 deps 缓存 + client 重断言 env)。httpx2 迁移: deprecation 告警已过滤 (见已知问题, 包安装待批准)。**权威计数 (实测): 生产 738 / collected 766 (见下节测试表)** | ✅ |
 
 ### v7.13 (2026-08-07) — 实时音准对比子系统 Phase 1 + Phase 2 + Phase 3 + Phase 4
 
@@ -265,7 +280,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.14)
+## 三、测试状态 (v7.15)
 
 ### 生产测试 (全部 GREEN)
 
@@ -278,13 +293,15 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | Unit WS streaming 会话 (v7.14 审查修复轮) | 12 | ✅ |
 | Unit 接口 sanitize_filename (v7.14 P2) | 14 | ✅ | (test_sanitize_filename: GBK 乱码恢复 + NFC + 非法字符 + 路径穿越)
 | Unit 根目录 mixed_detection | 2 | ✅ | (test_audio_service_mixed_detection, 混合/纯声检测)
-| **Unit 合计** | **597** | **100% GREEN** |
+| Unit 静默错误可观测性 (🆕 v7.15 M3/M4/M5) | 14 | ✅ | (acoustic_extractor 7 + audio_service 3 + audio_dl_helpers 4 — 异常保留/传播/状态码)
+| Unit uploads 自动清理 (🆕 v7.15 P2-14 余项) | 15 | ✅ | (upload_cleaner 9 + history_repository_unlink 6 — 路径锁/孤儿扫描/逐出联动 unlink)
+| **Unit 合计** | **626** | **100% GREEN** |
 | API 集成 | 74 | ✅ | (api_routes 20 + songs_api 21 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 4 + **song_match_api 6**)
 | WebSocket 集成 | 17 | ✅ | (ws_score 13 + ws_pitch_update 4)
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
-| **生产代码总计** | **709** | **100% GREEN** |
+| **生产代码总计** | **738** | **100% GREEN** |
 
-> 注: 生产合计 = Unit 597 + API 74 + WS 17 + 扩展 21 = **709** (独立进程实测)。另含真实音频回归 28 (BASELINE_V7_14, v7.14 P2 轮重校准)。**后端 collected = 737 (709 生产 + 28 真实音频, 基线重校准后全 PASS)**。
+> 注: 生产合计 = Unit 626 + API 74 + WS 17 + 扩展 21 = **738**。另含真实音频回归 28 (BASELINE_V7_14)。**后端 collected = 766 (738 生产 + 28 真实音频)**。v7.15 集成隔离修复后, 全部集成模块**单进程组合运行 119 全绿** (含真实音频 28) — 比文档化"每模块独立进程"更严格。
 
 ### 真实音频回归
 
@@ -292,13 +309,14 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 |------|:-----:|------|------|
 | 真实音频 Quick + Pro | 28 | ✅ **全 PASS** (v7.14 P2 轮) | v7.14 P2 轮修复 sr 错配 bug (P2-11) 后基线重校准 BASELINE_V7_6→V7_14 — 旧 4 个 breath 基线漂移 FAIL 为 sr 错配虚高值 (基线 80/84/76/70), 真实值校准后自然消除; 区分度断言改为总分排序 + 单维 gap ≥10 (与 BDD differentiation.feature 一致) |
 
-### BDD (2026-08-11 P2 续轮后: **178 scenarios** (112 API 级 + 66 browser) → API 级 **0F / 30P / 43S / 39X** — 残余 Flask 迁移失败全部清除, compare 重写对齐 v7.13 P5 契约)
+### BDD (v7.15: **182 scenarios** (112 API 级 + 70 browser) → API 级 **0F / 31P / 42S / 39X** — 残余 Flask 迁移失败全部清除; v7.15 +4 browser (compare-automatch 3 + sing-song-select 1))
 
 | Feature | 状态 |
 |------|------|
 | upload.feature (裁剪为 5 核心场景) | ✅ 5 PASS + 3 SKIP (FLAC/OGG/M4A 无测试文件) + Pro Demucs `@slow` |
 | animations.feature (迁移 Vue 3 data-test) | ✅ 7 PASS + 9 XFAIL (无 UI/依赖录音场景带理由) |
-| sing-song-select.feature (迁移 Vue 3) | ✅ 6 PASS + 6 XFAIL (依赖 WebSocket 录音/auto-match/上传) |
+| sing-song-select.feature (迁移 Vue 3) | ✅ 6 PASS + 6 XFAIL + **v7.15 +1 browser (WS 断连提示)** (依赖 WebSocket 录音/auto-match/上传) |
+| **compare-automatch.feature (🆕 v7.15 H-B14)** | ✅ 3 browser 场景: 自动匹配失败告警 (`[data-test=auto-match-error]`) / 成功命中徽标 / 无命中优雅回退 — 注入 songMatch.store 状态验证渲染 |
 | scoring-config.feature | ✅ API 级 PASS (v7.11) |
 | database.feature | ✅ **v7.14 修复轮后通过** (P0-2 DI 缓存隔离修复前 5 FAIL) |
 | **auto-match.feature (v7.14 上传自动匹配)** | ✅ **5 PASS + 3 XFAIL** (v7.14 修复轮从 1P+7F 恢复; 短音频容错→test_extract_short_audio_tolerant, 嘈杂→test_extract_noise_robust, 超时→test_timeout_returns_partial/test_deadline_exceeded_returns_partial) |
@@ -311,7 +329,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 套件 | 测试数 | 结果 |
 |------|:-----:|------|
-| Vitest | 297 | ✅ 100% | (stores 85 + **pitch utils 212**; v7.13 P1-P5 +286, v7.14 songMatch.store +11)
+| Vitest | 307 | ✅ 100% | (stores 85 + pitch utils 212 + **matchFeedback 6 + useWsDisconnectGuard 4 (v7.15)**)
 | vue-tsc type check | 0 errors | ✅ |
 | Vite build | ~16s | ✅ |
 
@@ -345,7 +363,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 四、已知问题
 
-> 更新: 2026-08-11 | v7.14
+> 更新: 2026-08-12 | v7.15
 
 ### 架构残留
 
@@ -395,6 +413,10 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | ~~选歌录音 (选歌→演唱页)~~ | ✅ v7.12 MVP + v7.13 Phase 1: `/sing/:songId` + WS song_id + vocal_range + 参考音高 API + WS pitch_update + 上传录音对比 + 再来一首 |
 | ~~实时音准对比 P1-P5~~ | ✅ v7.13 全量已落地 (P1 参考音高 API/WS pitch_update → P4 回放分析 → P5 CompareView 双轨叠加/热力图/性能降级/截图/快捷键/缩略条) |
 | ~~上传音频自动匹配 (auto-match)~~ | ✅ v7.14 全量已落地 (POST /songs/match + /upload?auto_match=true + CompareView 自动匹配区 + songMatch.store) |
+| ~~集成测试跨模块隔离 (pre-existing)~~ | ✅ **v7.15 修复**: deps 6 个 lru_cache 单例跨模块持久 → 组合运行时后续模块绑定上一模块临时 DB (test_match_no_match_fallback 误命中)。修复: ① tests/integration/conftest.py 模块级 autouse `_reset_deps_caches` 清缓存; ② 4 个 env-setting 模块 client fixture 重断言 VAS_SONGS_DB/VAS_SONGS_DIR。**单进程全量组合运行 119 全绿** (HEAD 亦复现, 与代码无关) |
+| **httpx2 迁移 (starlette 1.3+ TestClient)** | ⚠️ v7.15: starlette 测试客户端倾向 `httpx2` 包, `httpx` 触发外部 deprecation 告警 — 已按项目惯例在 tests/pytest.ini filterwarnings 消除 (非本项目代码)。**正式修复 = 安装 httpx2 依赖 (需用户批准, 默认未安装以规避供应链风险)**; 安装后移除 filterwarnings 行 |
+| ~~M3/M4/M5 后端静默错误~~ | ✅ v7.15: acoustic_extractor (异常保留不静默返回空特征) + audio_service (analyze 失败可见化) + audio_dl_helpers (异常显式传播) — 14 单元测试 RED→GREEN |
+| ~~uploads/ 孤儿文件残留 (P2-14 余项)~~ | ✅ v7.15: 启动扫描 + 历史逐出/删除联动 unlink (路径锁 `is_relative_to`); 实测 dry-run 36 文件 11 被引用 → 25 孤儿可清理; 生产仅清理未被历史引用的文件 |
 
 ---
 
@@ -436,7 +458,11 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | `backend/infrastructure/persistence/sqlite_song_match_profile_repo.py` | v7.14 — 匹配特征 SQLite 仓储 (song_match_profiles 表) |
 | `backend/interfaces/api/routes/song_match.py` | v7.14 — POST /api/v1/songs/match |
 | `frontend/src/stores/songMatch.store.ts` | v7.14 — 自动匹配 store (matchAudio/selectCandidate/compareWithSelected/fetchUserPitch) |
-| `backend/main.py` | FastAPI 入口 (Flask 已移除) |
+| `services/upload_cleaner.py` | v7.15 — 上传孤儿清理 (unlink_files 路径锁 + collect_referenced_files + cleanup_orphans + run_startup_upload_cleanup) |
+| `repositories/history_repository.py` | v7.15 — 历史记录逐出/删除联动 unlink 上传文件 (仅删不再被引用) |
+| `frontend/src/utils/matchFeedback.ts` | v7.15 — H-B14 自动匹配错误/命中/回退反馈文案 + severity |
+| `frontend/src/composables/useWsDisconnectGuard.ts` | v7.15 — H-B15 SingView WS 断连 4 状态机 (置灰 + 重连提示) |
+| `backend/main.py` | FastAPI 入口 (Flask 已移除; v7.15 启动孤儿扫描 lifespan) |
 
 ### 启动命令
 
@@ -445,12 +471,17 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 cd frontend && npm run dev          # Vite :5173
 python backend/main.py              # FastAPI :8000
 
-# 默认测试 (597 tests, ~28s)
+# 默认测试 (626 tests, ~20s; v7.15 +29)
 pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/interfaces/ws/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
        tests/unit/test_ddd_extraction_flag.py \
-       tests/unit/test_flag_bridge.py
+       tests/unit/test_flag_bridge.py \
+       tests/unit/test_upload_cleaner.py \
+       tests/unit/test_history_repository_unlink.py \
+       tests/unit/test_audio_dl_helpers_observability.py \
+       tests/unit/test_audio_service_analyze_error.py
+pytest tests/unit/interfaces/api/test_sanitize_filename.py tests/unit/test_audio_service_mixed_detection.py -q  # 剩余 16
 
 # 集成测试 (独立进程, ~5s)
 pytest tests/integration/test_api_routes.py -v         # FastAPI (20 tests)

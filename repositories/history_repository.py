@@ -92,17 +92,41 @@ class JsonHistoryRepository(HistoryRepository):
     当前使用 JSON 文件存储，将来可无缝切换到数据库
     """
 
-    def __init__(self, filepath: Path, max_records: int = 50):
+    def __init__(self, filepath: Path, max_records: int = 50, upload_dir: Optional[Path] = None):
         """
         初始化仓储
 
         Args:
             filepath: JSON 文件路径
             max_records: 最大保存记录数
+            upload_dir: 上传目录 (v7.15 P2-14) — 记录删除/淘汰时同步清理其文件;
+                        传 None 保持旧行为 (不清理), 向后兼容
         """
         self.filepath = Path(filepath)
         self.max_records = max_records
+        self.upload_dir = Path(upload_dir) if upload_dir else None
         self._ensure_file_exists()
+
+    def _unlink_records(self, removed_records: List[Dict], keep_records: List[Dict]) -> None:
+        """删除/淘汰记录后, 清理不再被任何记录引用的上传文件 (v7.15 P2-14).
+
+        安全约束:
+          - 仅当构造传入了 upload_dir 才启用
+          - 只删 uploads 目录内文件 (unlink_files 内部前缀校验)
+          - 仍被 keep_records 引用的共享文件不删 (如同名文件被两条记录引用)
+        失败仅告警, 不抛出 — 优雅降级。
+        """
+        if not self.upload_dir or not removed_records:
+            return
+        from services.upload_cleaner import collect_referenced_files, unlink_files
+
+        keep = collect_referenced_files(keep_records)
+        targets = [
+            r.get("filepath")
+            for r in removed_records
+            if r.get("filepath") and str(Path(r["filepath"]).resolve()) not in keep
+        ]
+        unlink_files(self.upload_dir, targets)
 
     def _ensure_file_exists(self):
         """确保文件和目录存在"""
@@ -176,11 +200,14 @@ class JsonHistoryRepository(HistoryRepository):
 
         records.append(record)
 
-        # 限制记录数量
+        # 限制记录数量 (v7.15 P2-14: 淘汰记录同步清理其上传文件)
+        evicted = []
         if len(records) > self.max_records:
+            evicted = records[:-self.max_records]
             records = records[-self.max_records:]
 
         self._write_records(records)
+        self._unlink_records(evicted, records)
         return record
 
     def get_by_id(self, record_id) -> Optional[Dict]:
@@ -224,7 +251,8 @@ class JsonHistoryRepository(HistoryRepository):
         records = self._read_records()
         original_len = len(records)
 
-        # 过滤掉要删除的记录
+        # 过滤掉要删除的记录 (v7.15 P2-14: 同步清理其上传文件)
+        removed = [r for r in records if r.get('id') == record_id]
         records = [r for r in records if r.get('id') != record_id]
 
         if len(records) == original_len:
@@ -232,6 +260,7 @@ class JsonHistoryRepository(HistoryRepository):
             return False
 
         self._write_records(records)
+        self._unlink_records(removed, records)
         return True
 
     def delete_batch(self, record_ids: List[int]) -> int:
@@ -257,12 +286,14 @@ class JsonHistoryRepository(HistoryRepository):
         records = self._read_records()
         original_len = len(records)
 
-        # 过滤掉要删除的记录
+        # 过滤掉要删除的记录 (v7.15 P2-14: 同步清理其上传文件)
+        removed = [r for r in records if r.get('id') in valid_ids]
         records = [r for r in records if r.get('id') not in valid_ids]
 
         deleted_count = original_len - len(records)
         if deleted_count > 0:
             self._write_records(records)
+            self._unlink_records(removed, records)
 
         return deleted_count
 

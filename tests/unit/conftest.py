@@ -11,3 +11,4 @@ def pytest_configure(config):
     """pytest 启动时最早调用 — 在任何测试模块 import 之前"""
     os.environ.setdefault("VAS_SKIP_GPU", "1")
     os.environ.setdefault("VAS_DISABLE_RATE_LIMIT", "1")
+    os.environ.setdefault("VAS_SKIP_UPLOAD_CLEANUP", "1")

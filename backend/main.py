@@ -72,6 +72,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     import logging
     logging.getLogger(__name__).info("GPU: %s", gpu_info)
 
+    # v7.15 P2-14: uploads/ 启动孤儿扫描 — 删除未被任何历史记录引用的孤儿文件
+    #   VAS_SKIP_UPLOAD_CLEANUP=1 禁用 (测试环境避免触碰真实用户数据)
+    if not os.environ.get("VAS_SKIP_UPLOAD_CLEANUP"):
+        try:
+            from services.upload_cleaner import run_startup_upload_cleanup
+            from repositories import JsonHistoryRepository
+            from config import config as flask_config
+            repo = JsonHistoryRepository(
+                flask_config.HISTORY_FILE,
+                flask_config.HISTORY_MAX_RECORDS,
+            )
+            removed = run_startup_upload_cleanup(flask_config.UPLOAD_FOLDER, repo)
+            if removed:
+                logging.getLogger(__name__).info(
+                    "启动上传清理: 删除 %d 个孤儿文件", removed
+                )
+        except Exception:
+            logging.getLogger(__name__).warning("启动上传清理失败", exc_info=True)
+
     yield
 
     # shutdown: 清理资源

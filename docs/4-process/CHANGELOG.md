@@ -1,6 +1,53 @@
-# 变更日志 v7.14
+# 变更日志 v7.15
 
-> 更新: 2026-08-10 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+> 更新: 2026-08-12 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.15 — 错误可见化 + uploads 自动清理 + 集成隔离修复 (2026-08-12)
+
+按 [DEEP_REVIEW_v7.14.md](../3-quality/DEEP_REVIEW_v7.14.md) 完成综合收尾: 前端错误可见化 (H-B14/H-B15) + 后端静默错误修复 (M3/M4/M5) + P2 收尾 (P2-14 uploads 自动清理 + P2-15 httpx2 迁移)。全部 TDD (RED→GREEN) + DDD 不可变模式 + BDD 场景, 既有测试保持绿色。
+
+### ① 后端静默错误修复 (M3/M4/M5)
+
+| 项 | 修复 |
+|----|------|
+| M3 | `backend/domain/audio/acoustic_feature_extractor.py` — HNR/CPP/HPSS/mixed_audio 提取异常不再静默返回空特征, 异常保留并传播 (可观测) |
+| M4 | `services/audio_service.py` — analyze 静默异常路径可见化 (异常根因保留, 前端收到失败状态而非空结果) |
+| M5 | `services/audio_dl_helpers.py` — 下载/加载 helper 异常显式传播 (不再吞掉) |
+
+### ② 前端错误可见化 (H-B14/H-B15)
+
+| 项 | 修复 |
+|----|------|
+| H-B14 | 🆕 `frontend/src/utils/matchFeedback.ts` — songMatch.store 错误/命中/回退 → 反馈文案 + severity; CompareView 自动匹配区错误告警 (`[data-test=auto-match-error]`) + 命中徽标 + 无命中优雅回退 |
+| H-B15 | 🆕 `frontend/src/composables/useWsDisconnectGuard.ts` — SingView WS 断连 4 状态机 (open 中断连→置灰 + 重连提示; 主动关闭/空引用/未 open 不误报) |
+
+### ③ P2 收尾 — uploads/ 自动清理 (P2-14 余项)
+
+- 🆕 `services/upload_cleaner.py`: `unlink_files` (仅删 uploads 目录内, `is_relative_to` 路径锁, missing_ok, OSError→warning) + `collect_referenced_files` + `cleanup_orphans` (顶层非递归扫描) + `run_startup_upload_cleanup` (repo=None 安全 no-op)
+- 🔧 `repositories/history_repository.py`: delete/delete_batch/save 逐出联动 unlink — 仅删除不再被引用的文件 (共享文件保留; `upload_dir=None` 向后兼容)
+- 🔧 `backend/main.py` lifespan 启动孤儿扫描 (`VAS_SKIP_UPLOAD_CLEANUP` 可跳过, try/except 记录 warning)
+- 实测 dry-run (只读): uploads/ 36 文件, 历史引用 11 → **25 孤儿**可在启动清理 (精确匹配 E4/V8 审查发现)
+
+### ④ 集成测试隔离修复 (pre-existing, 一并修复)
+
+- **现象**: 单进程组合运行多个集成模块时, `test_match_no_match_fallback` 确定性失败 (误命中上一模块歌曲)
+- **根因**: deps `@lru_cache` 单例跨模块持久; HEAD 亦复现, 与 v7.15 代码无关
+- **修复**: ① `tests/integration/conftest.py` 模块级 autouse `_reset_deps_caches` 清空 6 个单例 (get_settings/get_song_repo/get_song_service/get_pitch_cache/get_song_match_profile_repo/get_auto_match_use_case); ② 4 个 env-setting 模块 (songs_api/song_pitch_api/song_match_api/compare_pitch_api) client fixture 重断言 VAS_SONGS_DB/VAS_SONGS_DIR (与 BDD conftest.fastapi_client 模式一致)
+- **验证**: 全量集成模块单进程组合运行 **119 passed** (含真实音频回归 28)
+
+### ⑤ P2-15 httpx2 迁移
+
+- starlette 1.3+ TestClient 倾向 `httpx2` 包; `httpx` 触发外部 deprecation 告警 (非本项目代码) → 按项目惯例 `tests/pytest.ini` filterwarnings 消除
+- 正式修复 = 安装 `httpx2` 依赖 — **待用户批准** (默认不安装, 规避供应链风险); 安装后移除 filterwarnings 行
+
+### 测试
+
+- 后端 737→**766 collected** (+29: M3/M4/M5 可观测性 14 + uploads 清理 15); 生产 709→**738**; 单进程全量集成 119 全绿
+- 前端 297→**307** (+10: matchFeedback 6 + useWsDisconnectGuard 4)
+- BDD 178→**182 collected** (+4 browser: compare-automatch 3 + sing-song-select 1); API 级 **0F / 31P / 42S / 39X**
+- vue-tsc 0 errors; Vite build ✅
 
 ---
 

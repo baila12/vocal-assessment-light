@@ -233,6 +233,42 @@ def recording_complete(page):
     pytest.xfail('Vue 3 录音依赖 WebSocket 连接 (v7.12)')
 
 
+# ============================================================================
+# v7.15 H-B15 — WS 断连反馈 (依赖真实 WebSocket 连接 → xfail)
+#   SingView useWsDisconnectGuard: 连接状态同步 + 录音中断连自动停止 + 常驻告警横幅
+# ============================================================================
+
+@given('我正在录音 (WebSocket 已连接)')
+def recording_ws_connected(page):
+    pytest.xfail('v7.15 H-B15: 断连反馈依赖真实 WebSocket 录音状态; 浏览器 BDD 无真实连接')
+
+
+@when('录音过程中 WebSocket 连接断开')
+def ws_disconnects_mid_recording(page):
+    pytest.xfail('v7.15 H-B15: 需注入 WS onclose (真实连接); 浏览器 BDD 无真实连接')
+
+
+@then('录音自动停止')
+def recording_auto_stops(page):
+    pytest.xfail('v7.15 H-B15: 断连后 isSinging 复位依赖真实 WS 连接')
+
+
+@then(parsers.parse('显示断连告警 "{message}"'))
+def ws_disconnect_banner_shown(page, message):
+    # v7.15 H-B15: data-test="ws-disconnect-alert" 常驻告警横幅
+    pytest.xfail('v7.15 H-B15: 告警横幅 data-test="ws-disconnect-alert" 已实现; 需真实断连触发')
+
+
+@then('连接状态标签显示 "未连接"')
+def connection_label_unconnected(page):
+    pytest.xfail('v7.15 H-B15: 连接状态标签由 useWsDisconnectGuard 同步; 需真实断连触发')
+
+
+@then('录音按钮恢复为未连接禁用状态')
+def record_btn_disabled_on_disconnect(page):
+    pytest.xfail('v7.15 H-B15: record-btn :disabled 绑定 isConnected; 需真实断连触发')
+
+
 @when('点击 "再来一首"')
 def click_sing_again(page):
     # v7.13: data-test="sing-again-btn" 已渲染 (依赖 final_score 出现)

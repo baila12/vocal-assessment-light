@@ -13,6 +13,8 @@ def pytest_configure(config):
     """pytest 启动最早时机 — 在任何测试模块 import 前设置环境变量"""
     os.environ.setdefault("VAS_SKIP_GPU", "1")
     os.environ.setdefault("VAS_DISABLE_RATE_LIMIT", "1")
+    # v7.15 P2-14: 跳过启动上传孤儿清理 — 测试不触碰真实 uploads/ 用户数据
+    os.environ.setdefault("VAS_SKIP_UPLOAD_CLEANUP", "1")
     # v7.7: 防止 numpy MKL + librosa + torch 线程冲突导致 Fatal Python error
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")

@@ -53,6 +53,10 @@ def _make_wav(duration, signal='sine', freq=440.0):
 
 @pytest.fixture(scope='module')
 def client() -> TestClient:
+    # v7.15 隔离修复: 组合运行时 deps 单例可能已缓存上一模块 env,
+    # 在此重断言本模块临时目录, 保证 create_app 绑定自己的 DB (与 BDD conftest 模式一致)
+    os.environ['VAS_SONGS_DB'] = str(Path(_tmp_dir) / 'test_songs.db')
+    os.environ['VAS_SONGS_DIR'] = str(Path(_tmp_dir) / 'audio')
     from backend.main import create_app
     app = create_app()
     with TestClient(app) as c:

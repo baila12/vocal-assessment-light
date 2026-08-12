@@ -1,12 +1,64 @@
-# 测试结果记录 v7.14
+# 测试结果记录 v7.15
 
-> 更新: 2026-08-11 | 后端 **737 collected / 737 passed** + 前端 297 Vitest GREEN | 分支: `main`
+> 更新: 2026-08-12 | 后端 **766 collected / 766 passed** (626 单元 + 119 集成含真实音频 + 21 扩展) + 前端 **307 Vitest GREEN** | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
 ---
 
-## v7.14 测试统计
+## v7.15 测试统计
+
+### 生产测试 (全部 GREEN)
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| Unit (DDD 领域: 6 scorers + 音色调整 + comparison + songs + songs_pitch + song_match + ScoringWeights + fallback) | 364 | ✅ 100% | (v7.14 计数值, 本轮无改动) |
+| Unit (DDD 基建: extractors + orchestrator + ABI + sqlite + pitch cache + deps) | 159 | ✅ 100% | (v7.14 计数值, 本轮无改动) |
+| Unit (DDD 对齐 + Flag bridge) | 23 | ✅ 100% | |
+| Unit (中间件) | 23 | ✅ 100% | |
+| Unit (WS streaming 会话) | 12 | ✅ 100% | |
+| Unit (接口 sanitize_filename) | 14 | ✅ 100% | |
+| Unit (混合检测, 根目录) | 2 | ✅ 100% | |
+| Unit (静默错误可观测性 🆕 v7.15 M3/M4/M5) | 14 | ✅ 100% | test_acoustic_extractor_observability (7) + test_audio_dl_helpers_observability (4) + test_audio_service_analyze_error (3) — 异常保留/传播/状态码断言 |
+| Unit (uploads 自动清理 🆕 v7.15 P2-14 余项) | 15 | ✅ 100% | test_upload_cleaner (9: unlink_files 路径锁/孤儿扫描) + test_history_repository_unlink (6: 删除/批量删除/逐出联动 unlink) |
+| **Unit 合计** | **626** | **100% GREEN** | (v7.14 597 + v7.15 29) |
+| API 集成 (6 文件) | 74 | ✅ 100% | test_api_routes (20) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + song_match_api (6) |
+| WebSocket 集成 | 17 | ✅ 100% | test_ws_score (13) + ws_pitch_update (4) |
+| 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
+| **生产代码总计** | **738** | **100% GREEN** | (unit 626 + API 74 + WS 17 + 扩展 21) |
+| 真实音频回归 | 28 | ✅ **全 PASS** | (BASELINE_V7_14, 与 v7.14 相同 — 本轮无评分改动) |
+| **后端 collected** | **766** | ✅ | 738 生产 + 28 真实音频; **本轮新增 29 单元测试全部 RED→GREEN** |
+| BDD (21 step files) | 182 scenarios collected (112 API + 70 browser) | ✅ **0F / 31P / 42S / 39X** (API 级) | v7.15 新增 compare-automatch.feature (3 browser) + sing-song-select +1 → 178→182; browser 70 (v7.14 66 + 4) — 详见 BDD.md |
+| 前端 Vitest | 307 | ✅ 100% | (v7.14 297 + 10: matchFeedback 6 + useWsDisconnectGuard 4; stores 85 + pitch utils 212 + matchFeedback/ws 10) |
+| vue-tsc | 0 errors | ✅ | TypeScript 零错误 |
+| Vite build | ~16s | ✅ | 生产构建 |
+
+### v7.15 新增测试明细 (v7.14 → v7.15)
+
+| 文件 | 变化 | 覆盖 |
+|------|:-----:|------|
+| `test_acoustic_extractor_observability.py` | +7 | M3: HNR/CPP/HPSS/mixed 失败异常保留 (不再静默返回空特征) |
+| `test_audio_dl_helpers_observability.py` | +4 | M5: 下载/加载 helper 异常传播 + 路径锁 |
+| `test_audio_service_analyze_error.py` | +3 | M4: analyze 静默失败→HTTP 500 可见化 + 根因保留 |
+| `test_upload_cleaner.py` | +9 | P2-14 余项: unlink_files 仅限 uploads 目录内 (`is_relative_to`) / missing_ok / OSError→warning; collect_referenced_files; cleanup_orphans 顶层扫描; run_startup_upload_cleanup repo=None 安全 no-op |
+| `test_history_repository_unlink.py` | +6 | P2-14 余项: delete/delete_batch/save 逐出联动 unlink 文件; 共享文件仍被引用则保留; upload_dir=None 向后兼容 |
+| `frontend/tests/unit/utils/matchFeedback.test.ts` | +6 | H-B14: songMatch.store 错误/命中/回退 → 反馈文案 + severity |
+| `frontend/tests/unit/composables/useWsDisconnectGuard.test.ts` | +4 | H-B15: WS 断连 4 状态机 (open 中断连→置灰 + 重连提示; 主动关闭/空引用/未 open 不误报) |
+| `tests/bdd/features/compare-automatch.feature` + steps | +3 browser | H-B14: 自动匹配失败告警 (`[data-test=auto-match-error]`) / 成功命中徽标 / 无命中优雅回退 — 注入 songMatch.store 状态验证渲染 |
+| `tests/bdd/features/sing-song-select.feature` + steps | +1 browser | H-B15 断连提示场景 |
+| `tests/integration/conftest.py` | 修复 | **隔离修复 (pre-existing)**: 模块级 autouse 清空 deps 6 个 lru_cache 单例 (get_settings/get_song_repo/get_song_service/get_pitch_cache/get_song_match_profile_repo/get_auto_match_use_case) — 组合运行多模块不再跨库污染 |
+| `test_songs_api.py` / `test_song_pitch_api.py` / `test_song_match_api.py` / `test_compare_pitch_api.py` | 修复 | client fixture 重断言 VAS_SONGS_DB/VAS_SONGS_DIR — 保证每个模块绑定自己的临时 DB (与 BDD conftest.fastapi_client 模式一致) |
+
+### 集成隔离修复说明 (pre-existing, 本次一并修复)
+
+- **现象**: 单进程组合运行多个集成模块时, `test_song_match_api.py::test_match_no_match_fallback` 确定性失败 — 误命中前一模块写入的歌曲。
+- **根因**: deps `@lru_cache` 单例跨模块持久, 后续模块即使已设 `VAS_SONGS_DB`, 仍绑定上一模块的临时 DB; HEAD (32f9419) 亦复现, 与 v7.15 代码无关。
+- **修复**: ① `tests/integration/conftest.py` 模块级 autouse `_reset_deps_caches` 清空 6 个单例; ② 4 个 env-setting 模块的 client fixture 重断言 env。
+- **验证**: 全量集成模块**单进程组合运行 119 passed** (含真实音频回归 28, ~25min) — 比文档化"每模块独立进程"更严格。
+
+---
+
+## v7.14 测试统计 (历史)
 
 ### 生产测试 (全部 GREEN)
 
@@ -233,20 +285,26 @@
 ## 运行命令
 
 ```bash
-# DDD 核心 (597 tests, ~28s)
+# DDD 核心 (626 tests, ~20s; v7.15 +29: M3/M4/M5 可观测性 + uploads 清理)
 # ⚠️ 不直接运行 pytest tests/unit/ (PyTorch C 扩展冲突 → 崩溃), 必须使用分组命令:
 pytest tests/unit/domain/ tests/unit/infrastructure/ tests/unit/interfaces/ws/ \
        tests/unit/test_middleware.py \
        tests/unit/test_ddd_alignment.py \
        tests/unit/test_ddd_extraction_flag.py \
-       tests/unit/test_flag_bridge.py
+       tests/unit/test_flag_bridge.py \
+       tests/unit/test_upload_cleaner.py \
+       tests/unit/test_history_repository_unlink.py \
+       tests/unit/test_audio_dl_helpers_observability.py \
+       tests/unit/test_audio_service_analyze_error.py
+pytest tests/unit/interfaces/api/test_sanitize_filename.py tests/unit/test_audio_service_mixed_detection.py -q  # 剩余 16 tests
 
-# 集成测试 (独立进程)
+# 集成测试 (独立进程; v7.15 修复后亦可单进程全量组合: pytest tests/integration/ = 119, ~25min 含真实音频)
 pytest tests/integration/test_api_routes.py -v     # FastAPI (20 tests)
 pytest tests/integration/test_songs_api.py -v      # Songs API (21 tests)
 pytest tests/integration/test_scoring_api.py -v    # Scoring API (14 tests)
 pytest tests/integration/test_song_pitch_api.py -v # Songs Pitch API (9 tests, v7.13)
 pytest tests/integration/test_song_match_api.py -v # SongMatch API (6 tests, v7.14)
+pytest tests/integration/test_compare_pitch_api.py -v # Compare Pitch API (4 tests, v7.13 P5)
 pytest tests/integration/test_ws_score.py tests/integration/test_ws_pitch_update.py -v   # WebSocket (17 tests: ws_score 13 + ws_pitch_update 4)
 
 # 扩展测试 (独立进程, ~6s)
