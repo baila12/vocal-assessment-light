@@ -12,8 +12,7 @@ def __getattr__(name):
         "ReportResult": ".report_service",
         "AudioService": ".audio_service",
         "AudioAnalysisResult": ".audio_service",
-        "AdviceService": ".advice_service",
-        "AdviceResult": ".advice_service",
+        # v7.16 P2-15 Phase 1: AdviceService 迁入 DDD application (AdviceGenerator)
         "VisualizationService": ".visualization_service",
         "VisualizationResult": ".visualization_service",
         "TimbreService": ".timbre_service",
@@ -31,7 +30,6 @@ def __getattr__(name):
 
 __all__ = [
     "AudioService", "AudioAnalysisResult",
-    "AdviceService", "AdviceResult",
     "VisualizationService", "VisualizationResult",
     "SeparationService", "SeparationResult",
     "TimbreService", "TimbreResult",

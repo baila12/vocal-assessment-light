@@ -118,8 +118,8 @@ class AudioService:
     - 计算中间指标
 
     不负责：
-    - 评分计算（由 ScoreService 负责）
-    - 建议生成（由 AdviceService 负责）
+    - 评分计算（由 DDD ScoringOrchestrator 负责）
+    - 建议生成（由 DDD AdviceGenerator 负责, v7.16 P2-15）
     """
 
     def __init__(self, config: Optional[Config] = None):

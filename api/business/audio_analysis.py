@@ -10,7 +10,7 @@ import logging
 
 from config import config
 from services import (
-    AudioService, AdviceService, VisualizationService,
+    AudioService, VisualizationService,
     TimbreService, PhraseService, VoiceQualityService
 )
 from services.feature_flags import FeatureFlags
@@ -23,6 +23,7 @@ from backend.application.assessment.scoring_orchestrator import ScoringOrchestra
 from backend.application.assessment.ddd_feature_orchestrator import (
     DddFeatureExtractionOrchestrator,
 )
+from backend.application.assessment.advice_generator import AdviceGenerator
 from backend.domain.assessment.feature_flags import DimensionFlags
 
 ddd_orchestrator = ScoringOrchestrator()
@@ -35,7 +36,8 @@ logger = logging.getLogger(__name__)
 
 # 初始化服务
 audio_service = AudioService(config)
-advice_service = AdviceService()
+# v7.16 P2-15 Phase 1: 建议生成迁入 DDD application 层 (AdviceGenerator)
+advice_generator = AdviceGenerator()
 visualization_service = VisualizationService(config)
 timbre_service = TimbreService(config.AUDIO_SAMPLE_RATE)
 phrase_service = PhraseService(config.AUDIO_SAMPLE_RATE)
@@ -109,8 +111,8 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         voice_quality_score=voice_quality.quality_score,
     )
 
-    # 5. 生成建议
-    advice_result = advice_service.generate(score_result)
+    # 5. 生成建议 (v7.16 P2-15 Phase 1: DDD AdviceGenerator)
+    advice_result = advice_generator.generate(score_result)
 
     # 6. 生成可视化图片（快速模式跳过）
     if mode == 'quick':
