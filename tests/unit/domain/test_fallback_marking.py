@@ -2,8 +2,11 @@
 P1-5 (审查 6.1 M1/M2 + 6.3): 50.0 假分 fallback 标记
 
 设计启发式维度 (muscle_strength/timbre) 恒 is_heuristic=True;
-评分失败 fallback 时, 其余维度也打 is_heuristic=True, 并在
-scoring_warnings 中透出, 避免"假 50.0"伪装成真实平庸分数。
+v7.16 P2-15: 死 calculate() 路径 (含静默 50.0 fallback) 已移除 —
+唯一生产路径 calculate_ddd() 无静默 fallback (失败直接冒泡, 可观测),
+故 fallback 打标测试随死路径删除。本文件保留:
+- 值对象 is_heuristic 默认值契约 (设计启发式 vs 普通维度)
+- calculate_ddd 的 scoring_warnings 字段契约 (恒空)
 """
 
 from backend.application.assessment.scoring_orchestrator import ScoringOrchestrator
@@ -53,51 +56,7 @@ class TestValueObjectHeuristicFlag:
 
 
 class TestScoringOrchestratorFallback:
-    """评分失败时 fallback 打标记 + calculate() 收集 scoring_warnings"""
-
-    @staticmethod
-    def _boom(*args, **kwargs):
-        raise ValueError("simulated scorer failure")
-
-    def test_score_pitch_fallback_marks_heuristic(self, monkeypatch):
-        """PitchScorer 抛异常 → PitchScore(is_heuristic=True, raw=50.0)"""
-        orch = ScoringOrchestrator()
-        monkeypatch.setattr(orch._pitch_scorer, "calculate", self._boom)
-        score = orch._score_pitch(object())
-        assert score.raw_score == 50.0
-        assert score.is_heuristic is True
-
-    def test_calculate_collects_all_fallback_warnings(self, monkeypatch):
-        """5 个非设计启发式维度全失败 → scoring_warnings 有 5 条, 不含 muscle/timbre"""
-        orch = ScoringOrchestrator()
-        for name in ("_pitch_scorer", "_rhythm_scorer", "_breath_scorer",
-                     "_technique_scorer", "_artistry_scorer"):
-            monkeypatch.setattr(getattr(orch, name), "calculate", self._boom)
-
-        result = orch.calculate(object(), is_clean_vocal=False)
-
-        warnings = result["scoring_warnings"]
-        assert isinstance(warnings, list)
-        assert len(warnings) == 5, f"应有 5 条维度失败告警, 实际 {warnings}"
-        # 设计启发式维度 (muscle/timbre) 不产生失败告警
-        assert set(result["heuristic_dimensions"]) == {"muscle_strength", "timbre"}
-        # 每条告警可读, 含维度名
-        for w in warnings:
-            assert isinstance(w, str) and w
-
-    def test_calculate_no_fallback_no_warnings(self, monkeypatch):
-        """正常评分路径 → scoring_warnings 为空"""
-        orch = ScoringOrchestrator()
-        # 用真实 features (PitchFeatures() 等空默认) 走 calculate 适配器路径
-        class _F:
-            pitch_deviation = None
-            rhythm_info = None
-            breath_stability = None
-            technique_info = None
-            muscle_features = None
-            artistry_info = None
-        result = orch.calculate(_F(), is_clean_vocal=False)
-        assert result["scoring_warnings"] == []
+    """calculate_ddd() 唯一生产路径的 scoring_warnings 契约"""
 
     def test_calculate_ddd_has_empty_scoring_warnings_field(self):
         """calculate_ddd 也带 scoring_warnings 字段 (下游 _s() 读取)"""

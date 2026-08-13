@@ -1,12 +1,11 @@
 """
-评分编排器 — v7.1 Phase B
+评分编排器 — v7.1 Phase B (v7.16 P2-15: 死 calculate() 路径已移除)
 
-统一评分入口: 从旧 AudioFeaturesResult 到 DDD 六维度评分 → 生产可用的 dict 格式。
+统一评分入口: 消费 DDD Features → 六维度评分 → 生产可用的 dict 格式。
 
 设计原则:
-- 绞杀者模式: 编排器可独立使用，也可通过 analyze_and_score() 注入
-- Flag 门控: enable_ddd_scoring 控制新旧路径切换 (默认启用)
-- 特征桥接: 通过 FeatureAdapterRegistry 将旧 DTO 映射到 DDD 特征
+- 单一评分路径: calculate_ddd() 为唯一生产路径 (v7.16 移除旧 calculate())
+- Flag 门控: enable_ddd_scoring 控制维度开关 (默认启用)
 """
 
 from __future__ import annotations
@@ -22,35 +21,27 @@ from backend.domain.assessment.muscle_scorer import MuscleStrengthScorer, Muscle
 from backend.domain.assessment.artistry_scorer import ArtistryScorer, ArtistryFeatures
 from backend.domain.assessment.timbre_adjuster import TimbreAdjuster, TimbreFeatures
 from backend.domain.assessment.feature_flags import DimensionFlags
-from backend.application.assessment.feature_adapters import FeatureAdapterRegistry
 from backend.shared.event_bus import EventBus
 from backend.shared.domain_types import ScoreLevel
 
 logger = logging.getLogger(__name__)
-
-# v7.14 审查 6.3: 非设计启发式维度 (pitch/rhythm/breath/technique/artistry)
-# 评分失败 fallback 时写入 scoring_warnings, 与"设计启发式" (muscle/timbre) 区分。
-_FALLBACK_WARNING_LABELS: dict[str, str] = {
-    "pitch_score": "音准评分失败，已使用默认值",
-    "rhythm_score": "节奏评分失败，已使用默认值",
-    "breath_score": "气息评分失败，已使用默认值",
-    "technique_score": "发声技术评分失败，已使用默认值",
-    "artistry_score": "艺术表现评分失败，已使用默认值",
-}
 # 设计上恒为启发式的维度 — 不视为失败, 不产生 scoring_warnings
 _DESIGN_HEURISTIC_KEYS = {"muscle_strength", "timbre"}
 
 
 class ScoringOrchestrator:
     """
-    评分编排器 — 绞杀者模式下统一评分入口。
+    评分编排器 — DDD 原生评分入口。
 
     用法:
         orchestrator = ScoringOrchestrator(event_bus=bus)
-        result_dict = orchestrator.calculate(old_features, is_clean_vocal=False)
+        result_dict = orchestrator.calculate_ddd(
+            pitch=..., rhythm=..., breath=..., technique=...,
+            muscle=..., artistry=..., timbre=..., audiofeat=...,
+        )
 
     返回:
-        dict 与旧 ScoreServiceV4 兼容:
+        dict (六维评分 + 总分 + 等级):
         {
             "pitch_score": float,
             "rhythm_score": float,
@@ -88,117 +79,6 @@ class ScoringOrchestrator:
         self._artistry_scorer = ArtistryScorer()
         self._timbre_adjuster = TimbreAdjuster()
         self._domain_service = ScoringDomainService(event_bus=event_bus)
-
-        # 特征适配器
-        self._adapters = FeatureAdapterRegistry()
-
-    def calculate(
-        self,
-        features,  # AudioFeaturesResult
-        is_clean_vocal: bool = False,
-        voice_quality_score: float = 100.0,
-    ) -> dict:
-        """
-        计算六维评分。
-
-        Args:
-            features: AudioFeaturesResult (旧 DTO)
-            is_clean_vocal: 是否为纯净人声 (Demucs 分离后)
-            voice_quality_score: 人声质量分数 (0-100)
-
-        Returns:
-            dict: 六维评分结果 (兼容旧 ScoreServiceV4 格式)
-        """
-        result: dict = {}
-        heuristic_dimensions: list[str] = []
-
-        # 逐个维度评分 (每个维度独立可开关)
-        # 1. 音准 (10%)
-        pitch_score = self._score_pitch(features) if self._flags.enable_pitch else None
-        result["pitch_score"] = pitch_score.raw_score if pitch_score else 0.0
-
-        # 2. 节奏 (10%)
-        rhythm_score = self._score_rhythm(features, is_clean_vocal) if self._flags.enable_rhythm else None
-        result["rhythm_score"] = rhythm_score.raw_score if rhythm_score else 0.0
-
-        # 3. 气息 (20%)
-        breath_score = self._score_breath(features) if self._flags.enable_breath else None
-        result["breath_score"] = breath_score.raw_score if breath_score else 0.0
-
-        # 4. 发声技术 (25%) — 咬字 + 气声比
-        technique_score = self._score_technique(features) if self._flags.enable_technique else None
-        result["technique_score"] = technique_score.raw_score if technique_score else 0.0
-
-        # 5. 肌肉力量 (25%) — ⚠️ HEURISTIC
-        muscle_score = self._score_muscle(features) if self._flags.enable_muscle_strength else None
-        result["muscle_strength_score"] = muscle_score.raw_score if muscle_score else 0.0
-        if self._flags.enable_muscle_strength:
-            heuristic_dimensions.append("muscle_strength")
-
-        # 6. 艺术表现 (10%)
-        artistry_score = self._score_artistry(features) if self._flags.enable_artistry else None
-        result["artistry_score"] = artistry_score.raw_score if artistry_score else 0.0
-
-        # 音色加减分 (不属于六维)
-        timbre = self._score_timbre(features) if self._flags.enable_timbre_adjustment else None
-        result["timbre_adjustment"] = timbre.adjustment if timbre else 0.0
-        if self._flags.enable_timbre_adjustment:
-            heuristic_dimensions.append("timbre")
-
-        # 计算加权总分
-        result["total_score"] = self._domain_service.calculate_total(
-            pitch=pitch_score,
-            rhythm=rhythm_score,
-            breath=breath_score,
-            technique=technique_score,
-            muscle=muscle_score,
-            artistry=artistry_score,
-            timbre=timbre,
-        )
-
-        # v7.14 审查 6.3: 评分失败 fallback 告警 (假 50.0 可辨识)
-        result["scoring_warnings"] = self._collect_fallback_warnings({
-            "pitch_score": pitch_score,
-            "rhythm_score": rhythm_score,
-            "breath_score": breath_score,
-            "technique_score": technique_score,
-            "artistry_score": artistry_score,
-        })
-
-        # 等级判定 (唯一权威来源)
-        level = ScoreLevel.from_score(result["total_score"])
-        result["level"] = level.label
-        result["grade"] = level.grade
-        result["color"] = level.color
-        result["stars"] = self._stars_for_score(result["total_score"])
-        result["heuristic_dimensions"] = heuristic_dimensions
-
-        # 诊断信息
-        result["pitch_diagnosis"] = self._make_diagnosis(pitch_score, "mae_cents")
-        result["rhythm_diagnosis"] = self._make_diagnosis(rhythm_score, "deviation_ratio")
-        result["breath_diagnosis"] = self._make_diagnosis(breath_score)
-        result["technique_diagnosis"] = self._make_diagnosis(technique_score)
-        result["artistry_diagnosis"] = self._make_diagnosis(artistry_score)
-
-        # 兼容旧字段
-        result["critical_issues"] = []
-        result["is_disqualified"] = False
-        result["pitch"] = result["pitch_score"]
-        result["rhythm"] = result["rhythm_score"]
-        result["breath"] = result["breath_score"]
-        result["emotion"] = result["artistry_score"]
-        result["volume"] = self._compute_volume(features)
-        result["total"] = result["total_score"]
-
-        # 人声质量惩罚
-        if voice_quality_score < 30:
-            result["total_score"] = min(result["total_score"], 40)
-            result["critical_issues"].append("人声质量极差，总分上限40分")
-        elif voice_quality_score < 50:
-            penalty = (50 - voice_quality_score) / 50 * 35
-            result["total_score"] = max(0, result["total_score"] - penalty)
-
-        return result
 
     def calculate_ddd(
         self,
@@ -333,107 +213,11 @@ class ScoringOrchestrator:
     # 各维度评分 (内部方法)
     # ================================================================
 
-    def _score_pitch(self, features) -> 'PitchScore':
-        try:
-            pf = self._adapters.to_pitch(features)
-            return self._pitch_scorer.calculate(pf)
-        except Exception as e:
-            # v7.14 审查 6.3: 打 is_heuristic=True 标记 + 完整 traceback (假 50.0 可辨识)
-            logger.warning("Pitch scoring failed: %s, using defaults", e, exc_info=True)
-            from backend.domain.assessment.value_objects import PitchScore
-            return PitchScore(raw_score=50.0, mae_cents=40.0, rpa=0.5, rca=0.5,
-                              gross_error_rate=0.1, octave_error_rate=0.0,
-                              smoothness_cv=2.0, detection_rate=1.0, pitch_breaks=0,
-                              is_heuristic=True)
-
-    def _score_rhythm(self, features, is_clean_vocal: bool) -> 'RhythmScore':
-        try:
-            rf = self._adapters.to_rhythm(features, is_clean_vocal)
-            return self._rhythm_scorer.calculate(rf)
-        except Exception as e:
-            logger.warning("Rhythm scoring failed: %s, using defaults", e, exc_info=True)
-            from backend.domain.assessment.value_objects import RhythmScore
-            return RhythmScore(raw_score=50.0, onset_cv=1.0,
-                               median_ioi_deviation=0.1, irregularity_penalty=0.0,
-                               is_clean_vocal=is_clean_vocal,
-                               is_heuristic=True)
-
-    def _score_breath(self, features) -> 'BreathScore':
-        try:
-            bf = self._adapters.to_breath(features)
-            return self._breath_scorer.calculate(bf)
-        except Exception as e:
-            logger.warning("Breath scoring failed: %s, using defaults", e, exc_info=True)
-            from backend.domain.assessment.value_objects import BreathScore
-            return BreathScore(raw_score=50.0, long_note_support=50.0,
-                               dynamic_control=50.0, breath_design=50.0,
-                               breath_technique=50.0, is_clean_vocal=False,
-                               hnr_stability=15.0, dynamic_range_db=15.0,
-                               is_heuristic=True)
-
-    def _score_technique(self, features) -> 'TechniqueScore':
-        try:
-            tf = self._adapters.to_technique(features)
-            return self._technique_scorer.calculate(tf)
-        except Exception as e:
-            logger.warning("Technique scoring failed: %s, using defaults", e, exc_info=True)
-            from backend.domain.assessment.value_objects import TechniqueScore
-            return TechniqueScore(raw_score=50.0, articulation_clarity=50.0,
-                                  breath_voice_ratio=50.0, hnr_mean=15.0, cpp_mean=1.0,
-                                  is_heuristic=True)
-
-    def _score_muscle(self, features) -> 'MuscleStrengthScore':
-        try:
-            mf = self._adapters.to_muscle(features)
-            return self._muscle_scorer.calculate(mf)
-        except Exception as e:
-            logger.warning("Muscle scoring failed: %s, using defaults", e, exc_info=True)
-            from backend.domain.assessment.value_objects import MuscleStrengthScore
-            return MuscleStrengthScore(raw_score=50.0, body_muscle_strength=50.0,
-                                        facial_muscle_strength=50.0,
-                                        is_heuristic=True)
-
-    def _score_artistry(self, features) -> 'ArtistryScore':
-        try:
-            af = self._adapters.to_artistry(features)
-            return self._artistry_scorer.calculate(af)
-        except Exception as e:
-            logger.warning("Artistry scoring failed: %s, using defaults", e, exc_info=True)
-            from backend.domain.assessment.value_objects import ArtistryScore
-            return ArtistryScore(raw_score=50.0, vibrato_quality=50.0,
-                                 dynamic_control=50.0, phrase_expression=50.0,
-                                 pitch_variation=50.0,
-                                 is_heuristic=True)
-
-    def _score_timbre(self, features) -> 'TimbreAdjustment':
-        try:
-            tf = self._adapters.to_timbre(features)
-            return self._timbre_adjuster.calculate(tf)
-        except Exception as e:
-            logger.warning("Timbre scoring failed: %s, using defaults", e, exc_info=True)
-            from backend.domain.assessment.value_objects import TimbreAdjustment
-            return TimbreAdjustment(adjustment=0.0, brightness_score=0.5,
-                                    warmth_score=0.5, nasality_score=0.0,
-                                    confidence=0.0, is_heuristic=True)
-
     # ================================================================
     # 辅助方法
     # ================================================================
 
     @staticmethod
-    def _collect_fallback_warnings(scores: dict[str, object | None]) -> list[str]:
-        """收集评分失败 fallback 告警 (v7.14 审查 6.3).
-
-        仅检查非设计启发式维度 (pitch/rhythm/breath/technique/artistry) —
-        这些维度的值对象 is_heuristic 默认为 False, 仅 fallback 时置 True。
-        muscle/timbre 恒为设计启发式, 不视为失败。
-        """
-        return [
-            label
-            for key, label in _FALLBACK_WARNING_LABELS.items()
-            if scores.get(key) is not None
-            and getattr(scores[key], "is_heuristic", False)
-        ]
 
     @staticmethod
     def _stars_for_score(total: float) -> str:
@@ -445,20 +229,6 @@ class ScoringOrchestrator:
         return "☆"
 
     @staticmethod
-    def _compute_volume(features) -> float:
-        bs = getattr(features, 'breath_stability', None)
-        if bs is None:
-            return 50.0
-        dr = getattr(bs, 'dynamic_range', 15.0)
-        dr = float(dr) if dr else 15.0
-        if dr > 30:
-            return min(100, 80 + (dr - 30) * 0.5)
-        elif dr > 15:
-            return 50 + (dr - 15) * 2.0
-        elif dr > 5:
-            return 20 + (dr - 5) * 3.0
-        else:
-            return max(5, dr * 4)
 
     @staticmethod
     def _make_diagnosis(score_obj, extra_field: str | None = None) -> dict:

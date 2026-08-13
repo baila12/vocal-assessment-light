@@ -83,10 +83,6 @@ class AudioAnalysisResult:
     _audio_data: Optional[np.ndarray] = field(default=None, repr=False)
     _valid_freqs: Optional[np.ndarray] = field(default=None, repr=False)
     _f0: Optional[np.ndarray] = field(default=None, repr=False)
-    _pitch_stability: float = 0.5
-    _tonal_clarity: float = 0.5
-    _voice_clarity: float = 0.5
-    _vibrato_count: int = 0
 
     # 高级特征提取结果 v4.0 — v7.1.5 移除 (DDD 提取器已替代)
     # _advanced_features 字段已移除 — 由 DddFeatureExtractionOrchestrator 直接提取
@@ -184,21 +180,9 @@ class AudioService:
             result.pitch_info = pitch_result['info']
             result._valid_freqs = pitch_result['valid_freqs']
             result._f0 = pitch_result['f0']
-            result._pitch_stability = pitch_result['stability']
-
-            # Chroma 特征分析（简化版，减少计算量）
-            result._tonal_clarity = self._analyze_tonal_clarity_fast(audio_data, sample_rate)
 
             # 节奏分析
             result.rhythm_info = self._analyze_rhythm(audio_data, sample_rate)
-
-            # 人声质量评估
-            result._voice_clarity = self._analyze_voice_clarity(audio_data)
-
-            # 颤音检测
-            result._vibrato_count = self._detect_vibrato(
-                pitch_result['valid_freqs'], sample_rate
-            )
 
             # 波形数据
             if include_waveform:
@@ -238,7 +222,6 @@ class AudioService:
                 result.pitch_info = pitch_result['info']
                 result._valid_freqs = pitch_result['valid_freqs']
                 result._f0 = pitch_result['f0']
-                result._pitch_stability = pitch_result['stability']
                 # 更新音量信息（基于纯净人声）
                 result.volume_info = self._analyze_volume(audio_data)
 
@@ -467,49 +450,6 @@ class AudioService:
 
         return max(0, min(1, stability))
 
-    def _analyze_tonal_clarity(
-        self,
-        audio_data: np.ndarray,
-        sample_rate: int
-    ) -> float:
-        """分析调性清晰度"""
-        y_harmonic = librosa.effects.harmonic(audio_data, margin=8)
-        chroma = librosa.feature.chroma_cqt(
-            y=y_harmonic,
-            sr=sample_rate,
-            hop_length=self._hop_length
-        )
-        chroma_mean = np.mean(chroma, axis=1)
-        return np.max(chroma_mean) / (np.mean(chroma_mean) + 1e-10)
-
-    def _analyze_tonal_clarity_fast(
-        self,
-        audio_data: np.ndarray,
-        sample_rate: int
-    ) -> float:
-        """
-        快速调性清晰度分析（简化版）
-
-        使用频谱质心替代chroma特征，避免耗时的CQT计算
-        对于评分影响较小，但大幅提升性能
-        """
-        try:
-            # 使用频谱质心作为调性清晰度的代理指标
-            # 质心变化小 = 调性稳定
-            centroid = librosa.feature.spectral_centroid(
-                y=audio_data,
-                sr=sample_rate,
-                hop_length=self._hop_length
-            )[0]
-
-            # 计算质心的稳定性（变异系数的倒数）
-            centroid_cv = np.std(centroid) / (np.mean(centroid) + 1e-10)
-            clarity = 1.0 / (1.0 + centroid_cv)
-
-            return float(max(0, min(1, clarity)))
-        except Exception:
-            return 0.5
-
     def _analyze_rhythm(
         self,
         audio_data: np.ndarray,
@@ -541,42 +481,6 @@ class AudioService:
             'stability': round(rhythm_stability * 100, 1),
             'onset_count': onset_count
         }
-
-    def _analyze_voice_clarity(self, audio_data: np.ndarray) -> float:
-        """分析人声清晰度"""
-        spectral_flatness = librosa.feature.spectral_flatness(y=audio_data)[0]
-        return 1.0 - np.mean(spectral_flatness)
-
-    def _detect_vibrato(
-        self,
-        valid_freqs: np.ndarray,
-        sample_rate: int
-    ) -> int:
-        """检测颤音"""
-        vibrato_count = 0
-        if len(valid_freqs) < 40:
-            return vibrato_count
-
-        try:
-            dt = self._hop_length / sample_rate
-            nyquist = 1 / (2 * dt)
-            low, high = 4 / nyquist, 7 / nyquist
-            if low < high < 1.0:
-                b, a = signal.butter(2, [low, high], btype='band')
-                filtered_f0 = signal.filtfilt(b, a, valid_freqs)
-                peaks, _ = signal.find_peaks(
-                    filtered_f0,
-                    height=np.std(filtered_f0) * 0.3,
-                    distance=int(1 / (7 * dt))
-                )
-                if len(peaks) > 1:
-                    vibrato_count = len(peaks)
-        except (ValueError, np.linalg.LinAlgError) as e:
-            logger.debug(f"Vibrato detection skipped: {e}")
-        except Exception:
-            logger.debug("Vibrato detection failed with unexpected error")
-
-        return vibrato_count
 
     def _get_waveform_data(
         self,
