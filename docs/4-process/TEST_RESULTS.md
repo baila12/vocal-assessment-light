@@ -1,8 +1,49 @@
-# 测试结果记录 v7.15
+# 测试结果记录 v7.16
 
-> 更新: 2026-08-12 | 后端 **766 collected / 766 passed** (626 单元 + 119 集成含真实音频 + 21 扩展) + 前端 **307 Vitest GREEN** | 分支: `main`
+> 更新: 2026-08-13 | 后端 **786 collected** (643 单元 + 94 集成 + 21 扩展 + 28 真实音频) + 前端 **307 Vitest GREEN** | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
+
+---
+
+## v7.16 测试统计
+
+### 生产测试 (全部 GREEN)
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| Unit (DDD 领域: 6 scorers + 音色调整 + comparison + songs + songs_pitch + song_match + ScoringWeights + fallback) | 364 | ✅ 100% | (v7.14 计数值, 本轮无改动) |
+| Unit (DDD 基建: extractors + orchestrator + ABI + sqlite + pitch cache + deps) | 159 | ✅ 100% | (v7.14 计数值, 本轮无改动) |
+| Unit (DDD 对齐 + Flag bridge) | 23 | ✅ 100% | |
+| Unit (中间件) | 23 | ✅ 100% | |
+| Unit (WS streaming 会话) | 12 | ✅ 100% | |
+| Unit (接口 sanitize_filename) | 14 | ✅ 100% | |
+| Unit (混合检测, 根目录) | 2 | ✅ 100% | |
+| Unit (静默错误可观测性 v7.15 M3/M4/M5) | 14 | ✅ 100% | test_acoustic_extractor_observability (7) + test_audio_dl_helpers_observability (4) + test_audio_service_analyze_error (3) |
+| Unit (uploads 自动清理 v7.15 P2-14 余项) | 15 | ✅ 100% | test_upload_cleaner (9) + test_history_repository_unlink (6) |
+| Unit (建议生成器 🆕 v7.16 P2-15 Phase 1) | 15 | ✅ 100% | test_advice_generator (15) — AdviceGenerator 纯函数行为契约 |
+| Unit (calculate_ddd 诊断 🆕 v7.16 P2-15 Phase 3) | 5 | ✅ 100% | test_diagnosis_in_calculate_ddd (5) — 诊断键/结构/额外字段/分数一致 |
+| **Unit 合计** | **643** | **100% GREEN** | (v7.15 626 − 3 删死路径 fallback + 20 新增) |
+| API 集成 (7 文件) | 77 | ✅ 100% | test_api_routes (20) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + song_match_api (6) + **history_single_write (3, 🆕 v7.16 历史双写回归)** |
+| WebSocket 集成 | 17 | ✅ 100% | test_ws_score (13) + ws_pitch_update (4) |
+| 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
+| **生产代码总计** | **758** | **100% GREEN** | (unit 643 + API 77 + WS 17 + 扩展 21) |
+| 真实音频回归 | 28 | ✅ **全 PASS** | (BASELINE_V7_14, 本轮无评分公式改动 — 结构重构数值不变) |
+| **后端 collected** | **786** | ✅ | 758 生产 + 28 真实音频; 本轮新增 20 测试全部 RED→GREEN |
+
+### v7.16 测试变更明细 (v7.15 → v7.16)
+
+| 文件 | 变化 | 覆盖 |
+|------|:-----:|------|
+| `tests/unit/application/test_advice_generator.py` (新) | +15 | P2-15 Phase 1: AdviceGenerator 结构/最强最弱/总体分档/阈值边界 (DDD application 层) |
+| `tests/unit/application/test_diagnosis_in_calculate_ddd.py` (新) | +5 | P2-15 Phase 3: calculate_ddd 5 诊断键/结构/mae_cents/deviation_ratio/分数一致 |
+| `tests/integration/test_history_single_write.py` (新) | +3 | P2-15 Phase 0b: 历史双写回归 (无 EventBus 自动保存订阅/每次上传 1 条/完整字段) |
+| `tests/unit/domain/test_fallback_marking.py` | −3 | 删 3 个测死 calculate() 路径的 fallback 测试 (v7.16 Phase 0) |
+| `tests/integration/test_api_routes.py` | 修改 | openapi 标题断言改为从 APP_VERSION 派生 (VAS v7.16, 防漂移) |
+
+### 集成隔离说明
+
+v7.15 修复 (pre-existing): 单进程组合运行全部集成模块 94 passed (含 history_single_write 3), 不依赖"每模块独立进程"工作流。
 
 ---
 

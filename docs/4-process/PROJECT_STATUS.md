@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-12 | 版本: **v7.15** | 分支: `main`
+> 更新: 2026-08-13 | 版本: **v7.16** | 分支: `main`
 
 ---
 
@@ -102,6 +102,21 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **前端** | `songMatch.store.ts` — `matchAudio` (POST /songs/match) + `selectCandidate` + `compareWithSelected` (复用 POST /songs/{id}/compare) + `fetchUserPitch` (POST /extract-pitch) | ✅ |
 | **前端** | CompareView 自动匹配区 (上传录音→候选列表 歌名/歌手/置信度/BPM 差/调性差→选中→一键 DTW 对比→复用 Phase 5 双轨叠加); 无匹配优雅回退提示 (fallback_reason 透传) | ✅ |
 | **测试** | v7.14 特性发布: 生产 537→633 (+96: 领域 79 + 基建 11 + 集成 6); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄)。**v7.14 深度审查修复轮 (2026-08-10): 633→714 collected (+81: fallback 11 + streaming 7 + pitch cache 7 + deps 2 + 集成/WS 13 + 断言同步等), 686 生产 GREEN**。**P2 完善修复轮 (2026-08-11): sr 错配根因修复 (P2-11, 3 处 sr=None→16000) + HPSS 去重 (P2-12a) + audio_buffer 缓存 (P2-13) + 乱码文件名恢复 (P2-14) + legacy 死代码删除 (P2-15); 🆕 +25 单元测试; 真实音频基线重校准 BASELINE_V7_6→V7_14**。**P2 续轮 (2026-08-11): compare.feature 重写对齐 v7.13 P5 契约 → BDD 残余失败 12→0; 当前权威计数 (实测): 生产 **709** / collected **737** (见下节测试表)** | ✅ |
+
+### v7.16 (2026-08-13) — P2-15 legacy 收敛安全范围 (Phase 0/0b/1/3) + 历史双写 bug 修复
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **Phase 0** | `services/audio_service.py` — 删 4 个从不读取字段 (`_pitch_stability`/`_tonal_clarity`/`_voice_clarity`/`_vibrato_count`) + 死方法 (`_analyze_tonal_clarity`/`_analyze_tonal_clarity_fast`/`_analyze_voice_clarity`/`_detect_vibrato`) | ✅ |
+| **Phase 0** | `scoring_orchestrator.py` — 删死 `calculate()` 路径 + 7 个 `_score_*` + `_collect_fallback_warnings` + `_compute_volume` + `_FALLBACK_WARNING_LABELS` + `FeatureAdapterRegistry` 注入 → **`calculate_ddd()` 成为唯一生产评分路径** | ✅ |
+| **Phase 0** | `tests/tools/test_real_audio_comparison.py` — 收敛为单路径 DDD 验证 (修复已删符号 import); `tests/unit/domain/test_fallback_marking.py` — 删 3 个测死路径的 fallback 测试 (626→623 unit) | ✅ |
+| **Phase 0b** | **历史双写 bug 修复** — `audio_analysis.py` 移除 import 时 `HistoryEventSubscriber` 订阅 + `_history_repo` 构造; `ddd_orchestrator` 改无 event_bus → 评分不再经 EventBus 写无 analysis_id 垃圾记录, 历史由路由 `_save_history` 单一负责 | ✅ |
+| **Phase 0b** | **实测验证 + 数据清理** — web_history.json 50 条中 32 条为无 analysis_id 垃圾记录 (挤占槽位淘汰完整历史); 经用户授权清理, 保留 18 条完整记录 | ✅ |
+| **Phase 1** | **`AdviceGenerator` 迁入 DDD application 层** — 新增 `backend/application/assessment/advice_generator.py` (frozen `AdviceResult` + 纯函数 generate), 从 `services/advice_service.py` 移植; `audio_analysis.py` 改调 `advice_generator.generate`; 删 `services/advice_service.py` + 清理导出 | ✅ |
+| **Phase 3** | **`calculate_ddd` 补全逐维诊断** — 增加 5 个 `*_diagnosis` 键 (pitch/rhythm/breath/technique/artistry), 移植旧 `calculate()` 的 `_make_diagnosis` 输出 (含 pitch `mae_cents` + rhythm `deviation_ratio`) → **修复上传/分析响应 diagnosis block 恒空** | ✅ |
+| **版本** | `APP_VERSION` 7.14.0→**7.16.0** + `APP_TITLE` 从 APP_VERSION 派生 (VAS v7.16, 防漂移) + `package.json` 7.16.0 | ✅ |
+| **测试** | 🆕 +20 测试 (advice_generator 15 + diagnosis 5 + history_single_write 3 − 删 3 过时 fallback)。**权威计数: 生产 758 / collected 786** (单元 643 + API 77 + WS 17 + 扩展 21 + 真实音频 28, 见下节测试表)。前端 307 不变, vue-tsc 0 错误 | ✅ |
+| **文档** | P2_15_CONVERGENCE_PLAN.md — legacy 收敛实施计划 (Phase 0-5 全量设计, 本次执行安全范围 0/0b/1/3) | ✅ |
 
 ### v7.15 (2026-08-12) — 错误可见化 + uploads 自动清理 + 集成隔离修复 (DEEP_REVIEW 收尾)
 
@@ -280,7 +295,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.15)
+## 三、测试状态 (v7.16)
 
 ### 生产测试 (全部 GREEN)
 
@@ -293,15 +308,17 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | Unit WS streaming 会话 (v7.14 审查修复轮) | 12 | ✅ |
 | Unit 接口 sanitize_filename (v7.14 P2) | 14 | ✅ | (test_sanitize_filename: GBK 乱码恢复 + NFC + 非法字符 + 路径穿越)
 | Unit 根目录 mixed_detection | 2 | ✅ | (test_audio_service_mixed_detection, 混合/纯声检测)
-| Unit 静默错误可观测性 (🆕 v7.15 M3/M4/M5) | 14 | ✅ | (acoustic_extractor 7 + audio_service 3 + audio_dl_helpers 4 — 异常保留/传播/状态码)
-| Unit uploads 自动清理 (🆕 v7.15 P2-14 余项) | 15 | ✅ | (upload_cleaner 9 + history_repository_unlink 6 — 路径锁/孤儿扫描/逐出联动 unlink)
-| **Unit 合计** | **626** | **100% GREEN** |
-| API 集成 | 74 | ✅ | (api_routes 20 + songs_api 21 + scoring_api 14 + **songs_pitch_api 9** + compare_pitch_api 4 + **song_match_api 6**)
+| Unit 静默错误可观测性 (v7.15 M3/M4/M5) | 14 | ✅ | (acoustic_extractor 7 + audio_service 3 + audio_dl_helpers 4 — 异常保留/传播/状态码)
+| Unit uploads 自动清理 (v7.15 P2-14 余项) | 15 | ✅ | (upload_cleaner 9 + history_repository_unlink 6 — 路径锁/孤儿扫描/逐出联动 unlink)
+| Unit 建议生成器 (🆕 v7.16 P2-15 Phase 1) | 15 | ✅ | (test_advice_generator: 结构/最强最弱/总体分档/阈值边界 — AdviceGenerator DDD application 层)
+| Unit calculate_ddd 诊断 (🆕 v7.16 P2-15 Phase 3) | 5 | ✅ | (test_diagnosis_in_calculate_ddd: 5 诊断键/结构/mae_cents/deviation_ratio/分数一致)
+| **Unit 合计** | **643** | **100% GREEN** |
+| API 集成 | 77 | ✅ | (api_routes 20 + songs_api 21 + scoring_api 14 + songs_pitch_api 9 + compare_pitch_api 4 + song_match_api 6 + **history_single_write 3 (🆕 v7.16 历史双写回归)**)
 | WebSocket 集成 | 17 | ✅ | (ws_score 13 + ws_pitch_update 4)
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
-| **生产代码总计** | **738** | **100% GREEN** |
+| **生产代码总计** | **758** | **100% GREEN** |
 
-> 注: 生产合计 = Unit 626 + API 74 + WS 17 + 扩展 21 = **738**。另含真实音频回归 28 (BASELINE_V7_14)。**后端 collected = 766 (738 生产 + 28 真实音频)**。v7.15 集成隔离修复后, 全部集成模块**单进程组合运行 119 全绿** (含真实音频 28) — 比文档化"每模块独立进程"更严格。
+> 注: 生产合计 = Unit 643 + API 77 + WS 17 + 扩展 21 = **758**。另含真实音频回归 28 (BASELINE_V7_14)。**后端 collected = 786 (758 生产 + 28 真实音频)**。v7.16 删 3 个测死 calculate() 路径的过时 fallback 测试 (626→643 net +17: −3 +20 新增)。v7.15 集成隔离修复后, 全部集成模块**单进程组合运行全绿**。
 
 ### 真实音频回归
 
@@ -375,6 +392,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | ~~P2~~ | ~~前后端对齐: ScoreRadar/HistoryView as any 类型~~ | ✅ v7.8: 已修复 (ChartOptions/HistoryFilter 类型) |
 | ~~P2~~ | ~~前后端对齐: ApiResponse<T> 死代码 + HistoryListResponse list[dict]~~ | ✅ v7.8: 已清理 |
 | **P2** | `services/dl_services/` (4 活跃) | ✅ v7.12: 死代码已清 (桩/model_manager 子包/features:types/enhanced_dl_assessor 删除); 保留 voice_quality_detector/singing_style_classifier/self_referenced_dtw/dl_style_classifier (Professional 模式) — DDD 迁移为独立工程 |
+| **P2-15** | legacy `api/business`+`services` 收敛进 DDD | 🔶 **部分 (v7.16 安全范围)**: 已删死 `calculate()` 路径 + `FeatureAdapterRegistry` 注入 + 4 死字段 + `advice_service.py` (AdviceGenerator 入 DDD); 历史双写 bug 已修。**剩余 (Phase 2/4/5)**: `TimbreService` 双轨 (音色计算两遍) + `PhraseService` 逐句评分无 DDD 等价物 + facade 折叠 (analyze_emotion 死启发式/`FeatureAdapterRegistry` 仅测试引用) — 见 P2_15_CONVERGENCE_PLAN.md, 按需决定 |
 
 ### 文献差距
 
@@ -417,6 +435,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | ~~httpx2 迁移 (starlette 1.3+ TestClient)~~ | ✅ 2026-08-12 已安装 `httpx2>=2.0.0` (联网核实为 starlette 官方背书真实包, PR #3291/#3323 钉入 starlette[full]); `tests/pytest.ini` filterwarnings 抑制行已移除; `httpx` 保留 (huggingface_hub/transformers 下载依赖, 与 httpx2 共存) |
 | ~~M3/M4/M5 后端静默错误~~ | ✅ v7.15: acoustic_extractor (异常保留不静默返回空特征) + audio_service (analyze 失败可见化) + audio_dl_helpers (异常显式传播) — 14 单元测试 RED→GREEN |
 | ~~uploads/ 孤儿文件残留 (P2-14 余项)~~ | ✅ v7.15: 启动扫描 + 历史逐出/删除联动 unlink (路径锁 `is_relative_to`); 实测 dry-run 36 文件 11 被引用 → 25 孤儿可清理; 生产仅清理未被历史引用的文件 |
+| ~~**历史双写 bug (P2-15 Phase 0b)**~~ | ✅ **v7.16**: audio_analysis.py 的 EventBus `HistoryEventSubscriber` 每次评分写无 analysis_id 垃圾记录 + 路由 `_save_history` 写完整记录 = 2 条/次, 垃圾挤占 `HISTORY_MAX_RECORDS` 槽位淘汰完整历史。修复: 移除订阅 (历史由路由单一负责) + 清理 web_history.json 32 条垃圾记录 (保留 18 条完整, 经用户授权)。新增 test_history_single_write 3 回归 |
 
 ---
 

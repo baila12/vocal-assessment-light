@@ -1,4 +1,4 @@
-# 声乐评估系统 v7.14
+# 声乐评估系统 v7.16
 
 基于 FastAPI + Vue 3 的本地 Web 应用，提供六维声乐评分、实时录音、对比分析、歌曲库管理等功能。
 
@@ -108,7 +108,7 @@ vocal_assessment_light/
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
 ├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 734 tests collected (unit 594 + integration 119 + extended 21) + 前端 297 Vitest
+└── tests/                # 786 tests collected (unit 643 + integration 94 + extended 21 + real-audio 28) + 前端 307 Vitest
 ```
 
 ## API 接口
@@ -215,6 +215,8 @@ cd frontend && npx vitest run
 
 ## 版本历史
 
+- **v7.16** — P2-15 legacy 收敛安全范围 (Phase 0/0b/1/3): 删死 `calculate()` 路径 (calculate_ddd 唯一生产评分路径) + 死字段 + `advice_service.py` (AdviceGenerator 迁入 DDD application 层) + **历史双写 bug 修复** (EventBus 自动保存写垃圾记录挤占槽位, 实测 50 条中 32 条垃圾, 经授权清理) + calculate_ddd 补全逐维诊断 (修复诊断 block 恒空) (2026-08-13)
+- **v7.15** — 错误可见化 (H-B14/H-B15) + 后端静默错误修复 (M3/M4/M5) + uploads 自动清理 + 集成隔离修复 (deps 单例跨模块污染) + httpx2 迁移 (2026-08-12)
 - **v7.14** — 上传音频自动匹配标准歌曲: 新增 song_match DDD 子域 (BPM/Krumhansl-Schmuckler 调性/chroma/duration 特征 + 确定性置信度 = 0.30bpm+0.40chroma+0.15key+0.15duration, 阈值 0.60) + POST /songs/match (Top-N 候选 + fallback_reason) + upload 可选 auto_match 注入 + SQLite 匹配特征持久化 (预算式预计算, 超时 partial) + 前端 CompareView 自动匹配区 (候选列表/置信度/BPM差/调性差 → 一键 DTW 对比) (2026-08-09)
 - **v7.13** — 实时音准对比子系统 Phase 1-5: 参考音高 API (GET /songs/{song_id}/pitch) + 选歌录音增强 (参考线叠加/上传录音 DTW 对比/再来一首) + WS pitch_update 实时推送 + WS 权重 ScoringWeights 单一来源; Phase 2: 音准对比 Canvas 偏差着色 + 滚动窗口 + 回放控制 (播放/拖拽/倍速/A-B) + Y 轴音高/时间刻度; Phase 3: 录音中实时对比 (live 模式圆点/偏差色带/趋势); Phase 4: 录音后回放分析 (问题段落高亮/逐句评分/统计面板); Phase 5: CompareView 双轨叠加 (偏差三色填色/热力图/缩略条) + 性能降级 + 截图/快捷键 (2026-08-08)
 - **v7.12** — 选歌录音 MVP (/sing/:songId + WS song_id + vocal_range) + BDD 基建修复 (vocals.wav 数据 + animations/sing-song-select 迁移 Vue 3 + KMP 崩溃修复) + dl_services 死代码清理 (2026-08-06)

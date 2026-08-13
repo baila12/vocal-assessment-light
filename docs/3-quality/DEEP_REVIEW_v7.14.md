@@ -570,7 +570,7 @@ total = (
 | 12 | HPSS 去重、Demucs 改 in-process | 中 | 🔶 **P2-12a 完成** (HPSS 去重: `_preprocess_for_scoring` 只跑 HPSS+混合检测); Demucs in-process **延期** (2026-08-11 决策): subprocess 开销 ~3s < CPU 延迟 3%, 崩溃隔离 (PyTorch/CUDA segfault 不杀服务进程) 价值 > 进程内收益; 进程内适配器 `backend/infrastructure/audio/demucs_separator.py` + `PERFORMANCE_ANALYSIS` 设计已就绪, 触发条件: separate 端点成为高流量路径 |
 | 13 | `audio_buffer` 缓存拼接结果 | 小 | ✅ **已修复** (惰性拼接 + dirty 缓存, 每周期 3 次全量 concatenate → 1 次) |
 | 14 | uploads/ 自动清理 + 乱码文件名迁移 | 中 | 🔶 **部分** (`sanitize_filename` 增 GBK 乱码往返恢复 + NFC; 已落盘 2 个乱码孤儿文件 `1£¨¸ß·Ö£©.mp3`/`³ÂÞÈÑ¸ÄÑÌýÖ®Éù£¨µÍ·Ö£©.mp3` 于 2026-08-11 经用户授权删除 — 删除前 sha256 验证与正常名文件逐字节相同, 零数据丢失); uploads/ 自动清理未做 |
-| 15 | legacy `api/business`+`services` 收敛进 DDD | 大 | 🔶 **部分** (删 `backend/legacy/` + `backend/shared/result.py`, 全库零引用); `api/business`+`services` 完全收敛未做 |
+| 15 | legacy `api/business`+`services` 收敛进 DDD | 大 | 🔶 **部分 (v7.16 推进, 见 P2_15_CONVERGENCE_PLAN.md)**: 已删死 `calculate()` 路径 + `FeatureAdapterRegistry` 注入 + `advice_service.py` (AdviceGenerator 入 DDD application 层) + 4 死字段 + 历史双写 bug 修复; **剩余 (Phase 2/4/5)**: `TimbreService` 音色双轨 + `PhraseService` 逐句评分 + facade 折叠 (analyze_emotion/`FeatureAdapterRegistry` 仅测试引用) — 按需决定 |
 | 16 | breath/timbre/artistry 评分校准 (S1/S2/S3) | 大 | ✅ **全部评估完成** (2026-08-11): S1 breath 公式重调**延期** (sr 修复已消除虚高急性症状, 28/28 回归 PASS; 公式重调需基线重校准且常数为任意调参, 稳定性风险 > 边际收益; 具体方案已记录); S2 timbre 阈值探针验证**非问题** (见下行实证: 真实音频 confidence 0.79-0.85 ≥ 0.6, v7.4 双源 confidence 成功救援 CPP 退化, 维度未死, 门控未误伤; 无代码变更); S3 artistry 80 上限为**产品决策** (无颤音歌手不得满分), 延期待产品方向 |
 
 > P2 轮附带收益: **sr 错配 bug 根因修复** (P2-11) 使 4 个历史 breath 基线漂移 FAIL 自然消除 (真实值校准), 真实音频回归 28 例全 PASS; BDD differentiation/history 修复使 API 级失败 21→12。

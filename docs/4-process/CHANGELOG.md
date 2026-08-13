@@ -1,6 +1,52 @@
-# 变更日志 v7.15
+# 变更日志 v7.16
 
-> 更新: 2026-08-12 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+> 更新: 2026-08-13 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
+
+---
+
+## v7.16 — P2-15 legacy 收敛安全范围 (Phase 0/0b/1/3) (2026-08-13)
+
+按 [P2_15_CONVERGENCE_PLAN.md](P2_15_CONVERGENCE_PLAN.md) 执行 legacy `api/business`+`services` 收敛进 DDD 的安全范围
+(Phase 0 死代码 + Phase 0b 历史双写 bug + Phase 1 AdviceGenerator + Phase 3 诊断补全)。
+全部 TDD (RED→GREEN) + DDD 不可变模式, 既有测试保持绿色。**评分公式无改动 (28 例真实音频回归为权威验证)**。
+
+### ① Phase 0 — 死代码清理
+
+| 项 | 修复 |
+|----|------|
+| `services/audio_service.py` | 删 4 个从不读取字段 (`_pitch_stability`/`_tonal_clarity`/`_voice_clarity`/`_vibrato_count`) + 死方法 (`_analyze_tonal_clarity`/`_analyze_tonal_clarity_fast`/`_analyze_voice_clarity`/`_detect_vibrato`) |
+| `scoring_orchestrator.py` | 删死 `calculate()` 路径 + 7 个 `_score_*` + `_collect_fallback_warnings` + `_compute_volume` + `_FALLBACK_WARNING_LABELS` + `FeatureAdapterRegistry` 注入 → **`calculate_ddd()` 唯一生产评分路径** |
+| 测试 | `test_fallback_marking.py` 删 3 个测死路径测试; `test_real_audio_comparison.py` 收敛为单路径 DDD 验证 |
+
+### ② Phase 0b — 历史双写 bug 修复
+
+**实测 bug**: `audio_analysis.py` import 时 `HistoryEventSubscriber` 订阅 EventBus → 每次评分写无 analysis_id 的垃圾记录
+(无 filename/filepath, level 乱码); 路由 `_save_history` 再写完整记录 → **每次上传 2 条**, `save()` 无去重,
+垃圾挤占 `HISTORY_MAX_RECORDS=50` 槽位淘汰完整历史。实测 `web_history.json` 50 条中 32 条垃圾。
+
+修复: 移除订阅 + `_history_repo` 构造 (历史由路由 `_save_history` 单一负责); `ddd_orchestrator` 改无 event_bus。
+经用户授权清理 32 条垃圾记录 (保留 18 条完整)。新增 `test_history_single_write` 3 回归。
+
+### ③ Phase 1 — AdviceGenerator 迁入 DDD application 层
+
+- 新增 `backend/application/assessment/advice_generator.py`: `AdviceResult` (frozen) + `AdviceGenerator.generate` (纯函数)
+- `audio_analysis.py` 改调 `advice_generator.generate`; 删 `services/advice_service.py` + 清理 `services/__init__.py` 导出
+- 消除"建议生成 100% legacy" (A1 三处重复之一)
+
+### ④ Phase 3 — calculate_ddd 补全逐维诊断
+
+- `calculate_ddd` 增加 5 个 `*_diagnosis` 键 (pitch/rhythm/breath/technique/artistry), 移植旧 `calculate()` 的 `_make_diagnosis`
+  输出 (pitch 含 `mae_cents`, rhythm 含 `deviation_ratio`)
+- **修复**: 上传/分析响应 `diagnosis` block 此前恒空 (calculate_ddd 遗漏诊断键)
+
+### ⑤ 版本
+
+`APP_VERSION` 7.14.0→**7.16.0**; `APP_TITLE` 从 APP_VERSION 派生 (VAS v7.16, 防漂移); `package.json` 7.16.0
+
+### 测试
+
+🆕 +20 (advice 15 + diagnosis 5 + history 3 − 删 3 过时 fallback)。**后端 786 collected (758 生产 + 28 真实音频)**;
+前端 307 Vitest 不变; vue-tsc 0 错误。**真实音频回归 28 全 PASS 验证评分数值不变**。
 
 ---
 
