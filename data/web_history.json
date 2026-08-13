@@ -1,288 +1,6 @@
 [
   {
-    "total_score": 63.3,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 67.5,
-      "rhythm": 37.1,
-      "breath": 78.7,
-      "technique": 45.0,
-      "muscle_strength": 80.4,
-      "artistry": 72.5
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T10:54:27.519865+00:00",
-    "id": 1138,
-    "created_at": "2026-08-11T18:54:27.521382"
-  },
-  {
-    "total_score": 63.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 66.6,
-      "rhythm": 43.8,
-      "breath": 79.8,
-      "technique": 43.4,
-      "muscle_strength": 77.9,
-      "artistry": 74.8
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T10:54:38.350928+00:00",
-    "id": 1139,
-    "created_at": "2026-08-11T18:54:38.351935"
-  },
-  {
-    "total_score": 58.9,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 9.3,
-      "breath": 75.7,
-      "technique": 46.7,
-      "muscle_strength": 71.1,
-      "artistry": 70.4
-    },
-    "timbre_adjustment": 1.0,
-    "timestamp": "2026-08-11T10:55:12.270620+00:00",
-    "id": 1140,
-    "created_at": "2026-08-11T18:55:12.272141"
-  },
-  {
-    "total_score": 58.9,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 9.3,
-      "breath": 75.7,
-      "technique": 46.7,
-      "muscle_strength": 71.1,
-      "artistry": 70.4
-    },
-    "timbre_adjustment": 1.0,
-    "timestamp": "2026-08-11T10:55:23.758170+00:00",
-    "id": 1141,
-    "created_at": "2026-08-11T18:55:23.759159"
-  },
-  {
-    "total_score": 58.9,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 9.3,
-      "breath": 75.7,
-      "technique": 46.7,
-      "muscle_strength": 71.1,
-      "artistry": 70.4
-    },
-    "timbre_adjustment": 1.0,
-    "timestamp": "2026-08-11T10:56:08.420673+00:00",
-    "id": 1142,
-    "created_at": "2026-08-11T18:56:08.421674"
-  },
-  {
-    "total_score": 64.5,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 69.7,
-      "rhythm": 30.1,
-      "breath": 82.2,
-      "technique": 52.3,
-      "muscle_strength": 75.4,
-      "artistry": 72.3
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T10:57:19.482273+00:00",
-    "id": 1143,
-    "created_at": "2026-08-11T18:57:19.483323"
-  },
-  {
-    "total_score": 63.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 66.6,
-      "rhythm": 43.8,
-      "breath": 79.8,
-      "technique": 43.4,
-      "muscle_strength": 77.9,
-      "artistry": 74.8
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T10:57:36.221990+00:00",
-    "id": 1144,
-    "created_at": "2026-08-11T18:57:36.222986"
-  },
-  {
-    "total_score": 63.3,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 67.5,
-      "rhythm": 37.1,
-      "breath": 78.7,
-      "technique": 45.0,
-      "muscle_strength": 80.4,
-      "artistry": 72.5
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T10:58:18.825481+00:00",
-    "id": 1145,
-    "created_at": "2026-08-11T18:58:18.827546"
-  },
-  {
-    "total_score": 64.5,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 69.7,
-      "rhythm": 30.1,
-      "breath": 82.2,
-      "technique": 52.3,
-      "muscle_strength": 75.4,
-      "artistry": 72.3
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T10:58:47.090650+00:00",
-    "id": 1146,
-    "created_at": "2026-08-11T18:58:47.091661"
-  },
-  {
-    "total_score": 58.9,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 9.3,
-      "breath": 75.7,
-      "technique": 46.7,
-      "muscle_strength": 71.1,
-      "artistry": 70.4
-    },
-    "timbre_adjustment": 1.0,
-    "timestamp": "2026-08-11T10:59:06.100713+00:00",
-    "id": 1147,
-    "created_at": "2026-08-11T18:59:06.101777"
-  },
-  {
-    "total_score": 62.1,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 70.7,
-      "rhythm": 30.4,
-      "breath": 78.4,
-      "technique": 45.2,
-      "muscle_strength": 73.9,
-      "artistry": 73.9
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:00:01.884098+00:00",
-    "id": 1148,
-    "created_at": "2026-08-11T19:00:01.885603"
-  },
-  {
-    "total_score": 63.3,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 67.5,
-      "rhythm": 37.1,
-      "breath": 78.7,
-      "technique": 45.0,
-      "muscle_strength": 80.4,
-      "artistry": 72.5
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:00:54.627811+00:00",
-    "id": 1149,
-    "created_at": "2026-08-11T19:00:54.628297"
-  },
-  {
-    "analysis_id": "3c413bb8-0fe",
-    "filename": "user.wav",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\user.wav",
-    "total_score": 70.0,
-    "scores": {
-      "pitch": 70
-    },
-    "level": "B",
-    "grade": "B",
-    "advice": [],
-    "mode": "quick",
-    "timbre_adjustment": 0,
-    "heuristic_dimensions": [],
-    "normalization": null,
-    "basic_info": {},
-    "duration": 0,
-    "is_voice": true,
-    "created_at": "2026-08-11T19:02:31.743156",
-    "id": 1150,
-    "timestamp": "2026-08-11T19:02:31.743156"
-  },
-  {
-    "analysis_id": "2316a657-41e",
-    "filename": "user.wav",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\user.wav",
-    "total_score": 70.0,
-    "scores": {
-      "pitch": 70
-    },
-    "level": "B",
-    "grade": "B",
-    "advice": [],
-    "mode": "quick",
-    "timbre_adjustment": 0,
-    "heuristic_dimensions": [],
-    "normalization": null,
-    "basic_info": {},
-    "duration": 0,
-    "is_voice": true,
-    "created_at": "2026-08-11T19:02:31.761857",
-    "id": 1151,
-    "timestamp": "2026-08-11T19:02:31.761857"
-  },
-  {
-    "total_score": 63.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 66.6,
-      "rhythm": 43.8,
-      "breath": 79.8,
-      "technique": 43.4,
-      "muscle_strength": 77.9,
-      "artistry": 74.8
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:02:46.987348+00:00",
-    "id": 1152,
-    "created_at": "2026-08-11T19:02:46.988705"
-  },
-  {
-    "total_score": 62.1,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 70.7,
-      "rhythm": 30.4,
-      "breath": 78.4,
-      "technique": 45.2,
-      "muscle_strength": 73.9,
-      "artistry": 73.9
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:04:43.471989+00:00",
-    "id": 1153,
-    "created_at": "2026-08-11T19:04:43.472495"
-  },
-  {
-    "analysis_id": "afc0ea49-826",
+    "analysis_id": "0d3b6161-1a6",
     "filename": "1（高分）.mp3",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
     "total_score": 62.1,
@@ -322,91 +40,12 @@
     },
     "duration": 257.5325625,
     "is_voice": true,
-    "created_at": "2026-08-11T19:04:43.513581",
-    "id": 1154,
-    "timestamp": "2026-08-11T19:04:43.513581"
+    "created_at": "2026-08-12T17:46:03.159958",
+    "id": 1,
+    "timestamp": "2026-08-12T17:46:03.159958"
   },
   {
-    "total_score": 58.9,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 9.3,
-      "breath": 75.7,
-      "technique": 46.7,
-      "muscle_strength": 71.1,
-      "artistry": 70.4
-    },
-    "timbre_adjustment": 1.0,
-    "timestamp": "2026-08-11T11:05:28.227657+00:00",
-    "id": 1155,
-    "created_at": "2026-08-11T19:05:28.228854"
-  },
-  {
-    "analysis_id": "1c4f4965-909",
-    "filename": "陈奕迅难听之声（低分）.mp3",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\陈奕迅难听之声（低分）.mp3",
-    "total_score": 58.9,
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 9.3,
-      "breath": 75.7,
-      "technique": 46.7,
-      "muscle_strength": 71.1,
-      "artistry": 70.4,
-      "total": 58.9,
-      "volume": 50.0,
-      "emotion": 70.4
-    },
-    "level": "中等",
-    "grade": "C",
-    "advice": [
-      "需要加强练习，重点关注气息。",
-      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
-    ],
-    "mode": "quick",
-    "timbre_adjustment": 1.0,
-    "heuristic_dimensions": [
-      "muscle_strength",
-      "timbre"
-    ],
-    "normalization": {
-      "applied": true,
-      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
-    },
-    "basic_info": {
-      "filename": "陈奕迅难听之声（低分）.mp3",
-      "duration": "02:36",
-      "duration_seconds": 156.16,
-      "sample_rate": 16000,
-      "file_size": "2.38MB"
-    },
-    "duration": 156.16,
-    "is_voice": true,
-    "created_at": "2026-08-11T19:05:28.246599",
-    "id": 1156,
-    "timestamp": "2026-08-11T19:05:28.246599"
-  },
-  {
-    "total_score": 54.2,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 72.1,
-      "rhythm": 24.2,
-      "breath": 45.3,
-      "technique": 43.1,
-      "muscle_strength": 84.0,
-      "artistry": 66.2
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:05:44.534171+00:00",
-    "id": 1157,
-    "created_at": "2026-08-11T19:05:44.534171"
-  },
-  {
-    "analysis_id": "ba1efad1-e54",
+    "analysis_id": "7f8beb36-f70",
     "filename": "vocals.wav",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\vocals.wav",
     "total_score": 54.2,
@@ -446,232 +85,12 @@
     },
     "duration": 60.0,
     "is_voice": true,
-    "created_at": "2026-08-11T19:05:44.546302",
-    "id": 1158,
-    "timestamp": "2026-08-11T19:05:44.546302"
+    "created_at": "2026-08-12T17:46:21.193682",
+    "id": 2,
+    "timestamp": "2026-08-12T17:46:21.193682"
   },
   {
-    "total_score": 54.2,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 72.1,
-      "rhythm": 24.2,
-      "breath": 45.3,
-      "technique": 43.1,
-      "muscle_strength": 84.0,
-      "artistry": 66.2
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:06:57.553539+00:00",
-    "id": 1159,
-    "created_at": "2026-08-11T19:06:57.554550"
-  },
-  {
-    "analysis_id": "728e8401-9d6",
-    "filename": "vocals.wav",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\vocals.wav",
-    "total_score": 54.2,
-    "scores": {
-      "pitch": 72.1,
-      "rhythm": 24.2,
-      "breath": 45.3,
-      "technique": 43.1,
-      "muscle_strength": 84.0,
-      "artistry": 66.2,
-      "total": 54.2,
-      "volume": 50.0,
-      "emotion": 66.2
-    },
-    "level": "中等",
-    "grade": "C",
-    "advice": [
-      "需要加强练习，重点关注肌肉力量。",
-      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
-    ],
-    "mode": "professional",
-    "timbre_adjustment": 0.0,
-    "heuristic_dimensions": [
-      "muscle_strength",
-      "timbre"
-    ],
-    "normalization": {
-      "applied": true,
-      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
-    },
-    "basic_info": {
-      "filename": "vocals.wav",
-      "duration": "01:00",
-      "duration_seconds": 60.0,
-      "sample_rate": 16000,
-      "file_size": "5.05MB"
-    },
-    "duration": 60.0,
-    "is_voice": true,
-    "created_at": "2026-08-11T19:07:09.867069",
-    "id": 1160,
-    "timestamp": "2026-08-11T19:07:09.867069"
-  },
-  {
-    "total_score": 62.1,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 70.7,
-      "rhythm": 30.4,
-      "breath": 78.4,
-      "technique": 45.2,
-      "muscle_strength": 73.9,
-      "artistry": 73.9
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:08:25.682264+00:00",
-    "id": 1161,
-    "created_at": "2026-08-11T19:08:25.683339"
-  },
-  {
-    "analysis_id": "b02dffa2-4b3",
-    "filename": "1（高分）.mp3",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
-    "total_score": 62.1,
-    "scores": {
-      "pitch": 70.7,
-      "rhythm": 30.4,
-      "breath": 78.4,
-      "technique": 45.2,
-      "muscle_strength": 73.9,
-      "artistry": 73.9,
-      "total": 62.1,
-      "volume": 50.0,
-      "emotion": 73.9
-    },
-    "level": "良好",
-    "grade": "B",
-    "advice": [
-      "基础尚可，建议重点提升气息。",
-      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
-    ],
-    "mode": "quick",
-    "timbre_adjustment": 0.0,
-    "heuristic_dimensions": [
-      "muscle_strength",
-      "timbre"
-    ],
-    "normalization": {
-      "applied": true,
-      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
-    },
-    "basic_info": {
-      "filename": "1（高分）.mp3",
-      "duration": "04:17",
-      "duration_seconds": 257.5325625,
-      "sample_rate": 16000,
-      "file_size": "9.83MB"
-    },
-    "duration": 257.5325625,
-    "is_voice": true,
-    "created_at": "2026-08-11T19:08:25.720380",
-    "id": 1162,
-    "timestamp": "2026-08-11T19:08:25.720380"
-  },
-  {
-    "total_score": 54.2,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 72.1,
-      "rhythm": 24.2,
-      "breath": 45.3,
-      "technique": 43.1,
-      "muscle_strength": 84.0,
-      "artistry": 66.2
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:08:42.804329+00:00",
-    "id": 1163,
-    "created_at": "2026-08-11T19:08:42.806350"
-  },
-  {
-    "analysis_id": "0ec9dfbb-7f1",
-    "filename": "vocals.wav",
-    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\vocals.wav",
-    "total_score": 54.2,
-    "scores": {
-      "pitch": 72.1,
-      "rhythm": 24.2,
-      "breath": 45.3,
-      "technique": 43.1,
-      "muscle_strength": 84.0,
-      "artistry": 66.2,
-      "total": 54.2,
-      "volume": 50.0,
-      "emotion": 66.2
-    },
-    "level": "中等",
-    "grade": "C",
-    "advice": [
-      "需要加强练习，重点关注肌肉力量。",
-      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
-    ],
-    "mode": "quick",
-    "timbre_adjustment": 0.0,
-    "heuristic_dimensions": [
-      "muscle_strength",
-      "timbre"
-    ],
-    "normalization": {
-      "applied": true,
-      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
-    },
-    "basic_info": {
-      "filename": "vocals.wav",
-      "duration": "01:00",
-      "duration_seconds": 60.0,
-      "sample_rate": 16000,
-      "file_size": "5.05MB"
-    },
-    "duration": 60.0,
-    "is_voice": true,
-    "created_at": "2026-08-11T19:08:42.819322",
-    "id": 1164,
-    "timestamp": "2026-08-11T19:08:42.819322"
-  },
-  {
-    "total_score": 63.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 66.6,
-      "rhythm": 43.8,
-      "breath": 79.8,
-      "technique": 43.4,
-      "muscle_strength": 77.9,
-      "artistry": 74.8
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:08:49.906423+00:00",
-    "id": 1165,
-    "created_at": "2026-08-11T19:08:49.907429"
-  },
-  {
-    "total_score": 63.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 66.6,
-      "rhythm": 43.8,
-      "breath": 79.8,
-      "technique": 43.4,
-      "muscle_strength": 77.9,
-      "artistry": 74.8
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:10:03.893263+00:00",
-    "id": 1166,
-    "created_at": "2026-08-11T19:10:03.897408"
-  },
-  {
-    "analysis_id": "817252a8-9c2",
+    "analysis_id": "9cc0a258-d79",
     "filename": "恋人（高分）.mp3",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\恋人（高分）.mp3",
     "total_score": 63.7,
@@ -711,29 +130,12 @@
     },
     "duration": 275.912625,
     "is_voice": true,
-    "created_at": "2026-08-11T19:10:03.923881",
-    "id": 1167,
-    "timestamp": "2026-08-11T19:10:03.923881"
+    "created_at": "2026-08-12T17:47:45.452372",
+    "id": 3,
+    "timestamp": "2026-08-12T17:47:45.452372"
   },
   {
-    "total_score": 64.5,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 69.7,
-      "rhythm": 30.1,
-      "breath": 82.2,
-      "technique": 52.3,
-      "muscle_strength": 75.4,
-      "artistry": 72.3
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:11:05.636705+00:00",
-    "id": 1168,
-    "created_at": "2026-08-11T19:11:05.640625"
-  },
-  {
-    "analysis_id": "782b25bb-6e2",
+    "analysis_id": "5c4ac6f4-d21",
     "filename": "手写的从前（高分）.mp3",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\手写的从前（高分）.mp3",
     "total_score": 64.5,
@@ -773,29 +175,12 @@
     },
     "duration": 231.06725,
     "is_voice": true,
-    "created_at": "2026-08-11T19:11:05.667375",
-    "id": 1169,
-    "timestamp": "2026-08-11T19:11:05.667375"
+    "created_at": "2026-08-12T17:48:56.901006",
+    "id": 4,
+    "timestamp": "2026-08-12T17:48:56.901006"
   },
   {
-    "total_score": 58.9,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 9.3,
-      "breath": 75.7,
-      "technique": 46.7,
-      "muscle_strength": 71.1,
-      "artistry": 70.4
-    },
-    "timbre_adjustment": 1.0,
-    "timestamp": "2026-08-11T11:11:48.250963+00:00",
-    "id": 1170,
-    "created_at": "2026-08-11T19:11:48.253956"
-  },
-  {
-    "analysis_id": "d39665f7-6b6",
+    "analysis_id": "5ff87cbe-256",
     "filename": "陈奕迅难听之声（低分）.mp3",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\陈奕迅难听之声（低分）.mp3",
     "total_score": 58.9,
@@ -835,12 +220,12 @@
     },
     "duration": 156.16,
     "is_voice": true,
-    "created_at": "2026-08-11T19:11:48.269561",
-    "id": 1171,
-    "timestamp": "2026-08-11T19:11:48.269561"
+    "created_at": "2026-08-12T17:49:42.637414",
+    "id": 5,
+    "timestamp": "2026-08-12T17:49:42.637414"
   },
   {
-    "analysis_id": "ca619136-8f8",
+    "analysis_id": "483428ab-1b9",
     "filename": "clipped_test.wav",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\clipped_test.wav",
     "total_score": 0,
@@ -876,12 +261,12 @@
     },
     "duration": 2.0,
     "is_voice": false,
-    "created_at": "2026-08-11T19:11:48.506756",
-    "id": 1172,
-    "timestamp": "2026-08-11T19:11:48.506756"
+    "created_at": "2026-08-12T17:49:42.948526",
+    "id": 6,
+    "timestamp": "2026-08-12T17:49:42.948526"
   },
   {
-    "analysis_id": "fc1ed2a4-00c",
+    "analysis_id": "fc3d823c-d6e",
     "filename": "noise_test.wav",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\noise_test.wav",
     "total_score": 0,
@@ -917,12 +302,12 @@
     },
     "duration": 2.0,
     "is_voice": false,
-    "created_at": "2026-08-11T19:11:48.725865",
-    "id": 1173,
-    "timestamp": "2026-08-11T19:11:48.725865"
+    "created_at": "2026-08-12T17:49:43.211924",
+    "id": 7,
+    "timestamp": "2026-08-12T17:49:43.211924"
   },
   {
-    "analysis_id": "3a62448a-29b",
+    "analysis_id": "b13c42c0-d2a",
     "filename": "simulated_voice.wav",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\simulated_voice.wav",
     "total_score": 0,
@@ -958,12 +343,12 @@
     },
     "duration": 4.0,
     "is_voice": false,
-    "created_at": "2026-08-11T19:11:49.138581",
-    "id": 1174,
-    "timestamp": "2026-08-11T19:11:49.138581"
+    "created_at": "2026-08-12T17:49:43.676306",
+    "id": 8,
+    "timestamp": "2026-08-12T17:49:43.676306"
   },
   {
-    "analysis_id": "60080308-f72",
+    "analysis_id": "1c3215af-72d",
     "filename": "synthetic_test.wav",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\synthetic_test.wav",
     "total_score": 0,
@@ -999,12 +384,12 @@
     },
     "duration": 2.0,
     "is_voice": false,
-    "created_at": "2026-08-11T19:11:49.357122",
-    "id": 1175,
-    "timestamp": "2026-08-11T19:11:49.357122"
+    "created_at": "2026-08-12T17:49:43.969581",
+    "id": 9,
+    "timestamp": "2026-08-12T17:49:43.969581"
   },
   {
-    "analysis_id": "6138ed38-dfd",
+    "analysis_id": "07ad8edf-6ee",
     "filename": "test_api_audio.wav",
     "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\test_api_audio.wav",
     "total_score": 0,
@@ -1040,195 +425,360 @@
     },
     "duration": 2.0,
     "is_voice": false,
-    "created_at": "2026-08-11T19:11:49.598489",
-    "id": 1176,
-    "timestamp": "2026-08-11T19:11:49.598489"
+    "created_at": "2026-08-12T17:49:44.250617",
+    "id": 10,
+    "timestamp": "2026-08-12T17:49:44.250617"
   },
   {
-    "total_score": 63.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 66.6,
-      "rhythm": 43.8,
-      "breath": 79.8,
-      "technique": 43.4,
-      "muscle_strength": 77.9,
-      "artistry": 74.8
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:56:32.932755+00:00",
-    "id": 1177,
-    "created_at": "2026-08-11T19:56:32.933766"
-  },
-  {
-    "total_score": 64.5,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 69.7,
-      "rhythm": 30.1,
-      "breath": 82.2,
-      "technique": 52.3,
-      "muscle_strength": 75.4,
-      "artistry": 72.3
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:57:31.125233+00:00",
-    "id": 1178,
-    "created_at": "2026-08-11T19:57:31.125741"
-  },
-  {
+    "analysis_id": "fa41236b-516",
+    "filename": "vocals.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\vocals.wav",
     "total_score": 54.2,
-    "level": "中等",
-    "grade": "C",
     "scores": {
       "pitch": 72.1,
       "rhythm": 24.2,
       "breath": 45.3,
       "technique": 43.1,
       "muscle_strength": 84.0,
-      "artistry": 66.2
+      "artistry": 66.2,
+      "total": 54.2,
+      "volume": 50.0,
+      "emotion": 66.2
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:58:15.167141+00:00",
-    "id": 1179,
-    "created_at": "2026-08-11T19:58:15.168146"
-  },
-  {
-    "total_score": 54.2,
     "level": "中等",
     "grade": "C",
+    "advice": [
+      "需要加强练习，重点关注肌肉力量。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
+    ],
+    "mode": "quick",
+    "timbre_adjustment": 0.0,
+    "heuristic_dimensions": [
+      "muscle_strength",
+      "timbre"
+    ],
+    "normalization": {
+      "applied": true,
+      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
+    },
+    "basic_info": {
+      "filename": "vocals.wav",
+      "duration": "01:00",
+      "duration_seconds": 60.0,
+      "sample_rate": 16000,
+      "file_size": "5.05MB"
+    },
+    "duration": 60.0,
+    "is_voice": true,
+    "created_at": "2026-08-12T17:53:41.278013",
+    "id": 11,
+    "timestamp": "2026-08-12T17:53:41.278013"
+  },
+  {
+    "analysis_id": "1487d3c0-552",
+    "filename": "clipped_test.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\clipped_test.wav",
+    "total_score": 0,
+    "scores": {
+      "pitch": 0.0,
+      "rhythm": 0.0,
+      "breath": 0.0,
+      "technique": 0.0,
+      "muscle_strength": 0.0,
+      "artistry": 0.0,
+      "total": 0,
+      "volume": 0.0,
+      "emotion": 0.0
+    },
+    "level": "无法评分",
+    "grade": "E",
+    "advice": [
+      "未检测到有效人声，请确认上传的是歌唱音频（非纯音乐或白噪声）"
+    ],
+    "mode": "quick",
+    "timbre_adjustment": 0.0,
+    "heuristic_dimensions": [],
+    "normalization": {
+      "applied": true,
+      "note": "评分假设录音条件为标准人声拾音距离"
+    },
+    "basic_info": {
+      "filename": "clipped_test.wav",
+      "duration": "00:02",
+      "duration_seconds": 2.0,
+      "sample_rate": 16000,
+      "file_size": "0.08MB"
+    },
+    "duration": 2.0,
+    "is_voice": false,
+    "created_at": "2026-08-12T17:53:41.544302",
+    "id": 12,
+    "timestamp": "2026-08-12T17:53:41.544302"
+  },
+  {
+    "analysis_id": "9f8b2c91-50b",
+    "filename": "vocals.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\vocals.wav",
+    "total_score": 54.2,
     "scores": {
       "pitch": 72.1,
       "rhythm": 24.2,
       "breath": 45.3,
       "technique": 43.1,
       "muscle_strength": 84.0,
-      "artistry": 66.2
+      "artistry": 66.2,
+      "total": 54.2,
+      "volume": 50.0,
+      "emotion": 66.2
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T11:58:30.016156+00:00",
-    "id": 1180,
-    "created_at": "2026-08-11T19:58:30.017160"
-  },
-  {
-    "total_score": 54.2,
     "level": "中等",
     "grade": "C",
-    "scores": {
-      "pitch": 72.1,
-      "rhythm": 24.2,
-      "breath": 45.3,
-      "technique": 43.1,
-      "muscle_strength": 84.0,
-      "artistry": 66.2
-    },
+    "advice": [
+      "需要加强练习，重点关注肌肉力量。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
+    ],
+    "mode": "quick",
     "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T12:00:05.124621+00:00",
-    "id": 1181,
-    "created_at": "2026-08-11T20:00:05.125628"
+    "heuristic_dimensions": [
+      "muscle_strength",
+      "timbre"
+    ],
+    "normalization": {
+      "applied": true,
+      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
+    },
+    "basic_info": {
+      "filename": "vocals.wav",
+      "duration": "01:00",
+      "duration_seconds": 60.0,
+      "sample_rate": 16000,
+      "file_size": "5.05MB"
+    },
+    "duration": 60.0,
+    "is_voice": true,
+    "created_at": "2026-08-12T17:53:59.234156",
+    "id": 13,
+    "timestamp": "2026-08-12T17:53:59.234156"
   },
   {
-    "total_score": 54.2,
-    "level": "中等",
-    "grade": "C",
-    "scores": {
-      "pitch": 72.1,
-      "rhythm": 24.2,
-      "breath": 45.3,
-      "technique": 43.1,
-      "muscle_strength": 84.0,
-      "artistry": 66.2
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T12:00:20.513419+00:00",
-    "id": 1182,
-    "created_at": "2026-08-11T20:00:20.513927"
-  },
-  {
-    "total_score": 63.7,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 66.6,
-      "rhythm": 43.8,
-      "breath": 79.8,
-      "technique": 43.4,
-      "muscle_strength": 77.9,
-      "artistry": 74.8
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T12:02:42.550663+00:00",
-    "id": 1183,
-    "created_at": "2026-08-11T20:02:42.551671"
-  },
-  {
-    "total_score": 64.5,
-    "level": "良好",
-    "grade": "B",
-    "scores": {
-      "pitch": 69.7,
-      "rhythm": 30.1,
-      "breath": 82.2,
-      "technique": 52.3,
-      "muscle_strength": 75.4,
-      "artistry": 72.3
-    },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T12:03:41.149545+00:00",
-    "id": 1184,
-    "created_at": "2026-08-11T20:03:41.151591"
-  },
-  {
+    "analysis_id": "d6a2767c-74a",
+    "filename": "1（高分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
     "total_score": 62.1,
-    "level": "良好",
-    "grade": "B",
     "scores": {
       "pitch": 70.7,
       "rhythm": 30.4,
       "breath": 78.4,
       "technique": 45.2,
       "muscle_strength": 73.9,
-      "artistry": 73.9
+      "artistry": 73.9,
+      "total": 62.1,
+      "volume": 50.0,
+      "emotion": 73.9
     },
-    "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T12:04:45.601735+00:00",
-    "id": 1185,
-    "created_at": "2026-08-11T20:04:45.603602"
-  },
-  {
-    "total_score": 63.3,
     "level": "良好",
     "grade": "B",
-    "scores": {
-      "pitch": 67.5,
-      "rhythm": 37.1,
-      "breath": 78.7,
-      "technique": 45.0,
-      "muscle_strength": 80.4,
-      "artistry": 72.5
-    },
+    "advice": [
+      "基础尚可，建议重点提升气息。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
+    ],
+    "mode": "quick",
     "timbre_adjustment": 0.0,
-    "timestamp": "2026-08-11T12:05:36.765712+00:00",
-    "id": 1186,
-    "created_at": "2026-08-11T20:05:36.766712"
+    "heuristic_dimensions": [
+      "muscle_strength",
+      "timbre"
+    ],
+    "normalization": {
+      "applied": true,
+      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
+    },
+    "basic_info": {
+      "filename": "1（高分）.mp3",
+      "duration": "04:17",
+      "duration_seconds": 257.5325625,
+      "sample_rate": 16000,
+      "file_size": "9.83MB"
+    },
+    "duration": 257.5325625,
+    "is_voice": true,
+    "created_at": "2026-08-12T17:55:18.848160",
+    "id": 14,
+    "timestamp": "2026-08-12T17:55:18.848160"
   },
   {
-    "total_score": 58.9,
+    "analysis_id": "d0d8a8fb-8ab",
+    "filename": "1（高分）.mp3",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\1（高分）.mp3",
+    "total_score": 62.1,
+    "scores": {
+      "pitch": 70.7,
+      "rhythm": 30.4,
+      "breath": 78.4,
+      "technique": 45.2,
+      "muscle_strength": 73.9,
+      "artistry": 73.9,
+      "total": 62.1,
+      "volume": 50.0,
+      "emotion": 73.9
+    },
+    "level": "良好",
+    "grade": "B",
+    "advice": [
+      "基础尚可，建议重点提升气息。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
+    ],
+    "mode": "professional",
+    "timbre_adjustment": 0.0,
+    "heuristic_dimensions": [
+      "muscle_strength",
+      "timbre"
+    ],
+    "normalization": {
+      "applied": true,
+      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
+    },
+    "basic_info": {
+      "filename": "1（高分）.mp3",
+      "duration": "04:17",
+      "duration_seconds": 257.5325625,
+      "sample_rate": 16000,
+      "file_size": "9.83MB"
+    },
+    "duration": 257.5325625,
+    "is_voice": true,
+    "created_at": "2026-08-12T17:58:10.544599",
+    "id": 15,
+    "timestamp": "2026-08-12T17:58:10.544599"
+  },
+  {
+    "analysis_id": "362f1140-ddd",
+    "filename": "clipped_test.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\clipped_test.wav",
+    "total_score": 0,
+    "scores": {
+      "pitch": 0.0,
+      "rhythm": 0.0,
+      "breath": 0.0,
+      "technique": 0.0,
+      "muscle_strength": 0.0,
+      "artistry": 0.0,
+      "total": 0,
+      "volume": 0.0,
+      "emotion": 0.0
+    },
+    "level": "无法评分",
+    "grade": "E",
+    "advice": [
+      "未检测到有效人声，请确认上传的是歌唱音频（非纯音乐或白噪声）"
+    ],
+    "mode": "quick",
+    "timbre_adjustment": 0.0,
+    "heuristic_dimensions": [],
+    "normalization": {
+      "applied": true,
+      "note": "评分假设录音条件为标准人声拾音距离"
+    },
+    "basic_info": {
+      "filename": "clipped_test.wav",
+      "duration": "00:02",
+      "duration_seconds": 2.0,
+      "sample_rate": 16000,
+      "file_size": "0.08MB"
+    },
+    "duration": 2.0,
+    "is_voice": false,
+    "created_at": "2026-08-12T17:58:10.835569",
+    "id": 16,
+    "timestamp": "2026-08-12T17:58:10.835569"
+  },
+  {
+    "analysis_id": "ea2c09db-2aa",
+    "filename": "vocals.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\vocals.wav",
+    "total_score": 54.2,
+    "scores": {
+      "pitch": 72.1,
+      "rhythm": 24.2,
+      "breath": 45.3,
+      "technique": 43.1,
+      "muscle_strength": 84.0,
+      "artistry": 66.2,
+      "total": 54.2,
+      "volume": 50.0,
+      "emotion": 66.2
+    },
     "level": "中等",
     "grade": "C",
-    "scores": {
-      "pitch": 66.4,
-      "rhythm": 9.3,
-      "breath": 75.7,
-      "technique": 46.7,
-      "muscle_strength": 71.1,
-      "artistry": 70.4
+    "advice": [
+      "需要加强练习，重点关注肌肉力量。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
+    ],
+    "mode": "quick",
+    "timbre_adjustment": 0.0,
+    "heuristic_dimensions": [
+      "muscle_strength",
+      "timbre"
+    ],
+    "normalization": {
+      "applied": true,
+      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
     },
-    "timbre_adjustment": 1.0,
-    "timestamp": "2026-08-11T12:06:14.702345+00:00",
-    "id": 1187,
-    "created_at": "2026-08-11T20:06:14.703351"
+    "basic_info": {
+      "filename": "vocals.wav",
+      "duration": "01:00",
+      "duration_seconds": 60.0,
+      "sample_rate": 16000,
+      "file_size": "5.05MB"
+    },
+    "duration": 60.0,
+    "is_voice": true,
+    "created_at": "2026-08-13T16:07:59.521540",
+    "id": 17,
+    "timestamp": "2026-08-13T16:07:59.521540"
+  },
+  {
+    "analysis_id": "23239eaf-bc1",
+    "filename": "vocals.wav",
+    "filepath": "C:\\Users\\jack\\Desktop\\临时文件\\声乐\\vocal_assessment_light\\uploads\\vocals.wav",
+    "total_score": 54.2,
+    "scores": {
+      "pitch": 72.1,
+      "rhythm": 24.2,
+      "breath": 45.3,
+      "technique": 43.1,
+      "muscle_strength": 84.0,
+      "artistry": 66.2,
+      "total": 54.2,
+      "volume": 50.0,
+      "emotion": 66.2
+    },
+    "level": "中等",
+    "grade": "C",
+    "advice": [
+      "需要加强练习，重点关注肌肉力量。",
+      "节奏建议：跟着节拍器练习，从慢速开始。注意切分音和休止符的准确性。"
+    ],
+    "mode": "quick",
+    "timbre_adjustment": 0.0,
+    "heuristic_dimensions": [
+      "muscle_strength",
+      "timbre"
+    ],
+    "normalization": {
+      "applied": true,
+      "note": "评分假设录音条件为标准人声拾音距离，已进行响度归一化减少录音条件差异。max_db_level 等绝对值指标受归一化影响，不作为绝对声压级测量。"
+    },
+    "basic_info": {
+      "filename": "vocals.wav",
+      "duration": "01:00",
+      "duration_seconds": 60.0,
+      "sample_rate": 16000,
+      "file_size": "5.05MB"
+    },
+    "duration": 60.0,
+    "is_voice": true,
+    "created_at": "2026-08-13T16:08:12.182056",
+    "id": 18,
+    "timestamp": "2026-08-13T16:08:12.182056"
   }
 ]
