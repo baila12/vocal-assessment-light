@@ -193,6 +193,14 @@ class ScoringOrchestrator:
         result["stars"] = self._stars_for_score(result["total_score"])
         result["heuristic_dimensions"] = heuristic_dimensions
 
+        # v7.16 P2-15 Phase 3: 逐维诊断补全 (旧 calculate() 经 _make_diagnosis 输出,
+        # calculate_ddd 遗漏 → 前端诊断 block 恒空)
+        result["pitch_diagnosis"] = self._make_diagnosis(ps, "mae_cents")
+        result["rhythm_diagnosis"] = self._make_diagnosis(rs, "deviation_ratio")
+        result["breath_diagnosis"] = self._make_diagnosis(bs)
+        result["technique_diagnosis"] = self._make_diagnosis(ts)
+        result["artistry_diagnosis"] = self._make_diagnosis(ars)
+
         # 兼容字段
         result["pitch"] = result["pitch_score"]
         result["rhythm"] = result["rhythm_score"]
@@ -210,14 +218,8 @@ class ScoringOrchestrator:
         return result
 
     # ================================================================
-    # 各维度评分 (内部方法)
-    # ================================================================
-
-    # ================================================================
     # 辅助方法
     # ================================================================
-
-    @staticmethod
 
     @staticmethod
     def _stars_for_score(total: float) -> str:
@@ -227,8 +229,6 @@ class ScoringOrchestrator:
         if total >= 45: return "★☆"
         if total >= 25: return "★"
         return "☆"
-
-    @staticmethod
 
     @staticmethod
     def _make_diagnosis(score_obj, extra_field: str | None = None) -> dict:
