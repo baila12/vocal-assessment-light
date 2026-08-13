@@ -17,28 +17,19 @@ from services.feature_flags import FeatureFlags
 from api.response_builder import AnalysisResult, build_response
 
 # v7.1.4 DDD 特征提取 + 评分编排器 (唯一路径 — V4 回退已移除)
-from backend.shared.event_bus import EventBus
+# v7.16 P2-15 Phase 0b: 移除 EventBus 历史自动保存订阅 — 历史由路由 _save_history
+# 单一负责 (双写 bug 修复: 旧代码每次评分写无 analysis_id 的垃圾记录挤占历史槽位)。
 from backend.application.assessment.scoring_orchestrator import ScoringOrchestrator
 from backend.application.assessment.ddd_feature_orchestrator import (
     DddFeatureExtractionOrchestrator,
 )
 from backend.domain.assessment.feature_flags import DimensionFlags
 
-_event_bus = EventBus()
-ddd_orchestrator = ScoringOrchestrator(event_bus=_event_bus)
+ddd_orchestrator = ScoringOrchestrator()
 # v7.7: 启用 audiofeat CPPS/GNE/HNR_praat 增强 (所有消费者有安全零值回退)
 _ddd_feature_extractor = DddFeatureExtractionOrchestrator(
     flags=DimensionFlags(enable_audiofeat=True)
 )
-
-# 注册历史记录自动保存
-from repositories.history_repository import JsonHistoryRepository
-_history_repo = JsonHistoryRepository(
-    str(config.HISTORY_FILE),
-    config.HISTORY_MAX_RECORDS
-)
-from backend.application.assessment.history_subscriber import HistoryEventSubscriber
-HistoryEventSubscriber(_history_repo, upload_dir=str(config.UPLOAD_FOLDER)).subscribe_to(_event_bus)
 
 logger = logging.getLogger(__name__)
 
