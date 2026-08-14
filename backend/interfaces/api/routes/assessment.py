@@ -174,14 +174,12 @@ async def upload_audio(
     content = await file.read()
     filepath.write_bytes(content)
 
-    # 可选参考音频
-    reference_path = None
+    # 可选参考音频 (v7.16 Phase 5.3: analyze_and_score 不再消费 reference_path, 上传保留向后兼容)
     if reference_file and reference_file.filename and config.is_allowed_extension(reference_file.filename):
         ref_safe = sanitize_filename(reference_file.filename)
         ref_path = config.get_upload_path(ref_safe)
         ref_content = await reference_file.read()
         ref_path.write_bytes(ref_content)
-        reference_path = str(ref_path)
 
     try:
         from api.business import analyze_and_score
@@ -191,7 +189,6 @@ async def upload_audio(
             analyze_and_score,
             str(filepath),
             mode=mode,
-            reference_path=reference_path,
             feature_flags=FeatureFlags.for_quick() if mode == 'quick' else FeatureFlags.for_professional(),
         )
     except Exception:
@@ -265,14 +262,7 @@ async def analyze_file(
     """分析已存在的音频文件"""
     filepath_obj = validate_filepath(body.filepath, config)
 
-    ref_path = None
-    if body.reference_filepath:
-        try:
-            ref_obj = validate_filepath(body.reference_filepath, config)
-            ref_path = str(ref_obj)
-        except Exception:
-            pass
-
+    # v7.16 Phase 5.3: analyze_and_score 不再消费 reference_filepath (body 字段保留向后兼容)
     try:
         from api.business import analyze_and_score
         from services.feature_flags import FeatureFlags
@@ -281,7 +271,6 @@ async def analyze_file(
             analyze_and_score,
             str(filepath_obj),
             mode=body.mode,
-            reference_path=ref_path,
             feature_flags=FeatureFlags.for_quick() if body.mode == 'quick' else FeatureFlags.for_professional(),
         )
     except Exception:

@@ -36,14 +36,16 @@ class TestTechniqueScorer:
         assert result.breath_voice_ratio >= 55  # v7.4: CPPS (~35) + HNR (~25) = ~60
 
     def test_breath_voice_ratio_breathy(self):
+        """v7.17: tilt/hf 改质量组件后, 气声 (强负 tilt + 高 hf) 仍扣分但非崩溃"""
         f = make_features(hnr_mean=4.0, spectral_tilt=-8.0, hf_energy_ratio=0.8)
         result = self.scorer.calculate(f)
-        assert result.breath_voice_ratio < 50
+        assert 40 <= result.breath_voice_ratio < 80  # 气声 → 中等偏低 (非 <50)
 
     def test_breath_voice_ratio_unnatural_high(self):
-        f = make_features(hnr_mean=35.0)
+        """高 HNR + 气声 tilt (压嗓/漏气) → 不高分"""
+        f = make_features(hnr_mean=35.0, spectral_tilt=-12.0, hf_energy_ratio=0.6)
         result = self.scorer.calculate(f)
-        assert result.breath_voice_ratio < 90  # too "hard" = unnatural
+        assert result.breath_voice_ratio < 90  # 高 HNR 但强负 tilt → 非满分
 
     def test_combined_5050_weighting(self):
         f = make_features(consonant_clarity=60.0, hnr_mean=18.0)
@@ -86,28 +88,50 @@ class TestTechniqueScorer:
         assert result.breath_voice_ratio >= 30  # v7.6: HNR graduated fallback
 
     def test_breath_voice_cpps_low(self):
-        """CPPS<3 → 极气息感，低分"""
+        """v7.17: CPPS 极低仍扣分 (CPP 分量低), 但干净 tilt/hf 兜底"""
         f = make_features(hnr_mean=10.0, cpp_mean=2.0, spectral_tilt=0.0, hf_energy_ratio=0.4)
         result = self.scorer.calculate(f)
-        assert result.breath_voice_ratio < 45
+        assert result.breath_voice_ratio >= 40  # cpp 2 惩罚但仍非崩溃
 
     def test_breath_voice_cpps_weight_40_percent(self):
-        """CPPS 12+ 单独贡献约 40 分 (含 spectral/hf 默认)"""
+        """v7.17: CPPS 12+ 满分 40 + 干净 tilt/hf (35) → 高分"""
         f = make_features(hnr_mean=0.0, cpp_mean=12.0, spectral_tilt=0.0, hf_energy_ratio=0.4)
         result = self.scorer.calculate(f)
-        assert 35 <= result.breath_voice_ratio <= 60
+        assert 65 <= result.breath_voice_ratio <= 85
 
     def test_hnr_no_longer_70_percent(self):
-        """HNR 最优不再贡献 70 分 (现在 CPPS 为主特征)"""
+        """v7.17: CPPS=0 时 HNR fallback 45 + 干净 tilt/hf 35 → 高分 (非 70 封顶)"""
         f = make_features(hnr_mean=18.0, cpp_mean=0.0, spectral_tilt=0.0, hf_energy_ratio=0.4)
         result = self.scorer.calculate(f)
-        assert result.breath_voice_ratio < 70
+        assert result.breath_voice_ratio >= 70
 
     def test_breath_voice_cpps_mid_range(self):
-        """CPPS 5-8 中段 → 部分分数"""
+        """v7.17: CPPS 6.5 中段 → 部分分数但干净 tilt/hf 推高"""
         f = make_features(hnr_mean=15.0, cpp_mean=6.5, spectral_tilt=0.0, hf_energy_ratio=0.4)
         result = self.scorer.calculate(f)
-        assert 25 <= result.breath_voice_ratio <= 65
+        assert 75 <= result.breath_voice_ratio <= 100
+
+    # ---- v7.17: 结构性封顶修复 (tilt/hf 只罚不奖 → 质量组件) ----
+
+    def test_breath_voice_clean_no_structural_cap(self):
+        """干净人声 (CPP 高分 + HNR 高分 + 中性 tilt/hf) → 气声比 > 65 (旧封顶 65)"""
+        f = make_features(hnr_mean=25.0, cpp_mean=10.0, spectral_tilt=0.0, hf_energy_ratio=0.3)
+        result = self.scorer.calculate(f)
+        assert result.breath_voice_ratio > 65, (
+            f"旧实现 tilt/hf 只罚不奖 → 完美人声封顶 65; 现在应 >65, 实际 {result.breath_voice_ratio}"
+        )
+
+    def test_breath_voice_clean_tilt_gets_credit(self):
+        """干净 tilt (≥-4) 得满分 20 分贡献 (旧实现给 0)"""
+        f = make_features(hnr_mean=0.0, cpp_mean=0.0, spectral_tilt=-2.0, hf_energy_ratio=0.3)
+        result = self.scorer.calculate(f)
+        assert result.breath_voice_ratio >= 30  # tilt 20 + hf 15 (HNR/CPP 0)
+
+    def test_breath_voice_clean_hf_gets_credit(self):
+        """低 hf (≤0.4, 无气声噪声) 得满分 15 分贡献 (旧实现给 0)"""
+        f = make_features(hnr_mean=0.0, cpp_mean=0.0, spectral_tilt=-8.0, hf_energy_ratio=0.2)
+        result = self.scorer.calculate(f)
+        assert result.breath_voice_ratio >= 15  # hf 15 + tilt 部分
 
     def test_breath_voice_cpps_fallback_higher_weight(self):
         """CPPS=0 时 HNR 18 得比分比 CPPS=6.5 时 HNR 18 得分更低 (因为 CPPS 主特征缺失)"""
@@ -213,7 +237,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_audiofeat_shimmer_low_boosts_breath_voice(self):
         """Shimmer<0.1dB → 极稳定振幅, 加分"""
-        f = make_features(hnr_mean=18.0)
+        f = make_features(hnr_mean=10.0, cpp_mean=6.0)  # v7.17: bv ~85 留上调空间
         af = _make_audiofeat(shimmer_db=0.05)
         result = self.scorer.calculate(f, audiofeat=af)
         result_no_af = self.scorer.calculate(f)
@@ -221,7 +245,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_audiofeat_shimmer_high_penalizes(self):
         """Shimmer>0.5dB → 振幅不稳定, 扣分"""
-        f = make_features(hnr_mean=18.0)
+        f = make_features(hnr_mean=10.0, cpp_mean=6.0)  # v7.17: bv 留下调空间 (旧 hnr18→bv100 无法扣)
         af = _make_audiofeat(shimmer_db=0.7)
         result = self.scorer.calculate(f, audiofeat=af)
         result_no_af = self.scorer.calculate(f)
@@ -231,7 +255,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_audiofeat_closed_quotient_optimal_boosts(self):
         """CQ 0.4-0.6 → 高效发声, 加分"""
-        f = make_features(hnr_mean=18.0)
+        f = make_features(hnr_mean=10.0, cpp_mean=6.0)  # v7.17: bv ~85 留上调空间
         af = _make_audiofeat(closed_quotient=0.5)
         result = self.scorer.calculate(f, audiofeat=af)
         result_no_af = self.scorer.calculate(f)
@@ -239,7 +263,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_audiofeat_closed_quotient_low_penalizes(self):
         """CQ<0.2 → 声门闭合不足, 扣分"""
-        f = make_features(hnr_mean=18.0)
+        f = make_features(hnr_mean=10.0, cpp_mean=6.0)  # v7.17: bv 留下调空间
         af = _make_audiofeat(closed_quotient=0.1)
         result = self.scorer.calculate(f, audiofeat=af)
         result_no_af = self.scorer.calculate(f)
@@ -258,7 +282,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_gne_high_boosts_breath_voice(self):
         """GNE > 0.8 → 优秀声门控制, 气声比加分 (AROC=0.886, Michaelis 1997)"""
-        f = make_features(hnr_mean=18.0, cpp_mean=10.0)
+        f = make_features(hnr_mean=10.0, cpp_mean=6.0)  # v7.17: bv ~85 留上调空间
         af = _make_audiofeat(gne_mean=0.90)
         result = self.scorer.calculate(f, audiofeat=af)
         result_no_af = self.scorer.calculate(f)
@@ -266,7 +290,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_gne_low_penalizes_breath_voice(self):
         """GNE < 0.4 → 不可控漏气, 气声比扣分"""
-        f = make_features(hnr_mean=18.0, cpp_mean=10.0)
+        f = make_features(hnr_mean=10.0, cpp_mean=6.0)  # v7.17: bv 留下调空间
         af = _make_audiofeat(gne_mean=0.30)
         result = self.scorer.calculate(f, audiofeat=af)
         result_no_af = self.scorer.calculate(f)
@@ -274,7 +298,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_gne_moderate_no_effect(self):
         """GNE 0.4-0.8 → 中性范围, 不影响气声比"""
-        f = make_features(hnr_mean=18.0, cpp_mean=10.0)
+        f = make_features(hnr_mean=10.0, cpp_mean=6.0)
         af = _make_audiofeat(gne_mean=0.60)
         result = self.scorer.calculate(f, audiofeat=af)
         result_no_af = self.scorer.calculate(f)
@@ -282,7 +306,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_gne_zero_no_effect(self):
         """GNE=0 (audiofeat 不可用) → 不影响评分"""
-        f = make_features(hnr_mean=18.0, cpp_mean=10.0)
+        f = make_features(hnr_mean=10.0, cpp_mean=6.0)
         af = _make_audiofeat(gne_mean=0.0)
         result = self.scorer.calculate(f, audiofeat=af)
         result_no_af = self.scorer.calculate(f)
@@ -290,7 +314,7 @@ class TestTechniqueScorerAudiofeat:
 
     def test_gne_combined_with_existing_audiofeat(self):
         """GNE + Jitter/Shimmer/CQ 联合作用, 分数仍在 [0, 100]"""
-        f = make_features(consonant_clarity=70.0, hnr_mean=25.0, cpp_mean=10.0)
+        f = make_features(consonant_clarity=70.0, hnr_mean=10.0, cpp_mean=6.0)  # v7.17: bv ~85
         af = _make_audiofeat(
             gne_mean=0.90,       # 优秀声门控制 → 气声比加分
             jitter_local=0.3,    # 极稳定 → 咬字加分

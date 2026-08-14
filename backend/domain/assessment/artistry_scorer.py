@@ -110,9 +110,14 @@ class ArtistryScorer:
 
     @staticmethod
     def _calc_dynamic(dynamic_range: float, crescendo_quality: float) -> float:
-        """动态控制 = dynamic_range映射 + crescendo_quality映射"""
-        score = min(60.0, dynamic_range * 2.0)
-        score += crescendo_quality * 0.40
+        """动态控制 = dynamic_range映射 + crescendo_quality映射
+
+        v7.17 B4: 斜率 2.0→2.6, crescendo 权重 0.40→0.45, 上限 60→70 —
+        实测高分真实音频 dynamic_range 20-25dB / crescendo 57-61, 旧曲线仅得 ~60-65
+        (典型歌声动态 18-25dB, 文献 Canazza 2014)。
+        """
+        score = min(70.0, dynamic_range * 2.6)
+        score += crescendo_quality * 0.45
         return min(100.0, score)
 
     @staticmethod
@@ -129,8 +134,9 @@ class ArtistryScorer:
         """
         score = coherence * 0.55
         # v7.6: 优先使用连续分数 (0→0, 100→25), fallback 到旧布尔
+        # v7.17 B4: 波动权重 0.25→0.30 (实测高分 afs 38-53, 旧曲线贡献偏低)
         if artistic_fluctuation_score > 0:
-            score += artistic_fluctuation_score * 0.25
+            score += artistic_fluctuation_score * 0.30
         elif is_artistic:
             score += 25.0  # backward compat
         # v7.6: rubato 贡献 (最多 10 分), 仅在检测到 onset 变化时激活
@@ -142,7 +148,11 @@ class ArtistryScorer:
 
     @staticmethod
     def _calc_pitch_variation(pitch_cv: float) -> float:
-        """音高变化表现力 — dual折线映射: 低区上升, 中区平台, 高区下降"""
+        """音高变化表现力 — dual折线映射: 低区上升, 中区平台, 高区下降
+
+        v7.17 B4: 高区斜率 80→55, 顶 90→92 — 实测高分音频 pitch_cv ~0.5 (真实演唱
+        自然音高波动), 旧曲线 0.5 仅得 66, 新曲线得 ~75 (Sundberg 1987 表现力)。
+        """
         if pitch_cv <= 0:
             return 0.0
         if pitch_cv < 0.03:
@@ -150,6 +160,6 @@ class ArtistryScorer:
         elif pitch_cv < 0.10:
             return 20.0 + (pitch_cv - 0.03) / 0.07 * 50  # 0.03→20, 0.10→70
         elif pitch_cv < 0.20:
-            return 70.0 + (pitch_cv - 0.10) / 0.10 * 20  # 0.10→70, 0.20→90
+            return 70.0 + (pitch_cv - 0.10) / 0.10 * 22  # 0.10→70, 0.20→92
         else:
-            return max(30.0, 90.0 - (pitch_cv - 0.20) * 80)
+            return max(30.0, 92.0 - (pitch_cv - 0.20) * 55)

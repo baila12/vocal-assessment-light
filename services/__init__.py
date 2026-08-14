@@ -15,8 +15,7 @@ def __getattr__(name):
         # v7.16 P2-15 Phase 1: AdviceService 迁入 DDD application (AdviceGenerator)
         "VisualizationService": ".visualization_service",
         "VisualizationResult": ".visualization_service",
-        "TimbreService": ".timbre_service",
-        "TimbreResult": ".timbre_service",
+        # v7.16 P2-15 Phase 2: TimbreService 已删 — 音色展示由 DDD calculate_ddd timbre_detail 组装
         "PhraseService": ".phrase_service",
         "PhraseResult": ".phrase_service",
         "PhraseScore": ".phrase_service",
@@ -32,7 +31,6 @@ __all__ = [
     "AudioService", "AudioAnalysisResult",
     "VisualizationService", "VisualizationResult",
     "SeparationService", "SeparationResult",
-    "TimbreService", "TimbreResult",
     "PhraseService", "PhraseResult", "PhraseScore",
     "ReportService", "ReportResult",
     "VoiceQualityService", "VoiceQualityResult",

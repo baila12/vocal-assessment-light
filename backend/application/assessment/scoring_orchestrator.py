@@ -175,6 +175,9 @@ class ScoringOrchestrator:
                                 warmth_score=0.0, nasality_score=0.0,
                                 confidence=0.0, is_heuristic=True)
         result["timbre_adjustment"] = ta.adjustment
+        # v7.16 P2-15 Phase 2: 完整音色展示 dict (消除 TimbreService 双轨) —
+        # 保持旧 TimbreResult 9 键契约, 由 DDD 产物 (ta 质量分 + technique/audiofeat) 组装
+        result["timbre_detail"] = self._build_timbre_detail(ta, technique, audiofeat)
 
         # 加权总分
         result["total_score"] = self._domain_service.calculate_total(
@@ -247,3 +250,58 @@ class ScoringOrchestrator:
         if extra_field:
             result[extra_field] = getattr(score_obj, extra_field, 0.0)
         return result
+
+    @staticmethod
+    def _build_timbre_detail(ta, features_technique, audiofeat) -> dict:
+        """从 DDD 产物组装音色展示 dict (v7.16 P2-15 Phase 2)。
+
+        保持旧 services/timbre_service.TimbreResult 的 9 键契约:
+          brightness/warmth/nasality — ta 的 0-100 质量分 (高=好) 映射到 0-1
+          hnr — audiofeat.hnr_mean (无则 technique.hnr_mean)
+          breathiness — audiofeat.spectral_flatness_mean proxy (DDD 无直接气声测量)
+          vibrato_rate — technique.vibrato_rate_avg
+          vibrato_extent/vibrato_count — DDD 无等价物, 占位 0
+        """
+        brightness = getattr(ta, 'brightness_score', 0.0)
+        warmth = getattr(ta, 'warmth_score', 0.0)
+        nasality = getattr(ta, 'nasality_score', 0.0)
+
+        hnr = 0.0
+        if audiofeat is not None and getattr(audiofeat, 'hnr_mean', 0) > 0:
+            hnr = getattr(audiofeat, 'hnr_mean', 0.0)
+        elif features_technique is not None:
+            hnr = getattr(features_technique, 'hnr_mean', 0.0)
+
+        breathiness = getattr(audiofeat, 'spectral_flatness_mean', 0.0) if audiofeat else 0.0
+
+        vibrato_rate = 0.0
+        if features_technique is not None:
+            vibrato_rate = getattr(features_technique, 'vibrato_rate_avg', 0.0)
+
+        # 风格标签 — 从质量分派生 (旧 _generate_style_label 的简化映射)
+        style_tags = []
+        if brightness >= 80:
+            style_tags.append("明亮")
+        elif brightness < 30:
+            style_tags.append("柔和")
+        if warmth >= 60:
+            style_tags.append("厚实")
+        elif warmth < 30:
+            style_tags.append("单薄")
+        if nasality >= 80:
+            style_tags.append("纯净")
+        elif nasality < 30:
+            style_tags.append("鼻音")
+        style = "、".join(style_tags) if style_tags else "中性音色"
+
+        return {
+            "brightness": round(min(1.0, max(0.0, brightness / 100.0)), 3),
+            "warmth": round(min(1.0, max(0.0, warmth / 100.0)), 3),
+            "nasality": round(min(1.0, max(0.0, nasality / 100.0)), 3),
+            "breathiness": round(min(1.0, max(0.0, float(breathiness))), 3),
+            "hnr": round(float(hnr), 2),
+            "vibrato_rate": round(float(vibrato_rate), 2),
+            "vibrato_extent": 0.0,
+            "vibrato_count": 0,
+            "style": style,
+        }

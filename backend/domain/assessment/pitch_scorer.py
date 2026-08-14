@@ -18,7 +18,10 @@ import numpy as np
 
 from backend.domain.assessment.value_objects import PitchScore
 
-_MAE_TAU = 40.0  # 指数衰减时间常数
+# v7.17 B1: MAE→分数从指数 (exp(-mae/40), 24 音分仅得 ~55) 改为分段线性
+# (10→95, 25→85, 40→70, 60→50)。文献: 真实演唱含颤音/滑音, MAE 20-30 音分为
+# 良好水平 (Wager et al. 2022), 应得 ~85 而非 55。
+_MAE_WOBBLE_THRESHOLD = 15.0  # v7.17 B1: 长音波动惩罚阈值 10→15 音分 (软化)
 
 
 @dataclass(frozen=True)
@@ -36,14 +39,32 @@ class PitchFeatures:
     pitch_wobble: float = 0.0
 
 
+def _mae_to_score(mae: float) -> float:
+    """MAE (音分) → 分数 (v7.17 B1 分段线性, 替换旧指数 exp(-mae/40))。
+
+    阈值依据: Wager et al. (2022) — 良好演唱平均偏差 20-30 音分 (含颤音/滑音);
+    Cao et al. (2008) — MAE 30 音分以下为良好。
+    """
+    if mae <= 5.0:
+        return 100.0
+    elif mae <= 25.0:
+        return 100.0 - (mae - 5.0) / 20.0 * 15.0    # 5→100, 25→85
+    elif mae <= 40.0:
+        return 85.0 - (mae - 25.0) / 15.0 * 15.0    # 25→85, 40→70
+    elif mae <= 60.0:
+        return 70.0 - (mae - 40.0) / 20.0 * 20.0    # 40→70, 60→50
+    else:
+        return max(20.0, 50.0 - (mae - 60.0) * 1.5)
+
+
 class PitchScorer:
     """音准评分器 — 纯计算, 零副作用"""
 
     def calculate(self, features: PitchFeatures) -> PitchScore:
         mae = features.mae_cents
 
-        # 1. MAE 指数衰减 (40%)
-        mae_score = 100.0 * np.exp(-mae / _MAE_TAU)
+        # 1. MAE 分段线性 (40%) — v7.17 B1: 放宽曲线 (旧指数 exp(-mae/40) 过严)
+        mae_score = _mae_to_score(mae)
 
         # 2. RPA (25%)
         rpa_score = max(0.0, features.rpa) * 100.0
@@ -101,10 +122,10 @@ class PitchScorer:
                     f"换声区存在{features.pitch_breaks}处音高断层"
                 )
 
-        # Pitch wobble 惩罚
-        wobble_threshold = 10.0
+        # Pitch wobble 惩罚 (v7.17 B1: 阈值 10→15, 斜率 0.3→0.2 — 真实长音含自然颤音)
+        wobble_threshold = _MAE_WOBBLE_THRESHOLD
         if features.pitch_wobble > wobble_threshold:
-            penalty = min(10, (features.pitch_wobble - wobble_threshold) * 0.3)
+            penalty = min(8, (features.pitch_wobble - wobble_threshold) * 0.2)
             score -= penalty
             diagnosis.append(
                 f"长音波动较大({features.pitch_wobble:.0f}音分)"

@@ -34,6 +34,7 @@ class LibrosaTechniqueExtractor:
         acoustic: AcousticFeatures,
         f0: np.ndarray | None = None,
         onset_density: float | None = None,
+        is_clean_vocal: bool = False,  # v7.17 A2: 混音/分离标记
     ) -> TechniqueFeatures:
         """提取发声技术特征 — 内移自 TechniqueAnalyzer + adapter 公式。"""
         import librosa
@@ -149,6 +150,7 @@ class LibrosaTechniqueExtractor:
             spectral_centroid=round(spectral_centroid, 2),
             cv_energy_ratio=round(cv_energy_ratio, 4),
             attack_slope=round(attack_slope, 2),  # v7.6: 起音斜率
+            is_clean_vocal=is_clean_vocal,  # v7.17 A2
         )
 
     @staticmethod

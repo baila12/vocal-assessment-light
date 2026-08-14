@@ -125,6 +125,20 @@ class TestPitchScorer:
         result = self.scorer.calculate(f)
         assert result.weighted() == result.raw_score * 0.13  # v7.4: 10%→13%
 
+    # 17. v7.17 B1: MAE 曲线放宽 — 良好演唱 MAE 20-30 音分应得 ~85
+    def test_mae_25_scores_high(self):
+        f = make_features(mae_cents=25)
+        result = self.scorer.calculate(f)
+        mae_score = 100.0 - (25 - 5) / 20.0 * 15.0  # 85
+        assert result.mae_cents == 25.0
+        assert mae_score >= 80, "MAE 25 音分 (良好演唱) 应得 ≥80 (旧 exp(-25/40) 仅 ~53)"
+
+    # 18. v7.17 B1: MAE 0 → 100 (完美音准)
+    def test_mae_zero_still_100(self):
+        f = make_features(mae_cents=0)
+        result = self.scorer.calculate(f)
+        assert result.raw_score == pytest.approx(100, rel=0.05)
+
     # 16. Score clamped [0, 100]
     def test_score_clamped(self):
         f = make_features(

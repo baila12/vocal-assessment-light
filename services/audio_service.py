@@ -101,6 +101,7 @@ class AudioAnalysisResult:
     # 人声分离 v5.10
     _used_separation: bool = False  # 是否使用了人声分离
     _separated_vocals_path: Optional[str] = field(default=None, repr=False)  # 分离后的人声路径
+    _accompaniment_path: Optional[str] = field(default=None, repr=False)  # 分离后的伴奏路径 (v7.17 节拍锚定节奏)
     _is_mixed_audio: bool = False  # 是否检测为混合音频
     _mixed_audio_confidence: float = 0.0  # 混合音频检测置信度
 
@@ -205,11 +206,12 @@ class AudioService:
             )
 
             # ========== v5.10 评分预处理：检测混合音频并按需分离人声 ==========
-            scoring_audio, scoring_sr, separated_path, used_sep, is_mixed, mixed_conf = \
+            scoring_audio, scoring_sr, separated_path, accompaniment_path, used_sep, is_mixed, mixed_conf = \
                 self._preprocess_for_scoring(filepath, audio_data, sample_rate, quick_mode)
 
             result._used_separation = used_sep
             result._separated_vocals_path = separated_path
+            result._accompaniment_path = accompaniment_path  # v7.17: 节拍锚定节奏用
             result._is_mixed_audio = is_mixed
             result._mixed_audio_confidence = mixed_conf
 
@@ -647,11 +649,12 @@ class AudioService:
             quick_mode: 快速模式（跳过分离以避免耗时）
 
         Returns:
-            (audio_data, sample_rate, separated_vocals_path, used_separation, is_mixed, mixed_confidence)
+            (audio_data, sample_rate, separated_vocals_path, accompaniment_path,
+             used_separation, is_mixed, mixed_confidence)
         """
         # 快速模式跳过耗时分离
         if quick_mode:
-            return audio_data, sample_rate, None, False, False, 0.0
+            return audio_data, sample_rate, None, None, False, False, 0.0
 
         # 检测是否为混合音频
         # 使用已加载的音频数据 (16kHz) 进行检测, 避免额外 I/O
@@ -664,11 +667,11 @@ class AudioService:
             )
         except Exception:
             logger.warning("Mixed audio detection failed, skipping separation", exc_info=True)
-            return audio_data, sample_rate, None, False, False, 0.0
+            return audio_data, sample_rate, None, None, False, False, 0.0
 
         if not is_mixed or confidence < 0.5:
             logger.debug(f"纯人声或低混合置信度 (confidence={confidence:.2f}), 跳过分离")
-            return audio_data, sample_rate, None, False, is_mixed, confidence
+            return audio_data, sample_rate, None, None, False, is_mixed, confidence
 
         logger.info(f"检测到混合音频 (confidence={confidence:.2f}), 开始 Demucs 分离...")
 
@@ -686,7 +689,7 @@ class AudioService:
 
             if not sep_result.success or not sep_result.vocals_path:
                 logger.warning(f"Demucs 分离失败: {sep_result.error_message}, 回退到原始音频")
-                return audio_data, sample_rate, None, False, is_mixed, confidence
+                return audio_data, sample_rate, None, None, False, is_mixed, confidence
 
             # 加载分离后的人声（vocals_path 现在是文件系统绝对路径）
             vocals_full_path = Path(sep_result.vocals_path)
@@ -695,7 +698,7 @@ class AudioService:
                 vocals_full_path = Path(self.config.PROJECT_ROOT) / sep_result.vocals_path.lstrip('/')
             if not vocals_full_path.exists():
                 logger.warning(f"分离文件不存在: {vocals_full_path}, 回退到原始音频")
-                return audio_data, sample_rate, None, False, is_mixed, confidence
+                return audio_data, sample_rate, None, None, False, is_mixed, confidence
 
             # P2-11: 一步加载到 TARGET_SR（与主流程一致）
             vocals_audio, vocals_sr = librosa.load(str(vocals_full_path), sr=TARGET_SR, mono=True)
@@ -705,11 +708,12 @@ class AudioService:
                 f"分离人声={len(vocals_audio)/vocals_sr:.1f}s"
             )
 
-            return vocals_audio, vocals_sr, str(vocals_full_path), True, is_mixed, confidence
+            accomp_path = str(sep_result.accompaniment_path) if sep_result.accompaniment_path else None
+            return vocals_audio, vocals_sr, str(vocals_full_path), accomp_path, True, is_mixed, confidence
 
         except Exception as e:
             logger.warning(f"Demucs 分离异常: {e}, 回退到原始音频")
-            return audio_data, sample_rate, None, False, is_mixed, confidence
+            return audio_data, sample_rate, None, None, False, is_mixed, confidence
 
     # ========== 深度学习服务辅助方法 v5.18 (委托给 AudioDLHelpers) ==========
 

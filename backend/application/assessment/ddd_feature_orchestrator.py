@@ -87,8 +87,14 @@ class DddFeatureExtractionOrchestrator:
         f0: Optional[np.ndarray] = None,
         voiced_flags: Optional[np.ndarray] = None,
         is_clean_vocal: bool = False,
+        accompaniment: Optional[np.ndarray] = None,  # v7.17: 伴奏轨 (节拍锚定节奏)
+        accompaniment_sr: Optional[int] = None,
     ) -> DddFeatureSet:
-        """提取全部 7 个维度的特征。"""
+        """提取全部 7 个维度的特征。
+
+        v7.17: 可选伴奏轨 — pro 分离模式传 Demucs 伴奏, 节奏提取用节拍锚定
+        (修复分离后 rhythm 崩坍); quick 不传 → 混音路径。
+        """
         n_samples = len(y)
 
         # Default F0 if not provided
@@ -111,12 +117,16 @@ class DddFeatureExtractionOrchestrator:
 
         # Level 1: Pitch + Rhythm (独立)
         pitch = self._pitch.extract(y, sr, f0, voiced_flags)
-        rhythm = self._rhythm.extract(y, sr, f0=f0, voiced_flags=voiced_flags, is_clean_vocal=is_clean_vocal)
+        rhythm = self._rhythm.extract(
+            y, sr, f0=f0, voiced_flags=voiced_flags, is_clean_vocal=is_clean_vocal,
+            accompaniment=accompaniment, accompaniment_sr=accompaniment_sr,  # v7.17 节拍锚定
+        )
 
         # Level 2: Breath + Technique + Timbre (依赖 Acoustic)
         breath = self._breath.extract(y, sr, acoustic, f0=f0, is_clean_vocal=is_clean_vocal)
         technique = self._technique.extract(y, sr, acoustic, f0=f0,
-                                            onset_density=rhythm.onset_density)
+                                            onset_density=rhythm.onset_density,
+                                            is_clean_vocal=is_clean_vocal)  # v7.17 A2
         timbre = self._timbre.extract(
             acoustic,
             harmonic_stability=breath.harmonic_stability,

@@ -395,9 +395,9 @@ def _calc_professional_breath_score(
         if not is_artistic and rms_fluctuation > 0.15:
             score -= min(40.0, (rms_fluctuation - 0.15) * 80)
         if long_note_count >= 1:
-            score += min(10.0, long_note_count * 2.0)
+            score += min(15.0, long_note_count * 3.0)   # v7.17 B4: 加分上限 10→15
         if clean_breath_count >= 1:
-            score += min(8.0, clean_breath_count * 2.0)
+            score += min(12.0, clean_breath_count * 3.0)  # v7.17 B4: 加分上限 8→12
         return max(0.0, min(100.0, score))
     except Exception:
         return 0.0

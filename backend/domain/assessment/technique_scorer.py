@@ -34,6 +34,8 @@ class TechniqueFeatures:
     cv_energy_ratio: float = -15.0   # C-V 能量比 dB (典型 -15dB, Hecker 1974)
     # v7.6: 起音斜率
     attack_slope: float = 0.0         # 起音速率 0-100 (越高越清晰/有投射力)
+    # v7.17: 混音/分离标记 — 决定 HNR/CPP 是否需混音污染补偿 (A2)
+    is_clean_vocal: bool = False
 
 
 class TechniqueScorer:
@@ -90,6 +92,7 @@ class TechniqueScorer:
             features.spectral_tilt,
             features.hf_energy_ratio,
             features.cpp_mean,  # v7.4: CPPS 作为主特征
+            is_clean_vocal=features.is_clean_vocal,  # v7.17 A2: 混音污染补偿
         )
 
         # 3. v7.3: audiofeat 增强微调
@@ -132,12 +135,24 @@ class TechniqueScorer:
         cq = af.closed_quotient
         gne = af.gne_mean
 
+        # v7.17 A3 垃圾值守卫: 越界物理范围视为无数据 (实测 audiofeat 对 MP3 输出
+        # jitter=-263175 类异常值; 物理范围: jitter 0-10%, shimmer 0-5dB, cq 0-1, gne 0-1)
+        if not (0.0 < jitter <= 10.0):
+            jitter = 0.0
+        if not (0.0 < shimmer <= 5.0):
+            shimmer = 0.0
+        if not (0.0 < cq <= 1.0):
+            cq = 0.0
+        if not (0.0 < gne <= 1.0):
+            gne = 0.0
+
         # 所有值为 0 (默认/不可用) → 无增强
         if jitter == 0.0 and shimmer == 0.0 and cq == 0.0 and gne == 0.0:
             return articulation, breath_voice
 
         # Jitter: 频率稳定性 → 影响咬字清晰度
-        if jitter > 0 and jitter < self.JITTER_EXCELLENT:
+        # (v7.17 A3: 保留 >0 守卫 — 越界归零的 jitter 视为无数据, 不得触发加分)
+        if 0.0 < jitter < self.JITTER_EXCELLENT:
             articulation = min(100.0, articulation + self.JITTER_BONUS)
         elif jitter > self.JITTER_HIGH:
             articulation = max(0.0, articulation - self.JITTER_PENALTY)
@@ -203,8 +218,10 @@ class TechniqueScorer:
             score = 0.0
 
             # === 1. Spectral Centroid (30%) — 文献权重 1.0, 最重要 ===
+            # v7.17: 参考 3500→2000 Hz — 实测高分真实音频 centroid 1160-1760 Hz (典型歌声),
+            # 旧参考使典型歌声仅得 ~12/30。新参考: 1355Hz→20.3/30, 1760Hz→26.4/30。
             if spectral_centroid > 0:
-                centroid_norm = min(1.0, spectral_centroid / 3500.0)
+                centroid_norm = min(1.0, spectral_centroid / 2000.0)
                 score += centroid_norm * 30.0
 
             # === 2. Spectral Flux (15%) — 文献权重 0.5 ===
@@ -218,13 +235,16 @@ class TechniqueScorer:
                 score += flux_score
 
             # === 3. ZCR (15%) — 文献权重 0.5 ===
+            # v7.17: 曲线上移 — 实测高分音频 zcr 0.066-0.099, 旧曲线 0.08 以下仅 ~7/15
             if zcr_mean > 0:
-                if zcr_mean >= 0.15:
+                if zcr_mean >= 0.12:
                     zcr_score = 15.0
-                elif zcr_mean >= 0.08:
-                    zcr_score = 9.0 + (zcr_mean - 0.08) / 0.07 * 6.0
+                elif zcr_mean >= 0.06:
+                    zcr_score = 9.0 + (zcr_mean - 0.06) / 0.06 * 6.0   # 0.06→9, 0.12→15
+                elif zcr_mean >= 0.03:
+                    zcr_score = 4.0 + (zcr_mean - 0.03) / 0.03 * 5.0   # 0.03→4, 0.06→9
                 else:
-                    zcr_score = zcr_mean / 0.08 * 9.0
+                    zcr_score = zcr_mean / 0.03 * 4.0
                 score += zcr_score
 
             # === 4. Attack slope (15%) — v7.6: 起音质量 ===
@@ -232,9 +252,11 @@ class TechniqueScorer:
                 score += attack_slope * 0.15
 
             # === 5. C-V 能量比 (10%) ===
+            # v7.17: 斜率 0.5→0.3 — 实测高分音频 cv_ratio -8~-10 (接近典型 -15), 旧曲线
+            # 给 7.5-8.5, 新曲线给 8-9.5 (C-V 区分度弱, 软化惩罚)
             if cv_energy_ratio < 0:
                 deviation = abs(cv_energy_ratio - (-15.0))
-                cv_score = max(0.0, 10.0 - deviation * 0.5)
+                cv_score = max(0.0, 10.0 - deviation * 0.3)
                 score += cv_score
 
             # === 6. Onset density (10%) — 降权保留 ===
@@ -272,6 +294,7 @@ class TechniqueScorer:
         spectral_tilt: float,
         hf_energy_ratio: float,
         cpp_mean: float = 1.0,  # v7.4: CPPS 主特征 (40%), 文献 Samlan & Story 2013
+        is_clean_vocal: bool = False,  # v7.17 A2: 混音污染补偿
     ) -> float:
         """气声比 = f(CPPS主40%, HNR辅25%, spectral_tilt 20%, hf_energy 15%)
 
@@ -279,6 +302,12 @@ class TechniqueScorer:
         - CPPS: 单独解释 86.7% 感知气息感方差 (Samlan & Story 2013)
         - HNR: 通用嗓音质量 r~0.78, 但气声特异度低 r=-0.56 (Barsties 2023)
         - Spectral tilt: 区分可控气声 vs 不可控漏气 (Sundberg 1987)
+
+        v7.17 结构调整: ① 撤销 v7.17 A2 的 +8/+1.5 混音偏移 — 实测 Demucs 分离
+        人声 HNR 仍 ~8dB (与混音相近), 该偏移假设("HNR 被伴奏压低")不成立,
+        歌手本身即低 HNR。② spectral_tilt + hf_energy 从"只罚不奖"改为质量组件
+        (干净→满分, 气声→递减) — 修复"气声比结构性封顶 65"缺陷 (旧实现 tilt/hf
+        仅扣分, 完美人声也封顶 40+25=65, 不合理)。
         """
         score = 0.0
 
@@ -286,46 +315,54 @@ class TechniqueScorer:
         # v7.6: 阈值重标定 — 声学 CPP ×100 后范围 ~3-10 (原始 0.04-0.10)
         # 文献: Buckley et al. 2023 — 歌声 CPPS 持续元音 13-18dB
         #       (acoustic CPP ×100 ≈ 4-10 对应基本音质, 不同于 audiofeat CPPS dB)
+        # v7.17: 分段上移 (9→8 满分), 5-6 斜率更陡 — 实测高分音频 cpp 5.5-7.3
         if cpp_mean > 0:
-            if cpp_mean >= 9.0:
+            if cpp_mean >= 8.0:
                 score += 40.0                                          # 优秀
-            elif cpp_mean >= 7.0:
-                score += 30.0 + (cpp_mean - 7.0) / 2.0 * 10.0         # 7→30, 9→40
+            elif cpp_mean >= 6.0:
+                score += 30.0 + (cpp_mean - 6.0) / 2.0 * 10.0         # 6→30, 8→40
             elif cpp_mean >= 5.0:
-                score += 15.0 + (cpp_mean - 5.0) / 2.0 * 15.0         # 5→15, 7→30
+                score += 20.0 + (cpp_mean - 5.0) * 10.0               # 5→20, 6→30
             elif cpp_mean >= 3.0:
-                score += 5.0 + (cpp_mean - 3.0) / 2.0 * 10.0          # 3→5, 5→15
+                score += 10.0 + (cpp_mean - 3.0) / 2.0 * 10.0         # 3→10, 5→20
             else:
-                score += max(0.0, cpp_mean / 3.0 * 5.0)               # 0→0, 3→5
+                score += max(0.0, cpp_mean / 3.0 * 10.0)              # 0→0, 3→10
 
         # === 2. HNR (25% CPPS 可用时 / 45% fallback) — 辅助验证 ===
         # v7.6: 歌声特定 HNR 阈值 (文献 Buckley 2023: 歌声 HNR 典型 25-35dB)
-        #       声学 HNR 范围 ~10-32, 旧阈值 ≥12→满分 对歌声无区分度
+        # v7.17: 阈值下移 — 实测真实音频 (MP3 压缩/混响) librosa HNR 仅 2.8-8.3dB
+        #       (librosa 自相关 HNR 在压缩/混响录制下系统性低估; 分离人声亦 ~8dB)。
+        #       故 hnr 8 ≈ 良好 (18/25), hnr 14+ ≈ 满分。
         if cpp_mean > 0:
             hnr_weight = 25.0  # CPPS 可用时，HNR 为辅助
         else:
             hnr_weight = 45.0  # CPPS 不可用时，HNR 提升为 fallback
 
-        if hnr_mean >= 25.0:
-            score += hnr_weight                                        # 干净 → 满分
-        elif hnr_mean >= 18.0:
-            score += hnr_weight * (0.70 + (hnr_mean - 18.0) / 7.0 * 0.30)  # 18→70%, 25→100%
-        elif hnr_mean >= 10.0:
-            score += hnr_weight * (0.30 + (hnr_mean - 10.0) / 8.0 * 0.40)  # 10→30%, 18→70%
-        elif hnr_mean >= 5.0:
-            score += hnr_weight * (0.10 + (hnr_mean - 5.0) / 5.0 * 0.20)   # 5→10%, 10→30%
+        if hnr_mean >= 14.0:
+            score += hnr_weight                                        # ≥14 → 满分
+        elif hnr_mean >= 8.0:
+            score += hnr_weight * (0.72 + (hnr_mean - 8.0) / 6.0 * 0.28)  # 8→72%, 14→100%
+        elif hnr_mean >= 4.0:
+            score += hnr_weight * (0.40 + (hnr_mean - 4.0) / 4.0 * 0.32)  # 4→40%, 8→72%
+        elif hnr_mean > 0:
+            score += hnr_weight * (hnr_mean / 4.0 * 0.40)                 # 0→0%, 4→40%
+
+        # === 3. Spectral tilt (20%) — 质量组件 (v7.17: 旧为只罚不奖) ===
+        # 文献: 气息音 H1-H2 = +2.08dB, 正常 = -0.60dB, 紧压 = -1.63dB (Sundberg 1987)
+        # 干净 (tilt ≥ -4) → 满分; 强负 (气声) → 递减。实测真实歌曲 tilt 典型 -5~-7。
+        if spectral_tilt >= -4.0:
+            score += 20.0
+        elif spectral_tilt >= -10.0:
+            score += 20.0 + (spectral_tilt + 4.0) / 6.0 * 15.0   # -4→20, -10→5
         else:
-            score += hnr_weight * max(0.0, hnr_mean / 5.0 * 0.10)           # 0→0%, 5→10%
+            score += max(0.0, 5.0 + (spectral_tilt + 10.0) / 10.0 * 5.0)  # -10→5, -20→0
 
-        # === 3. Spectral tilt (20%) — 区分艺术气声 vs 漏气 ===
-        # 文献: 气息音 H1-H2 = +2.08dB, 正常 = -0.60dB, 紧压 = -1.63dB
-        if spectral_tilt < -5:
-            penalty = min(20.0, abs(spectral_tilt + 5) * 4.0)
-            score -= penalty
-
-        # === 4. HF energy (15%) — 气声产生额外高频噪声 ===
-        if hf_energy_ratio > 0.7:
-            penalty = min(15.0, (hf_energy_ratio - 0.7) * 30.0)
-            score -= penalty
+        # === 4. HF energy (15%) — 质量组件 (v7.17: 旧为只罚不奖) ===
+        # 气声产生额外高频噪声 (>5kHz); 低 hf = 干净 → 满分, 高 hf = 气声噪声 → 递减
+        if hf_energy_ratio <= 0.40:
+            score += 15.0
+        elif hf_energy_ratio <= 0.80:
+            score += 15.0 - (hf_energy_ratio - 0.40) / 0.40 * 15.0  # 0.4→15, 0.8→0
+        # hf > 0.8 → 0
 
         return max(0.0, min(100.0, score))

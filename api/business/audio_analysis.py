@@ -11,7 +11,7 @@ import logging
 from config import config
 from services import (
     AudioService, VisualizationService,
-    TimbreService, PhraseService, VoiceQualityService
+    PhraseService, VoiceQualityService
 )
 from services.feature_flags import FeatureFlags
 from api.response_builder import AnalysisResult, build_response
@@ -28,22 +28,36 @@ from backend.domain.assessment.feature_flags import DimensionFlags
 
 ddd_orchestrator = ScoringOrchestrator()
 # v7.7: 启用 audiofeat CPPS/GNE/HNR_praat 增强 (所有消费者有安全零值回退)
+# v7.16 P2-15 Phase 5.2: 作为 feature_flags=None 时的模块级默认 (等价 to_dimension_flags(FeatureFlags())),
+# 生产传入 for_quick/for_professional 时经 _resolve_ddd_extractor 按运行时 flag 对齐。
 _ddd_feature_extractor = DddFeatureExtractionOrchestrator(
     flags=DimensionFlags(enable_audiofeat=True)
 )
 
 logger = logging.getLogger(__name__)
 
+
+def _resolve_ddd_extractor(feature_flags=None):
+    """feature_flags → DDD 特征提取器 (v7.16 P2-15 Phase 5.2 flag 对齐)。
+
+    None → 模块级默认 (FeatureFlags() 全真, 数值不变, 真实音频回归走此路径)。
+    显式 flags → 经 flag_bridge 转 DimensionFlags 构造, 生产 quick/pro 按 mode 对齐。
+    """
+    if feature_flags is None:
+        return _ddd_feature_extractor
+    from backend.shared.flag_bridge import to_dimension_flags
+    return DddFeatureExtractionOrchestrator(flags=to_dimension_flags(feature_flags))
+
+
 # 初始化服务
 audio_service = AudioService(config)
 # v7.16 P2-15 Phase 1: 建议生成迁入 DDD application 层 (AdviceGenerator)
 advice_generator = AdviceGenerator()
 visualization_service = VisualizationService(config)
-timbre_service = TimbreService(config.AUDIO_SAMPLE_RATE)
 phrase_service = PhraseService(config.AUDIO_SAMPLE_RATE)
 voice_quality_service = VoiceQualityService(config.AUDIO_SAMPLE_RATE)
 
-def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = None,
+def analyze_and_score(filepath: str, mode: str = 'quick',
                      feature_flags: Optional[FeatureFlags] = None) -> dict:
     """
     分析音频并计算评分
@@ -53,7 +67,6 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         mode: 评估模式
             - 'quick': 快速评估（跳过逐句评分，简化可视化，约30秒）
             - 'professional': 专业评估（完整分析，约2-5分钟）
-        reference_path: 参考音频路径（可选，用于DTW对比评分）
         feature_flags: FeatureFlags 功能开关（可选，默认全部关闭）
 
     Returns:
@@ -78,14 +91,8 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
     if not voice_quality.is_voice:
         return _build_non_voice_result(audio_result, voice_quality)
 
-    # 3. 情绪分析（快速模式使用简化版本）
-    emotion_info = analyze_emotion(
-        audio_result._audio_data,
-        audio_result.sample_rate,
-        quick_mode=(mode == 'quick')
-    )
-
-    # 4. 评分计算 — v7.1.4 DDD 原生路径 (唯一路径)
+    # 3. 评分计算 — v7.1.4 DDD 原生路径 (唯一路径)
+    #    (v7.16 Phase 5.1: 死 analyze_emotion 启发式已删 — emotion 信号由 artistry_score 提供)
     y = audio_result._audio_data
     sr = audio_result.sample_rate
     f0 = audio_result._f0
@@ -96,8 +103,22 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
         voiced_flags = None
     is_clean = getattr(audio_result, '_used_separation', False)
 
-    ddd_features = _ddd_feature_extractor.extract_all(
+    # v7.17: 节拍锚定节奏 — pro 分离模式加载伴奏轨 (含节拍基准), 修复分离后 rhythm 崩坍
+    accompaniment = None
+    accompaniment_sr = None
+    if is_clean and mode != 'quick':
+        accomp_path = getattr(audio_result, '_accompaniment_path', None)
+        if accomp_path:
+            try:
+                import librosa
+                accompaniment, accompaniment_sr = librosa.load(accomp_path, sr=22050, mono=True)
+            except Exception:
+                logger.warning("伴奏轨加载失败, 节奏回退混音路径", exc_info=True)
+                accompaniment = None
+
+    ddd_features = _resolve_ddd_extractor(feature_flags).extract_all(
         y, sr, f0, voiced_flags, is_clean_vocal=is_clean,
+        accompaniment=accompaniment, accompaniment_sr=accompaniment_sr,
     )
     score_result = ddd_orchestrator.calculate_ddd(
         pitch=ddd_features.pitch,
@@ -124,16 +145,7 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
             file_id=Path(filepath).stem
         )
 
-    # 7. 音色分析（快速模式简化）
-    if mode == 'quick':
-        timbre_result = None
-    else:
-        timbre_result = timbre_service.analyze(
-            audio_data=audio_result._audio_data,
-            f0=audio_result._f0
-        )
-
-    # 8. 逐句评分（快速模式跳过）
+    # 7. 逐句评分（快速模式跳过） — 音色展示由 score_result['timbre_detail'] 组装 (v7.16 Phase 2)
     if mode == 'quick':
         phrase_result = None
     else:
@@ -142,10 +154,10 @@ def analyze_and_score(filepath: str, mode: str = 'quick', reference_path: str = 
             f0=audio_result._f0
         )
 
-    # 9. 构建响应
+    # 8. 构建响应
     return _build_success_result(
-        audio_result, voice_quality, emotion_info, score_result,
-        advice_result, viz_result, timbre_result, phrase_result,
+        audio_result, voice_quality, score_result,
+        advice_result, viz_result, phrase_result,
         mode=mode
     )
 
@@ -197,8 +209,8 @@ def _s(obj, key, default=0.0):
 
 
 def _build_success_result(
-    audio_result, voice_quality, emotion_info, score_result,
-    advice_result, viz_result, timbre_result, phrase_result,
+    audio_result, voice_quality, score_result,
+    advice_result, viz_result, phrase_result,
     mode: str = 'professional'
 ) -> dict:
     """构建成功结果
@@ -251,17 +263,13 @@ def _build_success_result(
         is_disqualified=_s(score_result, 'is_disqualified', False),
         advice=advice_result.advice,
         visualization=_build_viz_dict(viz_result) if viz_result and viz_result.success else None,
-        timbre=_build_timbre_dict(timbre_result) if timbre_result and timbre_result.success else None,
+        timbre=_build_timbre_dict(score_result) if mode != 'quick' else None,
         phrases=_build_phrases_dict(phrase_result) if phrase_result and phrase_result.success else None,
         waveform=_waveform_to_dict(audio_result.waveform),
         pitch_curve=_pitch_curve_to_dict(audio_result.pitch_curve),
         volume_info=_to_python_type(audio_result.volume_info),
         pitch_info=_to_python_type(audio_result.pitch_info),
         rhythm_info=_to_python_type(audio_result.rhythm_info),
-        emotion_info={
-            'dominant': emotion_info['dominant'],
-            'scores': {k: round(float(v) * 100, 1) for k, v in emotion_info['emotions'].items()}
-        }
     )
 
     result = build_response(result_dto, version='5.0')
@@ -375,19 +383,13 @@ def _build_viz_dict(viz_result) -> dict:
     }
 
 
-def _build_timbre_dict(timbre_result) -> dict:
-    """构建音色字典"""
-    return _to_python_type({
-        'brightness': timbre_result.brightness,
-        'warmth': timbre_result.warmth,
-        'nasality': timbre_result.nasality,
-        'breathiness': timbre_result.breathiness,
-        'hnr': timbre_result.hnr,
-        'vibrato_rate': timbre_result.vibrato_rate,
-        'vibrato_extent': timbre_result.vibrato_extent,
-        'vibrato_count': timbre_result.vibrato_count,
-        'style': timbre_result.timbre_style
-    })
+def _build_timbre_dict(score_result) -> dict:
+    """从 DDD score_result['timbre_detail'] 构建音色字典 (v7.16 P2-15 Phase 2)。
+
+    键契约与旧 TimbreResult 一致 (brightness/warmth/nasality/breathiness/hnr/
+    vibrato_rate/vibrato_extent/vibrato_count/style)。
+    """
+    return _to_python_type(score_result.get('timbre_detail', {}))
 
 
 def _build_phrases_dict(phrase_result) -> dict:
@@ -417,47 +419,6 @@ def _build_phrases_dict(phrase_result) -> dict:
             } for p in phrase_result.phrases
         ]
     })
-
-
-def analyze_emotion(audio_data, sample_rate: int, quick_mode: bool = False) -> dict:
-    """
-    分析情绪
-
-    Args:
-        audio_data: 音频数据
-        sample_rate: 采样率
-        quick_mode: 快速模式（跳过DL模型，直接使用启发式方法）
-
-    Returns:
-        情绪分析结果
-    """
-    import librosa
-
-    # v7.1: 统一使用启发式方法（DL emotion模型已移除）
-    rms_feature = librosa.feature.rms(y=audio_data)[0]
-    energy_mean = np.mean(rms_feature)
-    energy_std = np.std(rms_feature)
-    spectral_centroids = librosa.feature.spectral_centroid(y=audio_data, sr=sample_rate)[0]
-    brightness = np.mean(spectral_centroids)
-
-    energy_score = min(1.0, energy_mean / 0.1)
-    brightness_score = min(1.0, brightness / 3000)
-    variation_score = min(1.0, energy_std / 0.05)
-
-    emotions = {
-        'happy': energy_score * 0.4 + brightness_score * 0.4 + variation_score * 0.2,
-        'sad': (1 - energy_score) * 0.5 + (1 - brightness_score) * 0.3 + (1 - variation_score) * 0.2,
-        'angry': energy_score * 0.5 + variation_score * 0.5,
-        'neutral': 0.3 + (1 - variation_score) * 0.4,
-        'surprised': variation_score * 0.6 + energy_score * 0.4
-    }
-    dominant = max(emotions, key=emotions.get)
-
-    return {
-        'emotions': emotions,
-        'dominant': dominant,
-        'confidence': emotions[dominant]
-    }
 
 
 def _to_python_type(value):

@@ -189,8 +189,62 @@ BASELINE_V7_4 = {
     },
 }
 
+# ── v7.17 Quick 模式评分基线 (评分校准: 高分音频 ≥80) ──
+# v7.17 校准: A1 rhythm 混音映射重校准 (伴奏污染) + B1 pitch MAE 曲线放宽 (24音分→85)
+# + tilt/hf 改质量组件 (修复气声比结构性封顶 65) + CPP/HNR/articulation 曲线校准
+# + B4 breath/muscle/artistry 微调。4 个"高分"真实音频 total 79.9-82.6 (优秀 A),
+# 陈奕迅 (低分) 72.0 保持低分 (rhythm 9.3), 区分度: 总分排序 + rhythm gap 62.8。
+# 范围 = v7.17 实测值 ± buffer (total ±5, pitch/art/muscle ±7, rhythm/breath/tech ±8)
+BASELINE_V7_17 = {
+    "恋人（高分）.mp3": {
+        "total_range": (76, 86),
+        "pitch_range":    (75, 89),
+        "rhythm_range":   (64, 80),
+        "breath_range":   (81, 96),
+        "technique_range": (68, 84),
+        "artistry_range":  (75, 89),
+        "muscle_range":    (78, 92),
+    },
+    "手写的从前（高分）.mp3": {
+        "total_range": (77, 88),
+        "pitch_range":    (78, 91),
+        "rhythm_range":   (57, 73),
+        "breath_range":   (83, 99),
+        "technique_range": (77, 92),
+        "artistry_range":  (72, 86),
+        "muscle_range":    (75, 88),
+    },
+    "1（高分）.mp3": {
+        "total_range": (74, 85),
+        "pitch_range":    (77, 91),
+        "rhythm_range":   (57, 73),
+        "breath_range":   (79, 95),
+        "technique_range": (69, 85),
+        "artistry_range":  (73, 87),
+        "muscle_range":    (73, 87),
+    },
+    "音频-3分26秒(高分).mp3": {
+        "total_range": (75, 86),
+        "pitch_range":    (76, 90),
+        "rhythm_range":   (61, 77),
+        "breath_range":   (79, 94),
+        "technique_range": (68, 85),
+        "artistry_range":  (73, 87),
+        "muscle_range":    (80, 95),
+    },
+    "陈奕迅难听之声（低分）.mp3": {
+        "total_range": (66, 78),
+        "pitch_range":    (75, 89),
+        "rhythm_range":   (0, 17),       # 严重脱拍
+        "breath_range":   (77, 92),
+        "technique_range": (69, 85),
+        "artistry_range":  (69, 83),
+        "muscle_range":    (69, 83),
+    },
+}
+
 # Active baseline — always use latest
-BASELINE = BASELINE_V7_14
+BASELINE = BASELINE_V7_17
 
 
 def _resolve_audio_path(filename):

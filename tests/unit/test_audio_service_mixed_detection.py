@@ -41,14 +41,15 @@ class TestMixedAudioDetectionMinimalHpss:
 
         assert calls == [], \
             f"混合检测不应调用全量 extract (HPSS/HNR/CPP/voicing 白算), 实际 {calls}"
-        assert result[4] is False  # is_mixed 透传自 _detect_mixed_audio
-        assert result[5] == 0.1  # mixed_confidence 透传
+        assert result[5] is False  # is_mixed 透传自 _detect_mixed_audio (7元组: v7.17 增 accompaniment)
+        assert result[6] == 0.1  # mixed_confidence 透传
 
     def test_preprocess_for_scoring_real_path_no_separation(self):
         """真实路径: 随机噪声 (纯人声/无伴奏) → 不触发 Demucs 分离 (不费 CPU)"""
         svc = AudioService()
         y = (np.random.RandomState(1).rand(16000) * 0.1).astype(np.float32)
         result = svc._preprocess_for_scoring("fake.wav", y, 16000, quick_mode=False)
-        # (audio, sr, vocals_path, used_separation, is_mixed, confidence)
-        assert result[3] is False  # used_separation=False (未触发 Demucs)
+        # (audio, sr, vocals_path, accompaniment_path, used_separation, is_mixed, confidence)
+        assert result[4] is False  # used_separation=False (未触发 Demucs)
         assert result[2] is None  # vocals_path=None
+        assert result[3] is None  # accompaniment_path=None

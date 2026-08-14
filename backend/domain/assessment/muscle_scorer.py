@@ -166,14 +166,16 @@ class MuscleStrengthScorer:
         # (HNR >= 9dB 即满分, 几乎所有歌手都达到)
         # 新阈值: 0.22→100 (HNR≥13.2dB, 清晰歌手), 0.12→60 (HNR≥7.2dB, 中等)
         # 文献: Liu et al. 2025 — spectral tilt 是 strain 最佳判别器
-        if formant_energy >= 0.22:
+        # v7.17 B4: 阈值下移 — 实测高分真实音频 formant_energy 0.06-0.14 (混音),
+        # 旧阈值 0.12→60 使高分文件仅 ~50; 新阈值 0.16→100, 0.10→70。
+        if formant_energy >= 0.16:
             formant_score = 100.0
-        elif formant_energy >= 0.12:
-            formant_score = 60.0 + (formant_energy - 0.12) / 0.10 * 40
+        elif formant_energy >= 0.10:
+            formant_score = 70.0 + (formant_energy - 0.10) / 0.06 * 30
         elif formant_energy >= 0.05:
-            formant_score = 30.0 + (formant_energy - 0.05) / 0.07 * 30
+            formant_score = 40.0 + (formant_energy - 0.05) / 0.05 * 30
         else:
-            formant_score = max(10.0, formant_energy / 0.05 * 30)
+            formant_score = max(10.0, formant_energy / 0.05 * 40)
 
         # formant_clustering_quality: 0-100 direct
         cluster_score = max(0.0, min(100.0, formant_cluster))
@@ -182,16 +184,18 @@ class MuscleStrengthScorer:
         # adapter 传入 controlled_breathiness (0-100 评分), 原阈值 8→100 太低
         # (所有歌声 breathiness >= 8, 全部满分)
         # 新阈值适配 0-100 评分范围
-        if overtone >= 80:
+        # v7.17 B4: 阈值下移 — 实测高分真实音频 overtone 30-41 (混音), 旧阈值 50→60
+        # 使高分文件仅 ~30-51; 新阈值 60→100, 30→60。
+        if overtone >= 60:
             overtone_score = 100.0
-        elif overtone >= 50:
-            overtone_score = 60.0 + (overtone - 50) / 30.0 * 40
-        elif overtone >= 20:
-            overtone_score = 30.0 + (overtone - 20) / 30.0 * 30
+        elif overtone >= 30:
+            overtone_score = 60.0 + (overtone - 30) / 30.0 * 40
+        elif overtone >= 10:
+            overtone_score = 30.0 + (overtone - 10) / 20.0 * 30
         elif overtone >= 5:
-            overtone_score = 10.0 + (overtone - 5) / 15.0 * 20
+            overtone_score = 15.0 + (overtone - 5) / 5.0 * 15
         else:
-            overtone_score = max(0.0, overtone * 2)
+            overtone_score = max(0.0, overtone * 3)
 
         return max(0.0, min(100.0,
             formant_score * 0.40 + cluster_score * 0.35 + overtone_score * 0.25
