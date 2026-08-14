@@ -1,14 +1,60 @@
-# 变更日志 v7.16
+# 变更日志 v7.17
 
 > 更新: 2026-08-13 | 当前状态: [PROJECT_STATUS.md](PROJECT_STATUS.md) | 算法改进: [SCORING_ALGORITHM_IMPROVEMENT_PLAN.md](../2-technical/SCORING_ALGORITHM_IMPROVEMENT_PLAN.md)
 
 ---
 
-## v7.16 — P2-15 legacy 收敛安全范围 (Phase 0/0b/1/3) (2026-08-13)
+## v7.17 — 评分校准: 高分音频 ≥80 (先修失真再温和校准) (2026-08-13)
+
+用户反馈: 4 个"高分"真实音频 Quick 总分仅 63-65 (等级 B), 要求至少 80 以上。按"先修测量失真再温和曲线校准"执行。**评分行为变更 (有意为之), 基线重校准 BASELINE_V7_14→V7_17**。
+
+### ① 修测量失真 (Phase A)
+
+| 项 | 修复 |
+|----|------|
+| **A1 Rhythm 伴奏污染** | 实测: 混音 onset CV 0.6 (伴奏鼓点/钢琴抬高) → 旧 `_cv_to_deviation` 混音映射判 deviation 0.32 → 基础分 45。重校准映射: CV 0.6→deviation 0.22 (~73 分), CV ≥1.2 (真实脱拍) 仍 deviation ≥0.57 (20 分, 区分度保持)。**pivot**: 计划原拟 f0 声乐活动融合, 实测 PYIN voiced_flags 全程 100% voiced (伴奏被跟踪), HPSS 谐波 CV 无可靠改善 — 改为映射重校准 |
+| **A2 Technique 结构性封顶** | 根因: `_calc_breath_voice_ratio` 的 spectral_tilt(20%) + hf_energy(15%) 是**只罚不奖**组件 (0 或负), 完美人声也封顶 40+25=65。修复: tilt/hf 改**质量组件** (干净→满分, 气声→递减) — 封顶消失且语义更正确。**同时撤销 A2 草稿的 +8 HNR 偏移**: 实测 Demucs 分离人声 HNR 仍 ~8dB (非伴奏污染, 是测量/录音限制) |
+| **A3 audiofeat 垃圾守卫** | 实测 jitter=-263175 (MP3/重采样异常)。物理范围守卫: jitter 0-10 / shimmer 0-5 / cq 0-1 / gne 0-1, 越界视为无数据 (修复 A3 初稿 bug: 归零后误触发 +5 jitter 加分) |
+| **A4 节拍锚定节奏** | 实测 Demucs 分离后 pro rhythm 从 72 崩坍到 8.2 (纯人声 onset CV 1.32 失去伴奏节拍锚定)。修复: 用**伴奏轨** (Demucs no_vocals, 此前被丢弃) 做节拍网格 `beat_track` + **人声轨**做 vocal onset, 测每个 onset 到最近节拍偏差 (归一化到节拍周期)。恋人 pro rhythm 8.2→**64.5**, total 76.7→83.5 (≈quick 81.2)。一致性用稳健 p75−p50 离散度 (CV 被 Demucs 伪 onset 拉到 3.0 → 25 分失真惩罚) |
+
+### ② 温和曲线校准 (Phase B)
+
+| 维度 | 改动 | 实测效果 |
+|------|------|---------|
+| **Pitch** | MAE 指数 `exp(-mae/40)` (24音分→54) → 分段线性 (25音分→85); wobble 阈值 10→15 软化 | 恋人 66.6→82.2 |
+| **Rhythm** | A1 映射 + scorer 基础分保持 | 恋人 43.8→72.1 |
+| **Technique** | CPP 曲线分段上移 (5.8→28/40) + HNR 阈值下移 (混音 8→18/25) + tilt/hf 质量组件 + articulation centroid 参考 3500→2000 | 恋人 43.4→75.8 |
+| **Breath** | 长音/清洁呼吸加分上限 10/8→15/12 | 恋人 79.8→88.8 |
+| **Muscle** | overtone/formant 阈值下移 (实测混音值) | 恋人 77.9→85.2 |
+| **Artistry** | dynamic 斜率 2.0→2.6, afs 权重 0.25→0.30, pitch_var 高区斜率 80→55 | 恋人 74.8→81.8 |
+
+### ③ 校准结果 (Quick 实测)
+
+| 文件 | v7.16 | v7.17 | 等级 |
+|------|:---:|:---:|:---:|
+| 恋人（高分） | 63.7 | **81.2** | 优秀 A |
+| 手写的从前（高分） | 64.5 | **82.6** | 优秀 A |
+| 1（高分） | 62.1 | **79.9** | 优秀 A |
+| 音频-3分26秒(高分) | 63.3 | **80.7** | 优秀 A |
+| 陈奕迅（低分） | 58.9 | **72.0** | 良好 B |
+
+区分度保持: 总分排序 ✓ + rhythm gap 72.1 - 9.3 = **62.8** ✓ (BDD differentiation 相对断言, 无硬编码数值)。
+
+### ④ 测试 + 版本
+
+- 🆕 **+8 校准回归测试** (pitch MAE 曲线 2 + technique 封顶修复 3 + rhythm 混音映射 3); **更新 10 个 technique 测试** (旧曲线断言 → 新校准意图); 修 A3 初稿 bug 的 jitter 守卫测试。
+- **BASELINE_V7_14 → V7_17** (test_real_audio_regression.py, 保留 V7_14 历史块)。
+- 版本 **7.17.0** (main.py APP_VERSION + package.json); 版本断言引用 APP_VERSION 自动适配。
+
+---
+
+## v7.16 — P2-15 legacy 收敛安全范围 (Phase 0/0b/1/3 + 2 + 5) (2026-08-13)
 
 按 [P2_15_CONVERGENCE_PLAN.md](P2_15_CONVERGENCE_PLAN.md) 执行 legacy `api/business`+`services` 收敛进 DDD 的安全范围
-(Phase 0 死代码 + Phase 0b 历史双写 bug + Phase 1 AdviceGenerator + Phase 3 诊断补全)。
+(Phase 0 死代码 + Phase 0b 历史双写 bug + Phase 1 AdviceGenerator + Phase 3 诊断补全 +
+Phase 2 音色单轨化 + Phase 5 facade 折叠)。
 全部 TDD (RED→GREEN) + DDD 不可变模式, 既有测试保持绿色。**评分公式无改动 (28 例真实音频回归为权威验证)**。
+**Phase 4 (逐句评分 PhraseService) 经用户决策推迟** (独立功能非双轨, 前端/测试零消费, 留待独立会话)。
 
 ### ① Phase 0 — 死代码清理
 
@@ -43,10 +89,27 @@
 
 `APP_VERSION` 7.14.0→**7.16.0**; `APP_TITLE` 从 APP_VERSION 派生 (VAS v7.16, 防漂移); `package.json` 7.16.0
 
+### ⑥ Phase 2 — 音色单轨化 (消除"音色计算两遍")
+
+| 项 | 变更 |
+|----|------|
+| `scoring_orchestrator.py` | `calculate_ddd` 输出 `timbre_detail` (9 键契约, 从 `ta` 质量分 + technique/audiofeat 组装): brightness/warmth/nasality ← ta 分/100, hnr ← audiofeat.hnr_mean (回退 technique.hnr_mean), breathiness ← audiofeat.spectral_flatness proxy, vibrato_rate ← technique.vibrato_rate_avg, vibrato_extent/count 占位 0, style 从质量分派生 |
+| `api/business/audio_analysis.py` | pro 模式删除 `timbre_service.analyze` 分支; `_build_timbre_dict` 改为读 `score_result['timbre_detail']` |
+| 清理 | 删除 `services/timbre_service.py` + `services/__init__.py` 导出移除 |
+
+### ⑦ Phase 5 — facade 折叠
+
+| 项 | 变更 |
+|----|------|
+| 5.1 | 删死 `analyze_emotion` 启发式 (每次分析省一次 librosa RMS/spectral_centroid 重算); `emotion_info` 不再组装 (响应 null, 前端/测试零消费); `api/business/__init__.py` 导出同步 |
+| 5.2 | `_resolve_ddd_extractor` flag 对齐 — `feature_flags=None` 走模块级默认 (数值不变, 回归路径); 生产 for_quick/for_professional 经 `to_dimension_flags` 构造提取器。**quick 模式声学设置随 for_quick 变 (multiscale_hnr/reverb 关闭), 用户已决策接受**; pro 不变; 28 例回归 (None 路径) 保持 GREEN |
+| 5.3 | 移除 `analyze_and_score` 无用 `reference_path` 参数 (函数体零使用) + 2 处路由实参; 参考音频上传保留向后兼容 |
+
 ### 测试
 
-🆕 +20 (advice 15 + diagnosis 5 + history 3 − 删 3 过时 fallback)。**后端 786 collected (758 生产 + 28 真实音频)**;
-前端 307 Vitest 不变; vue-tsc 0 错误。**真实音频回归 28 全 PASS 验证评分数值不变**。
+🆕 +20 (advice 15 + diagnosis 5 + history 3 − 删 3 过时 fallback) + **+15 续轮 (timbre_detail 9 + flag alignment 6)**。
+**后端 801 collected (773 生产 + 28 真实音频)**; 前端 307 Vitest 不变; vue-tsc 0 错误。
+**真实音频回归 28 全 PASS 验证评分数值不变 (feature_flags=None 走模块级提取器)**。
 
 ---
 

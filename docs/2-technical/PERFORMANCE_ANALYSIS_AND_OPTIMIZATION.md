@@ -71,9 +71,9 @@ HTTP POST /api/upload  (或 /api/v1/assessment)
 │
 ├─ 5. [Pro only] 辅助分析
 │     ├─ 可视化生成 (matplotlib, ~8s)
-│     ├─ 音色分析 (TimbreService, ~2s)
-│     ├─ 逐句评分 (PhraseService, ~5s)
-│     └─ 建议生成 (AdviceService, ~1s)
+│     ├─ 音色分析 (v7.16: TimbreService 已删, 由 DDD calculate_ddd timbre_detail 组装, 零额外耗时)
+│     ├─ 逐句评分 (PhraseService, ~5s — v7.16 经用户决策推迟迁移)
+│     └─ 建议生成 (v7.16: AdviceService 已删, 由 DDD AdviceGenerator 生成, 零额外耗时)
 │
 └─ 6. 响应构建 + 历史保存 (<0.1s)
 ```

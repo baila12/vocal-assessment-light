@@ -1,12 +1,12 @@
-# 测试结果记录 v7.16
+# 测试结果记录 v7.17
 
-> 更新: 2026-08-13 | 后端 **786 collected** (643 单元 + 94 集成 + 21 扩展 + 28 真实音频) + 前端 **307 Vitest GREEN** | 分支: `main`
+> 更新: 2026-08-14 | 后端 **812 collected** (669 单元 + 77 API + 17 WS + 21 扩展 + 28 真实音频) + 前端 **307 Vitest GREEN** | 分支: `main`
 >
 > 关联: [PROJECT_STATUS.md](PROJECT_STATUS.md) | [TDD.md](../3-quality/TDD.md) | [BDD.md](../3-quality/BDD.md)
 
 ---
 
-## v7.16 测试统计
+## v7.17 测试统计
 
 ### 生产测试 (全部 GREEN)
 
@@ -21,29 +21,70 @@
 | Unit (混合检测, 根目录) | 2 | ✅ 100% | |
 | Unit (静默错误可观测性 v7.15 M3/M4/M5) | 14 | ✅ 100% | test_acoustic_extractor_observability (7) + test_audio_dl_helpers_observability (4) + test_audio_service_analyze_error (3) |
 | Unit (uploads 自动清理 v7.15 P2-14 余项) | 15 | ✅ 100% | test_upload_cleaner (9) + test_history_repository_unlink (6) |
-| Unit (建议生成器 🆕 v7.16 P2-15 Phase 1) | 15 | ✅ 100% | test_advice_generator (15) — AdviceGenerator 纯函数行为契约 |
-| Unit (calculate_ddd 诊断 🆕 v7.16 P2-15 Phase 3) | 5 | ✅ 100% | test_diagnosis_in_calculate_ddd (5) — 诊断键/结构/额外字段/分数一致 |
-| **Unit 合计** | **643** | **100% GREEN** | (v7.15 626 − 3 删死路径 fallback + 20 新增) |
-| API 集成 (7 文件) | 77 | ✅ 100% | test_api_routes (20) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + song_match_api (6) + **history_single_write (3, 🆕 v7.16 历史双写回归)** |
+| Unit (建议生成器 v7.16 P2-15 Phase 1) | 15 | ✅ 100% | test_advice_generator (15) |
+| Unit (calculate_ddd 诊断 v7.16 P2-15 Phase 3) | 5 | ✅ 100% | test_diagnosis_in_calculate_ddd (5) |
+| Unit (calculate_ddd 音色 dict v7.16 P2-15 Phase 2) | 9 | ✅ 100% | test_timbre_detail_in_calculate_ddd (9) — 9 键契约/ta 质量分映射/hnr 优先级/None 回退 |
+| Unit (DDD 提取器 flag 对齐 v7.16 P2-15 Phase 5.2) | 6 | ✅ 100% | test_ddd_extractor_flag_alignment (6) — None→模块级等价/for_quick/for_professional |
+| Unit (评分校准 🆕 v7.17 A1/B1/A2) | 8 | ✅ 100% | pitch MAE 曲线 (2) + technique 封顶修复 (3) + rhythm 混音映射 (3) |
+| Unit (节拍锚定节奏 🆕 v7.17 A4) | 3 | ✅ 100% | test_rhythm_extractor::TestBeatAnchoredRhythm (3) — 在拍<脱拍偏差/脱拍高分/无伴奏回退 |
+| **Unit 合计** | **669** | **100% GREEN** | (v7.16 643 + 8 校准 + 3 节拍锚定 + 12 flag/音色 + 3 A4 − 变动) |
+| API 集成 (7 文件) | 77 | ✅ 100% | test_api_routes (20) + test_songs_api (21) + test_scoring_api (14) + songs_pitch_api (9) + compare_pitch_api (4) + song_match_api (6) + history_single_write (3) |
 | WebSocket 集成 | 17 | ✅ 100% | test_ws_score (13) + ws_pitch_update (4) |
 | 扩展测试 (DTW/repos) | 21 | ✅ 100% | tests/extended/ |
+| **生产代码总计** | **784** | **100% GREEN** | (unit 669 + API 77 + WS 17 + 扩展 21) |
+| 真实音频回归 | 28 | ✅ **全 PASS** | (**BASELINE_V7_17** — v7.17 评分校准后重校准; 含 quick-pro 一致性 <25%) |
+| **后端 collected** | **812** | ✅ | 784 生产 + 28 真实音频 |
+
+### v7.17 测试变更明细 (v7.16 → v7.17)
+
+| 文件 | 变化 | 覆盖 |
+|------|:-----:|------|
+| `tests/unit/domain/test_pitch_scorer.py` | +2 | B1: MAE 曲线 (25 音分→≥80 / 0→100) |
+| `tests/unit/domain/test_technique_scorer.py` | +3 / 改 10 | A2: 封顶修复 (干净人声 >65 / tilt/hf 得分) + 旧曲线断言更新 + audiofeat 夹具改 hnr10/cpp6 (bv 留空间) |
+| `tests/unit/infrastructure/test_rhythm_extractor.py` | +3 | A1: 混音映射 (CV 0.6<0.30 / 脱拍≥0.55 / 单调); A4: 节拍锚定 (在拍<脱拍/脱拍高分/无伴奏回退) |
+| `tests/unit/test_audio_service_mixed_detection.py` | 修改 | `_preprocess_for_scoring` 7 元组索引 (增 accompaniment_path) |
+| `tests/integration/test_real_audio_regression.py` | 重校准 | BASELINE_V7_14 → **V7_17** (高分文件 ≥80, 陈奕迅 72 低分保持) |
+
+### 集成隔离说明
+
+v7.15 修复 (pre-existing): 单进程组合运行全部集成模块全绿, 不依赖"每模块独立进程"工作流。
+**测试隔离缺口 (v7.16 记录)**: `test_song_match_api` 等经真实 `/api/v1/upload` 路由上传 `user.wav`, 未隔离 history repo → 写真实 `data/web_history.json`。跑完 API/BDD 后需 `git checkout -- data/web_history.json web/static/plots/` + 删未跟踪 `vocals_*.png`。
+
+---
+
+## v7.16 测试统计
+
+### 生产测试 (全部 GREEN)
+
+| 套件 | 测试数 | 结果 | 说明 |
+|------|:-----:|------|------|
+| Unit (DDD 领域: 6 scorers + 音色调整 + comparison + songs + songs_pitch + song_match + ScoringWeights + fallback) | 364 | ✅ 100% | (v7.14 计数值) |
+| Unit (DDD 基建: extractors + orchestrator + ABI + sqlite + pitch cache + deps) | 159 | ✅ 100% | (v7.14 计数值) |
+| Unit (DDD 对齐 + Flag bridge) | 23 | ✅ 100% | |
+| Unit (中间件) | 23 | ✅ 100% | |
+| Unit (WS streaming 会话) | 12 | ✅ 100% | |
+| Unit (接口 sanitize_filename) | 14 | ✅ 100% | |
+| Unit (混合检测, 根目录) | 2 | ✅ 100% | |
+| Unit (静默错误可观测性 v7.15 M3/M4/M5) | 14 | ✅ 100% | |
+| Unit (uploads 自动清理 v7.15 P2-14 余项) | 15 | ✅ 100% | |
+| Unit (建议生成器 v7.16 P2-15 Phase 1) | 15 | ✅ 100% | |
+| Unit (calculate_ddd 诊断 v7.16 P2-15 Phase 3) | 5 | ✅ 100% | |
+| **Unit 合计** | **643** | **100% GREEN** | |
+| API 集成 (7 文件) | 77 | ✅ 100% | |
+| WebSocket 集成 | 17 | ✅ 100% | |
+| 扩展测试 (DTW/repos) | 21 | ✅ 100% | |
 | **生产代码总计** | **758** | **100% GREEN** | (unit 643 + API 77 + WS 17 + 扩展 21) |
-| 真实音频回归 | 28 | ✅ **全 PASS** | (BASELINE_V7_14, 本轮无评分公式改动 — 结构重构数值不变) |
-| **后端 collected** | **786** | ✅ | 758 生产 + 28 真实音频; 本轮新增 20 测试全部 RED→GREEN |
+| 真实音频回归 | 28 | ✅ **全 PASS** | (BASELINE_V7_14, 结构重构数值不变) |
+| **后端 collected** | **786** | ✅ | 758 生产 + 28 真实音频 |
 
 ### v7.16 测试变更明细 (v7.15 → v7.16)
 
 | 文件 | 变化 | 覆盖 |
 |------|:-----:|------|
-| `tests/unit/application/test_advice_generator.py` (新) | +15 | P2-15 Phase 1: AdviceGenerator 结构/最强最弱/总体分档/阈值边界 (DDD application 层) |
-| `tests/unit/application/test_diagnosis_in_calculate_ddd.py` (新) | +5 | P2-15 Phase 3: calculate_ddd 5 诊断键/结构/mae_cents/deviation_ratio/分数一致 |
-| `tests/integration/test_history_single_write.py` (新) | +3 | P2-15 Phase 0b: 历史双写回归 (无 EventBus 自动保存订阅/每次上传 1 条/完整字段) |
-| `tests/unit/domain/test_fallback_marking.py` | −3 | 删 3 个测死 calculate() 路径的 fallback 测试 (v7.16 Phase 0) |
-| `tests/integration/test_api_routes.py` | 修改 | openapi 标题断言改为从 APP_VERSION 派生 (VAS v7.16, 防漂移) |
-
-### 集成隔离说明
-
-v7.15 修复 (pre-existing): 单进程组合运行全部集成模块 94 passed (含 history_single_write 3), 不依赖"每模块独立进程"工作流。
+| `tests/unit/application/test_advice_generator.py` (新) | +15 | P2-15 Phase 1: AdviceGenerator 纯函数行为契约 |
+| `tests/unit/application/test_diagnosis_in_calculate_ddd.py` (新) | +5 | P2-15 Phase 3: 诊断键/结构/额外字段/分数一致 |
+| `tests/integration/test_history_single_write.py` (新) | +3 | P2-15 Phase 0b: 历史双写回归 |
+| `tests/unit/domain/test_fallback_marking.py` | −3 | 删 3 个测死 calculate() 路径的 fallback 测试 |
 
 ---
 

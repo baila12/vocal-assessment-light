@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新: 2026-08-13 | 版本: **v7.16** | 分支: `main`
+> 更新: 2026-08-13 | 版本: **v7.17** | 分支: `main`
 
 ---
 
@@ -103,7 +103,25 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **前端** | CompareView 自动匹配区 (上传录音→候选列表 歌名/歌手/置信度/BPM 差/调性差→选中→一键 DTW 对比→复用 Phase 5 双轨叠加); 无匹配优雅回退提示 (fallback_reason 透传) | ✅ |
 | **测试** | v7.14 特性发布: 生产 537→633 (+96: 领域 79 + 基建 11 + 集成 6); 前端 286→**297** (+11 songMatch.store); BDD auto-match.feature 8 场景 (5 PASS + 3 XFAIL 标注对应单元测试); 代码审查 (读锁 + chroma 防御 + 异常收窄)。**v7.14 深度审查修复轮 (2026-08-10): 633→714 collected (+81: fallback 11 + streaming 7 + pitch cache 7 + deps 2 + 集成/WS 13 + 断言同步等), 686 生产 GREEN**。**P2 完善修复轮 (2026-08-11): sr 错配根因修复 (P2-11, 3 处 sr=None→16000) + HPSS 去重 (P2-12a) + audio_buffer 缓存 (P2-13) + 乱码文件名恢复 (P2-14) + legacy 死代码删除 (P2-15); 🆕 +25 单元测试; 真实音频基线重校准 BASELINE_V7_6→V7_14**。**P2 续轮 (2026-08-11): compare.feature 重写对齐 v7.13 P5 契约 → BDD 残余失败 12→0; 当前权威计数 (实测): 生产 **709** / collected **737** (见下节测试表)** | ✅ |
 
-### v7.16 (2026-08-13) — P2-15 legacy 收敛安全范围 (Phase 0/0b/1/3) + 历史双写 bug 修复
+### v7.17 (2026-08-13) — 评分校准: 高分音频 ≥80 (先修失真再温和校准)
+
+> 用户反馈: 4 个"高分"真实音频 Quick 总分仅 63-65 (等级 B), 要求 ≥80。**评分行为变更 (有意为之), 基线重校准 BASELINE_V7_14→V7_17**。实测结论: 分离不是银弹 (pitch +20 但 rhythm −60, HNR 不变); 结构性封顶根因是 tilt/hf 只罚不奖。
+
+| 类别 | 项目 | 状态 |
+|------|------|:--:|
+| **A1** | **Rhythm 伴奏污染** — 混音 onset CV 被伴奏抬高, `_cv_to_deviation` 混音映射重校准 (CV 0.6→deviation 0.22→~73分, CV ≥1.2 脱拍仍 20分)。pivot: f0 声乐活动实测不可行 (PYIN voiced 100%) | ✅ |
+| **A2** | **Technique 结构性封顶修复** — `_calc_breath_voice_ratio` 的 tilt(20%)+hf(15%) 原是"只罚不奖"组件 (完美人声封顶 65), 改质量组件 (干净→满分)。撤销 +8 HNR 偏移 (Demucs 分离实测 HNR 仍 ~8dB) | ✅ |
+| **A3** | **audiofeat 垃圾守卫** — jitter/shimmer/cq/gne 物理范围校验 (实测 jitter=-263175 异常) | ✅ |
+| **A4** | **pro 分离后 rhythm 崩坍修复 — 节拍锚定** — 用伴奏轨节拍基准 + 人声轨 vocal onset 测偏差; 恋人 pro rhythm 8.2→64.5, total 83.5≈quick 81.2 | ✅ |
+| **B1** | **Pitch** — MAE 指数 `exp(-mae/40)` (24音分→54) → 分段线性 (25音分→85); wobble 软化 | ✅ |
+| **B3** | **Technique** — CPP/HNR/tilt/hf/articulation 曲线校准 (恋人 43.4→75.8) | ✅ |
+| **B4** | **Breath/Muscle/Artistry** — 加分上限 + 阈值下移 (实测混音值) | ✅ |
+| **校准结果** | 恋人 **81.2** / 手写从前 **82.6** / 1 **79.9** / 音频 **80.7** / 陈奕迅 **72.0** (见下节分数表); 区分度保持 (rhythm gap 62.8) | ✅ |
+| **测试** | 🆕 +11 校准回归 (pitch 2 + technique 封顶 3 + rhythm 映射 3 + 节拍锚定 3); 更新 10 technique 测试 + 2 audio_service 索引; 基线 **BASELINE_V7_17**; 版本 **7.17.0** | ✅ |
+
+### v7.16 (2026-08-13) — P2-15 legacy 收敛安全范围 (Phase 0/0b/1/3/2/5) + 历史双写 bug 修复
+
+> Phase 4 (逐句评分 PhraseService) **经用户决策推迟** — 独立功能非双轨, 前端/测试零消费 `phrases`, 留待独立会话。
 
 | 类别 | 项目 | 状态 |
 |------|------|:--:|
@@ -114,8 +132,10 @@ API Routes → FeatureFlags.for_quick()/.for_professional() [services/feature_fl
 | **Phase 0b** | **实测验证 + 数据清理** — web_history.json 50 条中 32 条为无 analysis_id 垃圾记录 (挤占槽位淘汰完整历史); 经用户授权清理, 保留 18 条完整记录 | ✅ |
 | **Phase 1** | **`AdviceGenerator` 迁入 DDD application 层** — 新增 `backend/application/assessment/advice_generator.py` (frozen `AdviceResult` + 纯函数 generate), 从 `services/advice_service.py` 移植; `audio_analysis.py` 改调 `advice_generator.generate`; 删 `services/advice_service.py` + 清理导出 | ✅ |
 | **Phase 3** | **`calculate_ddd` 补全逐维诊断** — 增加 5 个 `*_diagnosis` 键 (pitch/rhythm/breath/technique/artistry), 移植旧 `calculate()` 的 `_make_diagnosis` 输出 (含 pitch `mae_cents` + rhythm `deviation_ratio`) → **修复上传/分析响应 diagnosis block 恒空** | ✅ |
+| **Phase 2** | **音色单轨化 (消除"音色计算两遍")** — `calculate_ddd` 输出 `timbre_detail` (9 键契约: brightness/warmth/nasality ← ta 分/100, hnr ← audiofeat 回退 technique, breathiness ← audiofeat.spectral_flatness proxy, vibrato_rate ← technique.vibrato_rate_avg, vibrato_extent/count 占位 0, style 派生); `audio_analysis.py` pro 模式改从 `timbre_detail` 组装, **删除 `services/timbre_service.py`** + 导出清理 | ✅ |
+| **Phase 5** | **facade 折叠** — ① 删死 `analyze_emotion` 启发式 (每次分析省一次 librosa 重算, `emotion_info`→null, 前端/测试零消费); ② `_resolve_ddd_extractor` flag 对齐 (None→模块级默认数值不变, 生产 for_quick/for_professional 经 `to_dimension_flags` 构造; **quick 声学设置随 for_quick 变, 用户决策接受**); ③ 移除无用 `reference_path` 参数 + 2 处路由实参 | ✅ |
 | **版本** | `APP_VERSION` 7.14.0→**7.16.0** + `APP_TITLE` 从 APP_VERSION 派生 (VAS v7.16, 防漂移) + `package.json` 7.16.0 | ✅ |
-| **测试** | 🆕 +20 测试 (advice_generator 15 + diagnosis 5 + history_single_write 3 − 删 3 过时 fallback)。**权威计数: 生产 758 / collected 786** (单元 643 + API 77 + WS 17 + 扩展 21 + 真实音频 28, 见下节测试表)。前端 307 不变, vue-tsc 0 错误 | ✅ |
+| **测试** | 🆕 +20 (advice_generator 15 + diagnosis 5 + history_single_write 3 − 删 3 过时 fallback) + **+15 续轮 (timbre_detail 9 + flag alignment 6)**。**权威计数: 生产 773 / collected 801** (单元 658 + API 77 + WS 17 + 扩展 21 + 真实音频 28, 见下节测试表)。前端 307 不变, vue-tsc 0 错误 | ✅ |
 | **文档** | P2_15_CONVERGENCE_PLAN.md — legacy 收敛实施计划 (Phase 0-5 全量设计, 本次执行安全范围 0/0b/1/3) | ✅ |
 
 ### v7.15 (2026-08-12) — 错误可见化 + uploads 自动清理 + 集成隔离修复 (DEEP_REVIEW 收尾)
@@ -295,7 +315,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
-## 三、测试状态 (v7.16)
+## 三、测试状态 (v7.17)
 
 ### 生产测试 (全部 GREEN)
 
@@ -312,19 +332,23 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | Unit uploads 自动清理 (v7.15 P2-14 余项) | 15 | ✅ | (upload_cleaner 9 + history_repository_unlink 6 — 路径锁/孤儿扫描/逐出联动 unlink)
 | Unit 建议生成器 (🆕 v7.16 P2-15 Phase 1) | 15 | ✅ | (test_advice_generator: 结构/最强最弱/总体分档/阈值边界 — AdviceGenerator DDD application 层)
 | Unit calculate_ddd 诊断 (🆕 v7.16 P2-15 Phase 3) | 5 | ✅ | (test_diagnosis_in_calculate_ddd: 5 诊断键/结构/mae_cents/deviation_ratio/分数一致)
-| **Unit 合计** | **643** | **100% GREEN** |
+| Unit calculate_ddd 音色 dict (🆕 v7.16 P2-15 Phase 2) | 9 | ✅ | (test_timbre_detail_in_calculate_ddd: 9 键契约/ta 质量分映射/hnr 优先级/vibrato 占位/style/None 回退) |
+| Unit DDD 提取器 flag 对齐 (🆕 v7.16 P2-15 Phase 5.2) | 6 | ✅ | (test_ddd_extractor_flag_alignment: None→模块级等价/for_quick 关闭 multiscale+reverb/for_professional 全真) |
+| Unit 评分校准回归 (🆕 v7.17 A1/B1/A2) | 8 | ✅ | (pitch MAE 曲线 2 + technique 封顶修复 3 + rhythm 混音映射 3) |
+| Unit 节拍锚定节奏 (🆕 v7.17 A4) | 3 | ✅ | (test_rhythm_extractor::TestBeatAnchoredRhythm: 在拍<脱拍偏差/脱拍高分/无伴奏回退) |
+| **Unit 合计** | **669** | **100% GREEN** |
 | API 集成 | 77 | ✅ | (api_routes 20 + songs_api 21 + scoring_api 14 + songs_pitch_api 9 + compare_pitch_api 4 + song_match_api 6 + **history_single_write 3 (🆕 v7.16 历史双写回归)**)
 | WebSocket 集成 | 17 | ✅ | (ws_score 13 + ws_pitch_update 4)
 | 扩展测试 (DTW/repos) | 21 | ✅ | (v7.12 删 test_score_calibrator 15)
-| **生产代码总计** | **758** | **100% GREEN** |
+| **生产代码总计** | **784** | **100% GREEN** |
 
-> 注: 生产合计 = Unit 643 + API 77 + WS 17 + 扩展 21 = **758**。另含真实音频回归 28 (BASELINE_V7_14)。**后端 collected = 786 (758 生产 + 28 真实音频)**。v7.16 删 3 个测死 calculate() 路径的过时 fallback 测试 (626→643 net +17: −3 +20 新增)。v7.15 集成隔离修复后, 全部集成模块**单进程组合运行全绿**。
+> 注: 生产合计 = Unit 669 + API 77 + WS 17 + 扩展 21 = **784**。另含真实音频回归 28 (**BASELINE_V7_17**)。**后端 collected = 812 (784 生产 + 28 真实音频)**。v7.17 校准 +8 回归 + 节拍锚定 +3 (658→669); v7.15 集成隔离修复后, 全部集成模块**单进程组合运行全绿**。
 
 ### 真实音频回归
 
 | 套件 | 测试数 | 结果 | 说明 |
 |------|:-----:|------|------|
-| 真实音频 Quick + Pro | 28 | ✅ **全 PASS** (v7.14 P2 轮) | v7.14 P2 轮修复 sr 错配 bug (P2-11) 后基线重校准 BASELINE_V7_6→V7_14 — 旧 4 个 breath 基线漂移 FAIL 为 sr 错配虚高值 (基线 80/84/76/70), 真实值校准后自然消除; 区分度断言改为总分排序 + 单维 gap ≥10 (与 BDD differentiation.feature 一致) |
+| 真实音频 Quick + Pro | 28 | ✅ **全 PASS** (v7.17 校准后) | **BASELINE_V7_17**: v7.17 评分校准 (A1 rhythm 映射 + B1 pitch 曲线 + A2 tilt/hf 质量组件 + B3/B4 校准 + A4 节拍锚定) 后重校准 — 4 个"高分"文件 total 79.9-82.6 (旧 63-65), 陈奕迅 72.0 保持低分; 区分度断言: 总分排序 + 单维 gap ≥10 (rhythm gap 62.8, 与 BDD differentiation.feature 相对断言一致); quick-pro 一致性 <25% (pro 节拍锚定后) |
 
 ### BDD (v7.15: **182 scenarios** (112 API 级 + 70 browser) → API 级 **0F / 31P / 42S / 39X** — 残余 Flask 迁移失败全部清除; v7.15 +4 browser (compare-automatch 3 + sing-song-select 1))
 
@@ -362,19 +386,19 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | SingView | 录音脉冲光环 | GSAP pulse repeat:-1 |
 | 全局 | prefers-reduced-motion | CSS @media + GSAP matchMedia |
 
-### 真实音频评分 (v7.14 P2 Quick 模式, sr 错配修复后基线)
+### 真实音频评分 (v7.17 Quick 模式, 评分校准后)
 
-> 实测值 (2026-08-11, 独立进程确定性复现)。旧 v7.6 表: 恋人 71.5/rhythm 66.3、陈奕迅 62.4 — rhythm 为 sr 错配 bug 的时间压缩虚高值; v7.14 P2-11 修复后恢复真实 onset CV。
+> 实测值 (2026-08-13, 独立进程确定性复现)。v7.17 校准 (A1 rhythm 映射 + B1 pitch 曲线 + A2 tilt/hf 质量组件 + B3/B4 校准) 后: 4 个"高分"文件 total 79.9-82.6 (优秀 A), 陈奕迅 72.0 保持低分。旧 v7.16 表见 [CHANGELOG.md](CHANGELOG.md)。
 
 | 音频文件 | Total | Pitch | Rhythm | Breath | Tech | Art | Muscle |
 |----------|:-----:|:-----:|:------:|:------:|:----:|:---:|:------:|
-| 恋人（高分） | 63.7 | 66.6 | 43.8 | 79.8 | 43.4 | 74.8 | 77.9 |
-| 手写的从前（高分） | 64.5 | 69.7 | 30.1 | 82.2 | 52.3 | 72.3 | 75.4 |
-| 1（高分） | 62.1 | 70.7 | 30.4 | 78.4 | 45.2 | 73.9 | 73.9 |
-| 音频-3分26秒(高分) | 63.3 | 67.5 | 37.1 | 78.7 | 45.0 | 72.5 | 80.4 |
-| 陈奕迅（低分） | 58.9 | 66.4 | 9.3 | 75.7 | 46.7 | 70.4 | 71.1 |
+| 恋人（高分） | **81.2** | 82.2 | 72.1 | 88.8 | 75.8 | 81.8 | 85.2 |
+| 手写的从前（高分） | **82.6** | 84.7 | 65.1 | 91.2 | 84.7 | 78.9 | 81.7 |
+| 1（高分） | **79.9** | 84.3 | 65.3 | 87.4 | 77.4 | 80.4 | 80.2 |
+| 音频-3分26秒(高分) | **80.7** | 82.8 | 68.7 | 86.7 | 76.5 | 79.8 | 87.6 |
+| 陈奕迅（低分） | **72.0** | 82.0 | **9.3** | 84.7 | 76.8 | 76.5 | 76.3 |
 
-> 高低分区分度 (v7.14 规格): 总分排序 63.7 > 58.9 ✅ + **rhythm gap 43.8 - 9.3 = 34.5 pts** (单维区分度, 与 BDD differentiation.feature 一致) ✅
+> 高低分区分度 (v7.17): 总分排序 81.2 > 72.0 ✅ + **rhythm gap 72.1 - 9.3 = 62.8 pts** (单维区分度, 与 BDD differentiation.feature 相对断言一致) ✅
 
 ---
 
@@ -392,7 +416,7 @@ v7.4 ~ v7.0: 参见 [CHANGELOG.md](CHANGELOG.md)。
 | ~~P2~~ | ~~前后端对齐: ScoreRadar/HistoryView as any 类型~~ | ✅ v7.8: 已修复 (ChartOptions/HistoryFilter 类型) |
 | ~~P2~~ | ~~前后端对齐: ApiResponse<T> 死代码 + HistoryListResponse list[dict]~~ | ✅ v7.8: 已清理 |
 | **P2** | `services/dl_services/` (4 活跃) | ✅ v7.12: 死代码已清 (桩/model_manager 子包/features:types/enhanced_dl_assessor 删除); 保留 voice_quality_detector/singing_style_classifier/self_referenced_dtw/dl_style_classifier (Professional 模式) — DDD 迁移为独立工程 |
-| **P2-15** | legacy `api/business`+`services` 收敛进 DDD | 🔶 **部分 (v7.16 安全范围)**: 已删死 `calculate()` 路径 + `FeatureAdapterRegistry` 注入 + 4 死字段 + `advice_service.py` (AdviceGenerator 入 DDD); 历史双写 bug 已修。**剩余 (Phase 2/4/5)**: `TimbreService` 双轨 (音色计算两遍) + `PhraseService` 逐句评分无 DDD 等价物 + facade 折叠 (analyze_emotion 死启发式/`FeatureAdapterRegistry` 仅测试引用) — 见 P2_15_CONVERGENCE_PLAN.md, 按需决定 |
+| **P2-15** | legacy `api/business`+`services` 收敛进 DDD | 🔶 **基本完成 (v7.16 安全范围)**: ✅ Phase 0 (死 calculate() 路径 + FeatureAdapterRegistry 注入 + 4 死字段) + ✅ Phase 0b (历史双写 bug) + ✅ Phase 1 (AdviceGenerator 入 DDD) + ✅ Phase 3 (诊断补全) + ✅ Phase 2 (音色单轨化 — TimbreService 已删) + ✅ Phase 5 (facade 折叠 — analyze_emotion 删 / reference_path 删 / flag 对齐)。**唯一剩余 (Phase 4)**: `PhraseService` 逐句评分 — 无 DDD 等价物, 经用户决策**推迟** (独立功能非双轨, 前端/测试零消费 `phrases`) — 见 P2_15_CONVERGENCE_PLAN.md, 按需决定 |
 
 ### 文献差距
 

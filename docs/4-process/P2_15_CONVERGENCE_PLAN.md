@@ -5,6 +5,8 @@
 > 消除"评分逻辑双轨"，使评分路径唯一、模块化、低耦合。
 > **方法**: 绞杀者模式 (strangler-fig) — 每阶段独立可测 GREEN，绝不一次性大爆炸重写。
 
+> **✅ 执行状态 (2026-08-14)**: 本计划 **全部 Phase 已执行完毕** — Phase 0 死代码 + Phase 0b 历史双写 + Phase 1 AdviceGenerator + Phase 2 音色单轨 (删 TimbreService) + Phase 3 诊断补全 + Phase 5 facade 折叠。**Phase 4 (PhraseService 逐句评分) 经用户决策推迟** (独立功能非"双轨"重复逻辑, 前端/测试零消费 `phrases`, `total_score` 纯 DDD 不受影响) — 见 [PROJECT_STATUS.md](PROJECT_STATUS.md) v7.16/v7.17。以下为当时的实施设计, 保留供追溯。
+
 ---
 
 ## 0. 前置约束（所有阶段必须遵守）
