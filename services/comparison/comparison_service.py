@@ -87,7 +87,9 @@ class ComparisonService:
             std_energy=std_features.energy,
             user_energy=user_features.energy,
             warp_path=alignment.warp_path,
-            std_times=std_features.times
+            std_times=std_features.times,
+            std_voiced=getattr(std_features, 'voiced', None),   # v7.18 P0 (O1)
+            user_voiced=getattr(user_features, 'voiced', None),  # v7.18 P0 (O1)
         )
 
         # 3. 评分

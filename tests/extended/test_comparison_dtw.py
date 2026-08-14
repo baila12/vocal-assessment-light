@@ -421,5 +421,87 @@ class TestIntegrationSameAudio:
         print(f"   置信度: {alignment.confidence}")
 
 
+# ================================================================
+# v7.18 P0 — 客观性/正确性修复回归 (C1 warp 分辨率 / C2 单位 / O1 voiced 掩码)
+# ================================================================
+
+class TestP0ObjectiveFixes:
+    """P0 回归: 只评 23% 音频 (C1) / rhythm_ms 单位 4.3x (C2) / 无声帧稀释 (O1)"""
+
+    def setup_method(self):
+        self.aligner = DTWAligner(sample_rate=22050, hop_length=512)
+        self.calculator = DeviationCalculator(sample_rate=22050, hop_length=512)
+
+    def _features(self, n=200, freq=440.0, seed=0):
+        rng = np.random.RandomState(seed)
+        return MultiFeatureSequence(
+            pitch=np.ones(n) * freq,
+            energy=rng.uniform(-25, -15, n),
+            zcr=np.zeros(n),
+            times=np.arange(n) * 512 / 22050,
+            sample_rate=22050,
+            hop_length=512,
+        )
+
+    def test_c1_warp_path_covers_full_audio(self):
+        """C1 CRITICAL: warp_path 应覆盖整首歌 (旧: 只到前 ~23%)"""
+        feats = self._features(n=200)
+        result = self.aligner.align(feats, feats)
+        max_std = int(result.warp_path[:, 0].max())
+        # 旧 bug: 10Hz 索引 max≈46/200=23%; 修复后应覆盖 ≥80%
+        assert max_std > 0.8 * len(feats.pitch), \
+            f"warp_path 应覆盖全歌, max_std={max_std}/{len(feats.pitch)} (旧 bug 只评前 23%)"
+
+    def test_c2_rhythm_ms_uses_full_resolution_frame(self):
+        """C2 CRITICAL: rhythm_ms = frame_diff × frame_duration (23.2ms), 非 10Hz 步长"""
+        # warp_path 帧 5: std_idx-user_idx = 10 → 10 × 23.2ms = 232ms
+        warp = np.array([[i + 10, i] for i in range(50)])  # std 恒超前 user 10 帧
+        ms = self.calculator._calculate_rhythm_ms(5, warp)
+        expected = 10 * (512 / 22050) * 1000  # 232ms
+        assert abs(ms - expected) < 1.0, f"rhythm_ms={ms:.0f}ms, 应为 {expected:.0f}ms (非 4.3x 低估)"
+
+    def test_o1_unvoiced_frames_excluded(self):
+        """O1: 无声帧 (voiced=False) 不计入 avg_pitch_cents — 防稀释"""
+        n = 100
+        std_pitch = np.ones(n) * 440.0
+        user_pitch = np.ones(n) * 440.0
+        energy = np.zeros(n)
+        warp = np.array([[i, i] for i in range(n)])
+        std_voiced = np.ones(n, dtype=bool)
+        user_voiced = np.ones(n, dtype=bool)
+        # 前 50 帧用户无声 (但 pitch 有一八度偏差, 若被计入 avg 会巨大)
+        user_voiced[:50] = False
+        user_pitch[:50] = 880.0
+        result = self.calculator.calculate(
+            std_pitch, user_pitch, energy, energy, warp,
+            std_voiced=std_voiced, user_voiced=user_voiced,
+        )
+        # 仅后 50 帧有声且偏差 0 → avg 应为 0
+        assert result.avg_pitch_cents < 1.0, \
+            f"无声帧不应计入平均, 实际 {result.avg_pitch_cents:.1f} (旧 bug: 无声帧 0 音分稀释)"
+
+    def test_o1_all_unvoiced_safe(self):
+        """O1: 全部无声帧 → 聚合安全不崩 (空列表 → 0)"""
+        n = 20
+        pitch = np.ones(n) * 440.0
+        energy = np.zeros(n)
+        warp = np.array([[i, i] for i in range(n)])
+        result = self.calculator.calculate(
+            pitch, pitch, energy, energy, warp,
+            std_voiced=np.zeros(n, dtype=bool), user_voiced=np.zeros(n, dtype=bool),
+        )
+        assert result.avg_pitch_cents == 0.0
+
+    def test_backward_compat_no_voiced_param(self):
+        """向后兼容: 不传 voiced → 行为不变 (全部计入)"""
+        n = 100
+        std_pitch = np.ones(n) * 440.0
+        user_pitch = np.ones(n) * 466.16  # 半音
+        energy = np.zeros(n)
+        warp = np.array([[i, i] for i in range(n)])
+        result = self.calculator.calculate(std_pitch, user_pitch, energy, energy, warp)
+        assert 90 < result.avg_pitch_cents < 110  # 半音 ~100c (与旧测试一致)
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

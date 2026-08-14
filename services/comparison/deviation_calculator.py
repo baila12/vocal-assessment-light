@@ -30,6 +30,8 @@ class FrameDeviation:
 
     # 问题标记
     problem_type: Optional[str] = None  # pitch_high, pitch_low, rhythm_fast, rhythm_slow, breath_unstable
+    # v7.18 P0 (O1): 双端有声 (std 和 user 都 voiced) — 聚合排除无声帧防稀释
+    is_voiced: bool = True
 
 
 @dataclass
@@ -71,7 +73,9 @@ class DeviationCalculator:
         user_energy: np.ndarray,
         warp_path: np.ndarray,
         std_times: Optional[np.ndarray] = None,
-        user_times: Optional[np.ndarray] = None
+        user_times: Optional[np.ndarray] = None,
+        std_voiced: Optional[np.ndarray] = None,
+        user_voiced: Optional[np.ndarray] = None,
     ) -> DeviationResult:
         """
         计算逐帧偏差
@@ -81,9 +85,11 @@ class DeviationCalculator:
             user_pitch: 用户音频基频
             std_energy: 标准音频能量
             user_energy: 用户音频能量
-            warp_path: DTW对齐路径 [(std_idx, user_idx), ...]
+            warp_path: DTW对齐路径 [(std_idx, user_idx), ...] (全分辨率索引, v7.18 P0)
             std_times: 标准音频时间轴
             user_times: 用户音频时间轴
+            std_voiced: 标准音频 voiced_flags (v7.18 P0 O1, 可选)
+            user_voiced: 用户音频 voiced_flags (v7.18 P0 O1, 可选)
 
         Returns:
             DeviationResult
@@ -100,6 +106,13 @@ class DeviationCalculator:
                 continue
             if std_idx >= len(std_energy) or user_idx >= len(user_energy):
                 continue
+
+            # v7.18 P0 (O1): 双端有声判断 (无声帧不计入音准/音量/气息聚合, 防稀释)
+            is_voiced = True
+            if std_voiced is not None and user_voiced is not None:
+                std_v = std_voiced[std_idx] if std_idx < len(std_voiced) else False
+                user_v = user_voiced[user_idx] if user_idx < len(user_voiced) else False
+                is_voiced = bool(std_v and user_v)
 
             # 计算音准偏差
             pitch_cents = self._calculate_pitch_cents(
@@ -131,7 +144,8 @@ class DeviationCalculator:
                 pitch_cents=pitch_cents,
                 rhythm_ms=rhythm_ms,
                 volume_percent=volume_percent,
-                breath_stability=breath_stability
+                breath_stability=breath_stability,
+                is_voiced=is_voiced
             )
 
             # 检测问题类型
@@ -153,10 +167,13 @@ class DeviationCalculator:
                 problem_frames=[]
             )
 
-        pitch_cents_list = [abs(f.pitch_cents) for f in frames if not np.isnan(f.pitch_cents)]
-        rhythm_ms_list = [abs(f.rhythm_ms) for f in frames]
-        volume_list = [abs(f.volume_percent) for f in frames]
-        breath_list = [f.breath_stability for f in frames]
+        # v7.18 P0 (O1): 聚合只统计双端有声帧 (mir_eval RPA 标准: 分母=有声音帧)。
+        # 无声帧 pitch=0 / 音量≈-100% / 气息静音窗=满分 → 会稀释/污染均值。
+        voiced_frames = [f for f in frames if f.is_voiced]
+        pitch_cents_list = [abs(f.pitch_cents) for f in voiced_frames if not np.isnan(f.pitch_cents)]
+        rhythm_ms_list = [abs(f.rhythm_ms) for f in frames]  # 节奏是时间轴度量, 全统计
+        volume_list = [abs(f.volume_percent) for f in voiced_frames]
+        breath_list = [f.breath_stability for f in voiced_frames]
 
         return DeviationResult(
             frames=frames,

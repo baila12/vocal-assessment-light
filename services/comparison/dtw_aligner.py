@@ -43,6 +43,8 @@ class MultiFeatureSequence:
     times: np.ndarray              # 时间轴 (秒)
     sample_rate: int               # 采样率
     hop_length: int                # 跳跃长度
+    # v7.18 P0 (O1): PYIN voiced_flags — 无声帧过滤 (对比音准/音量/气息聚合)
+    voiced: np.ndarray = None      # bool 数组, 长度 = pitch
 
 
 class DTWAligner:
@@ -131,8 +133,20 @@ class DTWAligner:
         # 计算置信度
         confidence = self._calculate_confidence(global_alignment, sentence_alignments)
 
+        # v7.18 P0 (C1 CRITICAL): 将 10Hz 降采样 warp_path 映射回全分辨率索引。
+        # 旧: _global_align 在 10Hz 能量上做 DTW → warp_path 索引在 10Hz 空间 (0..dur×10),
+        # 但调用方 (DeviationCalculator) 用它访问 43Hz 全分辨率 pitch/energy → 只比较前 ~23% 帧。
+        # 新: 索引 ×downsample_factor 映射回全分辨率 → 整首歌被评估 (C2 单位也随之正确)。
+        downsample_factor = self.frame_rate / self.GLOBAL_DOWNSAMPLE_RATE
+        warp_path_full = self._map_to_full_resolution(
+            global_alignment['warp_path'],
+            downsample_factor,
+            len(standard_features.pitch) - 1,
+            len(user_features.pitch) - 1,
+        )
+
         return AlignmentResult(
-            warp_path=global_alignment['warp_path'],
+            warp_path=warp_path_full,
             global_offset=global_alignment['offset'],
             confidence=confidence,
             sentence_alignments=sentence_alignments,
@@ -208,6 +222,22 @@ class DTWAligner:
                 'offset': 0.0,
                 'cost_matrix': None
             }
+
+    @staticmethod
+    def _map_to_full_resolution(
+        warp_path: np.ndarray,
+        downsample_factor: float,
+        max_std_idx: int,
+        max_user_idx: int,
+    ) -> np.ndarray:
+        """将降采样 (10Hz) warp_path 索引映射回全分辨率 (43Hz) 并 clamp 越界。
+
+        v7.18 P0 (C1 CRITICAL): 修复"10Hz 索引访问 43Hz 数组 → 只比较前 ~23% 帧"。
+        """
+        wp = np.round(warp_path * downsample_factor).astype(int)
+        wp[:, 0] = np.clip(wp[:, 0], 0, max_std_idx)
+        wp[:, 1] = np.clip(wp[:, 1], 0, max_user_idx)
+        return wp
 
     def _sentence_align(
         self,
@@ -566,8 +596,14 @@ class DTWAligner:
             # 对齐该段落
             segment_alignment = self._global_align(std_segment, user_segment)
 
-            # 调整索引到全局坐标
-            wp = segment_alignment['warp_path']
+            # v7.18 P0 (C1): 每段 wp 也先映射回全分辨率再加全局偏移 (旧: 10Hz 索引加 43Hz 偏移, 单位错乱)
+            downsample_factor = self.frame_rate / self.GLOBAL_DOWNSAMPLE_RATE
+            wp = self._map_to_full_resolution(
+                segment_alignment['warp_path'],
+                downsample_factor,
+                len(std_segment.pitch) - 1,
+                len(user_segment.pitch) - 1,
+            )
             wp[:, 0] += start_idx
             wp[:, 1] += user_start_idx
             all_warp_paths.append(wp)
@@ -675,11 +711,15 @@ class DTWAligner:
         # 转换能量为dB
         rms_db = 20 * np.log10(rms + 1e-10)
 
+        # v7.18 P0 (O1): 保留 PYIN voiced_flags — 对比音准/音量/气息聚合排除无声帧
+        voiced = np.asarray(voiced_flags, dtype=bool) if voiced_flags is not None else None
+
         return MultiFeatureSequence(
             pitch=f0,
             energy=rms_db,
             zcr=zcr,
             times=times,
             sample_rate=sr,
-            hop_length=hop_length
+            hop_length=hop_length,
+            voiced=voiced,
         )
