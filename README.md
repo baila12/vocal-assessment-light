@@ -107,8 +107,9 @@ vocal_assessment_light/
 ├── api/business/         # 共享业务逻辑 (audio_analysis)
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
-├── docs/                 # 文档 (产品/技术/质量/流程)
-└── tests/                # 786 tests collected (unit 643 + integration 94 + extended 21 + real-audio 28) + 前端 307 Vitest
+└── tests/                # 812 tests collected (unit 669 + API 77 + WS 17 + extended 21 + real-audio 28) + 前端 307 Vitest
+
+> 注: 详细开发文档 (PROJECT_STATUS/CHANGELOG/评分算法/深度审查) 存放于本地 `docs/` 目录, 不纳入版本控制; 本仓库仅保留此 README。
 ```
 
 ## API 接口
@@ -233,7 +234,7 @@ cd frontend && npx vitest run
 - **v7.2** — audiofeat 增强特征提取 (22 特征) (2026-07-26)
 - **v7.1** — DDD 绞杀者内移完成 + 前后端对齐 (2026-07-24)
 - **v7.0** — FastAPI + Vue 3 + Element Plus 全栈重构 (2026-07-22)
-- **v5.x** — 旧版 (Flask + Vanilla JS + PyQt5), 详见 [CHANGELOG](docs/4-process/CHANGELOG.md)
+- **v5.x** — 旧版 (Flask + Vanilla JS + PyQt5)
 
 ## 许可证
 
