@@ -40,7 +40,7 @@ class TestHealthEndpoint:
         resp = client.get("/openapi.json")
         assert resp.status_code == 200
         data = resp.json()
-        # 标题从 APP_VERSION 派生 (VAS v7.16), 断言防漂移
+        # 标题从 APP_VERSION 派生 (VAS vX.Y), 断言防漂移
         assert data["info"]["title"] == f"VAS v{'.'.join(APP_VERSION.split('.')[:2])}"
         # 验证路由已注册
         paths = list(data["paths"].keys())
