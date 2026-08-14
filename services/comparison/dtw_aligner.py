@@ -521,29 +521,27 @@ class DTWAligner:
         global_alignment: Dict,
         sentence_alignments: List[Dict]
     ) -> float:
-        """计算整体对齐置信度"""
-        # 如果全局偏移接近0，可能是相同或非常相似的音频，直接返回高置信度
-        global_offset = abs(global_alignment['offset'])
-        if global_offset < 0.5:  # 偏移小于0.5秒
-            # 检查是否有合理的句子对齐
-            if sentence_alignments and len(sentence_alignments) >= 1:
-                # 计算平均质量，但给予更高基准
-                avg_quality = np.mean([s['quality'] for s in sentence_alignments])
-                # 基础置信度0.9，加上平均质量的影响
-                confidence = 0.9 + avg_quality * 0.1
-                return min(1.0, confidence)
+        """计算整体对齐置信度 (v7.18 P2 F4)。
 
-        # 一般情况：基于路径代价和句子质量
-        if not sentence_alignments:
+        旧: ① 依赖易错 segment quality (identical 音频句子 quality 也仅 0.3,
+            因 _sentence_align 降采样往返错位); ② global_offset<0.5 强制 0.9 floor (虚高)。
+        新: 基于 warp_path 的**回归残差归一化** — tempo 剥离后路径与直线的偏离越小,
+            对齐越可靠。identical → ~1.0, 不同歌曲 (强 warp) → 低置信度。
+            残差 >20% 路径长 → 置信度 0。
+        """
+        wp = global_alignment['warp_path']
+        if wp is None or len(wp) < 3:
             return 0.5
 
-        avg_quality = np.mean([s['quality'] for s in sentence_alignments])
+        slope, intercept = np.polyfit(
+            wp[:, 0].astype(float), wp[:, 1].astype(float), 1,
+        )
+        residuals = wp[:, 1] - (intercept + slope * wp[:, 0])
+        rms_resid = float(np.sqrt(np.mean(residuals ** 2)))
+        path_len = max(float(wp[:, 1].max() - wp[:, 1].min()), 1.0)
+        norm_resid = rms_resid / max(path_len, 1e-6)
 
-        # 考虑全局偏移的影响
-        offset_penalty = min(1.0, global_offset / 10.0)  # 10秒以上完全惩罚
-
-        confidence = avg_quality * (1 - 0.3 * offset_penalty)
-
+        confidence = 1.0 - min(1.0, norm_resid * 5.0)
         return max(0.1, min(1.0, confidence))
 
     def _align_long_audio(

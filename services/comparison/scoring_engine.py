@@ -141,8 +141,8 @@ class ComparisonScoringEngine:
             breath_score.score * self.weights['breath']
         )
 
-        # 考虑对齐置信度
-        overall_score = overall_score * confidence
+        # 考虑对齐置信度 (v7.18 P2 F4: 温和调制 — 低置信度不归零, 避免双重惩罚)
+        overall_score = overall_score * (0.5 + 0.5 * confidence)
 
         # 确定等级
         level = self._determine_level(overall_score)

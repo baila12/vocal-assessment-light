@@ -87,13 +87,12 @@ class TestComparisonScoringService:
         assert result.weighted_total() == 100.0
 
     def test_confidence_scales_total(self):
-        """置信度 0.5 → 总分减半"""
+        """v7.18 P2 (F4): 温和置信度调制 — conf 0.5 → ×0.75 (非归零)"""
         dev = DeviationData(avg_pitch_cents=0.0)  # perfect pitch
         result_full = self.service.score(dev, confidence=1.0)
         result_half = self.service.score(dev, confidence=0.5)
-        assert result_half.weighted_total() == pytest.approx(
-            result_full.weighted_total() * 0.5, rel=0.01
-        )
+        assert result_full.weighted_total() == 100.0
+        assert result_half.weighted_total() == pytest.approx(75.0, rel=0.01)  # 100×0.75
 
     # ---- Style weights ----
 

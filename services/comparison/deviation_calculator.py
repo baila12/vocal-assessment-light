@@ -216,13 +216,15 @@ class DeviationCalculator:
             if voiced_frames else 0.0
         )
 
+        # v7.18 P2 (S1): 鲁棒聚合 — 中位数替代均值 (崩溃点 0%→50%, 离群帧不拖偏)。
+        # 文献: Mauch 2014 (JASA) 用中位绝对偏差; v7.17 六维 rhythm 已用 median+p75-p50。
         return DeviationResult(
             frames=frames,
-            avg_pitch_cents=np.mean(pitch_cents_list) if pitch_cents_list else 0.0,
-            max_pitch_cents=np.max(pitch_cents_list) if pitch_cents_list else 0.0,
-            avg_rhythm_ms=np.mean(rhythm_ms_list) if rhythm_ms_list else 0.0,
-            avg_volume_percent=np.mean(volume_list) if volume_list else 0.0,
-            avg_breath_stability=np.mean(breath_list) if breath_list else 0.0,
+            avg_pitch_cents=self._robust_median(pitch_cents_list),
+            max_pitch_cents=np.max(pitch_cents_list) if pitch_cents_list else 0.0,  # P95 离群单独报
+            avg_rhythm_ms=self._robust_median(rhythm_ms_list),
+            avg_volume_percent=self._robust_median(volume_list),
+            avg_breath_stability=self._robust_median(breath_list),
             problem_frames=problem_frames,
             octave_error_rate=round(octave_error_rate, 4),
             tempo_ratio=round(tempo_ratio, 4),
@@ -252,6 +254,13 @@ class DeviationCalculator:
             return 0.0
 
         return float(cents)
+
+    @staticmethod
+    def _robust_median(values) -> float:
+        """中位数聚合 — 鲁棒 (崩溃点 50%), 离群帧不拖偏 (v7.18 P2 S1)"""
+        if not values:
+            return 0.0
+        return float(np.median(np.asarray(values, dtype=float)))
 
     @staticmethod
     def _fold_octave(cents: float) -> float:

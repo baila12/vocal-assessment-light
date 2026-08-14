@@ -609,5 +609,67 @@ class TestP1VolumeBreath:
         assert score.score == pytest.approx(80.0, rel=0.05)  # (1-0.2)×100
 
 
+# ================================================================
+# v7.18 P2 — 鲁棒性回归 (S1 median 聚合 / F4 置信度重校准)
+# ================================================================
+
+class TestP2Robustness:
+    """P2: 离群帧不拖偏 median / 置信度反映对齐可靠性"""
+
+    def setup_method(self):
+        self.calc = DeviationCalculator(sample_rate=22050, hop_length=512)
+        self.aligner = DTWAligner(sample_rate=22050, hop_length=512)
+
+    def test_s1_median_robust_to_outliers(self):
+        """S1: 5% 离群帧 (536c) 不拖偏 median (77c vs mean ~101c)"""
+        n = 100
+        std_pitch = np.ones(n) * 440.0
+        user_pitch = np.ones(n) * 460.0  # ~77 cents
+        user_pitch[5:10] = 600.0  # 5% 离群帧 ~536 cents
+        energy = np.zeros(n)
+        warp = np.array([[i, i] for i in range(n)])
+        result = self.calc.calculate(std_pitch, user_pitch, energy, energy, warp)
+        # median 聚合 → 离群帧不拖偏
+        assert result.avg_pitch_cents < 90, f"median 应稳定≈77, 实际 {result.avg_pitch_cents:.0f}"
+        # 对照: 均值会被拖到 ~101
+        all_cents = np.abs(self.calc._fold_octave(
+            1200 * np.log2(user_pitch / std_pitch)
+        ))
+        assert np.mean(all_cents) > 95, "均值应被离群拖高 (对比 median 稳定)"
+
+    def test_f4_confidence_identical_high(self):
+        """F4: 相同音频置信度 ~1 (对齐可靠 → 高置信)"""
+        feats = self._features(n=200)
+        r_identical = self.aligner.align(feats, feats)
+        assert r_identical.confidence > 0.9, f"相同音频置信度应高, 实际 {r_identical.confidence:.2f}"
+
+    def test_f4_confidence_tempo_shift_kept_high(self):
+        """F4: tempo 偏移 (内容相同, 速度不同) → 置信度保持高 (对齐可靠, 非内容不同)"""
+        feats = self._features(n=200)
+        # 时间拉伸 1.1x (唱快): 内容相同 → 回归残差小 → 置信度应仍高
+        n_new = int(200 * 1.1)
+        idx = np.linspace(0, 199, n_new)
+        feats_stretched = MultiFeatureSequence(
+            pitch=np.interp(idx, np.arange(200), feats.pitch),
+            energy=np.interp(idx, np.arange(200), feats.energy),
+            zcr=np.zeros(n_new),
+            times=np.arange(n_new) * 512 / 22050,
+            sample_rate=22050, hop_length=512,
+        )
+        r = self.aligner.align(feats, feats_stretched)
+        assert r.confidence > 0.7, f"tempo 偏移对齐仍可靠, 置信度应高, 实际 {r.confidence:.2f}"
+
+    def _features(self, n=200, freq=440.0, seed=0):
+        rng = np.random.RandomState(seed)
+        return MultiFeatureSequence(
+            pitch=np.ones(n) * freq,
+            energy=rng.uniform(-25, -15, n),
+            zcr=np.zeros(n),
+            times=np.arange(n) * 512 / 22050,
+            sample_rate=22050,
+            hop_length=512,
+        )
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

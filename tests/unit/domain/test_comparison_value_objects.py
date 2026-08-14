@@ -130,7 +130,7 @@ class TestComparisonScores:
             assert level.label == expected_label
 
     def test_with_confidence_adjustment(self):
-        """对齐置信度应能调整总分"""
+        """v7.18 P2 (F4): 温和置信度调制 — conf 0.5 → ×0.75, 1.0 → 不变"""
         from backend.domain.comparison.value_objects import ComparisonScores
         scores = ComparisonScores(
             pitch=_make_dimension_score(score=80.0),
@@ -140,7 +140,7 @@ class TestComparisonScores:
         )
         raw_total = scores.weighted_total()
         adjusted = scores.with_confidence(0.5)
-        assert adjusted.weighted_total() == pytest.approx(raw_total * 0.5, rel=0.01)
+        assert adjusted.weighted_total() == pytest.approx(raw_total * 0.75, rel=0.01)
         # confidence=1.0 → no change
         full = scores.with_confidence(1.0)
         assert full.weighted_total() == raw_total

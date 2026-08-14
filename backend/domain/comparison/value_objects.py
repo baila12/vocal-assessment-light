@@ -42,7 +42,11 @@ class ComparisonScores:
         return self.weighted_total()
 
     def weighted_total(self) -> float:
-        """计算加权总分 (含置信度修正)"""
+        """计算加权总分 (含置信度修正)
+
+        v7.18 P2 (F4): 温和置信度调制 — 低置信度不归零 (score × (0.5+0.5×conf)),
+        避免"对齐不确定"双重惩罚所有维度。
+        """
         wp, wr, wv, wb = self._weights
         raw = (
             self.pitch.score * wp
@@ -50,7 +54,7 @@ class ComparisonScores:
             + self.volume.score * wv
             + self.breath.score * wb
         )
-        return round(raw * self._confidence, 1)
+        return round(raw * (0.5 + 0.5 * self._confidence), 1)
 
     def with_confidence(self, confidence: float) -> "ComparisonScores":
         """返回带有新置信度值的不可变副本"""
