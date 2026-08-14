@@ -72,7 +72,10 @@ class ComparisonScoringService:
             avg_deviation=round(avg_cents, 1),
             max_deviation=round(max_cents, 1),
             problem_count=dev.problem_frame_count,
-            details=(),
+            details={
+                # v7.18 P1 (F2): 八度错误率 (独立信号, 折叠后评分已公平)
+                "octave_error_rate": round(dev.octave_error_rate, 4),
+            },
         )
 
     @staticmethod
@@ -89,7 +92,10 @@ class ComparisonScoringService:
             avg_deviation=round(avg_ms, 1),
             max_deviation=0.0,
             problem_count=0,
-            details=(),
+            details={
+                # v7.18 P1 (F1): 整体速度比 (用户相对参考, 1.0=同速)
+                "tempo_ratio": round(dev.tempo_ratio, 4),
+            },
         )
 
     @staticmethod

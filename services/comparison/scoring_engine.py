@@ -201,7 +201,9 @@ class ComparisonScoringEngine:
             problem_count=problem_count,
             details={
                 'avg_cents': round(avg_cents, 1),
-                'max_cents': round(max_cents, 1)
+                'max_cents': round(max_cents, 1),
+                # v7.18 P1 (F2): 八度错误率 (独立信号, 折叠后评分已公平)
+                'octave_error_rate': round(getattr(deviation, 'octave_error_rate', 0.0), 4),
             }
         )
 
@@ -231,7 +233,9 @@ class ComparisonScoringEngine:
             max_deviation=0.0,
             problem_count=problem_count,
             details={
-                'avg_offset_ms': round(avg_ms, 1)
+                'avg_offset_ms': round(avg_ms, 1),
+                # v7.18 P1 (F1): 整体速度比 (用户相对参考, 1.0=同速)
+                'tempo_ratio': round(getattr(deviation, 'tempo_ratio', 1.0), 4),
             }
         )
 

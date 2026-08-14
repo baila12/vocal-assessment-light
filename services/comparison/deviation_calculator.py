@@ -32,6 +32,8 @@ class FrameDeviation:
     problem_type: Optional[str] = None  # pitch_high, pitch_low, rhythm_fast, rhythm_slow, breath_unstable
     # v7.18 P0 (O1): 双端有声 (std 和 user 都 voiced) — 聚合排除无声帧防稀释
     is_voiced: bool = True
+    # v7.18 P1 (F2): 八度错误标记 (|raw_cents| > 600) — 独立于折叠后的评分
+    octave_error: bool = False
 
 
 @dataclass
@@ -44,6 +46,10 @@ class DeviationResult:
     avg_volume_percent: float
     avg_breath_stability: float
     problem_frames: List[FrameDeviation]  # 有问题的帧
+    # v7.18 P1 (F2): 八度错误率 (跨八度帧占比) — 诊断/惩罚用, 不影响折叠后评分
+    octave_error_rate: float = 0.0
+    # v7.18 P1 (F1): 整体速度比 (warp 回归斜率, 相对参考) — tempo 独立报告
+    tempo_ratio: float = 1.0
 
 
 class DeviationCalculator:
@@ -97,6 +103,19 @@ class DeviationCalculator:
         frames = []
         problem_frames = []
 
+        # v7.18 P1 (F1): tempo 独立节奏 — 对 warp_path 拟合线性回归 (Molina ε_RMS)。
+        # 非 45° 直线 = 整体速度不同 (tempo, 非错误); 残差 = 节拍不准。
+        # slope = 整体速度比 (用户相对参考), 独立报告。
+        if len(warp_path) >= 3:
+            slope, intercept = np.polyfit(
+                warp_path[:, 0].astype(float),
+                warp_path[:, 1].astype(float),
+                1,
+            )
+        else:
+            slope, intercept = 1.0, 0.0
+        tempo_ratio = float(slope)
+
         for i, (std_idx, user_idx) in enumerate(warp_path):
             std_idx = int(std_idx)
             user_idx = int(user_idx)
@@ -114,11 +133,13 @@ class DeviationCalculator:
                 user_v = user_voiced[user_idx] if user_idx < len(user_voiced) else False
                 is_voiced = bool(std_v and user_v)
 
-            # 计算音准偏差
-            pitch_cents = self._calculate_pitch_cents(
+            # 计算音准偏差 (F2: 八度折叠 — 低/高八度用户音级对给分, 不误伤)
+            raw_cents = self._calculate_pitch_cents(
                 std_pitch[std_idx],
                 user_pitch[user_idx]
             )
+            pitch_cents = self._fold_octave(raw_cents)  # 映射到 [-600, 600)
+            octave_error = bool(abs(raw_cents) > 600.0)  # 单列八度错误信号
 
             # 计算音量偏差
             volume_percent = self._calculate_volume_percent(
@@ -126,8 +147,10 @@ class DeviationCalculator:
                 user_energy[user_idx]
             )
 
-            # 计算节奏偏差（基于对齐路径的时间差）
-            rhythm_ms = self._calculate_rhythm_ms(i, warp_path)
+            # v7.18 P1 (F1): 节奏偏差 = 相对回归线的残差 (tempo 独立)
+            # 整体速度 (slope) 被剥离; 残差反映"跟不跟得上节拍"
+            predicted_user = intercept + slope * std_idx
+            rhythm_ms = (user_idx - predicted_user) * self.frame_duration * 1000
 
             # 计算气息稳定性（基于局部能量方差）
             breath_stability = self._calculate_breath_stability(
@@ -145,7 +168,8 @@ class DeviationCalculator:
                 rhythm_ms=rhythm_ms,
                 volume_percent=volume_percent,
                 breath_stability=breath_stability,
-                is_voiced=is_voiced
+                is_voiced=is_voiced,
+                octave_error=octave_error,
             )
 
             # 检测问题类型
@@ -164,7 +188,8 @@ class DeviationCalculator:
                 avg_rhythm_ms=0.0,
                 avg_volume_percent=0.0,
                 avg_breath_stability=0.0,
-                problem_frames=[]
+                problem_frames=[],
+                tempo_ratio=tempo_ratio,
             )
 
         # v7.18 P0 (O1): 聚合只统计双端有声帧 (mir_eval RPA 标准: 分母=有声音帧)。
@@ -175,6 +200,12 @@ class DeviationCalculator:
         volume_list = [abs(f.volume_percent) for f in voiced_frames]
         breath_list = [f.breath_stability for f in voiced_frames]
 
+        # F2: 八度错误率 (跨八度帧占比) — 独立信号, 不并入折叠后音准评分
+        octave_error_rate = (
+            sum(1 for f in voiced_frames if f.octave_error) / len(voiced_frames)
+            if voiced_frames else 0.0
+        )
+
         return DeviationResult(
             frames=frames,
             avg_pitch_cents=np.mean(pitch_cents_list) if pitch_cents_list else 0.0,
@@ -182,7 +213,9 @@ class DeviationCalculator:
             avg_rhythm_ms=np.mean(rhythm_ms_list) if rhythm_ms_list else 0.0,
             avg_volume_percent=np.mean(volume_list) if volume_list else 0.0,
             avg_breath_stability=np.mean(breath_list) if breath_list else 0.0,
-            problem_frames=problem_frames
+            problem_frames=problem_frames,
+            octave_error_rate=round(octave_error_rate, 4),
+            tempo_ratio=round(tempo_ratio, 4),
         )
 
     def _calculate_pitch_cents(self, std_freq: float, user_freq: float) -> float:
@@ -209,6 +242,16 @@ class DeviationCalculator:
             return 0.0
 
         return float(cents)
+
+    @staticmethod
+    def _fold_octave(cents: float) -> float:
+        """八度折叠: 音分偏差映射到 [-600, 600) 半八度内 (v7.18 P1 F2)。
+
+        男声低八度/女声高八度翻唱 (1200c 偏差) → 折叠后 ~0 (音级匹配), 消除音域/性别不公平。
+        文献: RCA (mir_eval) 用模 12 音级折叠; 男:女 F0 比 0.55-0.66 非整八度,
+        %1200 折叠比整八度搬移更稳。八度错误本身由 FrameDeviation.octave_error 单列信号。
+        """
+        return ((cents + 600.0) % 1200.0) - 600.0
 
     def _calculate_volume_percent(self, std_energy: float, user_energy: float) -> float:
         """

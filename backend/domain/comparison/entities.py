@@ -31,6 +31,9 @@ class DeviationData:
     avg_volume_percent: float = 0.0
     avg_breath_stability: float = 1.0
     problem_frame_count: int = 0
+    # v7.18 P1 (F2/F1): 八度错误率 + 整体速度比 — 独立信号 (评分已含折叠/残差)
+    octave_error_rate: float = 0.0
+    tempo_ratio: float = 1.0
 
 
 @dataclass(frozen=True)

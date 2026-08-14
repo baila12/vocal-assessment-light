@@ -137,7 +137,10 @@ class ComparisonService:
             'problem_summary': score_result.problem_summary,
             'diagnosis': self._generate_diagnosis(score_result, deviation),
             'compute_time_ms': compute_time,
-            'method': alignment.method
+            'method': alignment.method,
+            # v7.18 P1: 八度错误率 + 整体速度比 (F2/F1 独立信号, 供诊断)
+            'octave_error_rate': getattr(deviation, 'octave_error_rate', 0.0),
+            'tempo_ratio': getattr(deviation, 'tempo_ratio', 1.0),
         }
 
         logger.info(f"[ComparisonService] Comparison complete: score={result['score']}, level={result['level']}")
@@ -221,6 +224,18 @@ class ComparisonService:
         breath_score = score_result.dimensions['breath'].score
         if breath_score < 70:
             diagnosis.append('气息稳定性不足，建议练习腹式呼吸')
+
+        # v7.18 P1 (F2): 八度错误提示 — 音级对但跨八度 (非走调)
+        octave_rate = getattr(deviation, 'octave_error_rate', 0.0)
+        if octave_rate > 0.3:
+            diagnosis.append(f'检测到较多跨八度演唱 ({octave_rate*100:.0f}% 帧), 音级正确但音域/八度与原唱不同 (属正常翻唱)')
+
+        # v7.18 P1 (F1): 整体速度提示 — tempo 已从节奏分剥离, 独立报告
+        tempo = getattr(deviation, 'tempo_ratio', 1.0)
+        if tempo > 1.08:
+            diagnosis.append(f'整体速度比原唱快约 {(tempo-1)*100:.0f}%')
+        elif tempo < 0.92:
+            diagnosis.append(f'整体速度比原唱慢约 {(1-tempo)*100:.0f}%')
 
         # 整体诊断
         if score_result.overall_score >= 90:

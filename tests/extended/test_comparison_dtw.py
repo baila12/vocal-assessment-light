@@ -503,5 +503,66 @@ class TestP0ObjectiveFixes:
         assert 90 < result.avg_pitch_cents < 110  # 半音 ~100c (与旧测试一致)
 
 
+# ================================================================
+# v7.18 P1 — 公正性回归 (F2 八度折叠 / F1 tempo 独立节奏)
+# ================================================================
+
+class TestP1FairnessFixes:
+    """P1 公正性: 低八度不误伤 (F2) / 整体速度不惩罚节奏 (F1)"""
+
+    def setup_method(self):
+        self.calc = DeviationCalculator(sample_rate=22050, hop_length=512)
+
+    def test_f2_fold_octave_unit(self):
+        """F2: _fold_octave 把八度偏差折叠到 [-600, 600)"""
+        assert self.calc._fold_octave(0.0) == 0.0
+        assert self.calc._fold_octave(100.0) == 100.0   # 半音不变
+        assert self.calc._fold_octave(-100.0) == -100.0
+        assert abs(self.calc._fold_octave(1200.0)) < 0.01   # 低八度 → 0 (音级对)
+        assert abs(self.calc._fold_octave(-1200.0)) < 0.01
+        assert abs(self.calc._fold_octave(1300.0) - 100.0) < 0.01  # 八度+半音 → 半音
+
+    def test_f2_octave_down_gets_credit(self):
+        """F2: 用户低八度 (freq×0.5) → 折叠后偏差 ≈ 0 (音级匹配, 不误伤)"""
+        raw = self.calc._calculate_pitch_cents(440.0, 220.0)
+        assert abs(abs(raw) - 1200.0) < 1.0, f"低八度应 ≈1200c, 实际 {raw}"
+        assert abs(self.calc._fold_octave(raw)) < 0.01, f"折叠后应 ≈0, 实际 {self.calc._fold_octave(raw)}"
+
+    def test_f1_tempo_independent_residual(self):
+        """F1: 整体速度不同 (快~11%) → 节奏偏差小 (tempo 已剥离), tempo_ratio 独立报告"""
+        n = 100
+        pitch = np.ones(n) * 440.0
+        energy = np.zeros(n)
+        warp = np.array([[int(i * 0.9), i] for i in range(90)])  # 用户快 ~11%
+        result = self.calc.calculate(pitch, pitch, energy, energy, warp)
+        assert result.tempo_ratio > 1.05, f"tempo_ratio 应≈1.11, 实际 {result.tempo_ratio}"
+        assert result.avg_rhythm_ms < 100, \
+            f"整体速度不应惩罚节奏, avg_rhythm_ms={result.avg_rhythm_ms:.0f}ms (旧对角线→巨大)"
+
+    def test_f1_irregular_rhythm_penalized(self):
+        """F1: 真节奏不准 (忽快忽慢 ±10 帧) → 残差大 → 节奏偏差大"""
+        n = 100
+        pitch = np.ones(n) * 440.0
+        energy = np.zeros(n)
+        warp = np.array([
+            [i, i + (10 if i % 3 == 0 else -10 if i % 3 == 1 else 0)] for i in range(90)
+        ])
+        result = self.calc.calculate(pitch, pitch, energy, energy, warp)
+        assert result.avg_rhythm_ms > 50, \
+            f"节奏不准应产生偏差, avg_rhythm_ms={result.avg_rhythm_ms:.0f}ms"
+
+    def test_f2_octave_error_rate_reported(self):
+        """F2: 跨八度帧 → octave_error_rate 报告 (独立信号, 不并入折叠评分)"""
+        n = 100
+        std_pitch = np.ones(n) * 440.0
+        user_pitch = np.ones(n) * 440.0
+        energy = np.zeros(n)
+        warp = np.array([[i, i] for i in range(n)])
+        user_pitch[:40] = 220.0  # 前 40 帧低八度
+        result = self.calc.calculate(std_pitch, user_pitch, energy, energy, warp)
+        assert result.octave_error_rate > 0.3, f"八度错误率应≈0.4, 实际 {result.octave_error_rate}"
+        assert result.avg_pitch_cents < 50, f"折叠后音准偏差应小, 实际 {result.avg_pitch_cents:.0f}c"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

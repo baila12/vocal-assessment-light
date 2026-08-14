@@ -59,6 +59,8 @@ class CompareAudioUseCase:
             avg_rhythm_ms=dims.get("rhythm", {}).get("avg_deviation", 0),
             avg_volume_percent=dims.get("volume", {}).get("avg_deviation", 0),
             avg_breath_stability=dims.get("breath", {}).get("stability", 1.0),
+            octave_error_rate=legacy_result.get("octave_error_rate", 0.0),  # v7.18 P1 (F2)
+            tempo_ratio=legacy_result.get("tempo_ratio", 1.0),              # v7.18 P1 (F1)
         )
 
         # 3. DDD 评分
@@ -121,5 +123,18 @@ class CompareAudioUseCase:
 
         if s.breath.score < 70:
             diagnosis.append("气息稳定性不足，建议练习腹式呼吸")
+
+        # v7.18 P1 (F2): 八度错误提示 — 音级对但跨八度 (非走调)
+        if d.octave_error_rate > 0.3:
+            diagnosis.append(
+                f"检测到较多跨八度演唱 ({d.octave_error_rate*100:.0f}% 帧), "
+                f"音级正确但音域/八度与原唱不同 (属正常翻唱)"
+            )
+
+        # v7.18 P1 (F1): 整体速度提示 — tempo 已从节奏分剥离, 独立报告
+        if d.tempo_ratio > 1.08:
+            diagnosis.append(f"整体速度比原唱快约 {(d.tempo_ratio-1)*100:.0f}%")
+        elif d.tempo_ratio < 0.92:
+            diagnosis.append(f"整体速度比原唱慢约 {(1-d.tempo_ratio)*100:.0f}%")
 
         return diagnosis
