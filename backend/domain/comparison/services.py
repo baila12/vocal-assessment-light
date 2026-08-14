@@ -100,19 +100,16 @@ class ComparisonScoringService:
 
     @staticmethod
     def _score_volume(dev: DeviationData) -> DimensionComparisonScore:
-        """音量评分"""
-        avg_pct = abs(dev.avg_volume_percent)
-        if avg_pct <= 10:
-            s = 100.0
-        else:
-            s = max(10.0, 100.0 - (avg_pct - 10.0))
+        """音量评分 — v7.18 P1 (F3): 动态匹配偏差 (z-score, 0-~2), 录音增益已归一"""
+        avg_dev = abs(dev.avg_volume_percent)
+        s = max(0.0, (1.0 - avg_dev) * 100.0)
 
         return DimensionComparisonScore(
             score=round(s, 1),
-            avg_deviation=round(avg_pct, 1),
+            avg_deviation=round(avg_dev, 3),
             max_deviation=0.0,
             problem_count=0,
-            details=(),
+            details={"avg_dynamic_deviation": round(avg_dev, 3)},
         )
 
     @staticmethod

@@ -116,6 +116,17 @@ class DeviationCalculator:
             slope, intercept = 1.0, 0.0
         tempo_ratio = float(slope)
 
+        # v7.18 P1 (F3): 音量动态匹配 — z-score 参数用有声帧统计 (消除录音增益差异,
+        # 测动态形状而非绝对电平; 静音帧 -200dB 会拉偏均值/标准差)。
+        std_voiced_mask = (np.asarray(std_voiced, dtype=bool) if std_voiced is not None
+                           else np.asarray(std_pitch, dtype=float) > 0)
+        user_voiced_mask = (np.asarray(user_voiced, dtype=bool) if user_voiced is not None
+                            else np.asarray(user_pitch, dtype=float) > 0)
+        std_en_sel = std_energy[std_voiced_mask] if std_voiced_mask.any() else std_energy
+        user_en_sel = user_energy[user_voiced_mask] if user_voiced_mask.any() else user_energy
+        std_en_mean, std_en_std = float(np.mean(std_en_sel)), float(np.std(std_en_sel)) + 1e-6
+        user_en_mean, user_en_std = float(np.mean(user_en_sel)), float(np.std(user_en_sel)) + 1e-6
+
         for i, (std_idx, user_idx) in enumerate(warp_path):
             std_idx = int(std_idx)
             user_idx = int(user_idx)
@@ -141,11 +152,10 @@ class DeviationCalculator:
             pitch_cents = self._fold_octave(raw_cents)  # 映射到 [-600, 600)
             octave_error = bool(abs(raw_cents) > 600.0)  # 单列八度错误信号
 
-            # 计算音量偏差
-            volume_percent = self._calculate_volume_percent(
-                std_energy[std_idx],
-                user_energy[user_idx]
-            )
+            # v7.18 P1 (F3): 音量动态匹配 — z-score 归一化后逐帧差异 (动态形状偏差, 0-~2)
+            std_n = (std_energy[std_idx] - std_en_mean) / std_en_std
+            user_n = (user_energy[user_idx] - user_en_mean) / user_en_std
+            volume_percent = abs(std_n - user_n)
 
             # v7.18 P1 (F1): 节奏偏差 = 相对回归线的残差 (tempo 独立)
             # 整体速度 (slope) 被剥离; 残差反映"跟不跟得上节拍"
@@ -303,12 +313,13 @@ class DeviationCalculator:
         self,
         energy: np.ndarray,
         center_idx: int,
-        window_size: int = 10
+        window_size: int = 20
     ) -> float:
         """
-        计算气息稳定性
+        计算动态稳定性 (v7.18 P1 O2: 由"气息"诚实改名为"能量动态稳定性")
 
-        基于局部能量的变异系数
+        基于局部能量的变异系数 — 注意: 这是能量/音量波动稳定性, 非声学"气息"测量
+        (GNE/CPPS/HNR 需分离人声, 见 P2)。v7.18 窗口 10→20 帧 (~0.46s, 更稳)。
 
         Args:
             energy: 能量序列
@@ -316,7 +327,7 @@ class DeviationCalculator:
             window_size: 窗口大小
 
         Returns:
-            气息稳定性 (0-1)
+            动态稳定性 (0-1)
         """
         start = max(0, center_idx - window_size)
         end = min(len(energy), center_idx + window_size)

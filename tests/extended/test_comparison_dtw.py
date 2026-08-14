@@ -564,5 +564,50 @@ class TestP1FairnessFixes:
         assert result.avg_pitch_cents < 50, f"折叠后音准偏差应小, 实际 {result.avg_pitch_cents:.0f}c"
 
 
+# ================================================================
+# v7.18 P1 — F3 音量动态匹配 / O2 气息改进回归
+# ================================================================
+
+class TestP1VolumeBreath:
+    """P1: 音量测动态形状非绝对电平 (F3) / 气息为能量动态 (O2)"""
+
+    def setup_method(self):
+        self.calc = DeviationCalculator(sample_rate=22050, hop_length=512)
+
+    def test_f3_volume_gain_invariant(self):
+        """F3: 录音增益差异 (能量整体 +12dB) → 音量偏差 ≈ 0 (z-score 消除电平)"""
+        n = 100
+        pitch = np.ones(n) * 440.0
+        std_en = np.linspace(-30, -10, n)  # 动态包络 (形状)
+        user_en_high_gain = std_en + 12.0  # 用户录音增益高 (录音条件差异)
+        user_en_low_gain = std_en - 8.0    # 增益低
+        warp = np.array([[i, i] for i in range(n)])
+        r_hi = self.calc.calculate(pitch, pitch, std_en, user_en_high_gain, warp)
+        r_lo = self.calc.calculate(pitch, pitch, std_en, user_en_low_gain, warp)
+        # 相同动态形状 → 偏差应小 (旧: 绝对 dB 差 → 巨大)
+        assert r_hi.avg_volume_percent < 0.3, f"高增益音量偏差应小, 实际 {r_hi.avg_volume_percent:.2f}"
+        assert r_lo.avg_volume_percent < 0.3, f"低增益音量偏差应小, 实际 {r_lo.avg_volume_percent:.2f}"
+
+    def test_f3_volume_shape_difference_penalized(self):
+        """F3: 动态形状不同 (包络反转) → 音量偏差大"""
+        n = 100
+        pitch = np.ones(n) * 440.0
+        std_en = np.linspace(-30, -10, n)
+        user_en_diff = np.linspace(-10, -30, n)  # 反相包络 (动态形状不同)
+        warp = np.array([[i, i] for i in range(n)])
+        r = self.calc.calculate(pitch, pitch, std_en, user_en_diff, warp)
+        assert r.avg_volume_percent > 0.5, f"动态形状不同应偏差大, 实际 {r.avg_volume_percent:.2f}"
+
+    def test_f3_volume_score_curve(self):
+        """F3: 评分 = (1 - 动态偏差) × 100"""
+        from services.comparison.scoring_engine import ComparisonScoringEngine, DeviationResult
+        engine = ComparisonScoringEngine()
+        dev = DeviationResult(frames=[], avg_pitch_cents=0.0, max_pitch_cents=0.0,
+                              avg_rhythm_ms=0.0, avg_volume_percent=0.2, avg_breath_stability=1.0,
+                              problem_frames=[])
+        score = engine._score_volume(dev)
+        assert score.score == pytest.approx(80.0, rel=0.05)  # (1-0.2)×100
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

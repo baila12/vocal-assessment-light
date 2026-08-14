@@ -59,10 +59,16 @@ class TestComparisonScoringService:
     # ---- Volume scoring ----
 
     def test_volume_perfect(self):
-        """<= 10% → 100 分"""
-        dev = DeviationData(avg_volume_percent=5.0)
+        """v7.18 P1 (F3): 动态偏差 0 → 100 分 (z-score 语义, 录音增益已归一)"""
+        dev = DeviationData(avg_volume_percent=0.0)
         result = self.service.score(dev, confidence=1.0)
         assert result.volume.score == 100.0
+
+    def test_volume_dynamic_deviation(self):
+        """v7.18 P1 (F3): 动态偏差 0.3 → 70 分 (测动态形状, 非绝对 dB)"""
+        dev = DeviationData(avg_volume_percent=0.3)
+        result = self.service.score(dev, confidence=1.0)
+        assert result.volume.score == pytest.approx(70.0, rel=0.05)
 
     # ---- Breath scoring ----
 

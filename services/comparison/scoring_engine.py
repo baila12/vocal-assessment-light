@@ -241,25 +241,22 @@ class ComparisonScoringEngine:
 
     def _score_volume(self, deviation: DeviationResult) -> DimensionScore:
         """
-        音量评分
+        音量评分 — v7.18 P1 (F3): 动态匹配偏差 (z-score 归一化, 0-~2)
 
-        基于音量偏差百分比（经验值）
+        avg_volume_percent 现为归一化能量包络的动态形状偏差 (录音增益差异已被 z-score 消除)。
+        score = (1 - avg_deviation) × 100 — 偏差 0.1 → 90, 0.5 → 50, 1.0 → 0
         """
-        avg_percent = deviation.avg_volume_percent
+        avg_dev = deviation.avg_volume_percent
 
-        # 10%以内满分，每增加1%扣1分 — 经验值
-        if avg_percent <= 10:
-            score = 100
-        else:
-            score = max(10, 100 - (avg_percent - 10))
+        score = max(0.0, (1.0 - avg_dev) * 100.0)
 
         return DimensionScore(
             score=round(score, 1),
-            avg_deviation=round(avg_percent, 1),
+            avg_deviation=round(avg_dev, 3),
             max_deviation=0.0,
             problem_count=0,
             details={
-                'avg_deviation_percent': round(avg_percent, 1)
+                'avg_dynamic_deviation': round(avg_dev, 3)
             }
         )
 

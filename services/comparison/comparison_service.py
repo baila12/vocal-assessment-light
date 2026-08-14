@@ -220,10 +220,10 @@ class ComparisonService:
         else:
             diagnosis.append('节奏需要加强，建议跟着节拍器练习')
 
-        # 气息诊断
+        # 动态稳定性诊断 (v7.18 P1 O2: 该维度实为能量/音量波动, 非声学气息)
         breath_score = score_result.dimensions['breath'].score
         if breath_score < 70:
-            diagnosis.append('气息稳定性不足，建议练习腹式呼吸')
+            diagnosis.append('音量/能量波动较大，建议保持稳定的音量输出')
 
         # v7.18 P1 (F2): 八度错误提示 — 音级对但跨八度 (非走调)
         octave_rate = getattr(deviation, 'octave_error_rate', 0.0)
