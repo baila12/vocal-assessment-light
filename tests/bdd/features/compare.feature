@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════════════
 # v7.14 P2 轮 (2026-08-11): 本 feature 由【延期】重写为【可用】。
-# 重写原因: 原 12 场景全部因 Flask 遗留 (Background "Flask 服务已启动" /
+# 重写原因: 原 12 场景全部因 Flask 遗留 (Background "服务已启动" /
 # .get_json() / /api/compare 前缀 / DTW 融合假想架构) 失败, 非功能回归。
 # 实际契约 (v7.13 P5): POST /api/v1/compare → {success, data:{score, level,
 # confidence, pitch_match_rate, rhythm_match_rate, avg_cents_error, diagnosis,

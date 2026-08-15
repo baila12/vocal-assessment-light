@@ -15,8 +15,7 @@
 from .dtw_aligner import DTWAligner, MultiFeatureSequence, AlignmentResult
 from .benchmark_service import BenchmarkService, BenchmarkFeatures
 from .deviation_calculator import DeviationCalculator, DeviationResult, FrameDeviation
-from .scoring_engine import ComparisonScoringEngine, ComparisonScoreResult, DimensionScore
-from .comparison_service import ComparisonService, compare_with_dtw
+from .comparison_service import ComparisonService
 
 __all__ = [
     'DTWAligner',
@@ -27,9 +26,5 @@ __all__ = [
     'DeviationCalculator',
     'DeviationResult',
     'FrameDeviation',
-    'ComparisonScoringEngine',
-    'ComparisonScoreResult',
-    'DimensionScore',
     'ComparisonService',
-    'compare_with_dtw',
 ]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from typing import Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class NormalizationInfo(BaseModel):
@@ -77,6 +77,24 @@ class ReportRequest(BaseModel):
     analysis_result: dict
     filename: str = "report"
     format: str = "image"  # pdf | image
+
+    @field_validator("filename")
+    @classmethod
+    def _sanitize_filename(cls, v: str) -> str:
+        """防止路径穿越 — filename 会拼入 output_dir / f'{filename}_report.pdf'。
+
+        v7.19 整理: 旧实现无任何校验, filename='../../evil' 可写出 output_dir。
+        """
+        v = v.strip()
+        # 剥离目录分隔符与穿越片段 (Windows 反斜杠 + POSIX 斜杠)
+        v = v.replace("\\", "_").replace("/", "_")
+        # 去重路径片段 (.. / ~ 等)
+        v = v.replace("..", "_").replace("~", "_")
+        # 剥离控制字符
+        v = "".join(ch for ch in v if ch.isprintable() or ch in ("-", "_", "(", ")", " ", "·"))
+        # 长度上限 (Windows MAX_PATH 安全余量)
+        v = v[:64] or "report"
+        return v
 
 
 class ReportResponse(BaseModel):

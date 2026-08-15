@@ -98,7 +98,9 @@ def validate_filepath(filepath: str, config) -> Path:
     test_dir = (config.PROJECT_ROOT / "tests" / "test_data" / "audio").resolve()
     filepath_str = str(filepath_obj)
 
-    if not (filepath_str.startswith(str(upload_dir)) or filepath_str.startswith(str(test_dir))):
+    # v7.19 整理: startswith 是前缀匹配 — /uploads_evil/x.mp3 会误放行; 改用 is_relative_to
+    # (与 audio.py 的校验方式一致) 保证路径严格位于 uploads 或 test_data/audio 内。
+    if not (filepath_obj.is_relative_to(upload_dir) or filepath_obj.is_relative_to(test_dir)):
         raise HTTPException(status_code=403, detail=_FORBIDDEN_PATH)
     if not filepath_obj.exists() or not filepath_obj.is_file():
         raise HTTPException(status_code=404, detail=_FILE_NOT_FOUND)
@@ -486,34 +488,31 @@ async def compare_audio(
         validate_filepath(filepath_user, config)
 
     try:
-        from api.business import compare_with_dtw, analyze_and_score
+        from api.business import analyze_and_score
         from services.feature_flags import FeatureFlags
 
-        # v7.3: 尝试 DDD comparison 路径, 失败时回退到旧路径
-        dtw_result = None
-        try:
-            from backend.application.comparison.compare_audio import CompareAudioUseCase
-            usecase = CompareAudioUseCase()
-            dto = usecase.execute_lightweight(filepath_std, filepath_user, style=style)
-            # 将 DDD DTO 映射为旧格式 (保持 response 兼容)
-            dtw_result = {
-                "success": True,
-                "score": dto["score"],
-                "level": dto["level"],
-                "confidence": dto["confidence"],
-                "pitch_match_rate": dto["pitch_match_rate"],
-                "rhythm_match_rate": dto["rhythm_match_rate"],
-                "avg_cents_error": dto["avg_cents_error"],
-                "diagnosis": dto["diagnosis"],
-                "suggestions": dto["suggestions"],
-                "method": dto["method"],
-                "dimensions": {},  # DDD lightweight 模式暂不返回 dimensions
-            }
-        except Exception:
-            logger.warning("DDD comparison path failed, falling back to legacy")
-            dtw_result = await asyncio.to_thread(
-                compare_with_dtw, filepath_std, filepath_user, style=style
-            )
+        # v7.19 E1: DDD comparison 唯一路径 (legacy 回退已移除 — 评分统一走 DDD,
+        # 失败即 500, 符合 v7.15 错误可见化; 旧回退 compare_with_dtw 仅返回偏差数据)
+        from backend.application.comparison.compare_audio import CompareAudioUseCase
+        usecase = CompareAudioUseCase()
+        # CPU 密集 (DTW 对齐 + 评分) — 经 to_thread 避免阻塞 event loop
+        dto = await asyncio.to_thread(
+            usecase.execute_lightweight, filepath_std, filepath_user, style=style
+        )
+        # 将 DDD DTO 映射为旧格式 (保持 response 兼容)
+        dtw_result = {
+            "success": True,
+            "score": dto["score"],
+            "level": dto["level"],
+            "confidence": dto["confidence"],
+            "pitch_match_rate": dto["pitch_match_rate"],
+            "rhythm_match_rate": dto["rhythm_match_rate"],
+            "avg_cents_error": dto["avg_cents_error"],
+            "diagnosis": dto["diagnosis"],
+            "suggestions": dto["suggestions"],
+            "method": dto["method"],
+            "dimensions": {},  # DDD lightweight 模式暂不返回 dimensions
+        }
 
         if not dtw_result or not dtw_result.get("success"):
             raise HTTPException(status_code=500, detail="DTW对比分析失败")

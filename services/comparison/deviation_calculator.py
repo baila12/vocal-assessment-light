@@ -150,7 +150,12 @@ class DeviationCalculator:
                 user_pitch[user_idx]
             )
             pitch_cents = self._fold_octave(raw_cents)  # 映射到 [-600, 600)
-            octave_error = bool(abs(raw_cents) > 600.0)  # 单列八度错误信号
+            # v7.19 整理: 八度错误 = 偏差接近 1200 音分的整数倍 (真正跨八度),
+            # 而非 abs>600 — 旧阈值把 601~1199 的普通大走音 (三全音/六度) 误标为
+            # '跨八度' (属正常翻唱), 掩盖真实走音。实测 fold(601)=-599 但并非八度。
+            octave_multiple = round(raw_cents / 1200.0)
+            octave_distance = abs(raw_cents - octave_multiple * 1200.0)
+            octave_error = bool(abs(raw_cents) > 600.0 and octave_distance < 150.0)
 
             # v7.18 P1 (F3): 音量动态匹配 — z-score 归一化后逐帧差异 (动态形状偏差, 0-~2)
             std_n = (std_energy[std_idx] - std_en_mean) / std_en_std

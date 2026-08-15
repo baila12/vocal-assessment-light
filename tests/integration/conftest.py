@@ -19,12 +19,6 @@ def pytest_configure(config):
     os.environ.setdefault("VAS_SKIP_UPLOAD_CLEANUP", "1")
 
 
-@pytest.fixture(autouse=True)
-def _integration_marker(request):
-    """自动为 integration 目录下所有测试添加 integration 标记"""
-    pass
-
-
 @pytest.fixture(scope='module', autouse=True)
 def _reset_deps_caches():
     """模块级自动夹具 — 每个模块开始前清空 deps 单例缓存.

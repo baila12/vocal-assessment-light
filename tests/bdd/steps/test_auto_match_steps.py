@@ -125,7 +125,7 @@ def song_state() -> dict:
 # Background
 # ═══════════════════════════════════════════════════════════════
 
-@given('Flask 服务已启动')
+@given('服务已启动')
 def flask_server_started(fastapi_client):
     assert fastapi_client is not None
 

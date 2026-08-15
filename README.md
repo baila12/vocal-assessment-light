@@ -1,4 +1,4 @@
-# 声乐评估系统 v7.18
+# 声乐评估系统 v7.19
 
 基于 FastAPI + Vue 3 的本地 Web 应用，提供六维声乐评分、实时录音、对比分析、歌曲库管理等功能。
 
@@ -101,7 +101,7 @@ vocal_assessment_light/
 ├── api/business/         # 共享业务逻辑 (audio_analysis)
 ├── services/             # 服务层
 │   └── dl_services/      # 深度学习 (style/VAD/DTW)
-└── tests/                # 812 tests collected (unit 669 + API 77 + WS 17 + extended 21 + real-audio 28) + 前端 307 Vitest
+└── tests/                # 870 tests collected (unit 693 + API 77 + WS 17 + extended 55 + real-audio 28) + 前端 307 Vitest
 
 > 注: 详细开发文档 (PROJECT_STATUS/CHANGELOG/评分算法/深度审查) 存放于本地 `docs/` 目录, 不纳入版本控制; 本仓库仅保留此 README。
 ```
@@ -210,6 +210,7 @@ cd frontend && npx vitest run
 
 ## 版本历史
 
+- **v7.19** — 对比分析消双轨 (E1, 研究见 docs/2-technical/references/COMPARISON_ALGORITHM_RESEARCH.md P3-E1): 删 legacy `scoring_engine.py` (~400 行) + `compare_with_dtw` + 路由 legacy 回退; `ComparisonService` 降级纯偏差提供者, `CompareAudioUseCase` 唯一评分入口 (DDD); 权重单一来源 `COMPARISON_STYLE_WEIGHTS`; **E5: 建议复用 DDD `AdviceGenerator`** (dimensions 子集, 删 domain generate_suggestions 硬编码); 行为/分数/API 契约零变化 (2026-08-14)
 - **v7.18** — 对比分析深度优化 (文献 + 数据实证驱动, 研究见本地 docs/2-technical/references/): **P0 正确性** (warp 分辨率错位只评 23%→100% + rhythm 单位 4.3x + voiced 掩码) + **P1 公正性** (八度折叠/男低八度 pitch 10→100 + tempo 独立节奏/唱快 10% rhythm 10→80 + 音量动态匹配/增益不变 + 气息改进) + **P2 鲁棒性** (median 聚合/崩溃点 0%→50% + 置信度重校准) (2026-08-14)
 - **v7.17** — 评分校准 (高分音频 ≥80): A1 rhythm 混音映射重校准 (伴奏污染) + B1 pitch MAE 曲线放宽 + A2 tilt/hf 改质量组件 (修复气声比结构性封顶 65) + B3/B4 六维曲线校准 + **A4 pro 节拍锚定节奏** (用分离伴奏轨做节拍基准 + 人声轨做 vocal onset, 修复 pro 分离后 rhythm 崩坍 72→8.2); 4 个"高分"真实音频 total 79.9-82.6 (旧 63-65); BASELINE_V7_17 (2026-08-14)
 - **v7.16** — P2-15 legacy 收敛全部 Phase 0/0b/1/2/3/5: 删死 `calculate()` 路径 (calculate_ddd 唯一生产评分路径) + 死字段 + `advice_service.py` (AdviceGenerator 迁入 DDD application 层) + **历史双写 bug 修复** (EventBus 自动保存写垃圾记录挤占槽位) + calculate_ddd 补全逐维诊断 + 音色单轨化 (删 TimbreService) + facade 折叠 (analyze_emotion/reference_path/flag 对齐); **Phase 4 (PhraseService 逐句评分) 经用户决策推迟** (2026-08-13)

@@ -41,7 +41,7 @@ def _xfail(unit_test: str, phase: str = 'Phase 2') -> None:
 # Background
 # ============================================================================
 
-@given('Flask 服务已启动')
+@given('服务已启动')
 def flask_server_started():
     """服务可达性由 page fixture 验证 (FastAPI :8000)."""
     return True

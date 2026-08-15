@@ -54,7 +54,7 @@ def _create(fastapi_client, title: str, artist: str = '邓丽君',
 # Background
 # ═══════════════════════════════════════════════════════════════
 
-@given('Flask 服务已启动')
+@given('服务已启动')
 def flask_service_running(fastapi_client):
     assert fastapi_client is not None
 

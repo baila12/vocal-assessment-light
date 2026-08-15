@@ -1,27 +1,27 @@
 """
 对比分析服务 - 使用DTW对齐引擎
 
-整合三级DTW对齐、偏差计算、评分引擎
+v7.19 E1 消双轨: 仅产出偏差数据 (DTW 降级为特征提供者)。
+评分统一由 DDD ComparisonScoringService 承担 (唯一评分入口)。
 """
 import numpy as np
-import librosa
 import logging
-from typing import Dict, Optional, Tuple
-from dataclasses import asdict
+from typing import Dict
 
 from services.comparison.dtw_aligner import DTWAligner, MultiFeatureSequence
 from services.comparison.deviation_calculator import DeviationCalculator
-from services.comparison.scoring_engine import ComparisonScoringEngine
 from services.comparison.benchmark_service import BenchmarkService
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
 
 class ComparisonService:
     """
-    对比分析服务
+    对比分析服务 — 纯偏差提供者 (不再评分)
 
-    整合DTW对齐、偏差计算、评分引擎
+    整合DTW对齐 + 偏差计算。评分由 DDD 层负责。
     """
 
     def __init__(self, sample_rate: int = 22050, hop_length: int = 512, style: str = 'pop'):
@@ -29,7 +29,6 @@ class ComparisonService:
         self.hop_length = hop_length
         self.aligner = DTWAligner(sample_rate, hop_length)
         self.calculator = DeviationCalculator(sample_rate, hop_length)
-        self.scoring_engine = ComparisonScoringEngine(style)
         self.benchmark_service = BenchmarkService(sample_rate, hop_length)
 
     def compare_audio_files(
@@ -92,50 +91,28 @@ class ComparisonService:
             user_voiced=getattr(user_features, 'voiced', None),  # v7.18 P0 (O1)
         )
 
-        # 3. 评分
-        self.scoring_engine.style = style
-        self.scoring_engine.weights = self.scoring_engine.STYLE_WEIGHTS.get(
-            style, self.scoring_engine.DEFAULT_WEIGHTS
-        )
-        score_result = self.scoring_engine.score(
-            deviation,
-            confidence=alignment.confidence,
-            total_frames=len(deviation.frames)
-        )
-
         compute_time = (__import__('time').time() - start_time) * 1000
 
-        # 4. 构建结果
+        # 3. 构建偏差数据 (E1: 不再评分 — 评分由 DDD ComparisonScoringService 承担)
         result = {
             'success': True,
-            'score': score_result.overall_score,
-            'level': score_result.level,
             'confidence': alignment.confidence,
             'dimensions': {
                 'pitch': {
-                    'score': score_result.dimensions['pitch'].score,
-                    'avg_deviation': score_result.dimensions['pitch'].avg_deviation,
-                    'max_deviation': score_result.dimensions['pitch'].max_deviation
+                    'avg_deviation': deviation.avg_pitch_cents,
+                    'max_deviation': deviation.max_pitch_cents,
                 },
                 'rhythm': {
-                    'score': score_result.dimensions['rhythm'].score,
-                    'avg_deviation': score_result.dimensions['rhythm'].avg_deviation
+                    'avg_deviation': deviation.avg_rhythm_ms,
                 },
                 'volume': {
-                    'score': score_result.dimensions['volume'].score,
-                    'avg_deviation': score_result.dimensions['volume'].avg_deviation
+                    'avg_deviation': deviation.avg_volume_percent,
                 },
                 'breath': {
-                    'score': score_result.dimensions['breath'].score,
-                    'stability': score_result.dimensions['breath'].details.get('avg_stability', 0)
-                }
+                    'stability': deviation.avg_breath_stability,
+                },
             },
-            'pitch_match_rate': self._calculate_match_rate(score_result.dimensions['pitch'].score),
-            'rhythm_match_rate': self._calculate_match_rate(score_result.dimensions['rhythm'].score),
             'avg_cents_error': deviation.avg_pitch_cents,
-            'suggestions': score_result.suggestions,
-            'problem_summary': score_result.problem_summary,
-            'diagnosis': self._generate_diagnosis(score_result, deviation),
             'compute_time_ms': compute_time,
             'method': alignment.method,
             # v7.18 P1: 八度错误率 + 整体速度比 (F2/F1 独立信号, 供诊断)
@@ -143,7 +120,8 @@ class ComparisonService:
             'tempo_ratio': getattr(deviation, 'tempo_ratio', 1.0),
         }
 
-        logger.info(f"[ComparisonService] Comparison complete: score={result['score']}, level={result['level']}")
+        logger.info(f"[ComparisonService] Comparison complete: confidence={result['confidence']}, "
+                    f"method={result['method']}")
 
         return result
 
@@ -186,77 +164,3 @@ class ComparisonService:
         user_features = self.aligner.extract_features(user_path)
 
         return self.compare_features(std_features, user_features, style)
-
-    def _calculate_match_rate(self, score: float) -> float:
-        """将评分转换为匹配率"""
-        # 评分和匹配率的转换
-        # 100分 = 100%匹配
-        # 75分 = 75%匹配
-        return round(score, 1)
-
-    def _generate_diagnosis(self, score_result, deviation) -> list:
-        """生成诊断信息"""
-        diagnosis = []
-
-        # 音准诊断
-        pitch_score = score_result.dimensions['pitch'].score
-        avg_cents = deviation.avg_pitch_cents
-
-        if pitch_score >= 90:
-            diagnosis.append('音准表现优秀，与标准音频高度匹配')
-        elif pitch_score >= 75:
-            diagnosis.append(f'音准整体良好，平均偏差{avg_cents:.1f}音分')
-        elif pitch_score >= 60:
-            diagnosis.append(f'音准需要提高，建议多听标准音频找准音高')
-        else:
-            diagnosis.append('音准偏差较大，建议先练习音阶建立音准感')
-
-        # 节奏诊断
-        rhythm_score = score_result.dimensions['rhythm'].score
-        if rhythm_score >= 85:
-            diagnosis.append('节奏把握准确，与标准音频同步良好')
-        elif rhythm_score >= 70:
-            diagnosis.append('节奏基本正确，注意不要抢拍或拖拍')
-        else:
-            diagnosis.append('节奏需要加强，建议跟着节拍器练习')
-
-        # 动态稳定性诊断 (v7.18 P1 O2: 该维度实为能量/音量波动, 非声学气息)
-        breath_score = score_result.dimensions['breath'].score
-        if breath_score < 70:
-            diagnosis.append('音量/能量波动较大，建议保持稳定的音量输出')
-
-        # v7.18 P1 (F2): 八度错误提示 — 音级对但跨八度 (非走调)
-        octave_rate = getattr(deviation, 'octave_error_rate', 0.0)
-        if octave_rate > 0.3:
-            diagnosis.append(f'检测到较多跨八度演唱 ({octave_rate*100:.0f}% 帧), 音级正确但音域/八度与原唱不同 (属正常翻唱)')
-
-        # v7.18 P1 (F1): 整体速度提示 — tempo 已从节奏分剥离, 独立报告
-        tempo = getattr(deviation, 'tempo_ratio', 1.0)
-        if tempo > 1.08:
-            diagnosis.append(f'整体速度比原唱快约 {(tempo-1)*100:.0f}%')
-        elif tempo < 0.92:
-            diagnosis.append(f'整体速度比原唱慢约 {(1-tempo)*100:.0f}%')
-
-        # 整体诊断
-        if score_result.overall_score >= 90:
-            diagnosis.append('整体表现优秀，继续保持练习！')
-        elif score_result.overall_score >= 75:
-            diagnosis.append('表现良好，部分细节可以进一步完善')
-
-        return diagnosis
-
-
-def compare_with_dtw(standard_path: str, user_path: str, style: str = 'pop') -> Dict:
-    """
-    使用DTW对齐进行对比分析（便捷函数）
-
-    Args:
-        standard_path: 标准音频路径
-        user_path: 用户音频路径
-        style: 演唱风格
-
-    Returns:
-        对比分析结果
-    """
-    service = ComparisonService(style=style)
-    return service.compare_audio_files(standard_path, user_path, style)

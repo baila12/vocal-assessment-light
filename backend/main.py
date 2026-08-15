@@ -99,8 +99,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # 单一版本来源 (v7.14 审查 D2: main.py 与 /health 曾各写一份导致漂移)
 # v7.16 P2-15: 标题从 APP_VERSION 派生 (VAS v7.16), 防止再次漂移
 # v7.17: 评分校准 (高分音频 ≥80)
-# v7.18: 对比分析深度优化 (P0 正确性 + P1 公正性 + P2 鲁棒性)
-APP_VERSION = "7.18.0"
+# v7.19: 对比分析消双轨 (E1) — 删 legacy scoring_engine.py + 权重单一来源 + 唯一评分入口
+APP_VERSION = "7.19.0"
 APP_TITLE = f"VAS v{'.'.join(APP_VERSION.split('.')[:2])}"
 
 

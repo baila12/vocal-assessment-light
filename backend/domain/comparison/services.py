@@ -1,33 +1,27 @@
 """
-Comparison 领域服务 — v7.3 Phase 2
+Comparison 领域服务 — v7.3 Phase 2 → v7.19 E1
 
 DDD 对比分析领域服务:
-  - ComparisonScoringService: 偏差→评分 (移植 scoring_engine.py 算法)
+  - ComparisonScoringService: 偏差→评分 (唯一对比评分引擎, legacy scoring_engine.py 已删)
 """
 
 from __future__ import annotations
-from typing import List
 
-from backend.domain.comparison.entities import DeviationData, AlignmentData
+from backend.domain.comparison.entities import DeviationData
 from backend.domain.comparison.value_objects import (
-    ComparisonScores, DimensionComparisonScore,
+    ComparisonScores, DimensionComparisonScore, COMPARISON_STYLE_WEIGHTS,
 )
 
 
 class ComparisonScoringService:
     """对比评分领域服务 — 纯计算, 零副作用
 
-    移植自 services/comparison/scoring_engine.py (四维加权评分引擎)。
-    支持 4 种风格自适应权重。
+    v7.19 E1 消双轨: 唯一对比评分引擎 (legacy scoring_engine.py 已删)。
+    风格权重单一来源 COMPARISON_STYLE_WEIGHTS (value_objects)。
     """
 
-    # 风格权重
-    STYLE_WEIGHTS = {
-        "pop": {"pitch": 0.40, "rhythm": 0.30, "volume": 0.15, "breath": 0.15},
-        "classical": {"pitch": 0.50, "rhythm": 0.20, "volume": 0.20, "breath": 0.10},
-        "folk": {"pitch": 0.35, "rhythm": 0.25, "volume": 0.20, "breath": 0.20},
-        "rap": {"pitch": 0.20, "rhythm": 0.50, "volume": 0.20, "breath": 0.10},
-    }
+    # 风格权重 — 单一来源引用 (v7.19 E1), 不再本地复制
+    STYLE_WEIGHTS = COMPARISON_STYLE_WEIGHTS
 
     def score(
         self,
@@ -125,35 +119,3 @@ class ComparisonScoringService:
             problem_count=0,
             details=(),
         )
-
-    def generate_suggestions(self, deviation: DeviationData) -> List[str]:
-        """根据偏差数据生成改进建议"""
-        suggestions: list[str] = []
-
-        avg_cents = abs(deviation.avg_pitch_cents)
-        avg_ms = abs(deviation.avg_rhythm_ms)
-        stability = deviation.avg_breath_stability
-
-        if avg_cents > 50:
-            suggestions.append(
-                f"音准偏差较大（平均{avg_cents:.0f}音分），建议练习音阶，注意音高准确性"
-            )
-        elif avg_cents > 20:
-            suggestions.append(
-                f"音准整体良好，部分段落略有偏差，建议多听标准音频找准音高"
-            )
-
-        if avg_ms > 150:
-            suggestions.append(
-                f"节奏偏差明显（平均{avg_ms:.0f}ms），建议跟着节拍器练习"
-            )
-        elif avg_ms > 50:
-            suggestions.append("节奏基本正确，注意不要抢拍或拖拍")
-
-        if stability < 0.6:
-            suggestions.append("气息稳定性不足，建议练习腹式呼吸，增强气息控制能力")
-
-        if not suggestions:
-            suggestions.append("表现优秀！与标准音频高度匹配，继续保持练习")
-
-        return suggestions

@@ -113,3 +113,93 @@ class TestAdviceTiers:
         result = gen.generate(_scores())
         # 总体评价应提及最强维度 (artistry → 艺术表现)
         assert any("艺术表现" in a for a in result.advice)
+
+
+class TestAdviceDimensionSubset:
+    """v7.19 E5: generate() 支持 dimensions 子集 (对比四维 pitch/rhythm/volume/breath)"""
+
+    def _compare_scores(self, **overrides):
+        base = {
+            "pitch_score": 85.0,
+            "rhythm_score": 70.0,
+            "volume_score": 90.0,
+            "breath_score": 60.0,
+            "total_score": 77.0,
+        }
+        base.update(overrides)
+        base["total"] = base["total_score"]
+        return base
+
+    def test_dimensions_subset_only_uses_given_dims(self):
+        """dimensions 限定后, 最强/最弱仅在子集内判定 (volume 参与, 六维无关维度忽略)"""
+        gen = AdviceGenerator()
+        result = gen.generate(
+            self._compare_scores(),
+            dimensions=("pitch", "rhythm", "volume", "breath"),
+        )
+        assert result.strongest_dimension == "volume", (
+            f"子集内 volume=90 应最强, 实际 {result.strongest_dimension}"
+        )
+        assert result.weakest_dimension == "breath", (
+            f"子集内 breath=60 应最弱, 实际 {result.weakest_dimension}"
+        )
+
+    def test_volume_dimension_name_resolved(self):
+        """volume 维度名 → '音量' (DIMENSION_NAMES 已有映射)"""
+        gen = AdviceGenerator()
+        result = gen.generate(
+            self._compare_scores(),
+            dimensions=("pitch", "rhythm", "volume", "breath"),
+        )
+        # 最弱 breath=60 < 75 → 应有 '气息建议'
+        assert any("气息建议" in a for a in result.advice), (
+            f"breath 最弱应含气息建议, 实际 {result.advice}"
+        )
+        # 最强 volume=90 ≥ 90 → 应有 '音量控制精准' 表扬
+        assert any("音量控制精准" in a for a in result.advice), (
+            f"volume 最强应含音量表扬, 实际 {result.advice}"
+        )
+
+    def test_default_dimensions_unchanged(self):
+        """默认 (不传 dimensions) 仍是六维全量 — 向后兼容"""
+        gen = AdviceGenerator()
+        result = gen.generate(_scores())
+        assert result.strongest_dimension == "artistry"  # 六维: artistry=90 最强
+        assert result.weakest_dimension == "technique"   # 六维: technique=60 最弱
+
+    def test_total_not_weakest_even_below_all_dims(self):
+        """total 不参与维度排序 — 置信度调制后 total 低于所有维度分也不应成为最弱
+
+        对比路径 total = weighted_total() 含 (0.5+0.5×conf) 调制, 恒 ≤ 加权均值;
+        四维分数集中时调制后 total 可低于 min。最弱/最强必须在真实维度中选取,
+        否则输出 'total建议：' 空建议并吞掉真实弱维度建议。
+        """
+        gen = AdviceGenerator()
+        result = gen.generate(
+            {'pitch_score': 60.0, 'rhythm_score': 60.0, 'volume_score': 60.0,
+             'breath_score': 60.0, 'total_score': 45.0, 'total': 45.0},
+            dimensions=('pitch', 'rhythm', 'volume', 'breath'),
+        )
+        assert result.weakest_dimension in ('pitch', 'rhythm', 'volume', 'breath'), (
+            f"最弱维度应为真实维度, 实际 {result.weakest_dimension}"
+        )
+        assert result.strongest_dimension in ('pitch', 'rhythm', 'volume', 'breath'), (
+            f"最强维度应为真实维度, 实际 {result.strongest_dimension}"
+        )
+        # 不应输出 'total建议：' 空建议
+        assert not any('total建议' in a for a in result.advice), (
+            f"不应产生 total 空建议, 实际 {result.advice}"
+        )
+
+    def test_overall_comment_uses_total_not_dims(self):
+        """总体评价基于 total (调制后), 而非最强维度分"""
+        gen = AdviceGenerator()
+        # total=45 (<60) → '需要加强练习'; 若误用最强维度 60 → '水平中等'
+        result = gen.generate(
+            {'pitch_score': 60.0, 'rhythm_score': 60.0, 'volume_score': 60.0,
+             'breath_score': 60.0, 'total_score': 45.0, 'total': 45.0},
+            dimensions=('pitch', 'rhythm', 'volume', 'breath'),
+        )
+        assert any('需要加强练习' in a for a in result.advice), (
+            f"总体评价应基于调制后 total=45, 实际 {result.advice}"
+        )

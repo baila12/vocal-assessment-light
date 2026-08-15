@@ -99,6 +99,20 @@ class DTWAligner:
         """
         start_time = time.time()
 
+        # v7.19 整理: 空 times (空/静音音频, librosa.pyin 可能返回空) 防护 — 直接返回低置信度空结果
+        if (standard_features is None or user_features is None
+                or len(standard_features.times) == 0 or len(user_features.times) == 0
+                or len(standard_features.pitch) == 0 or len(user_features.pitch) == 0):
+            logger.warning("[DTWAligner] Empty features, returning low-confidence result")
+            return AlignmentResult(
+                warp_path=np.zeros((0, 2), dtype=int),
+                global_offset=0.0,
+                confidence=0.1,
+                sentence_alignments=[],
+                method="empty",
+                compute_time_ms=0.0,
+            )
+
         duration_std = standard_features.times[-1]
         duration_user = user_features.times[-1]
 
@@ -211,11 +225,17 @@ class DTWAligner:
 
         except Exception as e:
             logger.error(f"[DTWAligner] Global alignment failed: {e}")
-            # 回退：简单线性缩放
-            duration_std = std_features.times[-1]
-            duration_user = user_features.times[-1]
+            # 回退：简单线性缩放 (v7.19 整理: 空 times / duration_std==0 时返回空路径,
+            # 避免 IndexError/ZeroDivisionError; cost_matrix=None 标记回退, 置信度取低值)
+            duration_std = std_features.times[-1] if len(std_features.times) else 0.0
+            duration_user = user_features.times[-1] if len(user_features.times) else 0.0
             n_frames = min(len(std_features.pitch), len(user_features.pitch))
-            wp = np.array([[i, int(i * duration_user / duration_std)] for i in range(n_frames)])
+            if duration_std <= 0 or n_frames == 0:
+                wp = np.zeros((0, 2), dtype=int)
+            else:
+                wp = np.array(
+                    [[i, int(i * duration_user / duration_std)] for i in range(n_frames)]
+                )
 
             return {
                 'warp_path': wp,
@@ -529,6 +549,12 @@ class DTWAligner:
             对齐越可靠。identical → ~1.0, 不同歌曲 (强 warp) → 低置信度。
             残差 >20% 路径长 → 置信度 0。
         """
+        # v7.19 整理: cost_matrix=None 表示 DTW 对齐失败走线性回退 —
+        # 线性路径回归残差≈0, 若不特殊处理会得到置信度≈1.0 (对齐失败伪装成高置信度)。
+        # 失败回退必须报告低置信度, 让上层知道对齐不可靠。
+        if global_alignment.get('cost_matrix') is None:
+            return 0.1
+
         wp = global_alignment['warp_path']
         if wp is None or len(wp) < 3:
             return 0.5

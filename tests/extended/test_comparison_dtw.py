@@ -5,7 +5,7 @@
 - DTWAligner: 三级DTW对齐
 - BenchmarkService: 基准库预加工
 - DeviationCalculator: 偏差计算
-- ComparisonScoringEngine: 评分引擎
+- ComparisonScoringService (DDD): 评分 (v7.19 E1 消双轨后唯一评分引擎)
 
 核心验收标准：
 - 相同音频得分 ≥ 95分
@@ -27,11 +27,8 @@ from services.comparison.deviation_calculator import (
     DeviationResult,
     FrameDeviation
 )
-from services.comparison.scoring_engine import (
-    ComparisonScoringEngine,
-    ComparisonScoreResult,
-    DimensionScore
-)
+from backend.domain.comparison.entities import DeviationData
+from backend.domain.comparison.services import ComparisonScoringService
 
 
 class TestDTWAligner:
@@ -256,108 +253,68 @@ class TestDeviationCalculator:
         assert cents == 0.0
 
 
-class TestComparisonScoringEngine:
-    """评分引擎测试"""
+class TestComparisonScoringDDD:
+    """DDD 对比评分 (ComparisonScoringService) — v7.19 E1 消双轨后唯一评分引擎
+
+    legacy services/comparison/scoring_engine.py 已删除, 评分统一走 DDD。
+    """
 
     def setup_method(self):
-        self.engine = ComparisonScoringEngine(style='pop')
+        from backend.domain.comparison.services import ComparisonScoringService
+        self.service = ComparisonScoringService()
 
     def test_score_identical_audio(self):
-        """测试相同音频评分 - 应该得到高分"""
-        # 创建最小偏差结果
-        deviation = DeviationResult(
-            frames=[],
-            avg_pitch_cents=0.0,  # 无音准偏差
-            max_pitch_cents=0.0,
-            avg_rhythm_ms=0.0,    # 无节奏偏差
-            avg_volume_percent=0.0,
-            avg_breath_stability=1.0,  # 气息完全稳定
-            problem_frames=[]
-        )
-
-        result = self.engine.score(deviation, confidence=1.0)
-
-        assert isinstance(result, ComparisonScoreResult)
-        # 相同音频应该得到高分（≥95分）
-        assert result.overall_score >= 95, f"相同音频得分应≥95, 实际: {result.overall_score}"
-        assert result.level in ['优秀', '良好']
+        """相同偏差 (全完美) → 总分 100 (≥95)"""
+        dev = DeviationData()  # 默认全完美: 0 音分/0ms/0 音量/1.0 稳定
+        result = self.service.score(dev, confidence=1.0)
+        assert result.weighted_total() >= 95, \
+            f"相同音频得分应≥95, 实际: {result.weighted_total()}"
 
     def test_score_large_deviation(self):
-        """测试大偏差音频评分 - 应该得到较低分数"""
-        deviation = DeviationResult(
-            frames=[],
-            avg_pitch_cents=100.0,  # 大音准偏差（半音）
+        """大偏差 → 总分 <70"""
+        dev = DeviationData(
+            avg_pitch_cents=100.0,
             max_pitch_cents=150.0,
-            avg_rhythm_ms=200.0,    # 大节奏偏差
-            avg_volume_percent=30.0,
-            avg_breath_stability=0.5,  # 气息不稳定
-            problem_frames=[]
+            avg_rhythm_ms=200.0,
+            avg_volume_percent=0.3,
+            avg_breath_stability=0.5,
         )
-
-        result = self.engine.score(deviation, confidence=1.0)
-
-        # 大偏差应该得到较低分数
-        assert result.overall_score < 70, f"大偏差得分应<70, 实际: {result.overall_score}"
-        assert result.level in ['需改进', '及格', '中等']
+        result = self.service.score(dev, confidence=1.0)
+        assert result.weighted_total() < 70, \
+            f"大偏差得分应<70, 实际: {result.weighted_total()}"
 
     def test_style_adaptive_weights(self):
-        """测试风格自适应权重"""
-        # 流行风格
-        pop_engine = ComparisonScoringEngine(style='pop')
-        assert pop_engine.weights['pitch'] == 0.40
+        """风格权重单一来源: 各风格权重来自 ComparisonScoringService.STYLE_WEIGHTS"""
+        from backend.domain.comparison.services import ComparisonScoringService
+        weights = ComparisonScoringService.STYLE_WEIGHTS
+        assert weights["pop"]["pitch"] == 0.40
+        assert weights["classical"]["pitch"] == 0.50
+        assert weights["rap"]["rhythm"] == 0.50
 
-        # 古典风格（音准权重更高）
-        classical_engine = ComparisonScoringEngine(style='classical')
-        assert classical_engine.weights['pitch'] == 0.50
-
-        # 说唱风格（节奏权重更高）
-        rap_engine = ComparisonScoringEngine(style='rap')
-        assert rap_engine.weights['rhythm'] == 0.50
-
-    def test_sigmoid_scoring(self):
-        """测试sigmoid平滑评分曲线"""
-        # 0音分偏差 -> ~100分
-        score_0 = self.engine._score_pitch(DeviationResult(
-            frames=[], avg_pitch_cents=0.0, max_pitch_cents=0.0,
-            avg_rhythm_ms=0.0, avg_volume_percent=0.0, avg_breath_stability=1.0,
-            problem_frames=[]
-        ))
-        assert score_0.score >= 95
-
-        # 50音分偏差 -> ~75分
-        score_50 = self.engine._score_pitch(DeviationResult(
-            frames=[], avg_pitch_cents=50.0, max_pitch_cents=50.0,
-            avg_rhythm_ms=0.0, avg_volume_percent=0.0, avg_breath_stability=1.0,
-            problem_frames=[]
-        ))
-        assert 60 < score_50.score < 90
-
-        # 100音分偏差 -> ~25分
-        score_100 = self.engine._score_pitch(DeviationResult(
-            frames=[], avg_pitch_cents=100.0, max_pitch_cents=100.0,
-            avg_rhythm_ms=0.0, avg_volume_percent=0.0, avg_breath_stability=1.0,
-            problem_frames=[]
-        ))
-        assert score_100.score < 50
+    def test_pitch_score_curve(self):
+        """音准评分曲线 (分段线性, 与旧引擎行为一致)"""
+        dev0 = DeviationData(avg_pitch_cents=0.0)
+        dev50 = DeviationData(avg_pitch_cents=50.0)
+        dev100 = DeviationData(avg_pitch_cents=100.0)
+        assert self.service.score(dev0, confidence=1.0).pitch.score >= 95
+        s50 = self.service.score(dev50, confidence=1.0).pitch.score
+        s100 = self.service.score(dev100, confidence=1.0).pitch.score
+        assert 60 < s50 < 90
+        assert s100 < 50
 
     def test_suggestions_generation(self):
-        """测试建议生成"""
-        # 音准差
-        deviation = DeviationResult(
-            frames=[],
-            avg_pitch_cents=80.0,
-            max_pitch_cents=120.0,
-            avg_rhythm_ms=0.0,
-            avg_volume_percent=0.0,
-            avg_breath_stability=1.0,
-            problem_frames=[]
+        """建议生成 (v7.19 E5: 复用 DDD AdviceGenerator, domain generate_suggestions 已删)"""
+        from backend.application.assessment.advice_generator import AdviceGenerator
+        adv = AdviceGenerator().generate(
+            {'pitch_score': 80.0, 'rhythm_score': 70.0, 'volume_score': 75.0,
+             'breath_score': 60.0, 'total_score': 72.0, 'total': 72.0},
+            dimensions=('pitch', 'rhythm', 'volume', 'breath'),
         )
-
-        result = self.engine.score(deviation)
-
-        # 应该有音准相关的建议
-        assert len(result.suggestions) > 0
-        assert any('音准' in s for s in result.suggestions)
+        # breath=60 最弱 (<75) → 应含针对性建议; 总体评价 (total 72) 亦在列
+        assert len(adv.advice) >= 1
+        assert any('建议' in s for s in adv.advice), (
+            f"最弱维度应含改进建议, 实际 {adv.advice}"
+        )
 
 
 class TestIntegrationSameAudio:
@@ -405,19 +362,31 @@ class TestIntegrationSameAudio:
             std_times=features.times
         )
 
-        # 3. 评分
-        engine = ComparisonScoringEngine()
-        result = engine.score(deviation, alignment.confidence)
+        # 3. 评分 (DDD ComparisonScoringService — v7.19 E1 唯一评分引擎)
+        from backend.domain.comparison.entities import DeviationData
+        from backend.domain.comparison.services import ComparisonScoringService
+        dev = DeviationData(
+            avg_pitch_cents=deviation.avg_pitch_cents,
+            max_pitch_cents=deviation.max_pitch_cents,
+            avg_rhythm_ms=deviation.avg_rhythm_ms,
+            avg_volume_percent=deviation.avg_volume_percent,
+            avg_breath_stability=deviation.avg_breath_stability,
+            octave_error_rate=deviation.octave_error_rate,
+            tempo_ratio=deviation.tempo_ratio,
+        )
+        scores = ComparisonScoringService().score(dev, confidence=alignment.confidence)
 
         # 验收标准：相同音频得分 ≥ 95分
-        assert result.overall_score >= 95, \
-            f"相同音频得分应≥95, 实际: {result.overall_score}"
-        assert result.level in ['优秀', '良好'], \
-            f"相同音频等级应为优秀或良好, 实际: {result.level}"
+        assert scores.weighted_total() >= 95, \
+            f"相同音频得分应≥95, 实际: {scores.weighted_total()}"
+        from backend.shared.domain_types import ScoreLevel
+        level = ScoreLevel.from_score(scores.weighted_total()).label
+        assert level in ['专业级', '优秀', '良好'], \
+            f"相同音频等级应为专业级/优秀/良好, 实际: {level}"
 
         print(f"\n✅ 相同音频测试通过:")
-        print(f"   得分: {result.overall_score}")
-        print(f"   等级: {result.level}")
+        print(f"   得分: {scores.weighted_total()}")
+        print(f"   等级: {level}")
         print(f"   置信度: {alignment.confidence}")
 
 
@@ -563,6 +532,31 @@ class TestP1FairnessFixes:
         assert result.octave_error_rate > 0.3, f"八度错误率应≈0.4, 实际 {result.octave_error_rate}"
         assert result.avg_pitch_cents < 50, f"折叠后音准偏差应小, 实际 {result.avg_pitch_cents:.0f}c"
 
+    def test_f2_octave_error_not_false_positive_on_big_error(self):
+        """v7.19 整理: 601 音分 (三全音) 的普通大走音不应被误标为跨八度.
+        旧阈值 abs(raw)>600 → 601~1199 全部误判 '跨八度 (属正常翻唱)', 掩盖真实走音。"""
+        n = 100
+        std_pitch = np.ones(n) * 440.0
+        user_pitch = np.ones(n) * (440.0 * 2 ** (601 / 1200))  # ~622Hz, 601 音分
+        energy = np.zeros(n)
+        warp = np.array([[i, i] for i in range(n)])
+        result = self.calc.calculate(std_pitch, user_pitch, energy, energy, warp)
+        assert result.octave_error_rate == 0.0, \
+            f"601c 不应判为跨八度, 实际 octave_error_rate={result.octave_error_rate}"
+        # 但折叠后的音准偏差应反映这个大走音 (非 0)
+        assert result.avg_pitch_cents > 500, f"601c 走音折叠后应仍是大偏差"
+
+    def test_f2_octave_error_near_1200_detected(self):
+        """v7.19 整理: 接近 1200 音分 (真跨八度) 仍应被判为八度错误"""
+        n = 100
+        std_pitch = np.ones(n) * 440.0
+        user_pitch = np.ones(n) * (440.0 * 2 ** (1199 / 1200))  # ~880Hz, 1199 音分
+        energy = np.zeros(n)
+        warp = np.array([[i, i] for i in range(n)])
+        result = self.calc.calculate(std_pitch, user_pitch, energy, energy, warp)
+        assert result.octave_error_rate > 0.9, \
+            f"1199c 接近真八度应判跨八度, 实际 {result.octave_error_rate}"
+
 
 # ================================================================
 # v7.18 P1 — F3 音量动态匹配 / O2 气息改进回归
@@ -599,14 +593,12 @@ class TestP1VolumeBreath:
         assert r.avg_volume_percent > 0.5, f"动态形状不同应偏差大, 实际 {r.avg_volume_percent:.2f}"
 
     def test_f3_volume_score_curve(self):
-        """F3: 评分 = (1 - 动态偏差) × 100"""
-        from services.comparison.scoring_engine import ComparisonScoringEngine, DeviationResult
-        engine = ComparisonScoringEngine()
-        dev = DeviationResult(frames=[], avg_pitch_cents=0.0, max_pitch_cents=0.0,
-                              avg_rhythm_ms=0.0, avg_volume_percent=0.2, avg_breath_stability=1.0,
-                              problem_frames=[])
-        score = engine._score_volume(dev)
-        assert score.score == pytest.approx(80.0, rel=0.05)  # (1-0.2)×100
+        """F3: 评分 = (1 - 动态偏差) × 100 (DDD ComparisonScoringService)"""
+        from backend.domain.comparison.services import ComparisonScoringService
+        service = ComparisonScoringService()
+        dev = DeviationData(avg_volume_percent=0.2)
+        score = service.score(dev, confidence=1.0).volume.score
+        assert score == pytest.approx(80.0, rel=0.05)  # (1-0.2)×100
 
 
 # ================================================================
@@ -669,6 +661,49 @@ class TestP2Robustness:
             sample_rate=22050,
             hop_length=512,
         )
+
+
+class TestDTWFallbackConfidence:
+    """v7.19 整理回归: DTW 对齐失败回退时置信度必须低.
+
+    旧 bug: _global_align 捕获异常后回退线性缩放 warp_path (cost_matrix=None),
+    而 _calculate_confidence 只基于线性路径回归残差 (≈0) → 置信度≈1.0,
+    对齐失败被伪装成高置信度 (用户看不到对齐不可靠的信号)。
+    """
+
+    def _features(self, n=100):
+        return MultiFeatureSequence(
+            pitch=np.ones(n) * 440.0,
+            energy=np.random.uniform(-30, -10, n),
+            zcr=np.random.uniform(0.01, 0.05, n),
+            times=np.arange(n) * 512 / 22050,
+            sample_rate=22050,
+            hop_length=512,
+        )
+
+    def test_alignment_failure_reports_low_confidence(self, monkeypatch):
+        from services.comparison import dtw_aligner
+        import services.comparison.dtw_aligner as aligner_mod
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("simulated librosa_dtw failure")
+
+        monkeypatch.setattr(aligner_mod, "librosa_dtw", _boom)
+        aligner = DTWAligner(sample_rate=22050, hop_length=512)
+        result = aligner.align(self._features(), self._features())
+        assert result.confidence < 0.5, \
+            f"对齐失败回退置信度应低, 实际 {result.confidence:.3f} (旧实现≈1.0)"
+
+    def test_empty_features_align_does_not_crash(self):
+        """回退分支的空数组防护 — 不应 IndexError/ZeroDivisionError"""
+        aligner = DTWAligner(sample_rate=22050, hop_length=512)
+        empty = MultiFeatureSequence(
+            pitch=np.array([]), energy=np.array([]), zcr=np.array([]),
+            times=np.array([]), sample_rate=22050, hop_length=512,
+        )
+        result = aligner.align(empty, empty)
+        # 空输入不应崩溃; 置信度低或为默认
+        assert result.confidence >= 0.0
 
 
 if __name__ == '__main__':

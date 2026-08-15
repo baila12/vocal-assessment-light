@@ -4,7 +4,7 @@ Feature: 上传音频自动匹配标准歌曲
   So that 我的评分基于与标准演唱的对比，而不只是绝对指标
 
   Background:
-    Given Flask 服务已启动
+    Given 服务已启动
     And 标准曲库中已有至少 20 首特征已提取的歌曲
 
   # ── 核心匹配流程 ──

@@ -63,10 +63,11 @@ def gen_vocals_wav() -> None:
         sys.exit(1)
 
     y = _load_mono(source)
+    original_len = len(y)
     max_samples = int(MAX_SECONDS * SAMPLE_RATE)
-    if len(y) > max_samples:
+    if original_len > max_samples:
         y = y[:max_samples]
-        print(f"截取前 {MAX_SECONDS:.0f}s (原 {len(y) / SAMPLE_RATE:.1f}s)")
+        print(f"截取前 {MAX_SECONDS:.0f}s (原 {original_len / SAMPLE_RATE:.1f}s)")
     _write_wav(y, target)
     print(f"来源: {source.relative_to(PROJECT_ROOT)}")
 

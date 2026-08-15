@@ -112,15 +112,5 @@ class TestComparisonScoringService:
         assert classical_result.weighted_total() < pop_result.weighted_total()
 
     # ---- Suggestions ----
-
-    def test_suggestions_for_perfect(self):
-        """完美表现 → 正面建议"""
-        dev = DeviationData()
-        suggestions = self.service.generate_suggestions(dev)
-        assert len(suggestions) > 0
-
-    def test_suggestions_for_weak(self):
-        """弱表现 → 针对性建议"""
-        dev = DeviationData(avg_pitch_cents=80.0, avg_rhythm_ms=200.0)
-        suggestions = self.service.generate_suggestions(dev)
-        assert len(suggestions) >= 2  # at least pitch + rhythm suggestions
+    # v7.19 E5: generate_suggestions 已从 domain 层移除 (建议复用 DDD AdviceGenerator,
+    # 由 CompareAudioUseCase.execute_lightweight 编排) — 契约见 test_compare_audio_advice.py

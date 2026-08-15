@@ -9,8 +9,9 @@ DDD 对比分析用例: 编排旧 DTW 引擎 + 新 DDD 评分服务
 from __future__ import annotations
 import logging
 import time
-from typing import Dict, Optional
+from typing import Dict
 
+from backend.application.assessment.advice_generator import AdviceGenerator
 from backend.domain.comparison.entities import (
     ComparisonResult, AlignmentData, DeviationData,
 )
@@ -56,6 +57,9 @@ class CompareAudioUseCase:
         dims = legacy_result.get("dimensions", {})
         deviation = DeviationData(
             avg_pitch_cents=legacy_result.get("avg_cents_error", 0),
+            # v7.19 整理: 补 max_pitch_cents 映射 — 旧实现遗漏, 导致
+            # _score_pitch 的 max_deviation 恒 0.0 / problem_count 恒 0
+            max_pitch_cents=dims.get("pitch", {}).get("max_deviation", 0),
             avg_rhythm_ms=dims.get("rhythm", {}).get("avg_deviation", 0),
             avg_volume_percent=dims.get("volume", {}).get("avg_deviation", 0),
             avg_breath_stability=dims.get("breath", {}).get("stability", 1.0),
@@ -85,6 +89,19 @@ class CompareAudioUseCase:
         """轻量模式: 仅返回前端需要的字段 (兼容旧 API)"""
         result = self.execute(standard_path, user_path, style)
 
+        # v7.19 E5: 建议复用 DDD AdviceGenerator (四维子集), 消除 domain generate_suggestions 硬编码
+        advice = AdviceGenerator().generate(
+            {
+                "pitch_score": result.scoring.pitch.score,
+                "rhythm_score": result.scoring.rhythm.score,
+                "volume_score": result.scoring.volume.score,
+                "breath_score": result.scoring.breath.score,
+                "total_score": result.overall_score,
+                "total": result.overall_score,  # AdviceGenerator 契约: total 兼容键
+            },
+            dimensions=("pitch", "rhythm", "volume", "breath"),
+        )
+
         return {
             "success": True,
             "score": result.overall_score,
@@ -94,7 +111,7 @@ class CompareAudioUseCase:
             "rhythm_match_rate": result.scoring.rhythm.score,
             "avg_cents_error": result.deviation.avg_pitch_cents,
             "diagnosis": self._diagnosis_from_result(result),
-            "suggestions": self._scoring.generate_suggestions(result.deviation),
+            "suggestions": advice.advice,
             "method": result.method,
         }
 

@@ -4,7 +4,7 @@ Feature: 实时音准对比显示 — 全模式通用
   So that 像全民K歌一样直观地看到哪里唱准了、哪里跑调了
 
   Background:
-    Given Flask 服务已启动
+    Given 服务已启动
     And 浏览器支持 Web Audio API 和 Canvas
     And 前端已加载 YIN 音高检测模块 (pitch-detector.js)
 

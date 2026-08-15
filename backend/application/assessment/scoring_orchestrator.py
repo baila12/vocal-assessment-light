@@ -185,6 +185,12 @@ class ScoringOrchestrator:
             muscle=ms, artistry=ars, timbre=ta,
         )
 
+        # 人声质量惩罚 — 必须在等级/total 别名计算之前应用,
+        # 否则 total_score 被 cap 到 40 而 level/grade/stars/total 仍用原始总分
+        # (实测: 40 分却显示 '专业级'/'S'/'★★★', API 分数与等级不一致)
+        if voice_quality_score < 30:
+            result["total_score"] = min(result["total_score"], 40)
+
         # v7.14 审查 6.3: calculate_ddd 无 50.0 fallback (失败直接冒泡), 恒空
         result["scoring_warnings"] = []
 
@@ -213,10 +219,6 @@ class ScoringOrchestrator:
         result["total"] = result["total_score"]
         result["critical_issues"] = []
         result["is_disqualified"] = False
-
-        # 人声质量惩罚
-        if voice_quality_score < 30:
-            result["total_score"] = min(result["total_score"], 40)
 
         return result
 

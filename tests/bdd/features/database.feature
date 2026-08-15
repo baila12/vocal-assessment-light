@@ -4,7 +4,7 @@ Feature: 标准歌曲数据库管理
   So that 有足够的参考音频用于自动匹配和对比分析
 
   Background:
-    Given Flask 服务已启动
+    Given 服务已启动
 
   # ── 添加歌曲 ──
 

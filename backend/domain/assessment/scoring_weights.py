@@ -17,6 +17,7 @@
 """
 
 from __future__ import annotations
+import math
 from dataclasses import dataclass
 from backend.domain.assessment.errors import DomainError
 
@@ -133,8 +134,12 @@ class ScoringWeights:
                 + self.technique + self.muscle + self.artistry)
 
     def validate(self) -> "ScoringWeights":
-        """校验: 总和 = 100%, 单维 ∈ [0, 50%], 返回 self 便于链式调用."""
+        """校验: 总和 = 100%, 单维 ∈ [0, 50%], 全部有限值, 返回 self 便于链式调用."""
         for name, w in self.components():
+            # v7.19 整理: 先拒绝非有限值 (NaN/±Inf) — NaN 使 <0.0/>0.5/abs(sum-1) 三检查
+            # 全为 False 而绕过校验, 导致 weighted_total 产出 NaN 总分
+            if not math.isfinite(w):
+                raise WeightsValidationError(f"[{name}] 权重必须为有限数值, 当前: {w}")
             if w < 0.0:
                 raise WeightsValidationError(f"[{name}] 权重不能为负: {w}")
             if w > 0.5:

@@ -81,6 +81,35 @@ class TestScoringWeightsValidation:
         with pytest.raises(WeightsValidationError, match="负数|negative|0"):
             w.validate()
 
+    # ---- v7.19 整理回归: NaN/Inf 绕过校验 (Gap 分析发现) ----
+    # NaN 使 w<0.0 / w>0.5 / abs(sum-1)>eps 三检查全为 False → 旧代码静默通过,
+    # weighted_total 产出 NaN 总分直传 API
+
+    def test_nan_weight_rejected(self):
+        w = ScoringWeights(pitch=float("nan"), rhythm=0.1, breath=0.2,
+                           technique=0.25, muscle=0.25, artistry=0.1)
+        with pytest.raises(WeightsValidationError, match="有限"):
+            w.validate()
+
+    def test_inf_weight_rejected(self):
+        w = ScoringWeights(pitch=float("inf"), rhythm=0.1, breath=0.2,
+                           technique=0.25, muscle=0.25, artistry=0.1)
+        with pytest.raises(WeightsValidationError, match="有限"):
+            w.validate()
+
+    def test_neg_inf_weight_rejected(self):
+        w = ScoringWeights(pitch=float("-inf"), rhythm=0.1, breath=0.2,
+                           technique=0.25, muscle=0.25, artistry=0.1)
+        with pytest.raises(WeightsValidationError, match="有限"):
+            w.validate()
+
+    def test_from_dict_nan_rejected(self):
+        with pytest.raises(WeightsValidationError):
+            ScoringWeights.from_dict({
+                "pitch": float("nan"), "rhythm": 0.1, "breath": 0.2,
+                "technique": 0.25, "muscle": 0.25, "artistry": 0.1,
+            })
+
     def test_validate_returns_self_for_chaining(self):
         assert ScoringWeights.default().validate() is not None
 

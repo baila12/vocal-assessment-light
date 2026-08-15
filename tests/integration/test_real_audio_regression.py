@@ -4,8 +4,8 @@
 使用 tests/test_data/audio/vocal/ 中的 5 个真实音频文件，
 验证评分系统在代码变更前后保持一致性。
 
-基线数据来源: v7.14 为 v7.6 基线校正轮 — 修复 sr 错配 bug 后的真实值
-  (详见 BASELINE_V7_14 注释 + docs/4-process/PROJECT_STATUS.md)
+基线: BASELINE_V7_17 (v7.17 评分校准后重校准 — 高分音频 ≥80, 陈奕迅低分保持)
+  v7.18/v7.19 仅改动对比分析 (comparison), 六维评估未变 → 本基线对 assessment 仍有效。
 
 TDD 用法:
   - GREEN: 当前基线必须通过 (保护已有评分不被意外修改)
@@ -19,6 +19,8 @@ from pathlib import Path
 
 from api.business.audio_analysis import analyze_and_score
 
+pytestmark = pytest.mark.slow
+
 # ── 真实音频文件列表 ──
 REAL_AUDIO_FILES = [
     "恋人（高分）.mp3",
@@ -27,167 +29,6 @@ REAL_AUDIO_FILES = [
     "音频-3分26秒(高分).mp3",
     "陈奕迅难听之声（低分）.mp3",
 ]
-
-# ── v7.14 Quick 模式评分基线 (DDD 唯一路径 + P2-11 sr 错配修复) ──
-# v7.14 P2-11 根因: 旧代码 librosa.load(sr=None) 后降采样到 16kHz, 但只更新局部变量
-# sample_rate, AudioAnalysisResult.sample_rate 保持原生 sr (44.1k/48k)。DDD 各提取器
-# 收到的 (16k 音频, 原生 sr) 不一致: rhythm 内部按 orig_sr=原生 重采样 → 时间轴错位、
-# onset CV 失真; technique/muscle 频谱轴错位 (spectral_centroid/hf_energy 全偏)。
-# pitch 不受影响 (F0 提取在重采样后使用已修正的局部 sr)。
-# P2-11 一步加载到 TARGET_SR=16000 → sr 与音频一致 → rhythm/breath/tech/muscle/artistry
-# 恢复真实值。实测影响: rhythm 恋人 66→43.8、1高分 71→30.4 (sr 修复前被 2.76x 时间
-# 压缩虚高); total 压缩到 58-65; 区分度转移到单维 (rhythm gap 34.5)。
-# 范围 = v7.14 实测值 ± buffer (total ±6, pitch/art/muscle ±8, rhythm/breath/tech ±10)
-BASELINE_V7_14 = {
-    "恋人（高分）.mp3": {
-        "total_range": (58, 70),
-        "pitch_range":    (59, 75),
-        "rhythm_range":   (34, 54),      # v7.14: sr 修复后真实 onset CV (旧 66 为时间压缩虚高)
-        "breath_range":   (70, 90),
-        "technique_range": (33, 53),
-        "artistry_range":  (67, 83),
-        "muscle_range":    (70, 86),
-    },
-    "手写的从前（高分）.mp3": {
-        "total_range": (59, 71),
-        "pitch_range":    (62, 78),
-        "rhythm_range":   (20, 40),      # 钢琴伴奏干扰 onset 检测 (宽缓冲区)
-        "breath_range":   (72, 92),
-        "technique_range": (42, 62),
-        "artistry_range":  (64, 80),
-        "muscle_range":    (67, 83),
-    },
-    "1（高分）.mp3": {
-        "total_range": (56, 68),
-        "pitch_range":    (63, 79),
-        "rhythm_range":   (20, 40),
-        "breath_range":   (68, 88),
-        "technique_range": (35, 55),
-        "artistry_range":  (66, 82),
-        "muscle_range":    (66, 82),
-    },
-    "音频-3分26秒(高分).mp3": {
-        "total_range": (57, 69),
-        "pitch_range":    (60, 76),
-        "rhythm_range":   (27, 47),
-        "breath_range":   (69, 89),
-        "technique_range": (35, 55),
-        "artistry_range":  (65, 81),
-        "muscle_range":    (72, 88),
-    },
-    "陈奕迅难听之声（低分）.mp3": {
-        "total_range": (53, 65),
-        "pitch_range":    (58, 74),
-        "rhythm_range":   (0, 19),       # 严重脱拍
-        "breath_range":   (66, 86),
-        "technique_range": (37, 57),
-        "artistry_range":  (62, 78),
-        "muscle_range":    (63, 79),
-    },
-}
-
-# ── v7.6 Quick 模式评分基线 (DDD 唯一路径, P0+P1+P2 全部修复) ──
-# v7.6 六维权重: pitch=13%, rhythm=12%, breath=22%, technique=25%, muscle=15%, artistry=13%
-# v7.5 P0: Artistry F0 CV / Technique HNR monotonic / CPPS-HF decoupling / Muscle calibration
-# v7.6 P1: Muscle v7.4 proxies verified / crescendo avg×coverage / artistic_fluctuation continuous
-# v7.6 P2: CPPS×100 rescale + HNR graduated thresholds (Buckley 2023 singing-specific)
-# 范围 = 实测值 ± buffer (±10 stable dims, ±12 technique due to CPP scaling)
-BASELINE_V7_6 = {
-    "恋人（高分）.mp3": {
-        "total_range": (62, 82),
-        "pitch_range":    (58, 78),
-        "rhythm_range":   (56, 78),
-        "breath_range":   (80, 100),
-        "technique_range": (42, 62),     # v7.6 P2: CPP rescale + HNR graduated → +6pts
-        "artistry_range":  (64, 84),
-        "muscle_range":    (68, 88),
-    },
-    "手写的从前（高分）.mp3": {
-        "total_range": (62, 82),
-        "pitch_range":    (60, 80),
-        "rhythm_range":   (28, 58),      # 钢琴伴奏干扰 onset 检测 (宽缓冲区)
-        "breath_range":   (81, 100),
-        "technique_range": (48, 72),     # v7.6 P2: 较大提升 (HNR middle-range benefit)
-        "artistry_range":  (64, 86),
-        "muscle_range":    (68, 88),
-    },
-    "1（高分）.mp3": {
-        "total_range": (64, 84),
-        "pitch_range":    (62, 82),
-        "rhythm_range":   (60, 83),
-        "breath_range":   (84, 100),
-        "technique_range": (44, 64),
-        "artistry_range":  (65, 86),
-        "muscle_range":    (67, 88),
-    },
-    "音频-3分26秒(高分).mp3": {
-        "total_range": (62, 82),
-        "pitch_range":    (58, 78),
-        "rhythm_range":   (43, 72),
-        "breath_range":   (76, 97),
-        "technique_range": (48, 70),
-        "artistry_range":  (63, 84),
-        "muscle_range":    (70, 91),
-    },
-    "陈奕迅难听之声（低分）.mp3": {
-        "total_range": (52, 73),
-        "pitch_range":    (56, 78),
-        "rhythm_range":   (0, 18),       # 严重脱拍
-        "breath_range":   (70, 92),
-        "technique_range": (47, 68),     # v7.6 P2: low-HNR penalty reduced
-        "artistry_range":  (58, 80),
-        "muscle_range":    (65, 86),
-    },
-}
-
-# ── v7.4 Quick 模式评分基线 (v7.6 之前, 保留历史参考) ──
-BASELINE_V7_4 = {
-    "恋人（高分）.mp3": {
-        "total_range": (55, 80),
-        "pitch_range":    (55, 82),
-        "rhythm_range":   (52, 80),
-        "breath_range":   (78, 100),
-        "technique_range": (25, 80),
-        "artistry_range":  (62, 88),
-        "muscle_range":    (65, 95),
-    },
-    "手写的从前（高分）.mp3": {
-        "total_range": (48, 75),
-        "pitch_range":    (55, 82),
-        "rhythm_range":   (25, 60),
-        "breath_range":   (80, 100),
-        "technique_range": (20, 75),
-        "artistry_range":  (62, 88),
-        "muscle_range":    (60, 90),
-    },
-    "1（高分）.mp3": {
-        "total_range": (55, 80),
-        "pitch_range":    (58, 84),
-        "rhythm_range":   (56, 83),
-        "breath_range":   (82, 100),
-        "technique_range": (20, 75),
-        "artistry_range":  (62, 88),
-        "muscle_range":    (60, 92),
-    },
-    "音频-3分26秒(高分).mp3": {
-        "total_range": (55, 80),
-        "pitch_range":    (55, 82),
-        "rhythm_range":   (42, 72),
-        "breath_range":   (75, 100),
-        "technique_range": (25, 80),
-        "artistry_range":  (62, 88),
-        "muscle_range":    (65, 95),
-    },
-    "陈奕迅难听之声（低分）.mp3": {
-        "total_range": (40, 65),
-        "pitch_range":    (52, 80),
-        "rhythm_range":   (0, 20),
-        "breath_range":   (70, 98),
-        "technique_range": (15, 65),
-        "artistry_range":  (60, 86),
-        "muscle_range":    (55, 85),
-    },
-}
 
 # ── v7.17 Quick 模式评分基线 (评分校准: 高分音频 ≥80) ──
 # v7.17 校准: A1 rhythm 混音映射重校准 (伴奏污染) + B1 pitch MAE 曲线放宽 (24音分→85)
@@ -313,13 +154,21 @@ class TestRealAudioRegression:
         baseline = BASELINE.get(filename, {})
         scores = result['scores']
 
-        for dim in ['pitch', 'rhythm', 'breath', 'technique', 'artistry']:
-            dim_key = f"{dim}_range"
-            if dim_key in baseline:
-                dim_min, dim_max = baseline[dim_key]
-                dim_score = scores.get(dim, -1)
+        # 维度名 → (scores dict 键, baseline 范围键) — muscle 键名与基线字段名不同
+        DIM_KEYS = {
+            'pitch': ('pitch', 'pitch_range'),
+            'rhythm': ('rhythm', 'rhythm_range'),
+            'breath': ('breath', 'breath_range'),
+            'technique': ('technique', 'technique_range'),
+            'muscle_strength': ('muscle_strength', 'muscle_range'),
+            'artistry': ('artistry', 'artistry_range'),
+        }
+        for score_key, range_key in DIM_KEYS.values():
+            if range_key in baseline:
+                dim_min, dim_max = baseline[range_key]
+                dim_score = scores.get(score_key, -1)
                 assert dim_min <= dim_score <= dim_max, \
-                    f"{filename}: {dim}={dim_score} 超出基线 [{dim_min}, {dim_max}]"
+                f"{filename}: {score_key}={dim_score} 超出基线 [{dim_min}, {dim_max}]"
 
     def test_scores_in_valid_range(self, filename):
         """所有分数在 0-100 之间"""

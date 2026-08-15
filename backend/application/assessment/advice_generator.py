@@ -24,7 +24,15 @@ class AdviceResult:
 
 
 class AdviceGenerator:
-    """建议生成器 — 纯函数, 消费 calculate_ddd 六维分数 dict"""
+    """建议生成器 — 纯函数, 消费 calculate_ddd 六维分数 dict
+
+    v7.19 E5: 支持 dimensions 子集 — 对比分析 (pitch/rhythm/volume/breath)
+    复用同一生成器, 消除对比建议硬编码 (legacy generate_suggestions)。
+    """
+
+    # 默认维度 (六维评分)
+    DEFAULT_DIMENSIONS: tuple = ("pitch", "rhythm", "breath", "technique",
+                                 "muscle_strength", "artistry")
 
     # 维度名称映射 (六维 + volume/emotion 兼容字段)
     DIMENSION_NAMES: Dict[str, str] = {
@@ -62,39 +70,45 @@ class AdviceGenerator:
         'artistry': "艺术表现力出色，乐句处理细腻！",
     }
 
-    def generate(self, scores: dict) -> AdviceResult:
+    def generate(self, scores: dict, dimensions: tuple | None = None) -> AdviceResult:
         """
         生成改进建议 (消费 calculate_ddd 产物 dict)
 
         Args:
-            scores: 评分结果 dict (六维 *_score + total_score)
+            scores: 评分结果 dict。字段:
+                - '<dim>_score': 各维度分 (默认六维 pitch/rhythm/breath/technique/
+                  muscle_strength/artistry; 对比四维经 dimensions 传入)
+                - 'total' (或 'total_score'): 总分 — 仅供总体评价, 不参与最强/最弱排序
+            dimensions: 参与排序的维度子集 (默认六维全量; 对比分析传
+                ("pitch", "rhythm", "volume", "breath") 复用本生成器)
 
         Returns:
             AdviceResult: 建议结果
+
+        Note:
+            v7.19 E5: total 不参与维度排序 — 对比路径 total 含 (0.5+0.5×conf) 调制
+            恒 ≤ 加权均值, 四维集中时可能低于各维度分; 若参与排序会错判 weakest='total'
+            并产生 'total建议：' 空建议。
         """
         def _s(key, default=0.0):
             return scores.get(key, default) if isinstance(scores, dict) else getattr(scores, key, default)
 
-        # DDD calculate_ddd 产物: 字段名以 _score 结尾
-        score_dict = {
-            'pitch': _s('pitch_score'),
-            'rhythm': _s('rhythm_score'),
-            'breath': _s('breath_score'),
-            'technique': _s('technique_score'),
-            'muscle_strength': _s('muscle_strength_score'),
-            'artistry': _s('artistry_score'),
-            'total': _s('total_score'),
-        }
+        # 仅维度参与最强/最弱排序 (total 是加权聚合, 非真实维度)
+        dims = dimensions or self.DEFAULT_DIMENSIONS
+        score_dict = {dim: _s(f'{dim}_score') for dim in dims}
 
         # 排序找出最强和最弱维度
         sorted_scores = sorted(score_dict.items(), key=lambda x: x[1], reverse=True)
         strongest = sorted_scores[0]
         weakest = sorted_scores[-1]
 
+        # 总体评价基于总分 (total 兼容键优先, 回退 total_score)
+        total = _s('total', _s('total_score'))
+
         advice = []
 
         # 总体评价
-        advice.append(self._get_overall_comment(strongest, _s('total')))
+        advice.append(self._get_overall_comment(strongest, total))
 
         # 针对最弱维度的建议
         if weakest[1] < 75:

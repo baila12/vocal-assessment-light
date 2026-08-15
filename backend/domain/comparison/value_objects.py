@@ -9,6 +9,15 @@ DDD 对比分析值对象:
 from __future__ import annotations
 from dataclasses import dataclass, field
 
+# 对比四维风格权重 — 单一数据来源 (v7.19 E1 消双轨)
+# 旧值散落于 scoring_engine.py / services.py / value_objects.py 三处, 现统一于此。
+COMPARISON_STYLE_WEIGHTS: dict[str, dict[str, float]] = {
+    "pop": {"pitch": 0.40, "rhythm": 0.30, "volume": 0.15, "breath": 0.15},
+    "classical": {"pitch": 0.50, "rhythm": 0.20, "volume": 0.20, "breath": 0.10},
+    "folk": {"pitch": 0.35, "rhythm": 0.25, "volume": 0.20, "breath": 0.20},
+    "rap": {"pitch": 0.20, "rhythm": 0.50, "volume": 0.20, "breath": 0.10},
+}
+
 
 @dataclass(frozen=True)
 class DimensionComparisonScore:
@@ -25,8 +34,7 @@ class DimensionComparisonScore:
 class ComparisonScores:
     """四维度对比评分聚合 — 不可变值对象
 
-    维度权重 (与 scoring_engine.py 保持一致):
-      pitch=0.40, rhythm=0.30, volume=0.15, breath=0.15
+    维度权重单一来源: COMPARISON_STYLE_WEIGHTS['pop'] (v7.19 E1 消双轨)。
     """
 
     pitch: DimensionComparisonScore = field(default_factory=DimensionComparisonScore)
@@ -34,7 +42,9 @@ class ComparisonScores:
     volume: DimensionComparisonScore = field(default_factory=DimensionComparisonScore)
     breath: DimensionComparisonScore = field(default_factory=DimensionComparisonScore)
     _confidence: float = 1.0       # 对齐置信度 (内部使用, 0-1)
-    _weights: tuple = (0.40, 0.30, 0.15, 0.15)  # (pitch, rhythm, volume, breath)
+    _weights: tuple = field(
+        default_factory=lambda: tuple(COMPARISON_STYLE_WEIGHTS["pop"].values())
+    )  # (pitch, rhythm, volume, breath)
 
     @property
     def total_score(self) -> float:

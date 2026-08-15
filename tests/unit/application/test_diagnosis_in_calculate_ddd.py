@@ -41,20 +41,24 @@ def _make_f0_from_audio(y, sr, hop_length=256):
     return f0, voiced_flag.astype(bool)
 
 
-def _calculate_ddd_result():
-    """用合成音频走完整 DDD 提取 + 评分路径"""
+def _extract_features():
+    """用合成音频走完整 DDD 提取路径, 返回 features (供多次 calculate_ddd 复用)"""
     y, sr = _make_test_audio(duration_s=2.0)
     f0, voiced = _make_f0_from_audio(y, sr)
-
     extractor = DddFeatureExtractionOrchestrator()
-    features = extractor.extract_all(y, sr, f0, voiced, is_clean_vocal=True)
+    return extractor.extract_all(y, sr, f0, voiced, is_clean_vocal=True)
 
+
+def _calculate_ddd_result(voice_quality_score: float = 100.0):
+    """用合成音频走完整 DDD 提取 + 评分路径"""
+    features = _extract_features()
     scoring = ScoringOrchestrator()
     return scoring.calculate_ddd(
         pitch=features.pitch, rhythm=features.rhythm,
         breath=features.breath, technique=features.technique,
         muscle=features.muscle, artistry=features.artistry,
         timbre=features.timbre,
+        voice_quality_score=voice_quality_score,
     )
 
 
@@ -94,6 +98,28 @@ class TestCalculateDddDiagnosis:
         result = _calculate_ddd_result()
         assert result["pitch_diagnosis"]["score"] == pytest.approx(result["pitch_score"], rel=1e-6)
         assert result["artistry_diagnosis"]["score"] == pytest.approx(result["artistry_score"], rel=1e-6)
+
+
+class TestVoiceQualityCapConsistency:
+    """v7.19 整理回归: voice_quality 惩罚 cap 与等级/别名一致性。
+
+    旧 bug: total_score 被 cap 到 40, 但 level/grade/stars 与 total 别名
+    在 cap 前从原始总分计算 → 40 分却显示 '专业级'/'S'/'★★★'。
+    """
+
+    def test_low_voice_quality_caps_total_and_alias(self):
+        result = _calculate_ddd_result(voice_quality_score=10.0)
+        # total_score 被 cap 到 ≤40
+        assert result["total_score"] <= 40
+        # 别名 total 应与 total_score 一致 (旧实现 total 是未 cap 的原始分)
+        assert result["total"] == pytest.approx(result["total_score"], rel=1e-6)
+        # 等级应反映 cap 后的低分, 而非原始高分
+        assert result["grade"] in ("D", "E", "C"), \
+            f"cap 后等级应为低等级, 实际: grade={result['grade']} stars={result['stars']}"
+        # 高分输入 + 正常 voice_quality → 分数高于 cap 场景 (保证测试有区分度)
+        normal = _calculate_ddd_result(voice_quality_score=100.0)
+        assert normal["total_score"] > result["total_score"], \
+            "正常 voice_quality 总分应高于 cap 场景"
 
 
 import pytest  # noqa: E402  (pytest.approx 用于诊断分数一致断言)
