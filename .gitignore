@@ -63,6 +63,10 @@ separated/
 # 本地开发文档 (PROJECT_STATUS/CHANGELOG/深度审查等) — 不纳入版本控制, 远程仅保留 README
 docs/
 
+# 本地测试与辅助脚本 — 不纳入版本控制 (v7.19 起), 远程仅保留生产代码 + README
+tests/
+scripts/
+
 # Backup & temp dev files
 *.bak
 *.new

@@ -99,11 +99,10 @@ vocal_assessment_light/
 ├── frontend/             # Vue 3 + Element Plus SPA
 │   └── src/views/        # 6 页面 (Home/Report/History/Compare/Sing/Songs)
 ├── api/business/         # 共享业务逻辑 (audio_analysis)
-├── services/             # 服务层
-│   └── dl_services/      # 深度学习 (style/VAD/DTW)
-└── tests/                # 870 tests collected (unit 693 + API 77 + WS 17 + extended 55 + real-audio 28) + 前端 307 Vitest
+└── services/             # 服务层
+    └── dl_services/      # 深度学习 (style/VAD/DTW)
 
-> 注: 详细开发文档 (PROJECT_STATUS/CHANGELOG/评分算法/深度审查) 存放于本地 `docs/` 目录, 不纳入版本控制; 本仓库仅保留此 README。
+> 注: 详细开发文档 (`docs/`)、测试套件 (`tests/`、870 collected: unit 693 + API 77 + WS 17 + extended 55 + real-audio 28) 与辅助脚本 (`scripts/`) 均**仅本地保留, 不纳入版本控制** — 本仓库只含生产代码 + 前端 (307 Vitest) + 此 README。
 ```
 
 ## API 接口
